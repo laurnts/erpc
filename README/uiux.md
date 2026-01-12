@@ -3,6 +3,92 @@
 
 > **Design Philosophy:** One Flow, One Truth
 > **Version history:** See version.md
+> **Implementation:** See `.claude/skills/ui-components/SKILL.md` for component usage
+
+---
+
+## 0. Implementation Guide (Composition-First)
+
+When implementing these wireframes, follow this priority:
+
+```
+1. Filament Component  →  Use if available
+2. Blade Component     →  Use if exists in resources/views/components/
+3. Compose Existing    →  Combine existing components
+4. Raw Tailwind        →  Only when nothing above fits
+```
+
+### Wireframe → Component Mapping
+
+| Wireframe Element | Implementation |
+|-------------------|----------------|
+| **Page sections with title/description** | `<x-filament::section>` or `Section::make()` |
+| **Form with title + description + actions** | `<x-form-section>` (non-Filament) or Filament Form schema |
+| **Data tables** | Filament `Table` with `TextColumn`, `ImageColumn`, etc. |
+| **Stats cards (KPIs)** | Filament `StatsOverviewWidget` |
+| **Primary buttons** | `<x-filament::button>` or `<x-button>` |
+| **Secondary/Cancel buttons** | `<x-filament::button color="gray">` or `<x-secondary-button>` |
+| **Danger/Delete buttons** | `<x-filament::button color="danger">` or `<x-danger-button>` |
+| **Modals** | `<x-filament::modal>` (Filament) or `<x-dialog-modal>` (Blade) |
+| **Confirmation dialogs** | `<x-confirmation-modal>` |
+| **Form inputs** | `TextInput::make()`, `Select::make()` in Filament schemas |
+| **Dropdowns** | `<x-dropdown>` with `<x-dropdown-link>` |
+| **Tabs** | Filament `Tabs` component |
+| **Alerts/Notices** | Filament `Notification` system |
+
+### Resource Structure Pattern
+
+All list/view/edit pages should use Filament Resources:
+
+```php
+// Form schema (Create/Edit pages)
+Section::make('Basic Information')
+    ->schema([
+        TextInput::make('name')->required(),
+        Select::make('status')->options(StatusEnum::class),
+    ])
+    ->columns(2)
+
+// Table schema (List pages)
+TextColumn::make('name')->searchable()->sortable()
+TextColumn::make('status')->badge()
+```
+
+### Modal Implementation
+
+```blade
+{{-- Use Filament modals in Filament context --}}
+<x-filament::modal id="extend-quote-modal" width="lg">
+    <x-slot name="heading">Extend Quote Validity</x-slot>
+    {{-- Form content --}}
+</x-filament::modal>
+
+{{-- Use Blade modals in non-Filament context --}}
+<x-dialog-modal wire:model="showExtendModal">
+    <x-slot name="title">Extend Quote Validity</x-slot>
+    <x-slot name="content">...</x-slot>
+    <x-slot name="footer">
+        <x-secondary-button wire:click="$set('showExtendModal', false)">Cancel</x-secondary-button>
+        <x-button wire:click="extend">Extend</x-button>
+    </x-slot>
+</x-dialog-modal>
+```
+
+### Dashboard Widgets
+
+```php
+// Stats cards - use Filament widgets
+class StatsOverview extends StatsOverviewWidget
+{
+    protected function getStats(): array
+    {
+        return [
+            Stat::make('Active Requests', '24')->description('↑ 3 new'),
+            Stat::make('Quotes Expiring', '5')->description('⚠️ next 7 days'),
+        ];
+    }
+}
+```
 
 ---
 
