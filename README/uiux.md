@@ -1,29 +1,12 @@
-# Trading System UI/UX Design v2
+# ERP Trading System - UI/UX Design
 ## Filament Laravel Admin Panel
 
-> **Design Philosophy:** One Flow, One Truth  
-> **Version:** 2.0 - Multi-supplier, tags, multi-currency, quote extensions
+> **Design Philosophy:** One Flow, One Truth
+> **Version history:** See version.md
 
 ---
 
-## 1. Key Changes from v1
-
-| Feature | v1 | v2 |
-|---------|----|----|
-| Article/Supplier classification | Hierarchical categories | Flat shared categories (internal: tags) |
-| Terminology | Project | Request (atomic unit); Project = group of Requests |
-| Suppliers per request | 1 selected | Multiple suppliers |
-| Quote expiration | Cancel | Extend with reason |
-| Currency | Single | Single base currency (sales), multi-currency (purchases) |
-| Tax | Not shown | Local tax on all amounts |
-| Supplier visibility | Shown to buyer | Hidden from buyer (internal only) |
-| Shipment tracking | Full tracking | Manual journaling with status updates + discrepancy detection |
-| Request items | Articles required upfront | Vague capture → match articles later |
-| ERP terminology | Not shown | Optional labels (PO, SO, AR, etc.) |
-
----
-
-## 2. Navigation Structure
+## 1. Navigation Structure
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -74,7 +57,7 @@
 
 ---
 
-## 3. Dashboard
+## 2. Dashboard
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
@@ -109,7 +92,7 @@
 
 ---
 
-## 4. Categories Management (Shared)
+## 3. Categories Management (Shared)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
@@ -141,7 +124,7 @@
 
 ---
 
-## 5. Article Form (with Categories)
+## 4. Article Form (with Categories)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
@@ -197,7 +180,7 @@
 
 ---
 
-## 6. Supplier Form (with Categories)
+## 5. Supplier Form (with Categories)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
@@ -244,7 +227,7 @@
 
 ---
 
-## 7. Project Detail - Command Center (Updated)
+## 6. Request Detail - Command Center
 
 ### 7.1 Header with Multi-Currency
 
@@ -740,46 +723,50 @@ NOTE: Suppliers tab is disabled until all request items are matched to articles.
 
 ---
 
-### 7.6 Invoices Tab (Multiple Supplier Invoices)
+### 7.6 Invoices Tab (with Line Items - v3.2)
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────────┐
 │  [Items] [Suppliers (3)] [Buyer Quote] [Orders] [Invoices★] [Log]          │
 ├───────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                    │
-│  ═══════════════════════════ BUYER INVOICES ═══════════════════════════          │
+│  ═════════════════ BUYER INVOICES ═════════════════  [+ Create Invoice]          │
 │                                                                                    │
 │  ┌─────────────────────────────────────────────────────────────────────────────┐  │
 │  │  INV-2024-0089-1  Prepayment (30%)                   Status: ✓ PAID         │  │
+│  │  ─────────────────────────────────────────────────────────────────────────  │  │
 │  │  Amount: $3,277  │  Issued: Jan 11  │  Paid: Jan 12                         │  │
+│  │  [View Details] [📄 PDF]                                                    │  │
 │  └─────────────────────────────────────────────────────────────────────────────┘  │
 │                                                                                    │
 │  ┌─────────────────────────────────────────────────────────────────────────────┐  │
 │  │  INV-2024-0089-2  Balance (70%)                      Status: ● SENT         │  │
-│  │  Amount: $7,645  │  Issued: Jan 26  │  Due: Feb 25                          │  │
-│  │  [+ Record Payment]                                                         │  │
+│  │  ─────────────────────────────────────────────────────────────────────────  │  │
+│  │  Amount: $7,645  │  Issued: Jan 26  │  Due: Feb 25  │  29 days remaining    │  │
+│  │  [View Details] [+ Record Payment] [+ Credit Note] [📄 PDF]                 │  │
 │  └─────────────────────────────────────────────────────────────────────────────┘  │
 │                                                                                    │
 │  Buyer Total: $10,922  │  Received: $3,277  │  Outstanding: $7,645              │
 │                                                                                    │
 │  ═══════════════════════ SUPPLIER INVOICES (3) ═══════════════════════          │
+│                                                                [+ Record Invoice] │
 │                                                                                    │
 │  ┌─────────────────────────────────────────────────────────────────────────────┐  │
 │  │  MC-INV-2024-892  MotorCorp                          Status: ● APPROVED     │  │
 │  │  Amount: Rp 83,250,000 (≈ $5,371)  │  Due: Feb 10                           │  │
-│  │  [Mark Paid] [Upload Proof]                                                 │  │
+│  │  [View Details] [Mark Paid] [+ Credit Note]                                 │  │
 │  └─────────────────────────────────────────────────────────────────────────────┘  │
 │                                                                                    │
 │  ┌─────────────────────────────────────────────────────────────────────────────┐  │
 │  │  EP-2024-5567  ElectroParts                          Status: ✓ PAID         │  │
 │  │  Amount: $2,930.40  │  Paid: Jan 20                                         │  │
-│  │  [View Proof]                                                               │  │
+│  │  [View Details] [View Proof]                                                │  │
 │  └─────────────────────────────────────────────────────────────────────────────┘  │
 │                                                                                    │
 │  ┌─────────────────────────────────────────────────────────────────────────────┐  │
 │  │  MW-INV-2024-123  MetalWorks                         Status: ✓ PAID         │  │
 │  │  Amount: Rp 4,995,000 (≈ $322)  │  Paid: Jan 18                             │  │
-│  │  [View Proof]                                                               │  │
+│  │  [View Details] [View Proof]                                                │  │
 │  └─────────────────────────────────────────────────────────────────────────────┘  │
 │                                                                                    │
 │  Supplier Total: $8,623  │  Paid: $3,252  │  Outstanding: $5,371                │
@@ -798,7 +785,185 @@ NOTE: Suppliers tab is disabled until all request items are matched to articles.
 
 ---
 
-## 8. Exchange Rate Management
+### 7.6.1 Invoice Detail View (with Line Items - v3.2)
+
+When clicking "View Details" on any invoice, the following expanded view is shown:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│  INVOICE DETAIL                                                              [✕]    │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│  INV-2024-0089-2  Balance Invoice (70%)                      Status: ● SENT        │
+│  ═══════════════════════════════════════════════════════════════════════════════   │
+│                                                                                      │
+│  To: GlobalTrade Industries                               Issued: Jan 26, 2024      │
+│      Attn: John Smith                                     Due: Feb 25, 2024         │
+│                                                                                      │
+│  ───────────────────────────────────────────────────────────────────────────────    │
+│                                                                                      │
+│  LINE ITEMS (from Buyer Order BO-2024-0089)                                         │
+│  ┌──────────────────────────────────────────────────────────────────────────────┐   │
+│  │ #  Item                        Qty   Unit   Tax Code   Unit Price   Total    │   │
+│  ├──────────────────────────────────────────────────────────────────────────────┤   │
+│  │ 1  Industrial Motor 5HP        2     pcs    PPN 11%    $3,100.00   $6,882.00 │   │
+│  │    (tax: $682.00)                                                            │   │
+│  │ 2  Control Panel 24V           1     pcs    PPN 11%    $2,200.00   $2,442.00 │   │
+│  │    (tax: $242.00)                                                            │   │
+│  │ 3  Safety Sensor Kit           2     set    PPN 11%    $520.00    $1,154.40  │   │
+│  │    (tax: $114.40)                                                            │   │
+│  │ 4  Mounting Hardware Set       1     set    PPN 11%    $400.00     $444.00   │   │
+│  │    (tax: $44.00)                                                             │   │
+│  ├──────────────────────────────────────────────────────────────────────────────┤   │
+│  │                                              Subtotal:           $6,860.00   │   │
+│  │                                              Tax (11%):            $754.60   │   │
+│  │                                              ─────────────────────────────   │   │
+│  │                                              TOTAL:              $7,614.60   │   │
+│  └──────────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                      │
+│  ───────────────────────────────────────────────────────────────────────────────    │
+│                                                                                      │
+│  PAYMENT HISTORY                                                                    │
+│  ┌──────────────────────────────────────────────────────────────────────────────┐   │
+│  │  No payments recorded yet                                                     │   │
+│  └──────────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                      │
+│  LINKED CREDIT NOTES                                                                │
+│  ┌──────────────────────────────────────────────────────────────────────────────┐   │
+│  │  No credit notes                                                              │   │
+│  └──────────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                      │
+│  [+ Record Payment]  [+ Create Credit Note]  [📄 Download PDF]  [📧 Resend]        │
+│                                                                                      │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 7.6.2 Create Credit Note Modal (v3.2)
+
+When clicking "Create Credit Note" on an invoice:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│  CREATE CREDIT NOTE                                                          [✕]    │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│  Original Invoice: INV-2024-0089-2 (Balance)                                        │
+│  Original Amount: $7,614.60                                                         │
+│                                                                                      │
+│  ───────────────────────────────────────────────────────────────────────────────    │
+│                                                                                      │
+│  Reason for Credit Note *                                                           │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐    │
+│  │ Defective item returned - Industrial Motor 5HP unit #2                      │    │
+│  └─────────────────────────────────────────────────────────────────────────────┘    │
+│                                                                                      │
+│  ───────────────────────────────────────────────────────────────────────────────    │
+│                                                                                      │
+│  SELECT ITEMS TO CREDIT                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐    │
+│  │                                                                              │    │
+│  │  ☐  Industrial Motor 5HP        Max: 2     Credit Qty: [1 ]     -$3,441.00  │    │
+│  │      (Unit: $3,100 + tax $341)                                              │    │
+│  │                                                                              │    │
+│  │  ☐  Control Panel 24V           Max: 1     Credit Qty: [0 ]         $0.00   │    │
+│  │      (Unit: $2,200 + tax $242)                                              │    │
+│  │                                                                              │    │
+│  │  ☐  Safety Sensor Kit           Max: 2     Credit Qty: [0 ]         $0.00   │    │
+│  │      (Unit: $520 + tax $57.20)                                              │    │
+│  │                                                                              │    │
+│  │  ☐  Mounting Hardware Set       Max: 1     Credit Qty: [0 ]         $0.00   │    │
+│  │      (Unit: $400 + tax $44)                                                 │    │
+│  │                                                                              │    │
+│  └─────────────────────────────────────────────────────────────────────────────┘    │
+│                                                                                      │
+│  ───────────────────────────────────────────────────────────────────────────────    │
+│                                                                                      │
+│  CREDIT NOTE SUMMARY                                                                │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐    │
+│  │  Credit Subtotal:                                            -$3,100.00     │    │
+│  │  Credit Tax (11%):                                             -$341.00     │    │
+│  │  ───────────────────────────────────────────────────────────────────────    │    │
+│  │  TOTAL CREDIT:                                               -$3,441.00     │    │
+│  │                                                                              │    │
+│  │  New Outstanding Balance: $7,614.60 - $3,441.00 = $4,173.60                 │    │
+│  └─────────────────────────────────────────────────────────────────────────────┘    │
+│                                                                                      │
+│  ⚠️ This credit note will reduce the buyer's outstanding balance.                   │
+│                                                                                      │
+│  ───────────────────────────────────────────────────────────────────────────────    │
+│                                                                                      │
+│  [Cancel]                                                [Create Credit Note]       │
+│                                                                                      │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 7.6.3 Create Buyer Invoice Modal (with Line Items - v3.2)
+
+When clicking "Create Invoice" on the Invoices tab:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│  CREATE BUYER INVOICE                                                        [✕]    │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│  Invoice Type *                                                                      │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐    │
+│  │  ○ Prepayment (30% = $3,276.60)                                             │    │
+│  │  ● Balance (70% = $7,645.40)                                                │    │
+│  │  ○ Standard (full amount)                                                   │    │
+│  │  ○ Debit Note (additional charges)                                          │    │
+│  └─────────────────────────────────────────────────────────────────────────────┘    │
+│                                                                                      │
+│  Default Tax Code                                                                   │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐    │
+│  │ [PPN 11% ▼]    (Items will default to this tax code)                        │    │
+│  └─────────────────────────────────────────────────────────────────────────────┘    │
+│                                                                                      │
+│  ───────────────────────────────────────────────────────────────────────────────    │
+│                                                                                      │
+│  SELECT ITEMS FROM ORDER                                          [☑ Select All]   │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐    │
+│  │                                                                              │    │
+│  │  ☑  Industrial Motor 5HP        2 pcs × $3,100.00    [PPN 11% ▼]  $6,882.00 │    │
+│  │                                                       ☐ Tax Inclusive       │    │
+│  │  ☑  Control Panel 24V           1 pcs × $2,200.00    [PPN 11% ▼]  $2,442.00 │    │
+│  │                                                       ☐ Tax Inclusive       │    │
+│  │  ☑  Safety Sensor Kit           2 set × $520.00      [PPN 11% ▼]  $1,154.40 │    │
+│  │                                                       ☐ Tax Inclusive       │    │
+│  │  ☑  Mounting Hardware Set       1 set × $400.00      [PPN 11% ▼]    $444.00 │    │
+│  │                                                       ☐ Tax Inclusive       │    │
+│  │                                                                              │    │
+│  └─────────────────────────────────────────────────────────────────────────────┘    │
+│                                                                                      │
+│  Due Date *                           Issued Date *                                 │
+│  ┌────────────────────────────┐      ┌────────────────────────────────────────┐    │
+│  │ Feb 25, 2024          📅   │      │ Jan 26, 2024                      📅   │    │
+│  └────────────────────────────┘      └────────────────────────────────────────┘    │
+│  (Calculated: delivery + 30 days)                                                   │
+│                                                                                      │
+│  ───────────────────────────────────────────────────────────────────────────────    │
+│                                                                                      │
+│  INVOICE SUMMARY                                                                    │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐    │
+│  │  Subtotal:                                               $9,820.00          │    │
+│  │  Tax:                                                    $1,080.20          │    │
+│  │  Balance Percentage (70%):                                    70%           │    │
+│  │  ───────────────────────────────────────────────────────────────────────    │    │
+│  │  INVOICE TOTAL:                                          $7,630.14          │    │
+│  └─────────────────────────────────────────────────────────────────────────────┘    │
+│                                                                                      │
+│  [Cancel]                                                [Create Invoice]           │
+│                                                                                      │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 7. Exchange Rate Management
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
@@ -838,7 +1003,7 @@ NOTE: Suppliers tab is disabled until all request items are matched to articles.
 
 ---
 
-## 9. Activity Log (with Extension Tracking)
+## 8. Activity Log
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────────┐
@@ -882,7 +1047,110 @@ NOTE: Suppliers tab is disabled until all request items are matched to articles.
 
 ---
 
-## 10. Role-Based Access (Future)
+## 9. System Audit Log (Admin)
+
+A dedicated admin page for viewing system-wide audit trail. Accessible via Settings → Audit Log.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│  SYSTEM AUDIT LOG                                                     [Export CSV]  │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│  FILTERS                                                                            │
+│  ┌───────────────────────────────────────────────────────────────────────────────┐  │
+│  │ Date Range: [Jan 1, 2024] to [Jan 12, 2024]  📅                               │  │
+│  │                                                                                │  │
+│  │ User: [All Users ▼]     Entity: [All Types ▼]     Action: [All Actions ▼]    │  │
+│  │                          ○ Buyer              ○ Created                       │  │
+│  │                          ○ Supplier           ○ Updated                       │  │
+│  │                          ○ Article            ○ Deleted                       │  │
+│  │                          ○ Request            ○ Login                         │  │
+│  │                          ○ Quote              ○ Logout                        │  │
+│  │                          ○ Order                                              │  │
+│  │                          ○ Invoice                                            │  │
+│  │                          ○ Payment                                            │  │
+│  │                                                                                │  │
+│  │ Search: [___________________________________]  🔍                             │  │
+│  └───────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                      │
+│  AUDIT ENTRIES                                           Showing 1-50 of 1,234      │
+│  ┌───────────────────────────────────────────────────────────────────────────────┐  │
+│  │ Timestamp           User        Action    Entity              Description     │  │
+│  ├───────────────────────────────────────────────────────────────────────────────┤  │
+│  │ Jan 12, 2:30 PM    admin       Updated   Buyer Quote         Status: draft → │  │
+│  │                                          Q-2024-0089-v2      sent            │  │
+│  │                                                              [View Details]   │  │
+│  │───────────────────────────────────────────────────────────────────────────────│  │
+│  │ Jan 12, 2:15 PM    admin       Updated   Buyer               credit_limit:   │  │
+│  │                                          GlobalTrade Inc     $50,000 →       │  │
+│  │                                                              $75,000         │  │
+│  │                                                              [View Details]   │  │
+│  │───────────────────────────────────────────────────────────────────────────────│  │
+│  │ Jan 12, 1:00 PM    finance     Created   Buyer Payment       $3,277 for      │  │
+│  │                                          PAY-2024-0089-1     INV-2024-0089-1 │  │
+│  │                                                              [View Details]   │  │
+│  │───────────────────────────────────────────────────────────────────────────────│  │
+│  │ Jan 12, 11:30 AM   sales       Updated   Request             Stage: sourcing │  │
+│  │                                          REQ-2024-0089       → quoting       │  │
+│  │                                                              [View Details]   │  │
+│  │───────────────────────────────────────────────────────────────────────────────│  │
+│  │ Jan 12, 9:00 AM    admin       Login     -                   IP: 192.168.1.1 │  │
+│  │                                                              Browser: Chrome │  │
+│  │                                                              [View Details]   │  │
+│  └───────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                      │
+│  [← Previous]  Page 1 of 25  [Next →]                                               │
+│                                                                                      │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 9.1 Audit Detail Modal
+
+When clicking "View Details" on an audit entry:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│  AUDIT DETAIL                                                                 [✕]   │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│  Action: UPDATED                                                                    │
+│  Timestamp: January 12, 2024 at 2:15 PM                                            │
+│                                                                                      │
+│  ───────────────────────────────────────────────────────────────────────────────    │
+│                                                                                      │
+│  USER                                                                               │
+│  ┌───────────────────────────────────────────────────────────────────────────────┐  │
+│  │  Name: Admin User                                                              │  │
+│  │  Email: admin@company.com                                                      │  │
+│  │  IP Address: 192.168.1.100                                                     │  │
+│  │  User Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)...               │  │
+│  └───────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                      │
+│  ENTITY                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────────────┐  │
+│  │  Type: Buyer                                                                   │  │
+│  │  ID: 42                                                                        │  │
+│  │  Name: GlobalTrade Industries                                                  │  │
+│  │  [View Entity →]                                                               │  │
+│  └───────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                      │
+│  CHANGES                                                                            │
+│  ┌───────────────────────────────────────────────────────────────────────────────┐  │
+│  │  Field              Old Value              New Value                          │  │
+│  │  ─────────────────────────────────────────────────────────────────────────── │  │
+│  │  credit_limit       $50,000.00             $75,000.00                         │  │
+│  │  is_on_hold         false                  false (unchanged)                  │  │
+│  │  updated_at         Jan 10, 2024           Jan 12, 2024                       │  │
+│  └───────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                      │
+│  [Close]                                                                            │
+│                                                                                      │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 10. Role-Based Access
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
@@ -922,7 +1190,7 @@ NOTE: Suppliers tab is disabled until all request items are matched to articles.
 
 ---
 
-## 11. Implementation Priority (Updated)
+## 11. Implementation Priority
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
@@ -971,26 +1239,6 @@ NOTE: Suppliers tab is disabled until all request items are matched to articles.
 │                                                                                      │
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
-
----
-
-## Summary of v2 Changes
-
-| Component | Change |
-|-----------|--------|
-| Categories | Flat shared categories replace hierarchical categories (internal: tags) |
-| Items Tab | Capture vague requests first, match to articles during sourcing |
-| Suppliers Tab | Shows multiple supplier quotes with currency conversion (requires items matched) |
-| Buyer Quote | Consolidates items from multiple suppliers; supplier info hidden from buyer |
-| Quote Extension | New modal with reason, price/availability flags |
-| Orders Tab | 1 buyer order, multiple supplier orders |
-| Invoices Tab | 1 buyer invoice flow, multiple supplier invoices |
-| Exchange Rates | New management screen, rates logged per transaction |
-| Activity Log | Tracks extensions with full reason |
-| Roles | RBAC structure ready, starting with superadmin |
-| Currency | Single base currency for sales; multi-currency for supplier purchases |
-| Supplier Visibility | Supplier info is internal only; never shown to buyers |
-| Shipments | Manual journaling: status updates, carrier/tracking reference, discrepancy detection |
 
 ---
 

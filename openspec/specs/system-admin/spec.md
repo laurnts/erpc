@@ -69,3 +69,35 @@ The system SHALL maintain isolation between main app and system admin module.
 - **WHEN** SystemAdmin needs main app classes
 - **THEN** it only depends on App\Models and App\Enums
 
+### Requirement: System Audit Log (via Spatie Activity Log)
+The system SHALL maintain a comprehensive audit trail of all user actions using `spatie/laravel-activitylog`.
+
+#### Scenario: CRUD Operation Logging
+- **WHEN** a user creates, updates, or deletes any ERP entity
+- **THEN** the action is logged with old/new values, user identity, and timestamp
+- **AND** the `LogsActivity` trait is applied to all ERP models
+
+#### Scenario: Auth Event Logging
+- **WHEN** a user logs in or logs out
+- **THEN** the event is logged with IP address, user agent, and timestamp
+
+#### Scenario: Audit Log Admin View
+- **WHEN** an admin views the system audit log
+- **THEN** they see a paginated list of all system activities
+- **AND** can filter by date range, user, entity type, action type
+- **AND** can search by entity name, user name, or description
+
+#### Scenario: Audit Detail View
+- **WHEN** an admin clicks on an audit log entry
+- **THEN** they see a modal with old and new values displayed side-by-side
+- **AND** changed fields are highlighted
+
+#### Scenario: Audit Log Export
+- **WHEN** an admin exports the audit log
+- **THEN** a CSV file is generated with filtered results for compliance reports
+
+#### Scenario: Field-Level Change Tracking
+- **WHEN** a model with `LogsActivity` is updated
+- **THEN** only changed fields are logged (logOnlyDirty)
+- **AND** empty changes are not submitted (dontSubmitEmptyLogs)
+

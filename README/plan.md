@@ -1,34 +1,30 @@
-**Business Requirements Document**
+# ERP Trading System - Business Requirements Document
 
 Request-Centric Trading Management System
 
 *For Middleman/Broker Operations Without Inventory*
 
-Platform: Laravel 12 + Filament 4 + PostgreSQL
+> **Platform:** Laravel 12 + Filament 4 + PostgreSQL (Built on Relaticle CRM)
+> **Tables:** 30 new tables
+> **Version history:** See version.md
 
-**Version 2.0**
+---
 
-Document Version History
-
-  ------------- ------------- ------------------------------------------------
-  **Version**   **Date**      **Changes**
-
-  1.0           Jan 2024      Initial requirements with single supplier per
-                              project
-
-  **2.0**       Jan 2024      Multi-supplier projects, flat tags (replacing
-                              categories), multi-currency with exchange rates,
-                              quote extensions with reason logging, manual
-                              payment/shipment journaling with file uploads,
-                              local tax support, role-based access control
-  ------------- ------------- ------------------------------------------------
-
-1\. Executive Summary
+## 1. Executive Summary
 
 This document outlines the requirements for a self-hosted, open-source
 system designed specifically for trading intermediaries operating
-without physical inventory. The system will be built on Laravel 12 and
-Filament 4, with PostgreSQL as the database.
+without physical inventory. The system is built as an extension to the
+**Relaticle CRM** platform, leveraging its existing infrastructure for
+multi-tenancy, custom fields, file attachments, and settings management.
+
+**Foundation Platform: Relaticle CRM**
+- Laravel 12 + Filament 4 + PostgreSQL
+- Team-based multi-tenancy via Laravel Jetstream
+- Custom fields system (relaticle/custom-fields package)
+- File attachments via Spatie Media Library
+- Configuration via Spatie Settings
+- RBAC via Spatie Permission (to be installed)
 
 The core terminology uses \'Request\' as the atomic unit of work, with
 clear separation between Buyer-side and Supplier-side processes. Payment
@@ -38,7 +34,21 @@ Buyer Order upon acceptance.
 Multiple Requests can be grouped under a \'Project\' for large deals
 that involve several related buyer inquiries.
 
-1.1 Key Changes in Version 2.0
+1.1 Key Changes in Version 3.0 (Relaticle Integration)
+
+-   **Built on Relaticle CRM:** Leverages existing multi-tenancy, custom
+    fields, file attachments, and settings infrastructure
+
+-   **Reuse existing packages:** Spatie Media Library for attachments,
+    Spatie Settings for configuration, Spatie Permission for RBAC
+
+-   **Optional CRM linking:** Buyers and Suppliers can optionally link to
+    existing CRM Companies via nullable company_id FK for contact sync
+
+-   **Zero breaking changes:** Existing CRM functionality (Companies,
+    People, Opportunities, Tasks, Notes) remains fully functional
+
+1.2 Key Concepts from Version 2.0
 
 -   **Request as atomic unit:** Renamed from "Project" to "Request";
     Projects now group multiple Requests for large deals
@@ -62,12 +72,12 @@ that involve several related buyer inquiries.
     logging instead of cancellation
 
 -   **Manual journaling:** Payment and shipment status tracking with
-    file upload proofs (no third-party integrations)
+    file upload proofs via Spatie Media Library (no third-party integrations)
 
 -   **Local tax support:** Tax calculation on quotes, orders, and
     invoices (default 11%)
 
--   **Role-based access:** Full RBAC structure starting with superadmin
+-   **Role-based access:** Full RBAC via Spatie Permission package
 
 -   **ERP terminology:** UI shows friendly names with optional ERP term
     labels (PO, SO, DO, AR, etc.) for familiarity
@@ -426,16 +436,38 @@ Each shipment record includes:
 
 9\. Tax Handling
 
-Local tax is applied to quotes, orders, and invoices.
+Tax is applied at the **line item level** following ERP best practices.
 
--   **Tax rate:** Configurable percentage, default 11%
+**9.1 Item-Level Tax (v3.2)**
 
--   **Applied to:** Buyer quotes, buyer orders, buyer invoices, supplier
-    invoices
+Each line item (quote items, order items, invoice items) has:
+-   **tax_code_id:** FK to tax_codes table (e.g., PPN 11%, Zero Rate, Exempt)
+-   **is_tax_inclusive:** Boolean - whether entered price includes tax
+-   **tax_rate:** Snapshotted rate at time of save (doesn't change if tax_code rate changes)
+-   **unit_price_exc_tax:** Calculated price excluding tax
 
--   **Calculation:** Subtotal + Tax Amount = Total
+**9.2 Tax Calculation Service**
+-   If is_tax_inclusive = true: unit_price_exc_tax = unit_price / (1 + tax_rate)
+-   If is_tax_inclusive = false: unit_price_exc_tax = unit_price
+-   tax_amount = subtotal × tax_rate
+-   total = subtotal + tax_amount
 
--   **Storage:** tax_percent and tax_amount fields on relevant tables
+**9.3 Header-Level Tax Default**
+
+Quotes and orders have `default_tax_code_id` for convenience:
+-   When adding items, tax_code defaults from header
+-   Each item can override the default
+-   Default hierarchy: article default → document default → team default
+
+**9.4 Tax Codes Table**
+
+  --------------- --------------- ----------------------------------------
+  **Code**        **Rate**        **Description**
+
+  PPN 11%         11%             Standard Indonesian VAT
+  Zero Rate       0%              Zero-rated goods
+  Exempt          0%              Tax exempt
+  --------------- --------------- ----------------------------------------
 
 10\. Database Schema Design
 
@@ -567,12 +599,18 @@ Historical exchange rates for conversion tracking.
 
 10.5.1 buyers
 
-Companies that purchase products through your brokerage.
+Companies that purchase products through your brokerage. Can optionally
+link to existing CRM Companies for contact synchronization.
 
   ------------------ --------------- ---------------------------------------
   **Column**         **Type**        **Notes**
 
   id                 bigint PK       Auto-increment primary key
+
+  team_id            bigint FK       Team-based multi-tenancy (Relaticle)
+
+  company_id         bigint FK       **OPTIONAL** link to CRM Company
+                                     (nullable, nullOnDelete)
 
   code               varchar(20)     Unique code (BUY-001), auto-generated
 
@@ -594,17 +632,28 @@ Companies that purchase products through your brokerage.
 
   notes              text            Internal notes
 
+  creator_id         bigint FK       User who created (Relaticle trait)
+
   timestamps         \-\--           created_at, updated_at, deleted_at
   ------------------ --------------- ---------------------------------------
 
+*Traits: HasTeam, HasCreator, UsesCustomFields*
+*Relation: $buyer->company() optional BelongsTo for CRM contact sync*
+
 10.5.2 suppliers
 
-Companies from which products are sourced.
+Companies from which products are sourced. Can optionally link to existing
+CRM Companies for contact synchronization.
 
   ------------------------ --------------- ------------------------------------
   **Column**               **Type**        **Notes**
 
   id                       bigint PK       Auto-increment primary key
+
+  team_id                  bigint FK       Team-based multi-tenancy (Relaticle)
+
+  company_id               bigint FK       **OPTIONAL** link to CRM Company
+                                           (nullable, nullOnDelete)
 
   code                     varchar(20)     Unique code (SUP-001)
 
@@ -626,10 +675,14 @@ Companies from which products are sourced.
 
   notes                    text            Internal notes
 
+  creator_id               bigint FK       User who created (Relaticle trait)
+
   timestamps               \-\--           created_at, updated_at, deleted_at
   ------------------------ --------------- ------------------------------------
 
-*Relation: \$supplier-\>tags() via taggables polymorphic pivot.*
+*Traits: HasTeam, HasCreator, HasTags, UsesCustomFields*
+*Relation: $supplier->company() optional BelongsTo for CRM contact sync*
+*Relation: $supplier->tags() via taggables polymorphic pivot*
 
 10.5.3 articles
 
@@ -813,6 +866,8 @@ Quotes received from suppliers for a request. Multiple per request allowed.
 
   status                  varchar(30)      pending, selected, rejected, expired
 
+  default_tax_code_id     bigint FK        Default tax for new items (nullable)
+
   subtotal                decimal(15,2)    Sum of line items
 
   tax_amount              decimal(15,2)    Tax amount
@@ -850,15 +905,29 @@ Quotes received from suppliers for a request. Multiple per request allowed.
 
   article_id          bigint FK       Links to articles (nullable if ad-hoc)
 
+  sort_order          integer         Display order (default 0)
+
   description         varchar(500)    Item description
 
   quantity            decimal(15,3)   Quoted quantity
 
   unit                varchar(50)     Unit of measure
 
-  unit_price          decimal(15,4)   Price per unit
+  tax_code_id         bigint FK       Links to tax_codes (nullable)
 
-  total               decimal(15,2)   quantity × unit_price
+  is_tax_inclusive    boolean         Price includes tax? (default false)
+
+  tax_rate            decimal(5,2)    Snapshotted rate (default 0)
+
+  unit_price          decimal(15,4)   Price per unit (as entered)
+
+  unit_price_exc_tax  decimal(15,4)   Calculated price excluding tax
+
+  subtotal            decimal(15,2)   quantity × unit_price_exc_tax
+
+  tax_amount          decimal(15,2)   subtotal × tax_rate
+
+  total               decimal(15,2)   subtotal + tax_amount
 
   notes               text            Item-specific notes
   ------------------- --------------- ---------------------------------------
@@ -887,11 +956,11 @@ from multiple suppliers.
   status                 varchar(30)     draft, sent, accepted, rejected,
                                          expired, superseded
 
+  default_tax_code_id    bigint FK       Default tax for new items (nullable)
+
   subtotal               decimal(15,2)   Sum of line items
 
-  tax_percent            decimal(5,2)    Tax percentage (default 11)
-
-  tax_amount             decimal(15,2)   Calculated tax
+  tax_amount             decimal(15,2)   Sum of item tax amounts
 
   total                  decimal(15,2)   Final total to buyer
 
@@ -936,6 +1005,8 @@ order is created.
 
   supplier_quote_item_id   bigint FK       Link to source supplier item
 
+  sort_order               integer         Display order (default 0)
+
   description              varchar(500)    Item description shown to buyer
 
   quantity                 decimal(15,3)   Quoted quantity
@@ -946,9 +1017,21 @@ order is created.
 
   cost_currency            char(3)         Supplier\'s currency
 
-  unit_price               decimal(15,4)   Price to buyer per unit - EDITABLE
+  tax_code_id              bigint FK       Links to tax_codes (nullable)
 
-  total                    decimal(15,2)   quantity × unit_price
+  is_tax_inclusive         boolean         Price includes tax? (default false)
+
+  tax_rate                 decimal(5,2)    Snapshotted rate (default 0)
+
+  unit_price               decimal(15,4)   Price to buyer (as entered) - EDITABLE
+
+  unit_price_exc_tax       decimal(15,4)   Calculated price excluding tax
+
+  subtotal                 decimal(15,2)   quantity × unit_price_exc_tax
+
+  tax_amount               decimal(15,2)   subtotal × tax_rate
+
+  total                    decimal(15,2)   subtotal + tax_amount
 
   margin_percent           decimal(5,2)    Calculated margin %
 
@@ -1010,11 +1093,11 @@ terms LOCKED here.
   status                varchar(30)     confirmed, in_progress, fulfilled,
                                         cancelled
 
+  default_tax_code_id   bigint FK       Default tax (copied from quote)
+
   subtotal              decimal(15,2)   Sum of line items
 
-  tax_percent           decimal(5,2)    Tax percentage
-
-  tax_amount            decimal(15,2)   Tax amount
+  tax_amount            decimal(15,2)   Sum of item tax amounts
 
   total                 decimal(15,2)   Final order total
 
@@ -1038,27 +1121,43 @@ contractually.*
 
 10.8.2 buyer_order_items
 
-  ---------------- --------------- ----------------------------------------
-  **Column**       **Type**        **Notes**
+  -------------------- --------------- ----------------------------------------
+  **Column**           **Type**        **Notes**
 
-  id               bigint PK       Auto-increment primary key
+  id                   bigint PK       Auto-increment primary key
 
-  buyer_order_id   bigint FK       Links to buyer_orders
+  buyer_order_id       bigint FK       Links to buyer_orders
 
-  article_id       bigint FK       Links to articles (nullable)
+  buyer_quote_item_id  bigint FK       Traceability to quote item (nullable)
 
-  supplier_id      bigint FK       Which supplier fulfills this item
+  article_id           bigint FK       Links to articles (nullable)
 
-  description      varchar(500)    Item description
+  supplier_id          bigint FK       Which supplier fulfills this item
 
-  quantity         decimal(15,3)   Ordered quantity
+  sort_order           integer         Display order (default 0)
 
-  unit             varchar(50)     Unit of measure
+  description          varchar(500)    Item description
 
-  unit_price       decimal(15,4)   Locked unit price
+  quantity             decimal(15,3)   Ordered quantity
 
-  total            decimal(15,2)   quantity × unit_price
-  ---------------- --------------- ----------------------------------------
+  unit                 varchar(50)     Unit of measure
+
+  tax_code_id          bigint FK       Links to tax_codes (LOCKED)
+
+  is_tax_inclusive     boolean         Price includes tax? (LOCKED)
+
+  tax_rate             decimal(5,2)    Snapshotted rate (LOCKED)
+
+  unit_price           decimal(15,4)   Locked unit price (as entered)
+
+  unit_price_exc_tax   decimal(15,4)   Calculated price excluding tax
+
+  subtotal             decimal(15,2)   quantity × unit_price_exc_tax
+
+  tax_amount           decimal(15,2)   subtotal × tax_rate
+
+  total                decimal(15,2)   subtotal + tax_amount
+  -------------------- --------------- ----------------------------------------
 
 10.8.3 supplier_orders
 
@@ -1081,9 +1180,11 @@ supplier).
   status                  varchar(30)      draft, sent, confirmed, shipped,
                                            delivered, cancelled
 
+  default_tax_code_id     bigint FK        Default tax (copied from quote)
+
   subtotal                decimal(15,2)    Sum of line items
 
-  tax_amount              decimal(15,2)    Tax amount
+  tax_amount              decimal(15,2)    Sum of item tax amounts
 
   total                   decimal(15,2)    Final total to supplier
 
@@ -1106,67 +1207,137 @@ supplier).
 
 10.8.4 supplier_order_items
 
-  ------------------- --------------- ---------------------------------------
-  **Column**          **Type**        **Notes**
+  ------------------------- --------------- ---------------------------------------
+  **Column**                **Type**        **Notes**
 
-  id                  bigint PK       Auto-increment primary key
+  id                        bigint PK       Auto-increment primary key
 
-  supplier_order_id   bigint FK       Links to supplier_orders
+  supplier_order_id         bigint FK       Links to supplier_orders
 
-  article_id          bigint FK       Links to articles (nullable)
+  supplier_quote_item_id    bigint FK       Traceability to quote item (nullable)
 
-  description         varchar(500)    Item description
+  article_id                bigint FK       Links to articles (nullable)
 
-  quantity            decimal(15,3)   Ordered quantity
+  sort_order                integer         Display order (default 0)
 
-  unit                varchar(50)     Unit of measure
+  description               varchar(500)    Item description
 
-  unit_price          decimal(15,4)   Unit price from supplier
+  quantity                  decimal(15,3)   Ordered quantity
 
-  total               decimal(15,2)   quantity × unit_price
-  ------------------- --------------- ---------------------------------------
+  unit                      varchar(50)     Unit of measure
+
+  tax_code_id               bigint FK       Links to tax_codes (LOCKED)
+
+  is_tax_inclusive          boolean         Price includes tax? (LOCKED)
+
+  tax_rate                  decimal(5,2)    Snapshotted rate (LOCKED)
+
+  unit_price                decimal(15,4)   Locked unit price (as entered)
+
+  unit_price_exc_tax        decimal(15,4)   Calculated price excluding tax
+
+  subtotal                  decimal(15,2)   quantity × unit_price_exc_tax
+
+  tax_amount                decimal(15,2)   subtotal × tax_rate
+
+  total                     decimal(15,2)   subtotal + tax_amount
+  ------------------------- --------------- ---------------------------------------
 
 10.9 Invoice and Payment Tables
 
 10.9.1 buyer_invoices
 
-  ---------------- --------------- ----------------------------------------
-  **Column**       **Type**        **Notes**
+  -------------------- --------------- ----------------------------------------
+  **Column**           **Type**        **Notes**
 
-  id               bigint PK       Auto-increment primary key
+  id                   bigint PK       Auto-increment primary key
 
-  request_id       bigint FK       Links to requests
+  request_id           bigint FK       Links to requests
 
-  buyer_order_id   bigint FK       Links to buyer_orders
+  buyer_order_id       bigint FK       Links to buyer_orders
 
-  invoice_number   varchar(50)     Invoice ref (INV-2024-0001)
+  original_invoice_id  bigint FK       For credit/debit notes: links to
+                                       original invoice (nullable)
 
-  type             varchar(30)     prepayment, balance, standard
+  invoice_number       varchar(50)     Invoice ref (INV-2024-0001)
 
-  status           varchar(30)     draft, sent, partial, paid, overdue,
-                                   cancelled
+  type                 varchar(30)     prepayment, balance, standard,
+                                       credit_note, debit_note
 
-  subtotal         decimal(15,2)   Amount before tax
+  credit_reason        text            Required for credit notes (nullable)
 
-  tax_percent      decimal(5,2)    Tax percentage
+  status               varchar(30)     draft, sent, partial, paid, overdue,
+                                       cancelled
 
-  tax_amount       decimal(15,2)   Tax amount
+  subtotal             decimal(15,2)   Sum of item subtotals (negative for
+                                       credit notes)
 
-  amount           decimal(15,2)   Total invoice amount
+  tax_amount           decimal(15,2)   Sum of item tax amounts
 
-  currency         char(3)         Currency
+  amount               decimal(15,2)   Total invoice amount (subtotal + tax)
 
-  issued_at        date            Date issued
+  currency             char(3)         Currency
 
-  due_at           date            Payment due date
+  issued_at            date            Date issued
 
-  paid_at          date            Date fully paid (nullable)
+  due_at               date            Payment due date
 
-  timestamps       \-\--           created_at, updated_at, deleted_at
-  ---------------- --------------- ----------------------------------------
+  paid_at              date            Date fully paid (nullable)
+
+  timestamps           \-\--           created_at, updated_at, deleted_at
+  -------------------- --------------- ----------------------------------------
 
 *due_at calculated: if prepayment=100% then due_at=issued_at; else
 due_at=delivery_date+net_days*
+
+*Credit notes have negative amounts and reduce buyer's outstanding balance.*
+
+10.9.1.1 buyer_invoice_items
+
+Line items on buyer invoices, mirroring quote/order structure for traceability.
+
+  ---------------------- --------------- ----------------------------------------
+  **Column**             **Type**        **Notes**
+
+  id                     bigint PK       Auto-increment primary key
+
+  buyer_invoice_id       bigint FK       Links to buyer_invoices
+
+  buyer_order_item_id    bigint FK       Traceability to order item (nullable)
+
+  article_id             bigint FK       Links to articles (nullable)
+
+  sort_order             integer         Display order (default 0)
+
+  description            varchar(500)    Item description
+
+  quantity               decimal(15,3)   Quantity (negative for credit notes)
+
+  unit                   varchar(50)     Unit of measure
+
+  tax_code_id            bigint FK       Links to tax_codes (nullable)
+
+  is_tax_inclusive       boolean         Price includes tax? (default false)
+
+  tax_rate               decimal(5,2)    Snapshotted rate (default 0)
+
+  unit_price             decimal(15,4)   Unit price (as entered)
+
+  unit_price_exc_tax     decimal(15,4)   Calculated price excluding tax
+
+  subtotal               decimal(15,2)   quantity × unit_price_exc_tax
+
+  tax_amount             decimal(15,2)   subtotal × tax_rate
+
+  total                  decimal(15,2)   subtotal + tax_amount
+
+  notes                  text            Item-specific notes (nullable)
+
+  timestamps             \-\--           created_at, updated_at
+  ---------------------- --------------- ----------------------------------------
+
+*Traceability: buyer_order_item_id links invoice item back to order item for
+audit trail.*
 
 10.9.2 buyer_payments
 
@@ -1221,15 +1392,23 @@ Invoices received from suppliers. Multiple per request.
 
   supplier_id             bigint FK        Links to suppliers
 
+  original_invoice_id     bigint FK        For credit notes: links to original
+                                           invoice (nullable)
+
   invoice_number          varchar(100)     Supplier\'s invoice reference
+
+  type                    varchar(30)      standard, credit_note
+
+  credit_reason           text             Reason for credit note (nullable)
 
   status                  varchar(30)      received, approved, paid, disputed
 
-  subtotal                decimal(15,2)    Amount before tax
+  subtotal                decimal(15,2)    Sum of item subtotals (negative for
+                                           credit notes)
 
-  tax_amount              decimal(15,2)    Tax amount
+  tax_amount              decimal(15,2)    Sum of item tax amounts
 
-  amount                  decimal(15,2)    Invoice amount
+  amount                  decimal(15,2)    Total invoice amount (subtotal + tax)
 
   currency                char(3)          Supplier\'s currency
 
@@ -1245,6 +1424,55 @@ Invoices received from suppliers. Multiple per request.
 
   timestamps              \-\--            created_at, updated_at, deleted_at
   ----------------------- ---------------- ------------------------------------
+
+*Credit notes have negative amounts and reduce supplier cost calculations.*
+
+10.9.3.1 supplier_invoice_items
+
+Line items on supplier invoices for verification against orders.
+
+  -------------------------- --------------- ----------------------------------------
+  **Column**                 **Type**        **Notes**
+
+  id                         bigint PK       Auto-increment primary key
+
+  supplier_invoice_id        bigint FK       Links to supplier_invoices
+
+  supplier_order_item_id     bigint FK       Traceability to order item (nullable)
+
+  article_id                 bigint FK       Links to articles (nullable)
+
+  sort_order                 integer         Display order (default 0)
+
+  description                varchar(500)    Item description
+
+  quantity                   decimal(15,3)   Quantity (negative for credit notes)
+
+  unit                       varchar(50)     Unit of measure
+
+  tax_code_id                bigint FK       Links to tax_codes (nullable)
+
+  is_tax_inclusive           boolean         Price includes tax? (default false)
+
+  tax_rate                   decimal(5,2)    Snapshotted rate (default 0)
+
+  unit_price                 decimal(15,4)   Unit price (as entered)
+
+  unit_price_exc_tax         decimal(15,4)   Calculated price excluding tax
+
+  subtotal                   decimal(15,2)   quantity × unit_price_exc_tax
+
+  tax_amount                 decimal(15,2)   subtotal × tax_rate
+
+  total                      decimal(15,2)   subtotal + tax_amount
+
+  notes                      text            Item-specific notes (nullable)
+
+  timestamps                 \-\--           created_at, updated_at
+  -------------------------- --------------- ----------------------------------------
+
+*Traceability: supplier_order_item_id links invoice item back to order item
+for verification.*
 
 10.9.4 supplier_payments
 
@@ -1359,43 +1587,71 @@ detection.
 - Received 100, but 5 damaged → supplier dispute
 - Partial shipments: Ship 50 now, 50 next week
 
-10.11 Attachments (Polymorphic)
+10.11 Attachments via Spatie Media Library
 
-10.11.1 attachments
+**REUSES EXISTING RELATICLE INFRASTRUCTURE**
 
-File uploads for proofs, documents, etc. Links to any entity.
+File uploads are handled via Spatie Media Library, which is already installed
+in Relaticle. ERP entities that need attachments implement the `HasMedia` trait.
 
-  ----------------- --------------- ----------------------------------------
-  **Column**        **Type**        **Notes**
+10.11.1 Media Collections
 
-  id                bigint PK       Auto-increment primary key
+Instead of a custom `attachments` table, ERP models define media collections:
 
-  attachable_type   varchar(255)    Model class (BuyerPayment, Shipment,
-                                    etc.)
+  -------------------- ------------------------------------------------------
+  **Model**            **Collections**
 
-  attachable_id     bigint          ID of the parent entity
+  BuyerPayment         `payment_proof` (required proof of payment)
 
-  type              varchar(50)     payment_proof, shipping_doc, pod,
-                                    invoice_copy, etc.
+  SupplierPayment      `payment_proof` (required proof of payment)
 
-  original_name     varchar(255)    Original filename
+  Shipment             `shipping_doc` (BOL, packing list, airway bill)
+                       `pod` (proof of delivery)
 
-  file_path         varchar(500)    Storage path
+  SupplierQuote        `quote_doc` (supplier quote PDF)
 
-  mime_type         varchar(100)    File MIME type
+  BuyerInvoice         `invoice_copy` (scanned invoice)
+  -------------------- ------------------------------------------------------
 
-  file_size         bigint          File size in bytes
+10.11.2 Implementation
 
-  description       text            Optional description
+```php
+// Model implements HasMedia interface and InteractsWithMedia trait
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
-  uploaded_by       bigint FK       User who uploaded
+final class BuyerPayment extends Model implements HasMedia
+{
+    use InteractsWithMedia;
 
-  timestamps        \-\--           created_at, updated_at
-  ----------------- --------------- ----------------------------------------
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('payment_proof')
+            ->singleFile(); // Only one proof per payment
+    }
+}
 
-10.12 Activity Log
+// Usage
+$payment->addMedia($file)->toMediaCollection('payment_proof');
+$payment->getMedia('payment_proof');
+$payment->getFirstMediaUrl('payment_proof');
+```
 
-10.12.1 request_activities
+*Note: This reuses the existing `media` table from Spatie Media Library.
+No new tables needed.*
+
+10.12 Activity & Audit Logging
+
+The system uses **two complementary logging approaches**:
+
+| Log Type | Purpose | Scope |
+|----------|---------|-------|
+| `request_activities` | User-friendly timeline on Request detail page | Request events only |
+| `activity_log` (Spatie) | System-wide audit trail for compliance | All entities |
+
+10.12.1 request_activities (Request Timeline)
+
+User-facing activity stream shown on the Request detail page.
 
   --------------- --------------- ----------------------------------------
   **Column**      **Type**        **Notes**
@@ -1422,52 +1678,134 @@ buyer_quote_extended, buyer_order_created, supplier_order_sent,
 shipment_update, invoice_created, invoice_sent, payment_received,
 payment_made, note_added, request_closed
 
-*Consider using Spatie Activity Log package for this functionality.*
+10.12.2 System Audit Log (Spatie Activity Log)
 
-10.13 Roles & Permissions
+**INSTALL spatie/laravel-activitylog PACKAGE**
 
-10.13.1 roles
+Provides system-wide audit trail for compliance and auditing:
 
-  --------------- --------------- ----------------------------------------
-  **Column**      **Type**        **Notes**
+```bash
+composer require spatie/laravel-activitylog
+php artisan vendor:publish --provider="Spatie\Activitylog\ActivitylogServiceProvider"
+php artisan migrate
+```
 
-  id              bigint PK       Auto-increment primary key
+**Audit Log Captures:**
 
-  name            varchar(50)     Unique name (superadmin, admin, sales,
-                                  finance, viewer)
+| Event Type | What's Logged |
+|------------|---------------|
+| **Create** | All field values of new record |
+| **Update** | Old values → New values (only changed fields) |
+| **Delete** | All field values before deletion |
+| **Login/Logout** | User, IP address, user agent, timestamp |
+| **State Changes** | Quote sent, order confirmed, invoice paid, etc. |
 
-  display_name    varchar(100)    Human-readable name
+**Entities with Audit Logging:**
 
-  description     text            Role description
+- Buyers, Suppliers, Articles
+- Requests, Request Items
+- Supplier Quotes, Buyer Quotes
+- Supplier Orders, Buyer Orders
+- Supplier Invoices, Buyer Invoices
+- Payments (buyer and supplier)
+- Shipments
+- Exchange Rates, Tax Codes
 
-  timestamps      \-\--           created_at, updated_at
-  --------------- --------------- ----------------------------------------
+**Audit Log Admin View Requirements:**
 
-10.13.2 permissions
+| Feature | Description |
+|---------|-------------|
+| List view | Paginated table of all activities |
+| Filters | Date range, user, entity type, action (create/update/delete) |
+| Search | By entity name, user name, description |
+| Detail view | Show old/new values side-by-side |
+| Export | CSV export for compliance reports |
+| Retention | Configurable retention period (default: 2 years) |
 
-  --------------- --------------- ----------------------------------------
-  **Column**      **Type**        **Notes**
+**Audit Query Examples:**
 
-  id              bigint PK       Auto-increment primary key
+- "Show all changes made by User X in the last 30 days"
+- "Show all edits to Buyer Y"
+- "Show all invoices marked as paid this month"
+- "Show all login attempts from IP address Z"
 
-  name            varchar(100)    Unique name (projects.create,
-                                  quotes.send)
+10.13 Roles & Permissions via Spatie Permission
 
-  display_name    varchar(150)    Human-readable name
+**INSTALL spatie/laravel-permission PACKAGE**
 
-  group           varchar(50)     Permission group (projects, quotes,
-                                  finance)
+RBAC is handled via Spatie Laravel Permission package, which provides:
+- Role and permission management
+- Role-permission assignment
+- User-role assignment
+- Gate integration for authorization
 
-  timestamps      \-\--           created_at, updated_at
-  --------------- --------------- ----------------------------------------
+10.13.1 Installation
 
-10.13.3 role_permissions (Pivot)
+```bash
+composer require spatie/laravel-permission
+php artisan vendor:publish --provider="Spatie\Permission\PermissionServiceProvider"
+php artisan migrate
+```
 
-Links roles to permissions.
+10.13.2 User Model Setup
 
-10.13.4 user_roles (Pivot)
+```php
+use Spatie\Permission\Traits\HasRoles;
 
-Links users to roles.
+final class User extends Authenticatable
+{
+    use HasRoles;
+    // ...
+}
+```
+
+10.13.3 Default Roles
+
+  --------------- ---------------------------------------------------
+  **Role**        **Description**
+
+  superadmin      Full access to all features (Gate::before bypass)
+
+  admin           Manage all ERP entities except system settings
+
+  sales           Create/manage requests, quotes, orders
+
+  finance         Manage invoices, payments, P&L reports
+
+  viewer          Read-only access to all ERP data
+  --------------- ---------------------------------------------------
+
+10.13.4 Permission Naming Convention
+
+Permissions follow the pattern `erp.{resource}.{action}`:
+
+  ------------------------------ ---------------------------------------
+  **Permission**                 **Description**
+
+  erp.requests.create            Create new requests
+  erp.requests.edit              Edit existing requests
+  erp.quotes.send                Send quotes to buyers
+  erp.payments.record            Record buyer/supplier payments
+  erp.invoices.create            Create invoices
+  ------------------------------ ---------------------------------------
+
+10.13.5 Seeder
+
+```php
+// database/seeders/ErpPermissionsSeeder.php
+$roles = ['superadmin', 'admin', 'sales', 'finance', 'viewer'];
+$permissions = [
+    'erp.requests.create', 'erp.requests.edit', 'erp.requests.view',
+    'erp.quotes.create', 'erp.quotes.send', 'erp.quotes.view',
+    'erp.orders.create', 'erp.orders.view',
+    'erp.payments.record', 'erp.payments.view',
+    'erp.invoices.create', 'erp.invoices.view',
+    // ... more permissions
+];
+```
+
+*Note: This reuses Spatie's existing tables (roles, permissions, model_has_roles,
+model_has_permissions, role_has_permissions). No new tables needed.*
 
 10.14 Computed Values (Model Accessors)
 
@@ -1570,34 +1908,90 @@ for accounting integrity.
 13. **Proof-Based Journaling:** Required file uploads for payments and
     deliveries
 
-11.2 Development Roadmap
+11.2 Relaticle Infrastructure Reuse
 
-  --------------- ---------------------------------------- ---------------
-  **Phase**       **Deliverables**                         **Duration**
+The following components are REUSED from the existing Relaticle CRM:
 
-  **1.            Categories, currencies, exchange rates,  3 weeks
-  Foundation**    buyers, suppliers, articles, roles,
-                  requests with stages, projects (grouping)                     
+  ----------------------- -------------------------------------------------
+  **Component**           **How We Use It**
 
-  **2. Quoting**  Multiple supplier quotes, consolidated   3 weeks
-                  buyer quotes, quote extensions, tax      
-                  calculation, margin display              
+  Spatie Media Library    File attachments for payment proofs, shipping
+                          docs, PODs (existing `media` table)
 
-  **3. Orders**   Consolidated buyer orders, multiple      3 weeks
-                  supplier orders, shipment tracking with  
-                  attachments                              
+  Spatie Settings         ERP configuration via `ErpSettings` class
+                          (default currency, tax rate, quote validity)
 
-  **4. Finance**  Buyer invoices (prepay + balance),       3 weeks
-                  multiple supplier invoices, payment      
-                  recording with proofs, multi-currency    
-                  P&L                                      
+  Custom Fields           Extensible fields on Buyer, Supplier, Article,
+                          Request via `UsesCustomFields` trait
 
-  **5. Polish**   Dashboard with KPIs, quote expiration    2 weeks
-                  alerts, activity logging, additional     
-                  roles (admin, sales, finance, viewer)    
-  --------------- ---------------------------------------- ---------------
+  Multi-tenancy           Team-based isolation via `HasTeam` trait
+                          (all ERP entities scoped to team)
 
-**Total Estimated: 14 weeks for one full-stack Laravel developer**
+  Tasks/Notes             Polymorphic tasks and notes on Requests
+                          (add to morphMap in AppServiceProvider)
+  ----------------------- -------------------------------------------------
+
+**Tables NOT Created (Reusing Existing)**
+
+  Originally Proposed     Using Instead
+  ----------------------- -----------------------------------------------
+  `attachments`           Spatie Media Library (`media` table)
+  `settings`              Spatie Settings (class-based, no table)
+  `roles`                 Spatie Permission tables
+  `permissions`           Spatie Permission tables
+  `role_permissions`      Spatie Permission tables
+  `user_roles`            Spatie Permission tables
+
+**Result: 30 new tables (v3.2)**
+
+```
+Foundation:        tags, taggables, currencies, exchange_rates, tax_codes (5)
+Master Data:       buyers, suppliers, articles, supplier_articles (4)
+Requests:          projects, requests, request_items (3)
+Supplier Quoting:  supplier_quotes, supplier_quote_items (2)
+Buyer Quoting:     buyer_quotes, buyer_quote_items, buyer_quote_extensions (3)
+Supplier Orders:   supplier_orders, supplier_order_items (2)
+Buyer Orders:      buyer_orders, buyer_order_items (2)
+Finance:           buyer_invoices, buyer_invoice_items, buyer_payments,
+                   supplier_invoices, supplier_invoice_items, supplier_payments (6)
+Shipments:         shipments, shipment_items (2)
+Activity:          request_activities (1)
+```
+
+11.3 Development Roadmap
+
+  --------------- ----------------------------------------
+  **Phase**       **Deliverables**
+
+  **0.            Install Spatie Permission, create
+  Prerequisites** ErpSettings class, setup morphMap for
+                  ERP entities, add HasRoles to User
+
+  **1.            Tags, currencies, exchange rates,
+  Foundation**    buyers (with company_id), suppliers
+                  (with company_id), articles
+
+  **2. Request    Projects, Requests with stages,
+  Management**    request items with vague capture
+
+  **3. Quoting**  Multiple supplier quotes, consolidated
+                  buyer quotes, quote extensions, tax
+                  calculation, margin display
+
+  **4. Orders**   Consolidated buyer orders, multiple
+                  supplier orders, shipment tracking
+                  with Media Library attachments
+
+  **5. Finance**  Buyer invoices with line items,
+                  credit notes as invoice type,
+                  multiple supplier invoices with items,
+                  payment recording with proofs,
+                  multi-currency P&L, activity logging
+
+  **6. Polish**   Dashboard with KPIs, quote expiration
+                  alerts, PDF generation, additional
+                  role permissions
+  --------------- ----------------------------------------
 
 12\. ERP Terminology Reference
 
