@@ -22,13 +22,34 @@
 - [ ] 0.3.1 Add ERP entities to `Relation::morphMap()` in AppServiceProvider
 - [ ] 0.3.2 Include: request, buyer, supplier, buyer_payment, supplier_payment, shipment
 
-### 0.4 Install Spatie Activity Log ⭐ NEW
+### 0.4 Install Spatie Activity Log
 - [ ] 0.4.1 Run `composer require spatie/laravel-activitylog`
 - [ ] 0.4.2 Publish config: `php artisan vendor:publish --provider="Spatie\Activitylog\ActivitylogServiceProvider" --tag="activitylog-config"`
 - [ ] 0.4.3 Publish migrations: `php artisan vendor:publish --provider="Spatie\Activitylog\ActivitylogServiceProvider" --tag="activitylog-migrations"`
 - [ ] 0.4.4 Run migrations: `php artisan migrate`
 - [ ] 0.4.5 Configure `config/activitylog.php` (default log name, delete records after days)
 - [ ] 0.4.6 Write Pest tests for activity log functionality
+
+### Phase 0 Checkpoint: Prerequisites Validation
+- [ ] 0.5.1 **DB Check:** Verify Spatie tables exist
+  ```bash
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt *permission*"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt *activity*"
+  ```
+- [ ] 0.5.2 **DB Check:** Verify settings migration ran
+  ```bash
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "SELECT * FROM settings;"
+  ```
+- [ ] 0.5.3 **Browser Check:** Login and verify ERP Settings page accessible
+- [ ] 0.5.4 **Test Check:** Run prerequisite tests
+  ```bash
+  composer test --filter=Permission
+  composer test --filter=Settings
+  composer test --filter=ActivityLog
+  ```
+- [ ] 0.5.5 **Sign-off:** Phase 0 complete, ready for Phase 1
+
+---
 
 ## Phase 1: Foundation
 
@@ -52,7 +73,7 @@
 - [ ] 1.2.8 Seed default currencies (USD, IDR, EUR, SGD, CNY)
 - [ ] 1.2.9 Write Pest tests for currency conversion
 
-### 1.3 Tax Codes ⭐ NEW
+### 1.3 Tax Codes
 - [ ] 1.3.1 Create `tax_codes` table migration (team_id, code, name, rate, is_inclusive_default, is_active, is_default, sort_order)
 - [ ] 1.3.2 Create `TaxCode` model with `HasTeam` trait
 - [ ] 1.3.3 Create `TaxCodeObserver` for team_id assignment
@@ -92,6 +113,44 @@
 - [ ] 1.6.7 Add supplier-article relationship with last_quoted tracking
 - [ ] 1.6.8 Write Pest tests for article functionality
 
+### Phase 1 Checkpoint: Foundation Validation
+- [ ] 1.7.1 **DB Check:** Verify all Phase 1 tables exist
+  ```bash
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt tags"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt taggables"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt currencies"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt exchange_rates"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt tax_codes"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt buyers"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt suppliers"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt articles"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt supplier_articles"
+  ```
+- [ ] 1.7.2 **DB Check:** Verify seeded data exists
+  ```bash
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "SELECT code, name FROM currencies;"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "SELECT code, name, rate FROM tax_codes;"
+  ```
+- [ ] 1.7.3 **Browser Check:** Tags - List, Create, Edit, Delete
+- [ ] 1.7.4 **Browser Check:** Currencies - List, View seeded data
+- [ ] 1.7.5 **Browser Check:** Exchange Rates - List, Create with rate
+- [ ] 1.7.6 **Browser Check:** Tax Codes - List, View seeded data
+- [ ] 1.7.7 **Browser Check:** Buyers - List, Create with credit limit, Edit, verify code auto-generated
+- [ ] 1.7.8 **Browser Check:** Suppliers - List, Create with tags, Edit
+- [ ] 1.7.9 **Browser Check:** Articles - List, Create with JSONB attributes, assign to supplier
+- [ ] 1.7.10 **Test Check:** Run Phase 1 tests
+  ```bash
+  composer test --filter=Tag
+  composer test --filter=Currency
+  composer test --filter=TaxCode
+  composer test --filter=Buyer
+  composer test --filter=Supplier
+  composer test --filter=Article
+  ```
+- [ ] 1.7.11 **Sign-off:** Phase 1 complete, ready for Phase 2
+
+---
+
 ## Phase 2: Request Management
 
 ### 2.1 Projects Entity
@@ -120,6 +179,33 @@
 - [ ] 2.3.4 Add vague capture workflow (description → article match)
 - [ ] 2.3.5 Add match validation (article_id required before supplier quoting)
 - [ ] 2.3.6 Write Pest tests for request items
+
+### Phase 2 Checkpoint: Request Management Validation
+- [ ] 2.4.1 **DB Check:** Verify all Phase 2 tables exist
+  ```bash
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt projects"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt requests"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt request_items"
+  ```
+- [ ] 2.4.2 **DB Check:** Verify table columns
+  ```bash
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\d requests"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\d request_items"
+  ```
+- [ ] 2.4.3 **Browser Check:** Projects - List, Create, verify PRJ-YYYY-NNNN numbering
+- [ ] 2.4.4 **Browser Check:** Requests - List, Create with buyer selection, verify REQ-YYYY-NNNN numbering
+- [ ] 2.4.5 **Browser Check:** Request Items - Add items to request, verify sort_order drag-reorder
+- [ ] 2.4.6 **Browser Check:** Request Items - Test vague description → article match workflow
+- [ ] 2.4.7 **Browser Check:** Request Stage - Verify stage transitions work
+- [ ] 2.4.8 **Test Check:** Run Phase 2 tests
+  ```bash
+  composer test --filter=Project
+  composer test --filter=Request
+  composer test --filter=RequestItem
+  ```
+- [ ] 2.4.9 **Sign-off:** Phase 2 complete, ready for Phase 3
+
+---
 
 ## Phase 3: Multi-Supplier Quoting
 
@@ -152,6 +238,38 @@
 - [ ] 3.2.13 Add tax code dropdown and inc/exc tax checkbox to line item form
 - [ ] 3.2.14 Add internal vs buyer view (supplier info hidden from buyer PDF)
 - [ ] 3.2.15 Write Pest tests for buyer quotes with tax calculations
+
+### Phase 3 Checkpoint: Multi-Supplier Quoting Validation
+- [ ] 3.3.1 **DB Check:** Verify all Phase 3 tables exist
+  ```bash
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt supplier_quotes"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt supplier_quote_items"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt buyer_quotes"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt buyer_quote_items"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt buyer_quote_extensions"
+  ```
+- [ ] 3.3.2 **DB Check:** Verify item-level tax columns exist
+  ```bash
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\d supplier_quote_items"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\d buyer_quote_items"
+  ```
+- [ ] 3.3.3 **Browser Check:** Supplier Quote - Create from Request, add items with tax code selection
+- [ ] 3.3.4 **Browser Check:** Supplier Quote - Verify tax inc/exc toggle calculates correctly
+- [ ] 3.3.5 **Browser Check:** Supplier Quote - Verify currency conversion display
+- [ ] 3.3.6 **Browser Check:** Supplier Quote - Select/Reject quotes
+- [ ] 3.3.7 **Browser Check:** Buyer Quote - Create from selected supplier quotes
+- [ ] 3.3.8 **Browser Check:** Buyer Quote - Verify margin calculation
+- [ ] 3.3.9 **Browser Check:** Buyer Quote - Test versioning (create v2, v3)
+- [ ] 3.3.10 **Browser Check:** Buyer Quote - Test extension with reason
+- [ ] 3.3.11 **Test Check:** Run Phase 3 tests
+  ```bash
+  composer test --filter=SupplierQuote
+  composer test --filter=BuyerQuote
+  composer test --filter=TaxCalculation
+  ```
+- [ ] 3.3.12 **Sign-off:** Phase 3 complete, ready for Phase 4
+
+---
 
 ## Phase 4: Orders & Fulfillment
 
@@ -194,6 +312,41 @@
 - [ ] 4.3.11 Register media collections (shipping_doc, pod)
 - [ ] 4.3.12 Write Pest tests for shipments
 
+### Phase 4 Checkpoint: Orders & Fulfillment Validation
+- [ ] 4.4.1 **DB Check:** Verify all Phase 4 tables exist
+  ```bash
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt buyer_orders"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt buyer_order_items"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt supplier_orders"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt supplier_order_items"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt shipments"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt shipment_items"
+  ```
+- [ ] 4.4.2 **DB Check:** Verify order columns have locked tax fields
+  ```bash
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\d buyer_order_items"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\d supplier_order_items"
+  ```
+- [ ] 4.4.3 **Browser Check:** Buyer Order - Create from accepted buyer quote
+- [ ] 4.4.4 **Browser Check:** Buyer Order - Verify BO-YYYY-NNNN numbering
+- [ ] 4.4.5 **Browser Check:** Buyer Order - Verify tax fields locked (not editable)
+- [ ] 4.4.6 **Browser Check:** Buyer Order - Verify credit limit warning shows
+- [ ] 4.4.7 **Browser Check:** Supplier Order - Auto-generated from selected supplier quotes
+- [ ] 4.4.8 **Browser Check:** Supplier Order - Verify PO-YYYY-NNNN-A/B/C numbering
+- [ ] 4.4.9 **Browser Check:** Shipment (Inbound) - Create from supplier order, record received qty
+- [ ] 4.4.10 **Browser Check:** Shipment (Outbound) - Create from buyer order, record shipped qty
+- [ ] 4.4.11 **Browser Check:** Shipment - Upload POD document
+- [ ] 4.4.12 **Browser Check:** Shipment - Verify ordered vs received comparison
+- [ ] 4.4.13 **Test Check:** Run Phase 4 tests
+  ```bash
+  composer test --filter=BuyerOrder
+  composer test --filter=SupplierOrder
+  composer test --filter=Shipment
+  ```
+- [ ] 4.4.14 **Sign-off:** Phase 4 complete, ready for Phase 5
+
+---
+
 ## Phase 5: Finance & Journaling
 
 ### 5.1 Buyer Invoices & Payments
@@ -232,7 +385,7 @@
 - [ ] 5.2.13 Register media collection (payment_proof)
 - [ ] 5.2.14 Write Pest tests for supplier invoices/payments/credit notes
 
-### 5.3 Activity & Audit Logging ⭐ UPDATED
+### 5.3 Activity & Audit Logging
 
 #### 5.3.1 Request Activity Timeline (User-Facing)
 - [ ] 5.3.1.1 Create `request_activities` table migration
@@ -242,7 +395,7 @@
 - [ ] 5.3.1.5 Create Activity Log tab in Request resource
 - [ ] 5.3.1.6 Write Pest tests for request activity logging
 
-#### 5.3.2 System Audit Log (Spatie Activity Log) ⭐ NEW
+#### 5.3.2 System Audit Log (Spatie Activity Log)
 - [ ] 5.3.2.1 Add `LogsActivity` trait to all ERP models
 - [ ] 5.3.2.2 Configure `getActivitylogOptions()` for each model (logged fields)
 - [ ] 5.3.2.3 Create auth event listeners for login/logout tracking with IP and user agent
@@ -261,6 +414,50 @@
 - [ ] 5.4.5 Add `amount_collected`, `amount_paid_out`, `net_cash_flow` accessors
 - [ ] 5.4.6 Add Financial Summary widget to Request detail page
 - [ ] 5.4.7 Write Pest tests for P&L calculations
+
+### Phase 5 Checkpoint: Finance & Journaling Validation
+- [ ] 5.5.1 **DB Check:** Verify all Phase 5 tables exist
+  ```bash
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt buyer_invoices"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt buyer_invoice_items"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt buyer_payments"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt supplier_invoices"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt supplier_invoice_items"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt supplier_payments"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\dt request_activities"
+  ```
+- [ ] 5.5.2 **DB Check:** Verify invoice item columns
+  ```bash
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\d buyer_invoice_items"
+  docker compose exec pgsql psql -U relaticle -d relaticle -c "\d supplier_invoice_items"
+  ```
+- [ ] 5.5.3 **Browser Check:** Buyer Invoice - Create prepayment invoice from buyer order
+- [ ] 5.5.4 **Browser Check:** Buyer Invoice - Create balance invoice after delivery
+- [ ] 5.5.5 **Browser Check:** Buyer Invoice - Verify due date calculation
+- [ ] 5.5.6 **Browser Check:** Buyer Payment - Record payment with proof upload
+- [ ] 5.5.7 **Browser Check:** Buyer Invoice - Verify amount_outstanding updates
+- [ ] 5.5.8 **Browser Check:** Buyer Invoice - Create credit note from original invoice
+- [ ] 5.5.9 **Browser Check:** Supplier Invoice - Create from supplier order
+- [ ] 5.5.10 **Browser Check:** Supplier Invoice - Verify exchange rate snapshot
+- [ ] 5.5.11 **Browser Check:** Supplier Payment - Record payment with proof upload
+- [ ] 5.5.12 **Browser Check:** Request Activity - View activity timeline tab
+- [ ] 5.5.13 **Browser Check:** Audit Log - View system audit log (admin only)
+- [ ] 5.5.14 **Browser Check:** Audit Log - Filter by date, user, entity type
+- [ ] 5.5.15 **Browser Check:** Audit Log - Export CSV
+- [ ] 5.5.16 **Browser Check:** Request Detail - Verify Financial Summary widget shows P&L
+- [ ] 5.5.17 **Test Check:** Run Phase 5 tests
+  ```bash
+  composer test --filter=BuyerInvoice
+  composer test --filter=BuyerPayment
+  composer test --filter=SupplierInvoice
+  composer test --filter=SupplierPayment
+  composer test --filter=RequestActivity
+  composer test --filter=AuditLog
+  composer test --filter=ProfitLoss
+  ```
+- [ ] 5.5.18 **Sign-off:** Phase 5 complete, ready for Phase 6
+
+---
 
 ## Phase 6: Dashboard & Polish
 
@@ -295,15 +492,91 @@
 - [ ] 6.4.5 Verify 80% code coverage
 - [ ] 6.4.6 Update README and documentation
 
+### Phase 6 Checkpoint: Dashboard & Polish Validation
+- [ ] 6.5.1 **Browser Check:** Dashboard - View all widgets with data
+- [ ] 6.5.2 **Browser Check:** Dashboard - Verify KPI numbers match database
+- [ ] 6.5.3 **Browser Check:** Alerts - Verify quote expiration alerts show
+- [ ] 6.5.4 **Browser Check:** Alerts - Verify payment overdue alerts show
+- [ ] 6.5.5 **Browser Check:** PDF - Download Buyer Quote PDF, verify no supplier info
+- [ ] 6.5.6 **Browser Check:** PDF - Download Buyer Order PDF
+- [ ] 6.5.7 **Browser Check:** PDF - Download Buyer Invoice PDF
+- [ ] 6.5.8 **Browser Check:** PDF - Download Supplier Order (PO) PDF
+- [ ] 6.5.9 **Test Check:** Run full test suite
+  ```bash
+  composer test
+  composer test:arch
+  composer test:types
+  ```
+- [ ] 6.5.10 **Lint Check:** Run code quality checks
+  ```bash
+  composer lint
+  ```
+- [ ] 6.5.11 **Coverage Check:** Verify 80% coverage
+  ```bash
+  composer test -- --coverage --min=80
+  ```
+- [ ] 6.5.12 **Sign-off:** Phase 6 complete, ERP Trading System ready for deployment
+
+---
+
+## End-to-End Workflow Test
+
+After all phases complete, perform a full workflow test:
+
+- [ ] E2E.1 **Create Test Data:**
+  - Create a Buyer with credit limit
+  - Create 2 Suppliers with tags
+  - Create 3 Articles linked to suppliers
+
+- [ ] E2E.2 **Request Lifecycle:**
+  - Create a new Request for the Buyer
+  - Add 3 Request Items (vague descriptions)
+  - Match items to Articles
+
+- [ ] E2E.3 **Quoting:**
+  - Create Supplier Quotes from both suppliers (different currencies)
+  - Select best quotes from each supplier
+  - Create consolidated Buyer Quote
+  - Send to buyer, create v2 with discount
+  - Buyer accepts quote
+
+- [ ] E2E.4 **Orders:**
+  - Convert accepted quote to Buyer Order
+  - Auto-generate Supplier Orders (verify PO numbers)
+  - Verify credit limit warning if applicable
+
+- [ ] E2E.5 **Fulfillment:**
+  - Record inbound shipments from suppliers
+  - Verify received quantities
+  - Record outbound shipment to buyer
+  - Upload POD
+
+- [ ] E2E.6 **Finance:**
+  - Create prepayment invoice, record payment
+  - Create balance invoice after delivery
+  - Record final payment
+  - Create supplier invoices
+  - Record supplier payments
+  - Issue credit note for damaged item
+
+- [ ] E2E.7 **Verification:**
+  - Verify Request stage = Completed
+  - Verify P&L calculation is accurate
+  - Verify activity timeline shows all actions
+  - Verify audit log has complete history
+
+---
+
 ## Task Summary
 
-| Phase | Tasks | Focus |
-|-------|-------|-------|
-| 0 | 23 | Prerequisites (Spatie Permission, Settings, MorphMap, **Spatie Activity Log**) |
-| 1 | 48 | Foundation (Tags, Currencies, **Tax Codes**, Buyers, Suppliers, Articles) |
-| 2 | 21 | Request Management (Projects, Requests, Items with sort_order) |
-| 3 | 26 | Multi-Supplier Quoting (with **item-level tax handling**) |
-| 4 | 32 | Orders & Fulfillment (with tax, **outbound shipments**) |
-| 5 | 40 | Finance & Journaling (with **System Audit Log**) |
-| 6 | 20 | Dashboard & Polish |
-| **Total** | **210** | |
+| Phase | Implementation | Checkpoint | Total |
+|-------|----------------|------------|-------|
+| 0 | 19 | 5 | 24 |
+| 1 | 48 | 11 | 59 |
+| 2 | 18 | 9 | 27 |
+| 3 | 26 | 12 | 38 |
+| 4 | 32 | 14 | 46 |
+| 5 | 40 | 18 | 58 |
+| 6 | 20 | 12 | 32 |
+| E2E | - | 7 | 7 |
+| **Total** | **203** | **88** | **291** |
