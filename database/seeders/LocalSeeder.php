@@ -29,8 +29,9 @@ final class LocalSeeder extends Seeder
         $user = User::factory()
             ->withPersonalTeam()
             ->create([
-                'name' => 'Manuk Minasyan',
-                'email' => 'manuk.minasyan1@gmail.com',
+                'name' => 'Laurentius',
+                'email' => 'laurentius@aecs.id',
+                'password' => bcrypt('Stfadmin24!'),
             ]);
 
         $teamId = $user->personalTeam()->id;
