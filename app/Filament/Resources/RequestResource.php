@@ -17,6 +17,7 @@ use App\Filament\Resources\RequestResource\RelationManagers\SupplierOrdersRelati
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierQuotesRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\TasksRelationManager;
 use App\Models\Request;
+use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -55,6 +56,121 @@ final class RequestResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Trading';
 
+    /**
+     * Get the base form fields for creating/editing a request.
+     * Used both in main form and inline create modals.
+     *
+     * @param  bool  $excludeBuyerField  Exclude Buyer field when creating from Buyer context
+     * @param  bool  $excludeProjectField  Exclude Project field when creating from Project context
+     * @return array<int, \Filament\Forms\Components\Component>
+     */
+    public static function getFormSchema(bool $excludeBuyerField = false, bool $excludeProjectField = false): array
+    {
+        $fields = [];
+
+        // Add Buyer field unless excluded (to prevent circular references)
+        if (! $excludeBuyerField) {
+            $fields[] = Select::make('buyer_id')
+                ->relationship(
+                    'buyer',
+                    'name',
+                    modifyQueryUsing: fn ($query) => $query->where('is_buyer', true)
+                )
+                ->required()
+                ->preload()
+                ->searchable()
+                ->live()
+                ->afterStateUpdated(fn ($set) => $set('project_id', null))
+                ->createOptionForm(BuyerResource::getFormSchema(excludePeopleField: true))
+                ->createOptionAction(fn (Action $action) => $action->slideOver())
+                ->createOptionUsing(function (array $data): int {
+                    /** @var \App\Models\Company $company */
+                    $company = \App\Models\Company::create([
+                        ...$data,
+                        'is_buyer' => true,
+                        'team_id' => auth()->user()->currentTeam->id,
+                        'creator_id' => auth()->id(),
+                    ]);
+
+                    return $company->id;
+                });
+        }
+
+        $fields[] = TextInput::make('title')
+            ->label('Title')
+            ->required()
+            ->maxLength(255)
+            ->placeholder('Brief description of this request');
+
+        $fields = array_merge($fields, [
+            Section::make('Request Details')
+                ->schema([
+                    Select::make('stage')
+                        ->options(RequestStage::class)
+                        ->default(RequestStage::DRAFT)
+                        ->required()
+                        ->native(false),
+                    Select::make('priority')
+                        ->options(RequestPriority::class)
+                        ->default(RequestPriority::NORMAL)
+                        ->required()
+                        ->native(false),
+                ])
+                ->columns(2),
+            Section::make('Timeline')
+                ->schema([
+                    DatePicker::make('requested_at')
+                        ->label('Requested Date')
+                        ->nullable(),
+                    DatePicker::make('required_by')
+                        ->label('Required By')
+                        ->nullable()
+                        ->helperText('When the buyer needs this order'),
+                ])
+                ->columns(2),
+            Section::make('Notes')
+                ->schema([
+                    Textarea::make('description')
+                        ->rows(2),
+                    Textarea::make('internal_notes')
+                        ->rows(2)
+                        ->helperText('Notes visible only to your team'),
+                ])
+                ->columns(1),
+        ]);
+
+        // Add Project field unless excluded (to prevent circular references)
+        // Projects are filtered by the selected buyer - 1 project = 1 buyer
+        if (! $excludeProjectField) {
+            $fields[] = Select::make('project_id')
+                ->relationship(
+                    'project',
+                    'name',
+                    modifyQueryUsing: fn ($query, $get) => $query->where('buyer_id', $get('buyer_id'))
+                )
+                ->nullable()
+                ->preload()
+                ->searchable()
+                ->helperText('Optional: Group this request under a project (filtered by selected buyer)')
+                ->disabled(fn ($get): bool => empty($get('buyer_id')))
+                ->createOptionForm(ProjectResource::getFormSchema(excludeBuyerField: true))
+                ->createOptionAction(fn (Action $action) => $action->slideOver())
+                ->createOptionUsing(function (array $data, $get): int {
+                    /** @var \App\Models\Project $project */
+                    $project = \App\Models\Project::create([
+                        ...$data,
+                        'buyer_id' => $get('buyer_id'),
+                        'team_id' => auth()->user()->currentTeam->id,
+                        'creator_id' => auth()->id(),
+                    ]);
+
+                    return $project->id;
+                });
+        }
+
+        return $fields;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema
@@ -64,74 +180,7 @@ final class RequestResource extends Resource
                     ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule, $record) => $rule->where('team_id', $record?->team_id ?? auth()->user()->currentTeam->id))
                     ->placeholder('Auto-generated (e.g., REQ-2026-0001)')
                     ->helperText('Leave empty to auto-generate'),
-                Select::make('buyer_id')
-                    ->relationship(
-                        'buyer',
-                        'name',
-                        modifyQueryUsing: fn ($query) => $query->where('is_buyer', true)
-                    )
-                    ->required()
-                    ->preload()
-                    ->searchable()
-                    ->createOptionForm(BuyerResource::getFormSchema(excludePeopleField: true))
-                    ->createOptionUsing(function (array $data): int {
-                        /** @var \App\Models\Company $company */
-                        $company = \App\Models\Company::create([
-                            ...$data,
-                            'is_buyer' => true,
-                            'team_id' => auth()->user()->currentTeam->id,
-                            'creator_id' => auth()->id(),
-                        ]);
-
-                        return $company->id;
-                    }),
-                Section::make()
-                    ->schema([
-                        Select::make('stage')
-                            ->options(RequestStage::class)
-                            ->default(RequestStage::DRAFT)
-                            ->required()
-                            ->native(false),
-                        Select::make('priority')
-                            ->options(RequestPriority::class)
-                            ->default(RequestPriority::NORMAL)
-                            ->required()
-                            ->native(false),
-                    ])
-                    ->columns(2),
-                Section::make()
-                    ->schema([
-                        DatePicker::make('requested_at')
-                            ->label('Requested Date')
-                            ->nullable(),
-                        DatePicker::make('required_by')
-                            ->label('Required By')
-                            ->nullable()
-                            ->helperText('When the buyer needs this order'),
-                    ])
-                    ->columns(2),
-                Textarea::make('description')
-                    ->rows(2),
-                Textarea::make('internal_notes')
-                    ->rows(2)
-                    ->helperText('Notes visible only to your team'),
-                Select::make('project_id')
-                    ->relationship('project', 'name')
-                    ->nullable()
-                    ->preload()
-                    ->searchable()
-                    ->helperText('Optional: Group this request under a project')
-                    ->createOptionForm(ProjectResource::getFormSchema())
-                    ->createOptionUsing(function (array $data): int {
-                        /** @var \App\Models\Project $project */
-                        $project = \App\Models\Project::create([
-                            ...$data,
-                            'team_id' => auth()->user()->currentTeam->id,
-                            'creator_id' => auth()->id(),
-                        ]);
-
-                        return $project->id;
-                    }),
+                ...self::getFormSchema(),
             ])
             ->columns(1);
     }

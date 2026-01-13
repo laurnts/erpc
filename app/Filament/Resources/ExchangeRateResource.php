@@ -34,44 +34,69 @@ final class ExchangeRateResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Settings';
 
+    /**
+     * Get the base form fields for creating/editing an exchange rate.
+     * Used both in main form and inline create modals.
+     *
+     * @return array<int, \Filament\Forms\Components\Component>
+     */
+    public static function getFormSchema(): array
+    {
+        return [
+            Select::make('from_currency_id')
+                ->label('From Currency')
+                ->relationship(
+                    'fromCurrency',
+                    'name',
+                    modifyQueryUsing: fn ($query) => $query->where('is_active', true)
+                )
+                ->getOptionLabelFromRecordUsing(fn (Currency $record): string => "{$record->code} - {$record->name}")
+                ->required()
+                ->searchable()
+                ->preload()
+                ->createOptionForm(CurrencyResource::getFormSchema(excludeDefaultField: true))
+                ->createOptionUsing(function (array $data): int {
+                    /** @var Currency $currency */
+                    $currency = Currency::create($data);
+
+                    return $currency->id;
+                }),
+            Select::make('to_currency_id')
+                ->label('To Currency')
+                ->relationship(
+                    'toCurrency',
+                    'name',
+                    modifyQueryUsing: fn ($query) => $query->where('is_active', true)
+                )
+                ->getOptionLabelFromRecordUsing(fn (Currency $record): string => "{$record->code} - {$record->name}")
+                ->required()
+                ->searchable()
+                ->preload()
+                ->different('from_currency_id')
+                ->createOptionForm(CurrencyResource::getFormSchema(excludeDefaultField: true))
+                ->createOptionUsing(function (array $data): int {
+                    /** @var Currency $currency */
+                    $currency = Currency::create($data);
+
+                    return $currency->id;
+                }),
+            TextInput::make('rate')
+                ->required()
+                ->numeric()
+                ->minValue(0.0000000001)
+                ->step(0.0000000001)
+                ->helperText('Exchange rate from source to target currency'),
+            DatePicker::make('effective_date')
+                ->required()
+                ->default(now())
+                ->native(false),
+        ];
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema
-            ->components([
-                Select::make('from_currency_id')
-                    ->label('From Currency')
-                    ->options(fn () => Currency::query()
-                        ->where('is_active', true)
-                        ->get()
-                        ->mapWithKeys(fn (Currency $currency) => [
-                            $currency->id => $currency->code.' - '.$currency->name,
-                        ])
-                        ->all())
-                    ->required()
-                    ->searchable(),
-                Select::make('to_currency_id')
-                    ->label('To Currency')
-                    ->options(fn () => Currency::query()
-                        ->where('is_active', true)
-                        ->get()
-                        ->mapWithKeys(fn (Currency $currency) => [
-                            $currency->id => $currency->code.' - '.$currency->name,
-                        ])
-                        ->all())
-                    ->required()
-                    ->searchable()
-                    ->different('from_currency_id'),
-                TextInput::make('rate')
-                    ->required()
-                    ->numeric()
-                    ->minValue(0.0000000001)
-                    ->step(0.0000000001)
-                    ->helperText('Exchange rate from source to target currency'),
-                DatePicker::make('effective_date')
-                    ->required()
-                    ->default(now())
-                    ->native(false),
-            ])
+            ->components(self::getFormSchema())
             ->columns(1)
             ->inlineLabel();
     }

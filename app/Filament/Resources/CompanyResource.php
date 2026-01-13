@@ -24,7 +24,6 @@ use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Checkbox;
-use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -118,20 +117,27 @@ final class CompanyResource extends Resource
                 ->schema([
                     Select::make('default_currency_id')
                         ->label('Default Currency')
-                        ->options(fn () => Currency::query()
-                            ->where('is_active', true)
-                            ->get()
-                            ->mapWithKeys(fn (Currency $currency) => [
-                                $currency->id => $currency->code.' - '.$currency->name,
-                            ])
-                            ->all())
+                        ->relationship(
+                            'defaultCurrency',
+                            'name',
+                            modifyQueryUsing: fn ($query) => $query->where('is_active', true)
+                        )
+                        ->getOptionLabelFromRecordUsing(fn (Currency $record): string => "{$record->code} - {$record->name}")
                         ->default(function (): ?int {
                             $defaultCode = auth()->user()->currentTeam?->getErpSettings()->default_currency ?? 'USD';
 
                             return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
                         })
                         ->nullable()
-                        ->searchable(),
+                        ->searchable()
+                        ->preload()
+                        ->createOptionForm(CurrencyResource::getFormSchema(excludeDefaultField: true))
+                        ->createOptionUsing(function (array $data): int {
+                            /** @var \App\Models\Currency $currency */
+                            $currency = \App\Models\Currency::create($data);
+
+                            return $currency->id;
+                        }),
                     TextInput::make('payment_terms_days')
                         ->label('Default Payment Terms')
                         ->numeric()

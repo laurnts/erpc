@@ -523,7 +523,6 @@
 - [x] 6.4.3 Run Rector and Pint for code style
 - [x] 6.4.4 Add architecture tests for new ERP models
 - [ ] 6.4.5 Verify 80% code coverage
-- [ ] 6.4.6 Update README and documentation
 
 ### Phase 6 Checkpoint: Dashboard & Polish Validation
 - [ ] 6.5.1 **Browser Check:** Dashboard - View all widgets with data
@@ -563,61 +562,6 @@
 
 ---
 
-## End-to-End Workflow Test
-
-After all phases complete, perform a full workflow test:
-
-- [ ] E2E.1 **Create Test Data:**
-  - Create a Buyer with credit limit
-  - Create 2 Suppliers with tags
-  - Create 3 Articles linked to suppliers
-
-- [ ] E2E.2 **Request Lifecycle:**
-  - Create a new Request for the Buyer
-  - Add 3 Request Items (vague descriptions)
-  - Match items to Articles
-
-- [ ] E2E.3 **Quoting:**
-  - Create Supplier Quotes from both suppliers (different currencies)
-  - Select best quotes from each supplier
-  - Create consolidated Buyer Quote
-  - Send to buyer, create v2 with discount
-  - Buyer accepts quote
-
-- [ ] E2E.4 **Orders:**
-  - Convert accepted quote to Buyer Order
-  - Auto-generate Supplier Orders (verify PO numbers)
-  - Verify credit limit warning if applicable
-
-- [ ] E2E.5 **Fulfillment:**
-  - Record inbound shipments from suppliers
-  - Verify received quantities
-  - Record outbound shipment to buyer
-  - Upload POD
-
-- [ ] E2E.6 **Finance:**
-  - Create prepayment invoice, record payment
-  - Create balance invoice after delivery
-  - Record final payment
-  - Create supplier invoices
-  - Record supplier payments
-  - Issue credit note for damaged item
-
-- [ ] E2E.7 **Verification:**
-  - Verify Request stage = Completed
-  - Verify P&L calculation is accurate
-  - Verify activity timeline shows all actions
-  - Verify audit log has complete history
-
-- [ ] E2E.8 **UI Consistency Check:**
-  - Verify all screens follow `.claude/skills/ui-components/SKILL.md` composition hierarchy
-  - No raw Tailwind where Filament/Blade components exist
-  - All forms use proper Section grouping
-  - All status fields use `->badge()` with semantic colors
-  - Dark mode works correctly across all views
-
----
-
 ## Task Summary
 
 | Phase | Implementation | Checkpoint | Total |
@@ -628,6 +572,5 @@ After all phases complete, perform a full workflow test:
 | 3 | 26 | 13 | 39 |
 | 4 | 32 | 15 | 47 |
 | 5 | 40 | 19 | 59 |
-| 6 | 20 | 14 | 34 |
-| E2E | - | 8 | 8 |
-| **Total** | **203** | **97** | **300** |
+| 6 | 19 | 14 | 33 |
+| **Total** | **202** | **89** | **291** |

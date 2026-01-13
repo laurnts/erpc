@@ -17,7 +17,6 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -45,56 +44,67 @@ final class ArticleResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
 
+    /**
+     * Get the base form fields for creating/editing an article.
+     * Used both in main form and inline create modals.
+     *
+     * @return array<int, \Filament\Forms\Components\Component>
+     */
+    public static function getFormSchema(): array
+    {
+        return [
+            TextInput::make('name')
+                ->label('Article Name')
+                ->required()
+                ->maxLength(255),
+            TextInput::make('sku')
+                ->label('SKU (Optional)')
+                ->maxLength(255),
+            TextInput::make('unit')
+                ->label('Unit of Measure')
+                ->required()
+                ->maxLength(50)
+                ->default('pcs')
+                ->helperText('e.g., pcs, kg, ltr, set, box'),
+            Select::make('tags')
+                ->label('Categories')
+                ->relationship('tags', 'name')
+                ->multiple()
+                ->preload()
+                ->searchable()
+                ->createOptionForm(TagResource::getFormSchema())
+                ->createOptionUsing(function (array $data): int {
+                    /** @var Tag $tag */
+                    $tag = Tag::create([
+                        'name' => $data['name'],
+                        'color' => $data['color'],
+                        'description' => $data['description'] ?? null,
+                        'team_id' => auth()->user()->currentTeam->id,
+                        'creator_id' => auth()->id(),
+                    ]);
+
+                    return $tag->id;
+                }),
+            Textarea::make('description')
+                ->maxLength(2000)
+                ->rows(3),
+            Section::make('Custom Attributes')
+                ->schema([
+                    KeyValue::make('attributes')
+                        ->label('')
+                        ->keyLabel('Attribute Name')
+                        ->valueLabel('Value')
+                        ->addActionLabel('Add Attribute'),
+                ])
+                ->collapsible()
+                ->collapsed(),
+        ];
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema
-            ->components([
-                TextInput::make('name')
-                    ->label('Article Name')
-                    ->required()
-                    ->maxLength(255),
-                TextInput::make('sku')
-                    ->label('SKU (Optional)')
-                    ->maxLength(255),
-                TextInput::make('unit')
-                    ->label('Unit of Measure')
-                    ->required()
-                    ->maxLength(50)
-                    ->default('pcs')
-                    ->helperText('e.g., pcs, kg, ltr, set, box'),
-                Select::make('tags')
-                    ->label('Categories')
-                    ->relationship('tags', 'name')
-                    ->multiple()
-                    ->preload()
-                    ->searchable()
-                    ->createOptionForm(TagResource::getFormSchema())
-                    ->createOptionUsing(function (array $data): int {
-                        /** @var Tag $tag */
-                        $tag = Tag::create([
-                            'name' => $data['name'],
-                            'color' => $data['color'],
-                            'description' => $data['description'] ?? null,
-                            'team_id' => auth()->user()->currentTeam->id,
-                            'creator_id' => auth()->id(),
-                        ]);
-
-                        return $tag->id;
-                    }),
-                Textarea::make('description')
-                    ->maxLength(2000)
-                    ->rows(3),
-                Section::make('Custom Attributes')
-                    ->schema([
-                        KeyValue::make('attributes')
-                            ->label('')
-                            ->keyLabel('Attribute Name')
-                            ->valueLabel('Value')
-                            ->addActionLabel('Add Attribute'),
-                    ])
-                    ->collapsible()
-                    ->collapsed(),
-            ])
+            ->components(self::getFormSchema())
             ->columns(1);
     }
 

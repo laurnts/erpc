@@ -7,6 +7,7 @@ namespace App\Filament\Resources;
 use App\Enums\ProjectStatus;
 use App\Filament\Resources\ProjectResource\Pages\ListProjects;
 use App\Models\Project;
+use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -43,11 +44,9 @@ final class ProjectResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document-list';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 2;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Trading';
-
-    protected static bool $shouldRegisterNavigation = false;
 
     /**
      * Get the base form fields for creating/editing a project.
@@ -58,18 +57,17 @@ final class ProjectResource extends Resource
      */
     public static function getFormSchema(bool $excludeBuyerField = false): array
     {
-        $basicFields = [
+        $fields = [
             TextInput::make('name')
                 ->required()
                 ->maxLength(255),
             Textarea::make('description')
-                ->rows(3)
-                ->columnSpanFull(),
+                ->rows(2),
         ];
 
         // Add Buyer field unless excluded
         if (! $excludeBuyerField) {
-            $basicFields[] = Select::make('buyer_id')
+            $fields[] = Select::make('buyer_id')
                 ->relationship(
                     'buyer',
                     'name',
@@ -81,6 +79,7 @@ final class ProjectResource extends Resource
                 ->searchable()
                 ->helperText('Optional: Link this project to a buyer')
                 ->createOptionForm(BuyerResource::getFormSchema(excludePeopleField: true))
+                ->createOptionAction(fn (Action $action) => $action->slideOver())
                 ->createOptionUsing(function (array $data): int {
                     /** @var \App\Models\Company $company */
                     $company = \App\Models\Company::create([
@@ -94,11 +93,8 @@ final class ProjectResource extends Resource
                 });
         }
 
-        return [
-            Section::make('Basic Information')
-                ->schema($basicFields)
-                ->columns(2),
-            Section::make('Schedule')
+        $fields = array_merge($fields, [
+            Section::make('Timeline')
                 ->schema([
                     DatePicker::make('start_date')
                         ->label('Start Date'),
@@ -118,43 +114,39 @@ final class ProjectResource extends Resource
                         ->default(true)
                         ->helperText('Inactive projects will not appear in selection lists'),
                 ])
-                ->columns(2),
+                ->columns(1),
             Section::make('Additional Information')
                 ->schema([
                     Textarea::make('notes')
-                        ->rows(3),
+                        ->rows(2),
+                    CustomFields::form()->build(),
                 ])
                 ->columns(1),
-            CustomFields::form()->build()->columns(1),
-        ];
+        ]);
+
+        return $fields;
     }
 
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->components([
-                Section::make('Basic Information')
-                    ->schema([
-                        TextInput::make('project_number')
-                            ->maxLength(50)
-                            ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule, $record) => $rule->where('team_id', $record?->team_id ?? auth()->user()->currentTeam->id))
-                            ->placeholder('Auto-generated (e.g., PRJ-2026-0001)')
-                            ->helperText('Leave empty to auto-generate'),
-                    ])
-                    ->columns(2),
+                TextInput::make('project_number')
+                    ->maxLength(50)
+                    ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule, $record) => $rule->where('team_id', $record?->team_id ?? auth()->user()->currentTeam->id))
+                    ->placeholder('Auto-generated (e.g., PRJ-2026-0001)')
+                    ->helperText('Leave empty to auto-generate'),
                 ...self::getFormSchema(),
-                Section::make('Information')
-                    ->schema([
-                        Placeholder::make('created_at')
-                            ->label('Created')
-                            ->content(fn (?Project $record): string => $record?->created_at?->diffForHumans() ?? '-'),
-                        Placeholder::make('updated_at')
-                            ->label('Last Modified')
-                            ->content(fn (?Project $record): string => $record?->updated_at?->diffForHumans() ?? '-'),
-                    ])
-                    ->columns(2)
+                Placeholder::make('created_at')
+                    ->label('Created')
+                    ->content(fn (?Project $record): string => $record?->created_at?->diffForHumans() ?? '-')
                     ->hiddenOn('create'),
-            ]);
+                Placeholder::make('updated_at')
+                    ->label('Last Modified')
+                    ->content(fn (?Project $record): string => $record?->updated_at?->diffForHumans() ?? '-')
+                    ->hiddenOn('create'),
+            ])
+            ->columns(1);
     }
 
     public static function table(Table $table): Table

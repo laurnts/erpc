@@ -21,7 +21,6 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -58,114 +57,143 @@ final class SupplierResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
 
+    /**
+     * Get the base form fields for creating/editing a supplier.
+     * Used both in main form and inline create modals.
+     *
+     * @param  bool  $excludePeopleField  Exclude People field to prevent circular references
+     * @return array<int, \Filament\Forms\Components\Component>
+     */
+    public static function getFormSchema(bool $excludePeopleField = false): array
+    {
+        $fields = [
+            Hidden::make('is_supplier')->default(true),
+
+            TextInput::make('name')
+                ->label('Company Name')
+                ->required()
+                ->maxLength(255),
+
+            Select::make('tags')
+                ->label('Categories')
+                ->relationship('tags', 'name')
+                ->multiple()
+                ->preload()
+                ->searchable()
+                ->helperText('What products/services they supply')
+                ->createOptionForm(TagResource::getFormSchema())
+                ->createOptionUsing(function (array $data): int {
+                    /** @var Tag $tag */
+                    $tag = Tag::create([
+                        'name' => $data['name'],
+                        'color' => $data['color'],
+                        'description' => $data['description'] ?? null,
+                        'team_id' => auth()->user()->currentTeam->id,
+                        'creator_id' => auth()->id(),
+                    ]);
+
+                    return $tag->id;
+                }),
+        ];
+
+        // Add People field unless excluded (to prevent circular references)
+        if (! $excludePeopleField) {
+            $fields[] = Select::make('people')
+                ->label('People / Contacts')
+                ->relationship('people', 'name')
+                ->multiple()
+                ->preload()
+                ->searchable()
+                ->helperText('Add people associated with this supplier')
+                ->createOptionForm(PeopleResource::getFormSchema(excludeCompaniesField: true))
+                ->createOptionUsing(function (array $data): int {
+                    /** @var People $person */
+                    $person = People::create([
+                        ...$data,
+                        'team_id' => auth()->user()->currentTeam->id,
+                        'creator_id' => auth()->id(),
+                    ]);
+
+                    return $person->id;
+                });
+        }
+
+        $fields = array_merge($fields, [
+            Section::make('Location')
+                ->schema([
+                    TextInput::make('country')
+                        ->maxLength(100),
+                    Textarea::make('address')
+                        ->label('Address')
+                        ->rows(2),
+                ])
+                ->columns(1),
+            Section::make('Financial Settings')
+                ->schema([
+                    Select::make('default_currency_id')
+                        ->label('Default Currency')
+                        ->relationship(
+                            'defaultCurrency',
+                            'name',
+                            modifyQueryUsing: fn ($query) => $query->where('is_active', true)
+                        )
+                        ->getOptionLabelFromRecordUsing(fn (Currency $record): string => "{$record->code} - {$record->name}")
+                        ->default(function (): ?int {
+                            $defaultCode = auth()->user()->currentTeam?->getErpSettings()->default_currency ?? 'USD';
+
+                            return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
+                        })
+                        ->nullable()
+                        ->searchable()
+                        ->preload()
+                        ->createOptionForm(CurrencyResource::getFormSchema(excludeDefaultField: true))
+                        ->createOptionUsing(function (array $data): int {
+                            /** @var Currency $currency */
+                            $currency = Currency::create($data);
+
+                            return $currency->id;
+                        }),
+                    TextInput::make('payment_terms_days')
+                        ->label('Default Payment Terms')
+                        ->numeric()
+                        ->default(30)
+                        ->minValue(0)
+                        ->suffix('days'),
+                    TextInput::make('lead_time_days')
+                        ->label('Default Lead Time')
+                        ->numeric()
+                        ->default(14)
+                        ->minValue(0)
+                        ->suffix('days'),
+                ])
+                ->columns(1),
+            Section::make('Additional Information')
+                ->schema([
+                    Textarea::make('notes')
+                        ->label('Notes')
+                        ->rows(2),
+                    Toggle::make('is_active')
+                        ->label('Active')
+                        ->default(true),
+                    CustomFields::form()->build(),
+                ])
+                ->columns(1),
+        ]);
+
+        return $fields;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->components([
-                Hidden::make('is_supplier')->default(true),
-
-                TextInput::make('name')
-                    ->label('Company Name')
-                    ->required()
-                    ->maxLength(255),
                 TextInput::make('code')
                     ->label('Code')
                     ->disabled()
                     ->dehydrated(false)
                     ->placeholder('Auto-generated (e.g., CMP-0001)'),
 
-                Select::make('tags')
-                    ->label('Categories')
-                    ->relationship('tags', 'name')
-                    ->multiple()
-                    ->preload()
-                    ->searchable()
-                    ->helperText('What products/services they supply')
-                    ->createOptionForm(TagResource::getFormSchema())
-                    ->createOptionUsing(function (array $data): int {
-                        /** @var Tag $tag */
-                        $tag = Tag::create([
-                            'name' => $data['name'],
-                            'color' => $data['color'],
-                            'description' => $data['description'] ?? null,
-                            'team_id' => auth()->user()->currentTeam->id,
-                            'creator_id' => auth()->id(),
-                        ]);
-
-                        return $tag->id;
-                    }),
-
-                Select::make('people')
-                    ->label('People / Contacts')
-                    ->relationship('people', 'name')
-                    ->multiple()
-                    ->preload()
-                    ->searchable()
-                    ->helperText('Add people associated with this supplier')
-                    ->createOptionForm(PeopleResource::getFormSchema(excludeCompaniesField: true))
-                    ->createOptionUsing(function (array $data): int {
-                        /** @var People $person */
-                        $person = People::create([
-                            ...$data,
-                            'team_id' => auth()->user()->currentTeam->id,
-                            'creator_id' => auth()->id(),
-                        ]);
-
-                        return $person->id;
-                    }),
-
-                Section::make('Location')
-                    ->schema([
-                        TextInput::make('country')
-                            ->maxLength(100),
-                        Textarea::make('address')
-                            ->label('Address')
-                            ->rows(2),
-                    ])
-                    ->columns(2),
-
-                Section::make('Financial Settings')
-                    ->schema([
-                        Select::make('default_currency_id')
-                            ->label('Default Currency')
-                            ->options(fn () => Currency::query()
-                                ->where('is_active', true)
-                                ->get()
-                                ->mapWithKeys(fn (Currency $currency) => [
-                                    $currency->id => $currency->code.' - '.$currency->name,
-                                ])
-                                ->all())
-                            ->default(function (): ?int {
-                                $defaultCode = auth()->user()->currentTeam?->getErpSettings()->default_currency ?? 'USD';
-
-                                return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
-                            })
-                            ->nullable()
-                            ->searchable(),
-                        TextInput::make('payment_terms_days')
-                            ->label('Default Payment Terms')
-                            ->numeric()
-                            ->default(30)
-                            ->minValue(0)
-                            ->suffix('days'),
-                        TextInput::make('lead_time_days')
-                            ->label('Default Lead Time')
-                            ->numeric()
-                            ->default(14)
-                            ->minValue(0)
-                            ->suffix('days'),
-                    ])
-                    ->columns(3),
-
-                Textarea::make('notes')
-                    ->label('Notes')
-                    ->rows(3),
-
-                Toggle::make('is_active')
-                    ->label('Active')
-                    ->default(true),
-
-                CustomFields::form()->forSchema($schema)->build()->columns(1),
+                ...self::getFormSchema(),
             ])
             ->columns(1);
     }

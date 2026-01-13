@@ -25,7 +25,10 @@ final class ListProjects extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make()->icon('heroicon-o-plus')->size(Size::Small),
+            CreateAction::make()
+                ->icon('heroicon-o-plus')
+                ->size(Size::Small)
+                ->slideOver(),
         ];
     }
 }

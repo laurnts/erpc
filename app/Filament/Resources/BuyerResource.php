@@ -21,7 +21,6 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -127,26 +126,32 @@ final class BuyerResource extends Resource
                         ->label('Address')
                         ->rows(2),
                 ])
-                ->columns(2),
-
+                ->columns(1),
             Section::make('Financial Settings')
                 ->schema([
                     Select::make('default_currency_id')
                         ->label('Default Currency')
-                        ->options(fn () => Currency::query()
-                            ->where('is_active', true)
-                            ->get()
-                            ->mapWithKeys(fn (Currency $currency) => [
-                                $currency->id => $currency->code.' - '.$currency->name,
-                            ])
-                            ->all())
+                        ->relationship(
+                            'defaultCurrency',
+                            'name',
+                            modifyQueryUsing: fn ($query) => $query->where('is_active', true)
+                        )
+                        ->getOptionLabelFromRecordUsing(fn (Currency $record): string => "{$record->code} - {$record->name}")
                         ->default(function (): ?int {
                             $defaultCode = auth()->user()->currentTeam?->getErpSettings()->default_currency ?? 'USD';
 
                             return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
                         })
                         ->nullable()
-                        ->searchable(),
+                        ->searchable()
+                        ->preload()
+                        ->createOptionForm(CurrencyResource::getFormSchema(excludeDefaultField: true))
+                        ->createOptionUsing(function (array $data): int {
+                            /** @var Currency $currency */
+                            $currency = Currency::create($data);
+
+                            return $currency->id;
+                        }),
                     TextInput::make('payment_terms_days')
                         ->label('Default Payment Terms')
                         ->numeric()
@@ -160,8 +165,7 @@ final class BuyerResource extends Resource
                         ->preload()
                         ->searchable(),
                 ])
-                ->columns(3),
-
+                ->columns(1),
             Section::make('Credit Settings')
                 ->schema([
                     TextInput::make('credit_limit')
@@ -177,17 +181,18 @@ final class BuyerResource extends Resource
                         ->rows(2)
                         ->visible(fn ($get): bool => (bool) $get('is_on_hold')),
                 ])
-                ->columns(2),
-
-            Textarea::make('notes')
-                ->label('Notes')
-                ->rows(3),
-
-            Toggle::make('is_active')
-                ->label('Active')
-                ->default(true),
-
-            CustomFields::form()->build()->columns(1),
+                ->columns(1),
+            Section::make('Additional Information')
+                ->schema([
+                    Textarea::make('notes')
+                        ->label('Notes')
+                        ->rows(2),
+                    Toggle::make('is_active')
+                        ->label('Active')
+                        ->default(true),
+                    CustomFields::form()->build(),
+                ])
+                ->columns(1),
         ]);
 
         return $fields;

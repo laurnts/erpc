@@ -141,8 +141,9 @@ The system SHALL maintain form consistency across ERP entity relationships.
 #### Scenario: Requests → Projects Inline Create
 - **WHEN** user creates a Request and clicks (+) on Project field
 - **THEN** inline Project form matches Project → Create Project form
-- **AND** all Project fields including Schedule, Status, Notes are shown
-- **AND** created Project is linked to the Request
+- **AND** all Project fields including Timeline (2 columns), Status, Notes are shown
+- **AND** Buyer field is excluded (auto-inherited from Request's buyer_id)
+- **AND** created Project is linked to the Request with buyer_id auto-set
 
 ### Requirement: Tags/Categories Inline Forms
 The system SHALL support consistent Tag/Category inline creates across multiple resources.
@@ -152,6 +153,35 @@ The system SHALL support consistent Tag/Category inline creates across multiple 
 - **THEN** inline Tag form shows: Category Name, Color, Description
 - **AND** uses `TagResource::getFormSchema()` for consistency
 - **AND** created Tag is linked to the entity via taggables pivot
+
+### Requirement: Currency/ExchangeRate Inline Forms
+The system SHALL support consistent Currency inline creates across financial resources.
+
+#### Scenario: Company → Currency Inline Create
+- **WHEN** user creates a Company and clicks (+) on Default Currency field
+- **THEN** inline Currency form shows: Code, Name, Symbol, Decimal Places, Is Active
+- **AND** is_default field is excluded (should only be set via main form)
+- **AND** uses `CurrencyResource::getFormSchema(excludeDefaultField: true)` for consistency
+
+#### Scenario: Buyer → Currency Inline Create
+- **WHEN** user creates a Buyer and clicks (+) on Default Currency field
+- **THEN** inline Currency form matches Currency main form (minus is_default)
+- **AND** created Currency is set as the Buyer's default currency
+
+#### Scenario: Supplier → Currency Inline Create
+- **WHEN** user creates a Supplier and clicks (+) on Default Currency field
+- **THEN** inline Currency form matches Currency main form (minus is_default)
+- **AND** created Currency is set as the Supplier's default currency
+
+#### Scenario: ExchangeRate → Currency Inline Create
+- **WHEN** user creates an ExchangeRate and clicks (+) on From/To Currency field
+- **THEN** inline Currency form matches Currency main form (minus is_default)
+- **AND** created Currency is available for selection in the exchange rate form
+
+#### Scenario: Global Entity Inline Creation
+- **WHEN** a global entity (like Currency) is created via inline (+) button
+- **THEN** team_id is NOT required (entity is global)
+- **AND** the entity is immediately available across all teams
 
 ### Requirement: Inline Form Field Consistency
 The system SHALL ensure inline forms match main forms exactly (with allowed exceptions).
@@ -167,7 +197,74 @@ The system SHALL ensure inline forms match main forms exactly (with allowed exce
 - **AND** getFormSchema() does not include auto-generated fields
 
 #### Scenario: Team Scoping in Inline Creates
-- **WHEN** a record is created via inline (+) button
+- **WHEN** a team-scoped record is created via inline (+) button
 - **THEN** team_id is set to auth()->user()->currentTeam->id
 - **AND** creator_id is set to auth()->id()
+
+#### Scenario: Global Entity Scoping
+- **WHEN** a global entity (e.g., Currency) is created via inline (+) button
+- **THEN** no team_id is required
+- **AND** the entity is available across all teams immediately
+
+### Requirement: Buyer-Project Business Constraint
+The system SHALL enforce that each project belongs to exactly one buyer (1 Project = 1 Buyer).
+
+#### Scenario: Project-Buyer Ownership
+- **WHEN** a Project is created
+- **THEN** it MAY have exactly one associated Buyer (or none)
+- **AND** once assigned, the Buyer represents the single customer for that project
+- **AND** all Requests under this Project are for the same Buyer
+
+#### Scenario: Request Project Filtering
+- **WHEN** user creates a Request and selects a Buyer
+- **THEN** the Project dropdown only shows Projects belonging to that Buyer
+- **AND** Projects belonging to other Buyers are not visible
+- **AND** if no Projects exist for the Buyer, the dropdown shows "No options"
+
+#### Scenario: Request Buyer Change Resets Project
+- **WHEN** user changes the Buyer selection on a Request form
+- **THEN** the Project field is reset to null
+- **AND** the Project dropdown is refreshed to show Projects for the new Buyer
+
+#### Scenario: Project Field Disabled Until Buyer Selected
+- **WHEN** user creates a Request and Buyer is not yet selected
+- **THEN** the Project field is disabled
+- **AND** the Project field becomes enabled after Buyer is selected
+
+#### Scenario: Inline Project Inherits Buyer
+- **WHEN** user creates a Request, selects a Buyer, and clicks (+) on Project
+- **THEN** the inline Project form does NOT show the Buyer field
+- **AND** the created Project automatically inherits buyer_id from the Request form
+- **AND** the new Project appears in the filtered Project dropdown
+
+### Requirement: Reactive Field Dependencies
+The system SHALL support reactive field updates based on other field changes.
+
+#### Scenario: Live Field Updates
+- **WHEN** a Select field has ->live() modifier
+- **THEN** changes trigger immediate form re-render
+- **AND** dependent fields can react to the change via ->afterStateUpdated()
+
+#### Scenario: Conditional Field Filtering
+- **WHEN** a child Select uses modifyQueryUsing with $get()
+- **THEN** the query dynamically filters based on parent field value
+- **AND** options update when parent field changes
+
+#### Scenario: Conditional Field Disabling
+- **WHEN** a field has ->disabled(fn ($get) => condition)
+- **THEN** the field is disabled when condition returns true
+- **AND** the field becomes enabled when condition returns false
+
+### Requirement: Form Section Layouts
+The system SHALL support organized form layouts using Section components.
+
+#### Scenario: Section with Multi-Column Layout
+- **WHEN** a Section has ->columns(2)
+- **THEN** fields within the section are displayed side-by-side
+- **AND** the layout is responsive
+
+#### Scenario: Filament 4 Section Import
+- **WHEN** using Section components
+- **THEN** import from `Filament\Schemas\Components\Section` (NOT `Filament\Forms\Components\Section`)
+- **AND** Section provides schema grouping with optional headers
 
