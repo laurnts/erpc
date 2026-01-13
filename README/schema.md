@@ -21,6 +21,7 @@
 | Team scoping | `HasTeam` trait | Add trait to all ERP models |
 | Creator tracking | `HasCreator` trait | Add trait to all ERP models |
 | Soft deletes | Laravel `SoftDeletes` | Add trait to business entities |
+| Company-People | `company_people` pivot table | Many-to-many relationship with role/primary flags |
 
 ### To Install
 
@@ -1322,18 +1323,167 @@ create_request_activities_table
 
 ## 16. CRM Integration Points
 
-### Buyer/Supplier → Company Link
+### Company-People Many-to-Many Relationship
+
+The CRM uses a many-to-many relationship between Companies and People via the `company_people` pivot table:
 
 ```php
-// Buyer model
-public function company(): BelongsTo
+Schema::create('company_people', function (Blueprint $table) {
+    $table->id();
+    $table->foreignId('company_id')->constrained()->cascadeOnDelete();
+    $table->foreignId('people_id')->constrained()->cascadeOnDelete();
+    $table->string('role')->nullable();        // Contact's role at company
+    $table->boolean('is_primary')->default(false); // Primary contact flag
+    $table->timestamps();
+
+    $table->unique(['company_id', 'people_id']);
+});
+```
+
+**Model Relationships:**
+
+```php
+// Company model
+public function people(): BelongsToMany
 {
-    return $this->belongsTo(Company::class);
+    return $this->belongsToMany(People::class, 'company_people')
+        ->withPivot(['role', 'is_primary'])
+        ->withTimestamps();
 }
 
-// Access CRM contacts via linked company
-$buyer->company?->people;
+// People model
+public function companies(): BelongsToMany
+{
+    return $this->belongsToMany(Company::class, 'company_people')
+        ->withPivot(['role', 'is_primary'])
+        ->withTimestamps();
+}
 ```
+
+### Buyer/Supplier as Company Views
+
+Buyers and Suppliers are implemented as filtered views of the Company model using `is_buyer` and `is_supplier` boolean flags:
+
+```php
+// BuyerResource uses Company model filtered by is_buyer
+protected static ?string $model = Company::class;
+
+public static function getEloquentQuery(): Builder
+{
+    return parent::getEloquentQuery()->where('is_buyer', true);
+}
+
+// SupplierResource uses Company model filtered by is_supplier
+protected static ?string $model = Company::class;
+
+public static function getEloquentQuery(): Builder
+{
+    return parent::getEloquentQuery()->where('is_supplier', true);
+}
+```
+
+This approach:
+- Avoids data duplication between CRM and ERP
+- Leverages existing Company-People relationships for contacts
+- Enables a company to be both a Buyer AND a Supplier
+
+### Reusable Form Schemas
+
+Resources use a shared `getFormSchema()` method for consistent forms across main forms and inline create modals:
+
+```php
+// PeopleResource
+public static function getFormSchema(bool $excludeCompaniesField = false): array
+{
+    $fields = [
+        TextInput::make('name')->required(),
+    ];
+
+    if (! $excludeCompaniesField) {
+        $fields[] = Select::make('companies')
+            ->relationship('companies', 'name')
+            ->multiple()
+            ->createOptionForm(CompanyResource::getFormSchema(excludePeopleField: true))
+            ->createOptionUsing(fn (array $data) => Company::create([...$data, ...])->id);
+    }
+
+    $fields[] = CustomFields::form()->build();  // Emails, Phone, Job Title, etc.
+
+    return $fields;
+}
+
+// Main form uses shared schema
+public static function form(Schema $schema): Schema
+{
+    return $schema->components([...self::getFormSchema()]);
+}
+```
+
+The `excludeCompaniesField`/`excludePeopleField` parameters prevent circular references in nested inline creates.
+
+### Article-Supplier Many-to-Many Relationship
+
+Articles and Suppliers have a many-to-many relationship via the `supplier_articles` pivot table:
+
+```php
+Schema::create('supplier_articles', function (Blueprint $table) {
+    $table->id();
+    $table->foreignId('supplier_id')->constrained('companies')->cascadeOnDelete();
+    $table->foreignId('article_id')->constrained('articles')->cascadeOnDelete();
+    $table->string('supplier_sku')->nullable();           // Supplier's part number
+    $table->decimal('last_quoted_price', 15, 4)->nullable();
+    $table->foreignId('last_quoted_currency_id')->nullable()->constrained('currencies')->nullOnDelete();
+    $table->timestamp('last_quoted_at')->nullable();
+    $table->integer('lead_time_days')->nullable();
+    $table->text('notes')->nullable();
+    $table->boolean('is_preferred')->default(false);      // Preferred supplier flag
+    $table->boolean('is_active')->default(true);
+    $table->timestamps();
+
+    $table->unique(['supplier_id', 'article_id']);
+});
+```
+
+**Model Relationships:**
+
+```php
+// Article model
+public function suppliers(): BelongsToMany
+{
+    return $this->belongsToMany(Company::class, 'supplier_articles', 'article_id', 'supplier_id')
+        ->where('is_supplier', true)
+        ->withPivot(['supplier_sku', 'last_quoted_price', 'lead_time_days', 'is_preferred'])
+        ->withTimestamps();
+}
+
+// Company model (Supplier view)
+public function articles(): BelongsToMany
+{
+    return $this->belongsToMany(Article::class, 'supplier_articles', 'supplier_id', 'article_id')
+        ->withPivot(['supplier_sku', 'last_quoted_price', 'lead_time_days', 'is_preferred'])
+        ->withTimestamps();
+}
+```
+
+### Inline Form Consistency Matrix
+
+All inline create forms must match their main forms. Use `getFormSchema()` pattern:
+
+| Parent Resource | Inline Field | Target Resource | Exclusion Parameter |
+|-----------------|--------------|-----------------|---------------------|
+| CompanyResource | People (+) | PeopleResource | `excludeCompaniesField: true` |
+| CompanyResource | Tags (+) | TagResource | (none) |
+| PeopleResource | Companies (+) | CompanyResource | `excludePeopleField: true` |
+| BuyerResource | People (+) | PeopleResource | `excludeCompaniesField: true` |
+| BuyerResource | Tags (+) | TagResource | (none) |
+| SupplierResource | People (+) | PeopleResource | `excludeCompaniesField: true` |
+| SupplierResource | Tags (+) | TagResource | (none) |
+| ArticleResource | Tags (+) | TagResource | (none) |
+| ProjectResource | Buyer (+) | BuyerResource | `excludePeopleField: true` |
+| RequestResource | Buyer (+) | BuyerResource | `excludePeopleField: true` |
+| RequestResource | Project (+) | ProjectResource | (none) |
+
+See `.claude/skills/inline-form-consistency/SKILL.md` for implementation details.
 
 ### ERP Entities in Tasks/Notes
 

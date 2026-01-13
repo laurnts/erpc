@@ -12,7 +12,6 @@ use App\Filament\Resources\PeopleResource\RelationManagers\NotesRelationManager;
 use App\Filament\Resources\PeopleResource\RelationManagers\TasksRelationManager;
 use App\Models\Company;
 use App\Models\People;
-use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -27,10 +26,7 @@ use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
-use Filament\Schemas\Components\Grid;
-use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
-use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -54,49 +50,56 @@ final class PeopleResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Workspace';
 
+    /**
+     * Get the base form fields for creating/editing a person.
+     * Used both in main form and inline create modals.
+     *
+     * @param  bool  $excludeCompaniesField  Exclude Companies field to prevent circular references
+     * @return array<int, \Filament\Forms\Components\Component>
+     */
+    public static function getFormSchema(bool $excludeCompaniesField = false): array
+    {
+        $fields = [
+            TextInput::make('name')
+                ->required()
+                ->maxLength(255),
+        ];
+
+        // Add Companies field unless excluded (to prevent circular references)
+        if (! $excludeCompaniesField) {
+            $fields[] = Select::make('companies')
+                ->label('Companies')
+                ->relationship('companies', 'name')
+                ->multiple()
+                ->preload()
+                ->searchable()
+                ->helperText('Assign this person to one or more companies')
+                ->createOptionForm(CompanyResource::getFormSchema(excludePeopleField: true))
+                ->createOptionUsing(function (array $data): int {
+                    /** @var Company $company */
+                    $company = Company::create([
+                        ...$data,
+                        'team_id' => auth()->user()->currentTeam->id,
+                        'creator_id' => auth()->id(),
+                    ]);
+
+                    return $company->id;
+                });
+        }
+
+        // Always include custom fields (Emails, Phone, Job Title, LinkedIn, etc.)
+        $fields[] = CustomFields::form()->build()->columnSpanFull();
+
+        return $fields;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->components([
-                Grid::make()
-                    ->columnSpanFull()
-                    ->schema([
-                        TextInput::make('name')
-                            ->required()
-                            ->maxLength(255)
-                            ->columnSpan(7),
-                        Select::make('company_id')
-                            ->relationship('company', 'name')
-                            ->suffixAction(
-                                Action::make('Create Company')
-                                    ->model(Company::class)
-                                    ->schema(fn (Schema $schema): \Filament\Schemas\Schema => $schema->components([
-                                        TextInput::make('name')
-                                            ->required(),
-                                        Select::make('account_owner_id')
-                                            ->model(Company::class)
-                                            ->relationship('accountOwner', 'name')
-                                            ->label('Account Owner')
-                                            ->preload()
-                                            ->searchable(),
-                                        CustomFields::form()->forSchema($schema)->build()->columns(1),
-                                    ]))
-                                    ->modalWidth(Width::Large)
-                                    ->slideOver()
-                                    ->icon('heroicon-o-plus')
-                                    ->action(function (array $data, Set $set): void {
-                                        $company = Company::create($data);
-                                        $set('company_id', $company->id);
-                                    })
-                            )
-                            ->searchable()
-                            ->preload()
-                            ->required()
-                            ->columnSpan(5),
-                    ])
-                    ->columns(12),
-                CustomFields::form()->build()->columnSpanFull(),
-            ]);
+                ...self::getFormSchema(),
+            ])
+            ->columns(1);
     }
 
     public static function table(Table $table): Table
@@ -106,11 +109,11 @@ final class PeopleResource extends Resource
                 ImageColumn::make('avatar')->label('')->size(24)->circular(),
                 TextColumn::make('name')
                     ->searchable(),
-                TextColumn::make('company.name')
-                    ->label('Company')
-                    ->url(fn (People $record): ?string => $record->company_id ? CompanyResource::getUrl('view', [$record->company_id]) : null)
+                TextColumn::make('companies.name')
+                    ->label('Companies')
+                    ->badge()
                     ->searchable()
-                    ->sortable(),
+                    ->toggleable(),
                 TextColumn::make('creator.name')
                     ->label('Created By')
                     ->searchable()

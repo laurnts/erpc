@@ -116,6 +116,7 @@ final class AppServiceProvider extends ServiceProvider
         //        Model::shouldBeStrict(! $this->app->isProduction()); // TODO: Uncomment this line to enable strict mode in production
 
         Relation::enforceMorphMap([
+            // Core CRM entities
             'team' => Team::class,
             'user' => User::class,
             'people' => People::class,
@@ -125,6 +126,25 @@ final class AppServiceProvider extends ServiceProvider
             'note' => Note::class,
             'system_administrator' => SystemAdministrator::class,
             'import' => Import::class,
+
+            // ERP entities (will be created in Phase 1+)
+            'buyer' => \App\Models\Buyer::class,
+            'supplier' => \App\Models\Supplier::class,
+            'article' => \App\Models\Article::class,
+            'request' => \App\Models\Request::class,
+            'supplier_quote' => \App\Models\SupplierQuote::class,
+            'buyer_quote' => \App\Models\BuyerQuote::class,
+            'buyer_order' => \App\Models\BuyerOrder::class,
+            'supplier_order' => \App\Models\SupplierOrder::class,
+            'shipment' => \App\Models\Shipment::class,
+            'buyer_invoice' => \App\Models\BuyerInvoice::class,
+            'supplier_invoice' => \App\Models\SupplierInvoice::class,
+            'buyer_payment' => \App\Models\BuyerPayment::class,
+            'supplier_payment' => \App\Models\SupplierPayment::class,
+            'project' => \App\Models\Project::class,
+            'tax_code' => \App\Models\TaxCode::class,
+            'currency' => \App\Models\Currency::class,
+            'exchange_rate' => \App\Models\ExchangeRate::class,
         ]);
 
         // Bind our custom Import model to the Filament Import model

@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
@@ -75,6 +76,32 @@ final class People extends Model implements HasCustomFields
     }
 
     /**
+     * Get all companies this person belongs to.
+     *
+     * @return BelongsToMany<Company, $this>
+     */
+    public function companies(): BelongsToMany
+    {
+        return $this->belongsToMany(Company::class)
+            ->withPivot(['role', 'is_primary'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Get the primary company for this person.
+     *
+     * @return BelongsToMany<Company, $this>
+     */
+    public function primaryCompany(): BelongsToMany
+    {
+        return $this->companies()->wherePivot('is_primary', true)->limit(1);
+    }
+
+    /**
+     * Legacy relationship - returns the first/primary company.
+     *
+     * @deprecated Use companies() instead
+     *
      * @return BelongsTo<Company, $this>
      */
     public function company(): BelongsTo

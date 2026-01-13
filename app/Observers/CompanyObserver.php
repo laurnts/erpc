@@ -21,6 +21,11 @@ final readonly class CompanyObserver
             $company->creator_id = $user->getKey();
             $company->team_id = $user->currentTeam->getKey();
         }
+
+        // Auto-generate company code if not provided
+        if ($company->code === null || $company->code === '') {
+            $company->code = Company::generateNextCode($company->team_id);
+        }
     }
 
     /**

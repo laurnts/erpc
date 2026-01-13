@@ -128,8 +128,21 @@ final class AppPanelProvider extends PanelProvider
             ->sidebarCollapsibleOnDesktop()
             ->navigationGroups([
                 NavigationGroup::make()
-                    ->label('Tasks')
-                    ->icon('heroicon-o-shopping-cart'),
+                    ->label('Trading')
+                    ->icon('heroicon-o-clipboard-document-list'),
+                NavigationGroup::make()
+                    ->label('Master Data')
+                    ->icon('heroicon-o-circle-stack'),
+                NavigationGroup::make()
+                    ->label('Finance')
+                    ->icon('heroicon-o-banknotes'),
+                NavigationGroup::make()
+                    ->label('Workspace')
+                    ->icon('heroicon-o-briefcase'),
+                NavigationGroup::make()
+                    ->label('Settings')
+                    ->icon('heroicon-o-cog-6-tooth')
+                    ->collapsed(),
             ])
             ->middleware([
                 EncryptCookies::class,

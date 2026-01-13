@@ -19,6 +19,11 @@ afterEach(function (): void {
 });
 
 it('completes installation without demo data and system admin', function (): void {
+    // Skip test if Node.js is not available (required for build step)
+    if (! \Illuminate\Support\Facades\Process::run('which node 2>/dev/null')->successful()) {
+        $this->markTestSkipped('Node.js is required for this test');
+    }
+
     $this->artisan('relaticle:install', ['--force' => true])
         ->expectsChoice('Which database would you like to use?', 'sqlite', [
             'sqlite' => 'SQLite (Recommended for local development)',
@@ -53,6 +58,11 @@ it('completes installation with demo data but no system admin', function (): voi
 });
 
 it('creates system administrator when requested', function (): void {
+    // Skip test if Node.js is not available (required for build step)
+    if (! \Illuminate\Support\Facades\Process::run('which node 2>/dev/null')->successful()) {
+        $this->markTestSkipped('Node.js is required for this test');
+    }
+
     // Clear any existing system administrators
     \Relaticle\SystemAdmin\Models\SystemAdministrator::query()->delete();
 
@@ -77,6 +87,11 @@ it('creates system administrator when requested', function (): void {
 });
 
 it('skips system admin creation if one already exists', function (): void {
+    // Skip test if Node.js is not available (required for build step)
+    if (! \Illuminate\Support\Facades\Process::run('which node 2>/dev/null')->successful()) {
+        $this->markTestSkipped('Node.js is required for this test');
+    }
+
     // Ensure a system administrator exists
     \Relaticle\SystemAdmin\Models\SystemAdministrator::firstOrCreate(
         ['email' => 'existing@example.com'],

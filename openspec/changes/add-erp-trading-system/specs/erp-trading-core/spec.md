@@ -70,17 +70,17 @@ The system SHALL track historical exchange rates between currencies, allowing ma
 ---
 
 ### Requirement: Buyers Entity
-The system SHALL manage buyer companies with contact information, credit limits, and currency preferences, with optional linking to CRM companies.
+The system SHALL manage buyer companies (using Company model with is_buyer=true) with credit limits, currency preferences, and associated people (contacts).
 
 #### Scenario: Create a buyer
 - **WHEN** an admin creates a buyer with name "GlobalTrade Industries"
-- **THEN** a unique code is auto-generated (e.g., "BUY-001")
-- **AND** the buyer is scoped to the current team
+- **THEN** a unique code is auto-generated (e.g., "CMP-0001")
+- **AND** the buyer is scoped to the current team with is_buyer=true
 
-#### Scenario: Link buyer to CRM company
-- **WHEN** an admin links a buyer to existing CRM company via `company_id`
-- **THEN** the buyer can access the company's People (contacts)
-- **AND** the linking is optional (company_id nullable)
+#### Scenario: Assign contacts to buyer
+- **WHEN** an admin assigns people to a buyer via the People/Contacts field
+- **THEN** the associations are stored in the company_people pivot table
+- **AND** the contacts count is displayed in the buyers list
 
 #### Scenario: Set credit limit
 - **WHEN** an admin sets credit limit to $50,000 for a buyer
@@ -101,17 +101,17 @@ The system SHALL manage buyer companies with contact information, credit limits,
 ---
 
 ### Requirement: Suppliers Entity
-The system SHALL manage supplier companies with contact information, categories, currency, and default terms, with optional linking to CRM companies.
+The system SHALL manage supplier companies (using Company model with is_supplier=true) with categories, currency preferences, default terms, and associated people (contacts).
 
 #### Scenario: Create a supplier
 - **WHEN** an admin creates a supplier with name "MotorCorp Indonesia"
-- **THEN** a unique code is auto-generated (e.g., "SUP-001")
-- **AND** the supplier is scoped to the current team
+- **THEN** a unique code is auto-generated (e.g., "CMP-0001")
+- **AND** the supplier is scoped to the current team with is_supplier=true
 
-#### Scenario: Link supplier to CRM company
-- **WHEN** an admin links a supplier to existing CRM company via `company_id`
-- **THEN** the supplier can access the company's People (contacts)
-- **AND** the linking is optional (company_id nullable)
+#### Scenario: Assign contacts to supplier
+- **WHEN** an admin assigns people to a supplier via the People/Contacts field
+- **THEN** the associations are stored in the company_people pivot table
+- **AND** the contacts count is displayed in the suppliers list
 
 #### Scenario: Assign categories to supplier
 - **WHEN** an admin assigns tags ["Industrial", "Motors"] to a supplier
@@ -187,6 +187,31 @@ The system SHALL manage articles (products/services) with flexible attributes st
 #### Scenario: Search articles by attributes
 - **WHEN** a user searches for articles where voltage = "220V"
 - **THEN** matching articles are returned using GIN index on attributes
+
+---
+
+### Requirement: Article-Supplier Relationship
+The system SHALL manage a many-to-many relationship between Articles and Suppliers via the supplier_articles pivot table.
+
+#### Scenario: Assign suppliers to article
+- **WHEN** an admin assigns suppliers to an article via the Suppliers field
+- **THEN** the associations are stored in the supplier_articles pivot table
+- **AND** pivot data includes supplier_sku, last_quoted_price, lead_time_days, is_preferred
+
+#### Scenario: Assign articles to supplier
+- **WHEN** an admin assigns articles to a supplier via the Articles field
+- **THEN** the associations are stored in the supplier_articles pivot table
+- **AND** pivot data includes supplier_sku, last_quoted_price, lead_time_days, is_preferred
+
+#### Scenario: Set preferred supplier for article
+- **WHEN** an admin sets is_preferred = true for a supplier-article link
+- **THEN** that supplier becomes the preferred supplier for sourcing
+- **AND** only one supplier per article can be preferred
+
+#### Scenario: Track supplier pricing history
+- **WHEN** a supplier quote includes an article
+- **THEN** last_quoted_price, last_quoted_currency_id, and last_quoted_at are updated
+- **AND** previous pricing is preserved in quote history
 
 ---
 

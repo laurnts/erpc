@@ -1,79 +1,397 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Call to an undefined method object\:\:saveCustomFieldValue\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app-modules/OnboardSeed/src/Support/BaseModelSeeder.php
-
-		-
-			message: '#^Access to an undefined property Relaticle\\CustomFields\\Models\\CustomField\:\:\$tenant_id\.$#'
+			message: '#^Access to an undefined property App\\Models\\User\|Relaticle\\SystemAdmin\\Models\\SystemAdministrator\:\:\$currentTeam\.$#'
 			identifier: property.notFound
 			count: 1
-			path: app/Console/Commands/BackfillCustomFieldColorsCommand.php
+			path: app/Filament/Resources/ArticleResource.php
 
 		-
-			message: '#^Call to an undefined method Filament\\Models\\Contracts\\HasTenants\|Illuminate\\Contracts\\Auth\\Authenticatable\|Illuminate\\Database\\Eloquent\\Model\:\:switchTeam\(\)\.$#'
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/ArticleResource.php
+
+		-
+			message: '#^Invoking callable on an unknown class Filament\\Forms\\Set\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/Resources/PeopleResource.php
+
+		-
+			message: '#^Parameter \$set of anonymous function has invalid type Filament\\Forms\\Set\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/Resources/PeopleResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\User\|Relaticle\\SystemAdmin\\Models\\SystemAdministrator\:\:\$currentTeam\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/ProjectResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/ProjectResource.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>team_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/ProjectResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\User\|Relaticle\\SystemAdmin\\Models\\SystemAdministrator\:\:\$currentTeam\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/RequestResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/RequestResource.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>team_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/RequestResource.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>order_number" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/BuyerOrdersRelationManager.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>payment_terms_days" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/BuyerOrdersRelationManager.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>payment_terms_text" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/BuyerOrdersRelationManager.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>quote_number" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/BuyerOrdersRelationManager.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:getErpSettings\(\)\.$#'
 			identifier: method.notFound
 			count: 1
-			path: app/Listeners/SwitchTeam.php
+			path: app/Filament/Resources/RequestResource/RelationManagers/BuyerQuotesRelationManager.php
 
 		-
-			message: '#^Property App\\Models\\Opportunity\:\:\$creator_id \(int\<0, max\>\|null\) does not accept int\|string\|null\.$#'
-			identifier: assign.propertyType
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
 			count: 1
-			path: app/Observers/OpportunityObserver.php
+			path: app/Filament/Resources/RequestResource/RelationManagers/BuyerQuotesRelationManager.php
 
 		-
-			message: '#^Property App\\Models\\People\:\:\$creator_id \(int\<0, max\>\|null\) does not accept int\|string\|null\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: app/Observers/PeopleObserver.php
+			message: '#^Invoking callable on an unknown class Filament\\Forms\\Get\.$#'
+			identifier: class.notFound
+			count: 7
+			path: app/Filament/Resources/RequestResource/RelationManagers/BuyerQuotesRelationManager.php
 
 		-
-			message: '#^Property App\\Models\\Task\:\:\$creator_id \(int\<0, max\>\|null\) does not accept int\|string\|null\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: app/Observers/TaskObserver.php
+			message: '#^Invoking callable on an unknown class Filament\\Forms\\Set\.$#'
+			identifier: class.notFound
+			count: 13
+			path: app/Filament/Resources/RequestResource/RelationManagers/BuyerQuotesRelationManager.php
 
 		-
-			message: '#^Cannot access offset ''host'' on array\{scheme\?\: string, host\?\: string, port\?\: int\<0, 65535\>, user\?\: string, pass\?\: string, path\?\: string, query\?\: string, fragment\?\: string\}\|false\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: app/Providers/Filament/AppPanelProvider.php
-
-		-
-			message: '#^Parameter \#1 \$array of function array_filter expects array, list\<string\>\|false given\.$#'
+			message: '#^Parameter \#1 \$condition of method Filament\\Forms\\Components\\Repeater\:\:reorderable\(\) expects bool\|Closure, ''sort_order'' given\.$#'
 			identifier: argument.type
 			count: 1
-			path: app/Services/AvatarService.php
+			path: app/Filament/Resources/RequestResource/RelationManagers/BuyerQuotesRelationManager.php
 
 		-
-			message: '#^Method App\\Services\\GitHubService\:\:getFormattedStarsCount\(\) should return string but returns bool\|string\.$#'
+			message: '#^Parameter \$get of anonymous function has invalid type Filament\\Forms\\Get\.$#'
+			identifier: class.notFound
+			count: 6
+			path: app/Filament/Resources/RequestResource/RelationManagers/BuyerQuotesRelationManager.php
+
+		-
+			message: '#^Parameter \$get of method App\\Filament\\Resources\\RequestResource\\RelationManagers\\BuyerQuotesRelationManager\:\:calculateItemTotals\(\) has invalid type Filament\\Forms\\Get\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/BuyerQuotesRelationManager.php
+
+		-
+			message: '#^Parameter \$set of anonymous function has invalid type Filament\\Forms\\Set\.$#'
+			identifier: class.notFound
+			count: 6
+			path: app/Filament/Resources/RequestResource/RelationManagers/BuyerQuotesRelationManager.php
+
+		-
+			message: '#^Parameter \$set of method App\\Filament\\Resources\\RequestResource\\RelationManagers\\BuyerQuotesRelationManager\:\:calculateItemTotals\(\) has invalid type Filament\\Forms\\Set\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/BuyerQuotesRelationManager.php
+
+		-
+			message: '#^Undefined variable\: \$request$#'
+			identifier: variable.undefined
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/BuyerQuotesRelationManager.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>quote_number" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/BuyerQuotesRelationManager.php
+
+		-
+			message: '#^Anonymous function never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/ItemsRelationManager.php
+
+		-
+			message: '#^Parameter \#1 \$article of method App\\Models\\RequestItem\:\:matchToArticle\(\) expects App\\Models\\Article, App\\Models\\Article\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Article\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/ItemsRelationManager.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\SupplierOrder\:\:\$order_number\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/ShipmentsRelationManager.php
+
+		-
+			message: '#^Call to an undefined method App\\Models\\BuyerOrder\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\BuyerOrder\>\:\:items\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/ShipmentsRelationManager.php
+
+		-
+			message: '#^Call to an undefined method App\\Models\\SupplierOrder\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\SupplierOrder\>\:\:items\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/ShipmentsRelationManager.php
+
+		-
+			message: '#^Invoking callable on an unknown class Filament\\Forms\\Get\.$#'
+			identifier: class.notFound
+			count: 7
+			path: app/Filament/Resources/RequestResource/RelationManagers/ShipmentsRelationManager.php
+
+		-
+			message: '#^Invoking callable on an unknown class Filament\\Forms\\Set\.$#'
+			identifier: class.notFound
+			count: 2
+			path: app/Filament/Resources/RequestResource/RelationManagers/ShipmentsRelationManager.php
+
+		-
+			message: '#^Parameter \#1 \$condition of method Filament\\Forms\\Components\\Repeater\:\:reorderable\(\) expects bool\|Closure, ''sort_order'' given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/ShipmentsRelationManager.php
+
+		-
+			message: '#^Parameter \$get of anonymous function has invalid type Filament\\Forms\\Get\.$#'
+			identifier: class.notFound
+			count: 7
+			path: app/Filament/Resources/RequestResource/RelationManagers/ShipmentsRelationManager.php
+
+		-
+			message: '#^Parameter \$set of anonymous function has invalid type Filament\\Forms\\Set\.$#'
+			identifier: class.notFound
+			count: 2
+			path: app/Filament/Resources/RequestResource/RelationManagers/ShipmentsRelationManager.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>shipment_number" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/ShipmentsRelationManager.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\SupplierQuote\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\SupplierQuote\>\:\:\$quote_number\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierOrdersRelationManager.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:getErpSettings\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierOrdersRelationManager.php
+
+		-
+			message: '#^Invoking callable on an unknown class Filament\\Forms\\Get\.$#'
+			identifier: class.notFound
+			count: 4
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierOrdersRelationManager.php
+
+		-
+			message: '#^Invoking callable on an unknown class Filament\\Forms\\Set\.$#'
+			identifier: class.notFound
+			count: 14
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierOrdersRelationManager.php
+
+		-
+			message: '#^Parameter \#1 \$condition of method Filament\\Forms\\Components\\Repeater\:\:reorderable\(\) expects bool\|Closure, ''sort_order'' given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierOrdersRelationManager.php
+
+		-
+			message: '#^Parameter \#1 \$quote of static method App\\Models\\SupplierOrder\:\:createFromQuote\(\) expects App\\Models\\SupplierQuote, App\\Models\\SupplierQuote\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\SupplierQuote\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierOrdersRelationManager.php
+
+		-
+			message: '#^Parameter \$get of anonymous function has invalid type Filament\\Forms\\Get\.$#'
+			identifier: class.notFound
+			count: 3
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierOrdersRelationManager.php
+
+		-
+			message: '#^Parameter \$get of method App\\Filament\\Resources\\RequestResource\\RelationManagers\\SupplierOrdersRelationManager\:\:calculateItemTotals\(\) has invalid type Filament\\Forms\\Get\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierOrdersRelationManager.php
+
+		-
+			message: '#^Parameter \$set of anonymous function has invalid type Filament\\Forms\\Set\.$#'
+			identifier: class.notFound
+			count: 5
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierOrdersRelationManager.php
+
+		-
+			message: '#^Parameter \$set of method App\\Filament\\Resources\\RequestResource\\RelationManagers\\SupplierOrdersRelationManager\:\:calculateItemTotals\(\) has invalid type Filament\\Forms\\Set\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierOrdersRelationManager.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierOrdersRelationManager.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>po_number" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierOrdersRelationManager.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:getErpSettings\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierQuotesRelationManager.php
+
+		-
+			message: '#^Invoking callable on an unknown class Filament\\Forms\\Get\.$#'
+			identifier: class.notFound
+			count: 4
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierQuotesRelationManager.php
+
+		-
+			message: '#^Invoking callable on an unknown class Filament\\Forms\\Set\.$#'
+			identifier: class.notFound
+			count: 10
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierQuotesRelationManager.php
+
+		-
+			message: '#^Parameter \#1 \$condition of method Filament\\Forms\\Components\\Repeater\:\:reorderable\(\) expects bool\|Closure, ''sort_order'' given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierQuotesRelationManager.php
+
+		-
+			message: '#^Parameter \$get of anonymous function has invalid type Filament\\Forms\\Get\.$#'
+			identifier: class.notFound
+			count: 3
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierQuotesRelationManager.php
+
+		-
+			message: '#^Parameter \$get of method App\\Filament\\Resources\\RequestResource\\RelationManagers\\SupplierQuotesRelationManager\:\:calculateItemTotals\(\) has invalid type Filament\\Forms\\Get\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierQuotesRelationManager.php
+
+		-
+			message: '#^Parameter \$set of anonymous function has invalid type Filament\\Forms\\Set\.$#'
+			identifier: class.notFound
+			count: 5
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierQuotesRelationManager.php
+
+		-
+			message: '#^Parameter \$set of method App\\Filament\\Resources\\RequestResource\\RelationManagers\\SupplierQuotesRelationManager\:\:calculateItemTotals\(\) has invalid type Filament\\Forms\\Set\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierQuotesRelationManager.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierQuotesRelationManager.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>quote_number" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierQuotesRelationManager.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\User\|Relaticle\\SystemAdmin\\Models\\SystemAdministrator\:\:\$currentTeam\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/TaxCodeResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/TaxCodeResource.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>team_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/TaxCodeResource.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 3
+			path: app/Filament/Widgets/AwaitingPaymentWidget.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 1
+			path: app/Filament/Widgets/QuotesExpiringWidget.php
+
+		-
+			message: '#^Method App\\Filament\\Widgets\\RequiresAttentionWidget\:\:getTableQuery\(\) should return Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\BuyerQuote\> but returns Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>\.$#'
 			identifier: return.type
 			count: 1
-			path: app/Services/GitHubService.php
+			path: app/Filament/Widgets/RequiresAttentionWidget.php
 
 		-
-			message: '#^Parameter \#1 \$title of static method Illuminate\\Support\\Str\:\:slug\(\) expects string, bool\|string given\.$#'
-			identifier: argument.type
+			message: '#^Method App\\Filament\\Widgets\\RequiresAttentionWidget\:\:getType\(\) is unused\.$#'
+			identifier: method.unused
 			count: 1
-			path: config/cache.php
+			path: app/Filament/Widgets/RequiresAttentionWidget.php
 
 		-
-			message: '#^Parameter \#1 \$title of static method Illuminate\\Support\\Str\:\:slug\(\) expects string, bool\|string given\.$#'
-			identifier: argument.type
+			message: '#^Using nullsafe property access "\?\-\>title" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
 			count: 1
-			path: config/database.php
-
-		-
-			message: '#^Parameter \#1 \$title of static method Illuminate\\Support\\Str\:\:slug\(\) expects string, bool\|string given\.$#'
-			identifier: argument.type
-			count: 1
-			path: config/horizon.php
-
-		-
-			message: '#^Parameter \#1 \$title of static method Illuminate\\Support\\Str\:\:slug\(\) expects string, bool\|string given\.$#'
-			identifier: argument.type
-			count: 1
-			path: config/session.php
+			path: app/Filament/Widgets/RequiresAttentionWidget.php

@@ -34,6 +34,12 @@ final class LocalSeeder extends Seeder
                 'password' => bcrypt('Stfadmin24!'),
             ]);
 
+        // Assign superadmin role for full ERP access
+        $user->assignRole('superadmin');
+
+        // Set current team to personal team
+        $user->switchTeam($user->personalTeam());
+
         $teamId = $user->personalTeam()->id;
         //
         //        User::factory()

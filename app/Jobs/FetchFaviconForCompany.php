@@ -39,6 +39,11 @@ final class FetchFaviconForCompany implements ShouldBeUnique, ShouldQueue
                 ->whereBelongsTo($this->company->team)
                 ->where('code', 'domain_name')
                 ->first();
+
+            if ($customFieldDomain === null) {
+                return;
+            }
+
             $domainName = $this->company->getCustomFieldValue($customFieldDomain);
 
             if ($domainName === null) {

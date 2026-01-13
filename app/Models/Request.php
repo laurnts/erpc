@@ -1,0 +1,441 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use App\Enums\RequestPriority;
+use App\Enums\RequestStage;
+use App\Models\Concerns\HasCreator;
+use App\Models\Concerns\HasNotes;
+use App\Models\Concerns\HasTeam;
+use App\Observers\RequestObserver;
+use Database\Factories\RequestFactory;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Relaticle\CustomFields\Models\Concerns\UsesCustomFields;
+use Relaticle\CustomFields\Models\Contracts\HasCustomFields;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+
+/**
+ * @property string $request_number
+ * @property string $title
+ * @property string|null $description
+ * @property RequestStage $stage
+ * @property RequestPriority $priority
+ * @property Carbon|null $requested_at
+ * @property Carbon|null $required_by
+ * @property string|null $internal_notes
+ * @property bool $is_active
+ * @property int $buyer_id
+ * @property int|null $project_id
+ * @property Carbon|null $deleted_at
+ * @property-read string $created_by
+ * @property-read bool $all_items_matched
+ * @property-read int $items_count
+ * @property-read int $matched_items_count
+ * @property-read int $unmatched_items_count
+ * @property-read float $buyer_total
+ * @property-read float $supplier_cost
+ * @property-read float $gross_margin
+ * @property-read float $margin_percent
+ * @property-read float $amount_collected
+ * @property-read float $amount_paid_out
+ * @property-read float $net_cash_flow
+ */
+#[ObservedBy(RequestObserver::class)]
+final class Request extends Model implements HasCustomFields, HasMedia
+{
+    use HasCreator;
+
+    /** @use HasFactory<RequestFactory> */
+    use HasFactory;
+
+    use HasNotes;
+    use HasTeam;
+    use InteractsWithMedia;
+    use SoftDeletes;
+    use UsesCustomFields;
+
+    /**
+     * @var list<string>
+     */
+    protected $fillable = [
+        'request_number',
+        'title',
+        'description',
+        'stage',
+        'priority',
+        'requested_at',
+        'required_by',
+        'internal_notes',
+        'is_active',
+        'buyer_id',
+        'project_id',
+    ];
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'stage' => RequestStage::DRAFT,
+        'priority' => RequestPriority::NORMAL,
+        'is_active' => true,
+    ];
+
+    /**
+     * @return array<string, string|class-string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'stage' => RequestStage::class,
+            'priority' => RequestPriority::class,
+            'requested_at' => 'date',
+            'required_by' => 'date',
+            'is_active' => 'boolean',
+        ];
+    }
+
+    /**
+     * Register media collections for this model.
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('attachments');
+    }
+
+    /**
+     * The buyer (company) that owns this request.
+     *
+     * @return BelongsTo<Company, $this>
+     */
+    public function buyer(): BelongsTo
+    {
+        return $this->belongsTo(Company::class, 'buyer_id');
+    }
+
+    /**
+     * The project this request is associated with.
+     *
+     * @return BelongsTo<Project, $this>
+     */
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(Project::class);
+    }
+
+    /**
+     * The items in this request.
+     *
+     * @return HasMany<RequestItem, $this>
+     */
+    public function items(): HasMany
+    {
+        return $this->hasMany(RequestItem::class)->orderBy('sort_order');
+    }
+
+    /**
+     * The tasks associated with this request.
+     *
+     * @return MorphToMany<Task, $this>
+     */
+    public function tasks(): MorphToMany
+    {
+        return $this->morphToMany(Task::class, 'taskable');
+    }
+
+    /**
+     * The supplier quotes for this request.
+     *
+     * @return HasMany<SupplierQuote, $this>
+     */
+    public function supplierQuotes(): HasMany
+    {
+        return $this->hasMany(SupplierQuote::class);
+    }
+
+    /**
+     * The buyer quotes for this request.
+     *
+     * @return HasMany<BuyerQuote, $this>
+     */
+    public function buyerQuotes(): HasMany
+    {
+        return $this->hasMany(BuyerQuote::class);
+    }
+
+    /**
+     * The buyer orders for this request.
+     *
+     * @return HasMany<BuyerOrder, $this>
+     */
+    public function buyerOrders(): HasMany
+    {
+        return $this->hasMany(BuyerOrder::class);
+    }
+
+    /**
+     * The supplier orders (purchase orders) for this request.
+     *
+     * @return HasMany<SupplierOrder, $this>
+     */
+    public function supplierOrders(): HasMany
+    {
+        return $this->hasMany(SupplierOrder::class);
+    }
+
+    /**
+     * The shipments for this request.
+     *
+     * @return HasMany<Shipment, $this>
+     */
+    public function shipments(): HasMany
+    {
+        return $this->hasMany(Shipment::class);
+    }
+
+    /**
+     * The activity log for this request.
+     *
+     * @return HasMany<RequestActivity, $this>
+     */
+    public function activities(): HasMany
+    {
+        return $this->hasMany(RequestActivity::class)->orderByDesc('created_at');
+    }
+
+    /**
+     * The inbound shipments (from suppliers) for this request.
+     *
+     * @return HasMany<Shipment, $this>
+     */
+    public function inboundShipments(): HasMany
+    {
+        return $this->hasMany(Shipment::class)->where('type', \App\Enums\ShipmentType::INBOUND);
+    }
+
+    /**
+     * The outbound shipments (to buyers) for this request.
+     *
+     * @return HasMany<Shipment, $this>
+     */
+    public function outboundShipments(): HasMany
+    {
+        return $this->hasMany(Shipment::class)->where('type', \App\Enums\ShipmentType::OUTBOUND);
+    }
+
+    /**
+     * Check if all items in this request have been matched to articles.
+     *
+     * @return Attribute<bool, never>
+     */
+    protected function allItemsMatched(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): bool => $this->items()->where('is_matched', false)->doesntExist(),
+        );
+    }
+
+    /**
+     * Get total items count.
+     *
+     * @return Attribute<int, never>
+     */
+    protected function itemsCount(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): int => $this->items()->count(),
+        );
+    }
+
+    /**
+     * Get matched items count.
+     *
+     * @return Attribute<int, never>
+     */
+    protected function matchedItemsCount(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): int => $this->items()->where('is_matched', true)->count(),
+        );
+    }
+
+    /**
+     * Get unmatched items count.
+     *
+     * @return Attribute<int, never>
+     */
+    protected function unmatchedItemsCount(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): int => $this->items()->where('is_matched', false)->count(),
+        );
+    }
+
+    /**
+     * Check if stage transition is allowed.
+     */
+    public function canTransitionTo(RequestStage $newStage): bool
+    {
+        return $this->stage->canTransitionTo($newStage);
+    }
+
+    /**
+     * Transition to a new stage with validation.
+     *
+     * @throws \InvalidArgumentException
+     */
+    public function transitionTo(RequestStage $newStage): void
+    {
+        if (! $this->canTransitionTo($newStage)) {
+            throw new \InvalidArgumentException(
+                sprintf(
+                    'Cannot transition from %s to %s',
+                    $this->stage->getLabel(),
+                    $newStage->getLabel()
+                )
+            );
+        }
+
+        // Validate that all items are matched when required
+        if ($newStage->requiresMatchedItems() && ! $this->all_items_matched) {
+            throw new \InvalidArgumentException(
+                'All request items must be matched to articles before transitioning to '.$newStage->getLabel()
+            );
+        }
+
+        $this->stage = $newStage;
+        $this->save();
+    }
+
+    /**
+     * Check if request items can be edited in current stage.
+     */
+    public function canEditItems(): bool
+    {
+        return $this->stage->allowsItemEditing();
+    }
+
+    /**
+     * Get total revenue from buyer orders (in base currency).
+     * Sum of all buyer order totals for this request.
+     *
+     * @return Attribute<float, never>
+     */
+    protected function buyerTotal(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): float => (float) $this->buyerOrders()->sum('total'),
+        );
+    }
+
+    /**
+     * Get total cost from supplier orders (in base currency).
+     * Sum of all supplier order base_total values.
+     *
+     * @return Attribute<float, never>
+     */
+    protected function supplierCost(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): float => (float) $this->supplierOrders()->sum('base_total'),
+        );
+    }
+
+    /**
+     * Get gross margin (buyer total minus supplier cost).
+     *
+     * @return Attribute<float, never>
+     */
+    protected function grossMargin(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): float => $this->buyer_total - $this->supplier_cost,
+        );
+    }
+
+    /**
+     * Get margin percentage ((gross margin / buyer total) * 100).
+     * Returns 0 if buyer total is zero to avoid division by zero.
+     *
+     * @return Attribute<float, never>
+     */
+    protected function marginPercent(): Attribute
+    {
+        return Attribute::make(
+            get: function (): float {
+                $buyerTotal = $this->buyer_total;
+
+                if ($buyerTotal === 0.0) {
+                    return 0.0;
+                }
+
+                return ($this->gross_margin / $buyerTotal) * 100;
+            },
+        );
+    }
+
+    /**
+     * Get total amount collected from buyer payments.
+     * Sum of all payments received through buyer invoices.
+     *
+     * @return Attribute<float, never>
+     */
+    protected function amountCollected(): Attribute
+    {
+        return Attribute::make(
+            get: function (): float {
+                $result = DB::table('buyer_payments')
+                    ->join('buyer_invoices', 'buyer_payments.buyer_invoice_id', '=', 'buyer_invoices.id')
+                    ->where('buyer_invoices.request_id', $this->getKey())
+                    ->whereNull('buyer_invoices.deleted_at')
+                    ->sum('buyer_payments.amount');
+
+                return (float) $result;
+            },
+        );
+    }
+
+    /**
+     * Get total amount paid out to suppliers.
+     * Sum of all payments made through supplier invoices.
+     *
+     * @return Attribute<float, never>
+     */
+    protected function amountPaidOut(): Attribute
+    {
+        return Attribute::make(
+            get: function (): float {
+                $result = DB::table('supplier_payments')
+                    ->join('supplier_invoices', 'supplier_payments.supplier_invoice_id', '=', 'supplier_invoices.id')
+                    ->where('supplier_invoices.request_id', $this->getKey())
+                    ->whereNull('supplier_invoices.deleted_at')
+                    ->sum('supplier_payments.amount');
+
+                return (float) $result;
+            },
+        );
+    }
+
+    /**
+     * Get net cash flow (amount collected minus amount paid out).
+     *
+     * @return Attribute<float, never>
+     */
+    protected function netCashFlow(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): float => $this->amount_collected - $this->amount_paid_out,
+        );
+    }
+}

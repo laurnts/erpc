@@ -4,6 +4,9 @@ includes:
 
 parameters:
     level: 7
+    treatPhpDocTypesAsCertain: false
+    checkMissingIterableValueType: true
+    reportUnmatchedIgnoredErrors: true
 
     stubFiles:
         - stubs/Mailcoach.stub

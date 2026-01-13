@@ -15,7 +15,6 @@ return new class extends Migration
      * @var array<string>
      */
     private array $tables = [
-        'companies',
         'people',
         'opportunities',
         'tasks',

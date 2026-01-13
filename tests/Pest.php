@@ -19,8 +19,15 @@ use Illuminate\Support\Facades\Event;
 pest()->extend(Tests\TestCase::class)
     ->use(RefreshDatabase::class)
     ->beforeEach(function () {
-        // Globally disable events to prevent demo record creation during tests
-        Event::fake();
+        // Only fake specific events that cause unwanted side effects during tests
+        // Don't globally fake all events as that breaks model observers
+        Event::fake([
+            \Laravel\Jetstream\Events\TeamCreated::class,
+            \Laravel\Jetstream\Events\TeamDeleted::class,
+        ]);
+
+        // Seed ERP permissions for all tests
+        $this->seed(\Database\Seeders\ErpPermissionSeeder::class);
     })
     ->in('Feature', 'Unit');
 

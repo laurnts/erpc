@@ -64,6 +64,7 @@ arch('avoid mutation')
         'App\Data',
         'App\Notifications',
         'App\Providers',
+        'App\Settings', // Spatie Settings requires mutable properties
         'App\View',
         'App\Services\Favicon\Drivers',
         'App\Providers\Filament',
@@ -85,6 +86,7 @@ arch('avoid inheritance')
         'App\Models',
         'App\Notifications',
         'App\Providers',
+        'App\Settings', // Spatie Settings requires extending Settings base class
         'App\View',
     ]);
 

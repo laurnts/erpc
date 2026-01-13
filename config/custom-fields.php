@@ -92,8 +92,8 @@ return [
     'management' => [
         'enabled' => true,
         'slug' => 'custom-fields',
-        'navigation_sort' => 100,
-        'navigation_group' => true,
+        'navigation_sort' => 99,
+        'navigation_group' => 'Settings',
         'cluster' => null,
     ],
 

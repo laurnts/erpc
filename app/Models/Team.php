@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Data\TeamErpSettings;
 use App\Services\AvatarService;
 use Database\Factories\TeamFactory;
 use Filament\Models\Contracts\HasAvatar;
@@ -16,6 +17,7 @@ use Laravel\Jetstream\Team as JetstreamTeam;
 
 /**
  * @property string $name
+ * @property TeamErpSettings|null $erp_settings
  */
 final class Team extends JetstreamTeam implements HasAvatar
 {
@@ -30,6 +32,7 @@ final class Team extends JetstreamTeam implements HasAvatar
     protected $fillable = [
         'name',
         'personal_team',
+        'erp_settings',
     ];
 
     /**
@@ -46,18 +49,27 @@ final class Team extends JetstreamTeam implements HasAvatar
     /**
      * Get the attributes that should be cast.
      *
-     * @return array<string, string>
+     * @return array<string, string|class-string>
      */
     protected function casts(): array
     {
         return [
             'personal_team' => 'boolean',
+            'erp_settings' => TeamErpSettings::class,
         ];
     }
 
     public function isPersonalTeam(): bool
     {
         return $this->personal_team;
+    }
+
+    /**
+     * Get the ERP settings for this team with defaults.
+     */
+    public function getErpSettings(): TeamErpSettings
+    {
+        return $this->erp_settings ?? new TeamErpSettings;
     }
 
     public function getFilamentAvatarUrl(): string

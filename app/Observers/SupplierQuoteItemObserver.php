@@ -1,0 +1,92 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Observers;
+
+use App\Models\SupplierQuoteItem;
+use App\Models\TaxCode;
+
+final readonly class SupplierQuoteItemObserver
+{
+    /**
+     * Handle the SupplierQuoteItem "creating" event.
+     */
+    public function creating(SupplierQuoteItem $item): void
+    {
+        $this->syncTaxRateFromCode($item);
+        $item->calculateTotals();
+    }
+
+    /**
+     * Handle the SupplierQuoteItem "updating" event.
+     */
+    public function updating(SupplierQuoteItem $item): void
+    {
+        // Re-sync tax rate if tax code changed
+        if ($item->isDirty('tax_code_id')) {
+            $this->syncTaxRateFromCode($item);
+        }
+
+        // Recalculate if pricing fields changed
+        if ($item->isDirty(['quantity', 'unit_price', 'tax_code_id', 'is_tax_inclusive', 'tax_rate'])) {
+            $item->calculateTotals();
+        }
+    }
+
+    /**
+     * Handle the SupplierQuoteItem "created" event.
+     */
+    public function created(SupplierQuoteItem $item): void
+    {
+        $this->recalculateQuoteTotals($item);
+    }
+
+    /**
+     * Handle the SupplierQuoteItem "updated" event.
+     */
+    public function updated(SupplierQuoteItem $item): void
+    {
+        // Recalculate quote header totals when line totals change
+        if ($item->wasChanged(['line_subtotal', 'line_tax', 'line_total'])) {
+            $this->recalculateQuoteTotals($item);
+        }
+    }
+
+    /**
+     * Handle the SupplierQuoteItem "deleted" event.
+     */
+    public function deleted(SupplierQuoteItem $item): void
+    {
+        $this->recalculateQuoteTotals($item);
+    }
+
+    /**
+     * Sync tax rate from the selected tax code.
+     */
+    private function syncTaxRateFromCode(SupplierQuoteItem $item): void
+    {
+        if ($item->tax_code_id !== null) {
+            $taxCode = TaxCode::find($item->tax_code_id);
+            if ($taxCode !== null) {
+                $item->tax_rate = (string) $taxCode->rate;
+
+                // Use tax code's default inclusivity if item's inclusivity hasn't been explicitly set
+                if (! $item->isDirty('is_tax_inclusive') && $item->getOriginal('is_tax_inclusive') === null) {
+                    $item->is_tax_inclusive = $taxCode->is_inclusive_default;
+                }
+            }
+        }
+    }
+
+    /**
+     * Recalculate the parent quote's totals.
+     */
+    private function recalculateQuoteTotals(SupplierQuoteItem $item): void
+    {
+        $quote = $item->supplierQuote;
+        if ($quote !== null) {
+            $quote->recalculateTotals();
+        }
+    }
+}
