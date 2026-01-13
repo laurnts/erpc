@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Database\Factories;
 
 use App\Enums\OrderStatus;
-use App\Models\Buyer;
 use App\Models\BuyerOrder;
 use App\Models\BuyerQuote;
+use App\Models\Company;
 use App\Models\Request;
 use App\Models\Team;
 use App\Models\User;
@@ -42,7 +42,7 @@ final class BuyerOrderFactory extends Factory
             'team_id' => Team::factory(),
             'creator_id' => User::factory(),
             'request_id' => Request::factory(),
-            'buyer_id' => Buyer::factory(),
+            'buyer_id' => Company::factory()->buyer(),
             'buyer_quote_id' => null,
         ];
     }
@@ -159,10 +159,10 @@ final class BuyerOrderFactory extends Factory
     /**
      * Set a specific buyer.
      */
-    public function forBuyer(?Buyer $buyer = null): static
+    public function forBuyer(?Company $buyer = null): static
     {
         return $this->state(fn (array $attributes): array => [
-            'buyer_id' => $buyer ?? Buyer::factory(),
+            'buyer_id' => $buyer ?? Company::factory()->buyer(),
         ]);
     }
 

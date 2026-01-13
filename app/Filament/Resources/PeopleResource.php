@@ -23,6 +23,7 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
@@ -55,7 +56,7 @@ final class PeopleResource extends Resource
      * Used both in main form and inline create modals.
      *
      * @param  bool  $excludeCompaniesField  Exclude Companies field to prevent circular references
-     * @return array<int, \Filament\Forms\Components\Component>
+     * @return array<int, \Filament\Schemas\Components\Component>
      */
     public static function getFormSchema(bool $excludeCompaniesField = false): array
     {
@@ -76,10 +77,13 @@ final class PeopleResource extends Resource
                 ->helperText('Assign this person to one or more companies')
                 ->createOptionForm(CompanyResource::getFormSchema(excludePeopleField: true))
                 ->createOptionUsing(function (array $data): int {
+                    /** @var \App\Models\Team $team */
+                    $team = Filament::getTenant();
+
                     /** @var Company $company */
                     $company = Company::create([
                         ...$data,
-                        'team_id' => auth()->user()->currentTeam->id,
+                        'team_id' => $team->id,
                         'creator_id' => auth()->id(),
                     ]);
 

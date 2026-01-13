@@ -28,6 +28,7 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -62,7 +63,7 @@ final class RequestResource extends Resource
      *
      * @param  bool  $excludeBuyerField  Exclude Buyer field when creating from Buyer context
      * @param  bool  $excludeProjectField  Exclude Project field when creating from Project context
-     * @return array<int, \Filament\Forms\Components\Component>
+     * @return array<int, \Filament\Schemas\Components\Component>
      */
     public static function getFormSchema(bool $excludeBuyerField = false, bool $excludeProjectField = false): array
     {
@@ -84,11 +85,14 @@ final class RequestResource extends Resource
                 ->createOptionForm(BuyerResource::getFormSchema(excludePeopleField: true))
                 ->createOptionAction(fn (Action $action) => $action->slideOver())
                 ->createOptionUsing(function (array $data): int {
+                    /** @var \App\Models\Team $team */
+                    $team = Filament::getTenant();
+
                     /** @var \App\Models\Company $company */
                     $company = \App\Models\Company::create([
                         ...$data,
                         'is_buyer' => true,
-                        'team_id' => auth()->user()->currentTeam->id,
+                        'team_id' => $team->id,
                         'creator_id' => auth()->id(),
                     ]);
 
@@ -156,11 +160,14 @@ final class RequestResource extends Resource
                 ->createOptionForm(ProjectResource::getFormSchema(excludeBuyerField: true))
                 ->createOptionAction(fn (Action $action) => $action->slideOver())
                 ->createOptionUsing(function (array $data, $get): int {
+                    /** @var \App\Models\Team $team */
+                    $team = Filament::getTenant();
+
                     /** @var \App\Models\Project $project */
                     $project = \App\Models\Project::create([
                         ...$data,
                         'buyer_id' => $get('buyer_id'),
-                        'team_id' => auth()->user()->currentTeam->id,
+                        'team_id' => $team->id,
                         'creator_id' => auth()->id(),
                     ]);
 
@@ -177,7 +184,7 @@ final class RequestResource extends Resource
             ->components([
                 TextInput::make('request_number')
                     ->maxLength(50)
-                    ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule, $record) => $rule->where('team_id', $record?->team_id ?? auth()->user()->currentTeam->id))
+                    ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule, $record) => $rule->where('team_id', $record->team_id ?? Filament::getTenant()?->id))
                     ->placeholder('Auto-generated (e.g., REQ-2026-0001)')
                     ->helperText('Leave empty to auto-generate'),
                 ...self::getFormSchema(),

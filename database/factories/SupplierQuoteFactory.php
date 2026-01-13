@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Database\Factories;
 
 use App\Enums\SupplierQuoteStatus;
+use App\Models\Company;
 use App\Models\Currency;
 use App\Models\Request;
-use App\Models\Supplier;
 use App\Models\SupplierQuote;
 use App\Models\Team;
 use App\Models\User;
@@ -46,7 +46,7 @@ final class SupplierQuoteFactory extends Factory
             'team_id' => Team::factory(),
             'creator_id' => User::factory(),
             'request_id' => Request::factory(),
-            'supplier_id' => Supplier::factory(),
+            'supplier_id' => Company::factory()->supplier(),
             'currency_id' => Currency::factory(),
         ];
     }
@@ -149,10 +149,10 @@ final class SupplierQuoteFactory extends Factory
     /**
      * Associate with a specific supplier.
      */
-    public function forSupplier(?Supplier $supplier = null): static
+    public function forSupplier(?Company $supplier = null): static
     {
         return $this->state(fn (array $attributes): array => [
-            'supplier_id' => $supplier ?? Supplier::factory(),
+            'supplier_id' => $supplier ?? Company::factory()->supplier(),
         ]);
     }
 

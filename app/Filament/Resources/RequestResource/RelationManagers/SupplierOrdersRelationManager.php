@@ -19,14 +19,15 @@ use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Get;
-use Filament\Forms\Set;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Grid;
@@ -49,6 +50,7 @@ final class SupplierOrdersRelationManager extends RelationManager
         $request = $this->getOwnerRecord();
 
         return $schema
+            ->columns(1)
             ->components([
                 Section::make('Order Details')
                     ->schema([
@@ -113,7 +115,9 @@ final class SupplierOrdersRelationManager extends RelationManager
                                             ])
                                     )
                                     ->default(function (): ?int {
-                                        $defaultCode = auth()->user()->currentTeam?->getErpSettings()->default_currency ?? 'USD';
+                                        /** @var \App\Models\Team|null $team */
+                                        $team = Filament::getTenant();
+                                        $defaultCode = $team?->getErpSettings()->default_currency ?? 'USD';
 
                                         return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
                                     })
@@ -140,7 +144,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                     ->placeholder('e.g., Net 30'),
                                 Placeholder::make('po_number_display')
                                     ->label('PO Number')
-                                    ->content(fn (?SupplierOrder $record): string => $record?->po_number ?? 'Auto-generated'),
+                                    ->content(fn (?SupplierOrder $record): string => $record->po_number ?? 'Auto-generated'),
                             ]),
                     ]),
 
@@ -337,7 +341,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                     ->label('Total')
                     ->numeric(decimalPlaces: 2)
                     ->sortable()
-                    ->description(fn (SupplierOrder $record): string => $record->currency?->code ?? ''),
+                    ->description(fn (SupplierOrder $record): string => $record->currency->code ?? ''),
                 TextColumn::make('base_total')
                     ->label('Total (Base)')
                     ->numeric(decimalPlaces: 2)

@@ -118,13 +118,13 @@ abstract class BaseModelSeeder implements ModelSeederInterface
     /**
      * Apply custom fields to a model
      *
-     * @param  object  $model  The model to apply fields to
+     * @param  Model  $model  The model to apply fields to
      * @param  array<string, mixed>  $data  The field data
      */
-    protected function applyCustomFields(object $model, array $data): void
+    protected function applyCustomFields(Model $model, array $data): void
     {
         foreach ($data as $code => $value) {
-            if (isset($this->customFieldDefinitions[$code])) {
+            if (isset($this->customFieldDefinitions[$code]) && method_exists($model, 'saveCustomFieldValue')) {
                 $model->saveCustomFieldValue($this->customFieldDefinitions[$code], $value);
             }
         }

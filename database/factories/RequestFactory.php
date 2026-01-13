@@ -6,7 +6,7 @@ namespace Database\Factories;
 
 use App\Enums\RequestPriority;
 use App\Enums\RequestStage;
-use App\Models\Buyer;
+use App\Models\Company;
 use App\Models\Project;
 use App\Models\Request;
 use App\Models\Team;
@@ -39,7 +39,7 @@ final class RequestFactory extends Factory
             'is_active' => true,
             'team_id' => Team::factory(),
             'creator_id' => User::factory(),
-            'buyer_id' => Buyer::factory(),
+            'buyer_id' => Company::factory()->buyer(),
             'project_id' => null,
         ];
     }
@@ -87,10 +87,10 @@ final class RequestFactory extends Factory
     /**
      * Indicate that the request is for a specific buyer.
      */
-    public function forBuyer(?Buyer $buyer = null): static
+    public function forBuyer(?Company $buyer = null): static
     {
         return $this->state(fn (array $attributes): array => [
-            'buyer_id' => $buyer ?? Buyer::factory(),
+            'buyer_id' => $buyer ?? Company::factory()->buyer(),
         ]);
     }
 

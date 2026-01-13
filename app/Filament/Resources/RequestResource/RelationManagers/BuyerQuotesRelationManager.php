@@ -16,6 +16,7 @@ use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
@@ -23,8 +24,8 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Get;
-use Filament\Forms\Set;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Grid;
@@ -47,6 +48,7 @@ final class BuyerQuotesRelationManager extends RelationManager
         $request = $this->getOwnerRecord();
 
         return $schema
+            ->columns(1)
             ->components([
                 Section::make('Quote Details')
                     ->schema([
@@ -54,7 +56,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                             ->schema([
                                 Placeholder::make('quote_number_display')
                                     ->label('Quote Number')
-                                    ->content(fn (?BuyerQuote $record): string => $record?->quote_number ?? 'Auto-generated'),
+                                    ->content(fn (?BuyerQuote $record): string => $record->quote_number ?? 'Auto-generated'),
                                 Placeholder::make('version_display')
                                     ->label('Version')
                                     ->content(fn (?BuyerQuote $record): string => $record instanceof \App\Models\BuyerQuote ? 'v'.$record->version : 'v1'),
@@ -78,7 +80,9 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             ])
                                     )
                                     ->default(function (): ?int {
-                                        $defaultCode = auth()->user()->currentTeam?->getErpSettings()->default_currency ?? 'USD';
+                                        /** @var \App\Models\Team|null $team */
+                                        $team = Filament::getTenant();
+                                        $defaultCode = $team?->getErpSettings()->default_currency ?? 'USD';
 
                                         return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
                                     })
@@ -335,7 +339,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                     ->label('Total')
                     ->numeric(decimalPlaces: 2)
                     ->sortable()
-                    ->description(fn (BuyerQuote $record): string => $record->currency?->code ?? ''),
+                    ->description(fn (BuyerQuote $record): string => $record->currency->code ?? ''),
                 TextColumn::make('total_margin_amount')
                     ->label('Margin')
                     ->getStateUsing(fn (BuyerQuote $record): string => sprintf(

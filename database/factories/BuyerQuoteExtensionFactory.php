@@ -92,8 +92,11 @@ final class BuyerQuoteExtensionFactory extends Factory
         return $this->state(function (array $attributes) use ($days): array {
             $original = $attributes['original_valid_until'] ?? now();
 
+            /** @var \DateTime $cloned */
+            $cloned = clone $original;
+
             return [
-                'new_valid_until' => (clone $original)->modify("+{$days} days"),
+                'new_valid_until' => $cloned->modify("+{$days} days"),
             ];
         });
     }

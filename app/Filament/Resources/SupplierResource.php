@@ -21,6 +21,7 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -62,7 +63,7 @@ final class SupplierResource extends Resource
      * Used both in main form and inline create modals.
      *
      * @param  bool  $excludePeopleField  Exclude People field to prevent circular references
-     * @return array<int, \Filament\Forms\Components\Component>
+     * @return array<int, \Filament\Schemas\Components\Component>
      */
     public static function getFormSchema(bool $excludePeopleField = false): array
     {
@@ -83,12 +84,15 @@ final class SupplierResource extends Resource
                 ->helperText('What products/services they supply')
                 ->createOptionForm(TagResource::getFormSchema())
                 ->createOptionUsing(function (array $data): int {
+                    /** @var \App\Models\Team $team */
+                    $team = Filament::getTenant();
+
                     /** @var Tag $tag */
                     $tag = Tag::create([
                         'name' => $data['name'],
                         'color' => $data['color'],
                         'description' => $data['description'] ?? null,
-                        'team_id' => auth()->user()->currentTeam->id,
+                        'team_id' => $team->id,
                         'creator_id' => auth()->id(),
                     ]);
 
@@ -107,10 +111,13 @@ final class SupplierResource extends Resource
                 ->helperText('Add people associated with this supplier')
                 ->createOptionForm(PeopleResource::getFormSchema(excludeCompaniesField: true))
                 ->createOptionUsing(function (array $data): int {
+                    /** @var \App\Models\Team $team */
+                    $team = Filament::getTenant();
+
                     /** @var People $person */
                     $person = People::create([
                         ...$data,
-                        'team_id' => auth()->user()->currentTeam->id,
+                        'team_id' => $team->id,
                         'creator_id' => auth()->id(),
                     ]);
 
@@ -139,7 +146,9 @@ final class SupplierResource extends Resource
                         )
                         ->getOptionLabelFromRecordUsing(fn (Currency $record): string => "{$record->code} - {$record->name}")
                         ->default(function (): ?int {
-                            $defaultCode = auth()->user()->currentTeam?->getErpSettings()->default_currency ?? 'USD';
+                            /** @var \App\Models\Team|null $team */
+                            $team = Filament::getTenant();
+                            $defaultCode = $team?->getErpSettings()->default_currency ?? 'USD';
 
                             return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
                         })

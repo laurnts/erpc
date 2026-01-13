@@ -55,7 +55,7 @@ final class ArticleFactory extends Factory
     public function withTaxCode(?TaxCode $taxCode = null): static
     {
         return $this->state(fn (array $attributes): array => [
-            'default_tax_code_id' => $taxCode?->id ?? TaxCode::factory(),
+            'default_tax_code_id' => $taxCode->id ?? TaxCode::factory(),
         ]);
     }
 

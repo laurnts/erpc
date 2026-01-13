@@ -47,10 +47,10 @@ final class AwaitingSupplierQuoteNotification extends Notification implements Sh
             'type' => 'awaiting_supplier_quote',
             'quote_id' => $this->quote->getKey(),
             'quote_number' => $this->quote->quote_number,
-            'supplier_name' => $this->quote->supplier?->name ?? 'Unknown Supplier',
+            'supplier_name' => $this->quote->supplier->name ?? 'Unknown Supplier',
             'supplier_id' => $this->quote->supplier_id,
             'request_id' => $this->quote->request_id,
-            'request_number' => $this->quote->request?->request_number ?? null,
+            'request_number' => $this->quote->request->request_number ?? null,
             'days_waiting' => $this->daysWaiting,
             'created_at' => $this->quote->created_at?->toDateString(),
             'urgency' => $this->getUrgencyLevel(),
@@ -79,7 +79,7 @@ final class AwaitingSupplierQuoteNotification extends Notification implements Sh
      */
     private function getTitle(): string
     {
-        $supplierName = $this->quote->supplier?->name ?? 'Unknown Supplier';
+        $supplierName = $this->quote->supplier->name ?? 'Unknown Supplier';
 
         return "Supplier quote {$this->quote->quote_number} awaiting response for {$this->daysWaiting} days";
     }
@@ -89,8 +89,8 @@ final class AwaitingSupplierQuoteNotification extends Notification implements Sh
      */
     private function getMessage(): string
     {
-        $supplierName = $this->quote->supplier?->name ?? 'Unknown Supplier';
-        $requestNumber = $this->quote->request?->request_number;
+        $supplierName = $this->quote->supplier->name ?? 'Unknown Supplier';
+        $requestNumber = $this->quote->request->request_number ?? null;
         $createdDate = $this->quote->created_at?->format('M j, Y') ?? 'Unknown';
 
         $message = "Quote request {$this->quote->quote_number} sent to {$supplierName} on {$createdDate} ";

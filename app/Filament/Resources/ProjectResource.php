@@ -18,6 +18,7 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
@@ -53,7 +54,7 @@ final class ProjectResource extends Resource
      * Used both in main form and inline create modals.
      *
      * @param  bool  $excludeBuyerField  Exclude Buyer field to prevent circular references
-     * @return array<int, \Filament\Forms\Components\Component>
+     * @return array<int, \Filament\Schemas\Components\Component>
      */
     public static function getFormSchema(bool $excludeBuyerField = false): array
     {
@@ -81,11 +82,14 @@ final class ProjectResource extends Resource
                 ->createOptionForm(BuyerResource::getFormSchema(excludePeopleField: true))
                 ->createOptionAction(fn (Action $action) => $action->slideOver())
                 ->createOptionUsing(function (array $data): int {
+                    /** @var \App\Models\Team $team */
+                    $team = Filament::getTenant();
+
                     /** @var \App\Models\Company $company */
                     $company = \App\Models\Company::create([
                         ...$data,
                         'is_buyer' => true,
-                        'team_id' => auth()->user()->currentTeam->id,
+                        'team_id' => $team->id,
                         'creator_id' => auth()->id(),
                     ]);
 
@@ -133,7 +137,7 @@ final class ProjectResource extends Resource
             ->components([
                 TextInput::make('project_number')
                     ->maxLength(50)
-                    ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule, $record) => $rule->where('team_id', $record?->team_id ?? auth()->user()->currentTeam->id))
+                    ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule, $record) => $rule->where('team_id', $record->team_id ?? Filament::getTenant()?->id))
                     ->placeholder('Auto-generated (e.g., PRJ-2026-0001)')
                     ->helperText('Leave empty to auto-generate'),
                 ...self::getFormSchema(),

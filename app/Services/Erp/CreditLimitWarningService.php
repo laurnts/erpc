@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Erp;
 
+use App\Models\Company;
+
 /**
  * Service to check and warn about credit limit violations.
  *
@@ -29,7 +31,7 @@ final readonly class CreditLimitWarningService
      *     warning_level: string|null
      * }
      */
-    public function checkCreditLimit(Buyer $buyer, float $newOrderAmount): array
+    public function checkCreditLimit(Company $buyer, float $newOrderAmount): array
     {
         $creditLimit = (float) $buyer->credit_limit;
         $creditUsed = (float) $buyer->credit_used;
@@ -103,7 +105,7 @@ final readonly class CreditLimitWarningService
      *     warning_message: string|null
      * }
      */
-    public function checkApproachingLimit(Buyer $buyer, float $thresholdPercent = 80.0): array
+    public function checkApproachingLimit(Company $buyer, float $thresholdPercent = 80.0): array
     {
         $creditLimit = (float) $buyer->credit_limit;
         $creditUsed = (float) $buyer->credit_used;
@@ -177,7 +179,7 @@ final readonly class CreditLimitWarningService
      * Build a warning message for display.
      */
     private function buildWarningMessage(
-        Buyer $buyer,
+        Company $buyer,
         float $creditLimit,
         float $creditUsed,
         float $availableCredit,
@@ -227,7 +229,7 @@ final readonly class CreditLimitWarningService
      *     status_color: string
      * }
      */
-    public function getCreditSummary(Buyer $buyer): array
+    public function getCreditSummary(Company $buyer): array
     {
         $creditLimit = (float) $buyer->credit_limit;
         $creditUsed = (float) $buyer->credit_used;
@@ -253,7 +255,7 @@ final readonly class CreditLimitWarningService
     /**
      * Determine the credit status text.
      */
-    private function determineStatus(Buyer $buyer, float $usagePercent): string
+    private function determineStatus(Company $buyer, float $usagePercent): string
     {
         if ($buyer->is_on_hold) {
             return 'On Hold';
@@ -282,7 +284,7 @@ final readonly class CreditLimitWarningService
     /**
      * Determine the status color for UI display.
      */
-    private function determineStatusColor(Buyer $buyer, float $usagePercent): string
+    private function determineStatusColor(Company $buyer, float $usagePercent): string
     {
         if ($buyer->is_on_hold) {
             return 'danger';

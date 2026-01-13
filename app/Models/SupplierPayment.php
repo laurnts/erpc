@@ -109,7 +109,7 @@ final class SupplierPayment extends Model implements HasMedia
     {
         return Attribute::make(
             get: function (): string {
-                $currency = $this->supplierInvoice?->currency;
+                $currency = $this->supplierInvoice->currency;
                 if ($currency === null) {
                     return number_format((float) $this->amount, 2);
                 }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Database\Factories;
 
 use App\Enums\ProjectStatus;
-use App\Models\Buyer;
+use App\Models\Company;
 use App\Models\Project;
 use App\Models\Team;
 use App\Models\User;
@@ -105,10 +105,10 @@ final class ProjectFactory extends Factory
     /**
      * Link the project to a buyer.
      */
-    public function forBuyer(?Buyer $buyer = null): static
+    public function forBuyer(?Company $buyer = null): static
     {
         return $this->state(fn (array $attributes): array => [
-            'buyer_id' => $buyer ?? Buyer::factory(),
+            'buyer_id' => $buyer ?? Company::factory()->buyer(),
         ]);
     }
 

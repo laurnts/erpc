@@ -38,7 +38,7 @@ final class ExchangeRateResource extends Resource
      * Get the base form fields for creating/editing an exchange rate.
      * Used both in main form and inline create modals.
      *
-     * @return array<int, \Filament\Forms\Components\Component>
+     * @return array<int, \Filament\Schemas\Components\Component>
      */
     public static function getFormSchema(): array
     {

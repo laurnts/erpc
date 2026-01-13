@@ -23,7 +23,7 @@ final class TaxCodeFactory extends Factory
     {
         return [
             'code' => strtoupper($this->faker->unique()->lexify('TAX-???')),
-            'name' => implode(' ', $this->faker->words(2)).' Tax',
+            'name' => implode(' ', (array) $this->faker->words(2)).' Tax',
             'rate' => $this->faker->randomFloat(2, 0, 25),
             'is_inclusive_default' => false,
             'is_active' => true,

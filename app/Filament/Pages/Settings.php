@@ -17,8 +17,11 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Schema;
-use Illuminate\Contracts\Support\Htmlable;
 
+/**
+ * @property Schema $erpForm
+ * @property Schema $prefixForm
+ */
 final class Settings extends Page implements HasForms
 {
     use InteractsWithForms;
@@ -40,7 +43,7 @@ final class Settings extends Page implements HasForms
     /** @var array<string, mixed>|null */
     public ?array $prefixData = [];
 
-    public function getTitle(): string|Htmlable
+    public function getTitle(): string
     {
         return 'General';
     }
@@ -78,6 +81,9 @@ final class Settings extends Page implements HasForms
         ]);
     }
 
+    /**
+     * @return array<string>
+     */
     protected function getForms(): array
     {
         return [

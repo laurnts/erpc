@@ -465,7 +465,7 @@ final class SupplierInvoice extends Model implements HasMedia
             'amount_paid' => (float) $this->amount_paid,
             'amount_outstanding' => $this->amount_outstanding,
             'base_currency_total' => $this->base_currency_total,
-            'currency_code' => $this->currency?->code,
+            'currency_code' => $this->currency->code,
             'exchange_rate' => (float) $this->exchange_rate,
         ];
     }

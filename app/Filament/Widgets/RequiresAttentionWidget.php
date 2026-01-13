@@ -165,20 +165,6 @@ final class RequiresAttentionWidget extends BaseWidget
     }
 
     /**
-     * Get the type label for a record.
-     */
-    private function getType(Model $record): string
-    {
-        return match (true) {
-            $record instanceof BuyerQuote => 'Quote',
-            $record instanceof BuyerOrder => 'Order',
-            $record instanceof Shipment => 'Shipment',
-            $record instanceof BuyerInvoice => 'Invoice',
-            default => 'Item',
-        };
-    }
-
-    /**
      * Get the type color for a record.
      */
     private function getTypeColor(Model $record): string
@@ -230,7 +216,7 @@ final class RequiresAttentionWidget extends BaseWidget
             default => null,
         };
 
-        return $request?->title ?? '-';
+        return $request->title ?? '-';
     }
 
     /**

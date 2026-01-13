@@ -52,19 +52,19 @@ final class AwaitingPaymentWidget extends BaseWidget
                     ->label('Total')
                     ->numeric(decimalPlaces: 2)
                     ->sortable()
-                    ->prefix(fn (BuyerInvoice $record): string => $record->currency?->symbol ?? ''),
+                    ->prefix(fn (BuyerInvoice $record): string => $record->currency->symbol ?? ''),
 
                 TextColumn::make('amount_paid')
                     ->label('Paid')
                     ->numeric(decimalPlaces: 2)
                     ->sortable()
-                    ->prefix(fn (BuyerInvoice $record): string => $record->currency?->symbol ?? ''),
+                    ->prefix(fn (BuyerInvoice $record): string => $record->currency->symbol ?? ''),
 
                 TextColumn::make('amount_outstanding')
                     ->label('Outstanding')
                     ->getStateUsing(fn (BuyerInvoice $record): float => $record->amount_outstanding)
                     ->numeric(decimalPlaces: 2)
-                    ->prefix(fn (BuyerInvoice $record): string => $record->currency?->symbol ?? '')
+                    ->prefix(fn (BuyerInvoice $record): string => $record->currency->symbol ?? '')
                     ->color(fn (BuyerInvoice $record): string => $record->status === InvoiceStatus::OVERDUE ? 'danger' : 'warning')
                     ->weight('bold'),
 

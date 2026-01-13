@@ -50,7 +50,7 @@ final class InvoiceOverdueNotification extends Notification implements ShouldQue
             'type' => 'invoice_overdue',
             'invoice_id' => $this->invoice->getKey(),
             'invoice_number' => $this->invoice->invoice_number,
-            'buyer_name' => $buyer?->name ?? 'Unknown Buyer',
+            'buyer_name' => $buyer->name ?? 'Unknown Buyer',
             'buyer_id' => $buyer?->getKey(),
             'total' => (float) $this->invoice->total,
             'amount_outstanding' => $this->invoice->amount_outstanding,
@@ -59,11 +59,11 @@ final class InvoiceOverdueNotification extends Notification implements ShouldQue
             'days_overdue' => $daysOverdue,
             'urgency' => $this->getUrgencyLevel($daysOverdue),
             'title' => $this->getTitle($daysOverdue),
-            'message' => $this->getMessage($buyer?->name ?? 'Unknown Buyer', $daysOverdue),
+            'message' => $this->getMessage($buyer->name ?? 'Unknown Buyer', $daysOverdue),
             'icon' => 'heroicon-o-exclamation-triangle',
             'color' => $this->getColor($daysOverdue),
             'action_url' => $this->getActionUrl(),
-            'currency_code' => $this->invoice->currency?->code ?? 'USD',
+            'currency_code' => $this->invoice->currency->code ?? 'USD',
         ];
     }
 
@@ -86,7 +86,7 @@ final class InvoiceOverdueNotification extends Notification implements ShouldQue
     private function getTitle(int $daysOverdue): string
     {
         $formattedAmount = number_format($this->invoice->amount_outstanding, 2);
-        $currencyCode = $this->invoice->currency?->code ?? 'USD';
+        $currencyCode = $this->invoice->currency->code ?? 'USD';
 
         return match (true) {
             $daysOverdue === 1 => "Invoice {$this->invoice->invoice_number} is 1 day overdue ({$currencyCode} {$formattedAmount})",
@@ -100,7 +100,7 @@ final class InvoiceOverdueNotification extends Notification implements ShouldQue
     private function getMessage(string $buyerName, int $daysOverdue): string
     {
         $formattedAmount = number_format($this->invoice->amount_outstanding, 2);
-        $currencyCode = $this->invoice->currency?->code ?? 'USD';
+        $currencyCode = $this->invoice->currency->code ?? 'USD';
         $dueDate = $this->invoice->due_at?->format('M j, Y') ?? 'Unknown';
 
         $baseMessage = "Invoice {$this->invoice->invoice_number} for {$buyerName} was due on {$dueDate}. ";

@@ -40,4 +40,35 @@ final class CompanyFactory extends Factory
             'updated_at' => now()->subMinutes($sequence->index),
         ]);
     }
+
+    /**
+     * Indicate that the company is a buyer.
+     */
+    public function buyer(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'is_buyer' => true,
+        ]);
+    }
+
+    /**
+     * Indicate that the company is a supplier.
+     */
+    public function supplier(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'is_supplier' => true,
+        ]);
+    }
+
+    /**
+     * Indicate that the company is both a buyer and a supplier.
+     */
+    public function buyerAndSupplier(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'is_buyer' => true,
+            'is_supplier' => true,
+        ]);
+    }
 }

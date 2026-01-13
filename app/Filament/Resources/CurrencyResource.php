@@ -40,7 +40,7 @@ final class CurrencyResource extends Resource
      * Used both in main form and inline create modals.
      *
      * @param  bool  $excludeDefaultField  Exclude is_default field for inline creates
-     * @return array<int, \Filament\Forms\Components\Component>
+     * @return array<int, \Filament\Schemas\Components\Component>
      */
     public static function getFormSchema(bool $excludeDefaultField = false): array
     {

@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * @property-read string $created_by
+ * @property CreationSource $creation_source
  */
 trait HasCreator
 {

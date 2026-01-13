@@ -128,8 +128,8 @@ final class AppServiceProvider extends ServiceProvider
             'import' => Import::class,
 
             // ERP entities (will be created in Phase 1+)
-            'buyer' => \App\Models\Buyer::class,
-            'supplier' => \App\Models\Supplier::class,
+            'buyer' => Company::class,
+            'supplier' => Company::class,
             'article' => \App\Models\Article::class,
             'request' => \App\Models\Request::class,
             'supplier_quote' => \App\Models\SupplierQuote::class,

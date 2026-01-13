@@ -67,7 +67,9 @@ final class BackfillCustomFieldColorsCommand extends Command
                 continue;
             }
 
-            $this->info("Processing: {$field->name} for {$field->entity_type} (Team {$field->tenant_id})");
+            /** @var int|null $tenantId */
+            $tenantId = $field->getAttribute('tenant_id');
+            $this->info("Processing: {$field->name} for {$field->entity_type} (Team {$tenantId})");
 
             // Enable colors on the field if not already enabled
             if (! $field->settings->enable_option_colors) {

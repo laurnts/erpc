@@ -157,7 +157,7 @@ final class SupplierInvoiceItem extends Model
     {
         return Attribute::make(
             get: function (): string {
-                $currency = $this->supplierInvoice?->currency;
+                $currency = $this->supplierInvoice->currency;
                 if ($currency === null) {
                     return number_format((float) $this->unit_price, 2);
                 }
@@ -176,7 +176,7 @@ final class SupplierInvoiceItem extends Model
     {
         return Attribute::make(
             get: function (): string {
-                $currency = $this->supplierInvoice?->currency;
+                $currency = $this->supplierInvoice->currency;
                 if ($currency === null) {
                     return number_format((float) $this->line_total, 2);
                 }

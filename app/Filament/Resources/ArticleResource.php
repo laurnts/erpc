@@ -17,6 +17,7 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -48,7 +49,7 @@ final class ArticleResource extends Resource
      * Get the base form fields for creating/editing an article.
      * Used both in main form and inline create modals.
      *
-     * @return array<int, \Filament\Forms\Components\Component>
+     * @return array<int, \Filament\Schemas\Components\Component>
      */
     public static function getFormSchema(): array
     {
@@ -74,12 +75,15 @@ final class ArticleResource extends Resource
                 ->searchable()
                 ->createOptionForm(TagResource::getFormSchema())
                 ->createOptionUsing(function (array $data): int {
+                    /** @var \App\Models\Team $team */
+                    $team = Filament::getTenant();
+
                     /** @var Tag $tag */
                     $tag = Tag::create([
                         'name' => $data['name'],
                         'color' => $data['color'],
                         'description' => $data['description'] ?? null,
-                        'team_id' => auth()->user()->currentTeam->id,
+                        'team_id' => $team->id,
                         'creator_id' => auth()->id(),
                     ]);
 

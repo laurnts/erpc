@@ -48,7 +48,7 @@ final class QuoteExpirationNotification extends Notification implements ShouldQu
             'type' => 'quote_expiration',
             'quote_id' => $this->quote->getKey(),
             'quote_number' => $this->quote->quote_number,
-            'buyer_name' => $this->quote->buyer?->name ?? 'Unknown Buyer',
+            'buyer_name' => $this->quote->buyer->name ?? 'Unknown Buyer',
             'buyer_id' => $this->quote->buyer_id,
             'expiry_date' => $this->quote->valid_until?->toDateString(),
             'days_until_expiry' => $this->daysUntilExpiry,
@@ -78,7 +78,7 @@ final class QuoteExpirationNotification extends Notification implements ShouldQu
      */
     private function getTitle(): string
     {
-        $buyerName = $this->quote->buyer?->name ?? 'Unknown Buyer';
+        $buyerName = $this->quote->buyer->name ?? 'Unknown Buyer';
 
         return match ($this->daysUntilExpiry) {
             1 => "Quote {$this->quote->quote_number} expires tomorrow",
@@ -92,7 +92,7 @@ final class QuoteExpirationNotification extends Notification implements ShouldQu
      */
     private function getMessage(): string
     {
-        $buyerName = $this->quote->buyer?->name ?? 'Unknown Buyer';
+        $buyerName = $this->quote->buyer->name ?? 'Unknown Buyer';
         $expiryDate = $this->quote->valid_until?->format('M j, Y') ?? 'Unknown';
 
         return match ($this->daysUntilExpiry) {

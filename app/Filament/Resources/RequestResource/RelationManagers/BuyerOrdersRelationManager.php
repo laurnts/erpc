@@ -35,6 +35,7 @@ final class BuyerOrdersRelationManager extends RelationManager
     public function form(Schema $schema): Schema
     {
         return $schema
+            ->columns(1)
             ->components([
                 Section::make('Order Details')
                     ->schema([
@@ -42,13 +43,13 @@ final class BuyerOrdersRelationManager extends RelationManager
                             ->schema([
                                 Placeholder::make('order_number_display')
                                     ->label('Order Number')
-                                    ->content(fn (?BuyerOrder $record): string => $record?->order_number ?? 'Auto-generated'),
+                                    ->content(fn (?BuyerOrder $record): string => $record->order_number ?? 'Auto-generated'),
                                 Placeholder::make('status_display')
                                     ->label('Status')
                                     ->content(fn (?BuyerOrder $record): string => $record?->status->getLabel() ?? 'Draft'),
                                 Placeholder::make('buyer_quote_display')
                                     ->label('Source Quote')
-                                    ->content(fn (?BuyerOrder $record): string => $record?->buyerQuote?->quote_number ?? 'None'),
+                                    ->content(fn (?BuyerOrder $record): string => $record->buyerQuote->quote_number ?? 'None'),
                             ]),
                     ]),
 
@@ -58,10 +59,10 @@ final class BuyerOrdersRelationManager extends RelationManager
                             ->schema([
                                 Placeholder::make('payment_terms_days_display')
                                     ->label('Payment Terms (Days)')
-                                    ->content(fn (?BuyerOrder $record): string => (string) ($record?->payment_terms_days ?? 30)),
+                                    ->content(fn (?BuyerOrder $record): string => (string) ($record->payment_terms_days ?? 30)),
                                 Placeholder::make('payment_terms_text_display')
                                     ->label('Payment Terms Description')
-                                    ->content(fn (?BuyerOrder $record): string => $record?->payment_terms_text ?? '-'),
+                                    ->content(fn (?BuyerOrder $record): string => $record->payment_terms_text ?? '-'),
                             ]),
                     ])
                     ->collapsible()

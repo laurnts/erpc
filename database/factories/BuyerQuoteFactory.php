@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Database\Factories;
 
 use App\Enums\BuyerQuoteStatus;
-use App\Models\Buyer;
 use App\Models\BuyerQuote;
+use App\Models\Company;
 use App\Models\Currency;
 use App\Models\Request;
 use App\Models\Team;
@@ -47,7 +47,7 @@ final class BuyerQuoteFactory extends Factory
             'team_id' => Team::factory(),
             'creator_id' => User::factory(),
             'request_id' => Request::factory(),
-            'buyer_id' => Buyer::factory(),
+            'buyer_id' => Company::factory()->buyer(),
             'currency_id' => Currency::factory(),
         ];
     }
@@ -145,7 +145,7 @@ final class BuyerQuoteFactory extends Factory
     {
         return $this->state(fn (array $attributes): array => [
             'previous_version_id' => $previousQuote?->getKey(),
-            'version' => ($previousQuote?->version ?? 0) + 1,
+            'version' => ($previousQuote->version ?? 0) + 1,
         ]);
     }
 
@@ -164,10 +164,10 @@ final class BuyerQuoteFactory extends Factory
     /**
      * Set a specific buyer.
      */
-    public function forBuyer(?Buyer $buyer = null): static
+    public function forBuyer(?Company $buyer = null): static
     {
         return $this->state(fn (array $attributes): array => [
-            'buyer_id' => $buyer ?? Buyer::factory(),
+            'buyer_id' => $buyer ?? Company::factory()->buyer(),
         ]);
     }
 

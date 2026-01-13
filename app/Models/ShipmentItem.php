@@ -209,7 +209,7 @@ final class ShipmentItem extends Model
     {
         $orderItem = $this->getOrderItem();
 
-        return $orderItem?->description ?? '';
+        return $orderItem->description ?? '';
     }
 
     /**
@@ -219,7 +219,7 @@ final class ShipmentItem extends Model
     {
         $orderItem = $this->getOrderItem();
 
-        return $orderItem?->unit ?? 'pcs';
+        return $orderItem->unit ?? 'pcs';
     }
 
     /**

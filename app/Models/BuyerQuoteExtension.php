@@ -84,7 +84,7 @@ final class BuyerQuoteExtension extends Model
     public function getSummaryAttribute(): string
     {
         $days = $this->extension_days;
-        $extendedBy = $this->extendedBy?->name ?? 'Unknown';
+        $extendedBy = $this->extendedBy->name ?? 'Unknown';
 
         return sprintf(
             'Extended by %d day%s by %s on %s',
