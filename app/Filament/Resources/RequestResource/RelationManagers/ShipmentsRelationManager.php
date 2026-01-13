@@ -218,7 +218,8 @@ final class ShipmentsRelationManager extends RelationManager
                             ->columns(1)
                             ->defaultItems(0)
                             ->addActionLabel('Add Item')
-                            ->reorderable('sort_order')
+                            ->reorderable()
+                            ->orderColumn('sort_order')
                             ->collapsible(),
                     ]),
 

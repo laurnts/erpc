@@ -7,6 +7,7 @@ namespace App\Filament\Resources\RequestResource\RelationManagers;
 use App\Enums\OrderStatus;
 use App\Enums\SupplierQuoteStatus;
 use App\Filament\Actions\DownloadPdfAction;
+use App\Models\Company;
 use App\Models\Currency;
 use App\Models\Request;
 use App\Models\SupplierOrder;
@@ -56,12 +57,13 @@ final class SupplierOrdersRelationManager extends RelationManager
                                 Select::make('supplier_id')
                                     ->label('Supplier')
                                     ->options(
-                                        Supplier::query()
+                                        Company::query()
                                             ->where('team_id', $request->team_id)
+                                            ->where('is_supplier', true)
                                             ->where('is_active', true)
                                             ->orderBy('name')
                                             ->get()
-                                            ->mapWithKeys(fn (Supplier $supplier): array => [
+                                            ->mapWithKeys(fn (Company $supplier): array => [
                                                 $supplier->getKey() => "[{$supplier->code}] {$supplier->name}",
                                             ])
                                     )
@@ -246,7 +248,8 @@ final class SupplierOrdersRelationManager extends RelationManager
                             ->columns(1)
                             ->defaultItems(0)
                             ->addActionLabel('Add Line Item')
-                            ->reorderable('sort_order')
+                            ->reorderable()
+                            ->orderColumn('sort_order')
                             ->collapsible()
                             ->itemLabel(fn (array $state): ?string => $state['description'] ?? null),
                     ]),

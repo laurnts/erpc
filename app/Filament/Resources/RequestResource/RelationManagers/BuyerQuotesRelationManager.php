@@ -251,7 +251,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                             ->columns(1)
                             ->defaultItems(0)
                             ->addActionLabel('Add Line Item')
-                            ->reorderable('sort_order')
+                            ->reorderable()
+                            ->orderColumn('sort_order')
                             ->collapsible()
                             ->itemLabel(fn (array $state): ?string => $state['description'] ?? null),
                     ]),
@@ -303,6 +304,9 @@ final class BuyerQuotesRelationManager extends RelationManager
 
     public function table(Table $table): Table
     {
+        /** @var Request $request */
+        $request = $this->getOwnerRecord();
+
         return $table
             ->recordTitleAttribute('quote_number')
             ->defaultSort('created_at', 'desc')

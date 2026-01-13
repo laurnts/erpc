@@ -43,9 +43,9 @@
     $displayStages = collect($stages)->filter(fn ($s) => $s !== RequestStage::CANCELLED);
 @endphp
 
-<div class="py-2">
-    {{-- Progress Bar --}}
-    <div class="flex items-center justify-between mb-2">
+<div class="py-2 overflow-hidden">
+    {{-- Progress Bar with Dots and Lines --}}
+    <div class="flex items-center mb-2">
         @foreach($displayStages as $stage)
             @php
                 $stageIndex = $stageOrder[$stage->value] ?? 0;
@@ -54,30 +54,28 @@
                 $isPending = $stageIndex > $currentIndex;
             @endphp
 
-            <div class="flex flex-col items-center flex-1">
-                {{-- Stage Dot --}}
-                <div class="relative flex items-center justify-center">
-                    @if($isCompleted)
-                        <div class="w-4 h-4 rounded-full bg-success-500 flex items-center justify-center">
-                            <x-heroicon-m-check class="w-3 h-3 text-white" />
-                        </div>
-                    @elseif($isCurrent)
-                        <div class="w-5 h-5 rounded-full bg-primary-500 ring-4 ring-primary-100 dark:ring-primary-900"></div>
-                    @else
-                        <div class="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700"></div>
-                    @endif
-                </div>
-
-                {{-- Connector Line (except for last) --}}
-                @if(!$loop->last)
-                    <div class="absolute top-2 left-1/2 w-full h-0.5 {{ $isCompleted ? 'bg-success-500' : 'bg-gray-200 dark:bg-gray-700' }}" style="transform: translateX(50%);"></div>
+            {{-- Stage Dot --}}
+            <div class="flex items-center justify-center shrink-0">
+                @if($isCompleted)
+                    <div class="w-4 h-4 rounded-full bg-success-500 flex items-center justify-center">
+                        <x-heroicon-m-check class="w-3 h-3 text-white" />
+                    </div>
+                @elseif($isCurrent)
+                    <div class="w-5 h-5 rounded-full bg-primary-500 ring-4 ring-primary-100 dark:ring-primary-900"></div>
+                @else
+                    <div class="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700"></div>
                 @endif
             </div>
+
+            {{-- Connector Line (except for last) --}}
+            @if(!$loop->last)
+                <div class="flex-1 h-0.5 mx-1 {{ $isCompleted ? 'bg-success-500' : 'bg-gray-200 dark:bg-gray-700' }}"></div>
+            @endif
         @endforeach
     </div>
 
     {{-- Stage Labels --}}
-    <div class="flex items-start justify-between text-xs text-gray-500 dark:text-gray-400">
+    <div class="flex items-start text-xs text-gray-500 dark:text-gray-400">
         @foreach($displayStages as $stage)
             @php
                 $isCurrent = $stage === $currentStage;
