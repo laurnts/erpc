@@ -116,4 +116,25 @@ final class Team extends JetstreamTeam implements HasAvatar
     {
         return $this->hasMany(Note::class);
     }
+
+    /**
+     * Get the team's base currency model.
+     */
+    public function getBaseCurrency(): ?Currency
+    {
+        $code = $this->getErpSettings()->default_currency;
+
+        return Currency::query()
+            ->where('code', $code)
+            ->where('is_active', true)
+            ->first();
+    }
+
+    /**
+     * Get the team's base currency code.
+     */
+    public function getBaseCurrencyCode(): string
+    {
+        return $this->getErpSettings()->default_currency;
+    }
 }

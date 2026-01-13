@@ -227,8 +227,8 @@ final class ViewRequest extends ViewRecord
             ItemsRelationManager::class,
             SupplierQuotesRelationManager::class,
             BuyerQuotesRelationManager::class,
-            SupplierOrdersRelationManager::class,
             BuyerOrdersRelationManager::class,
+            SupplierOrdersRelationManager::class,
             ShipmentsRelationManager::class,
             RequestActivitiesRelationManager::class,
         ];

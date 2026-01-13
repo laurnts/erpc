@@ -11,6 +11,7 @@ use App\Models\Company;
 use App\Models\Currency;
 use App\Models\People;
 use App\Models\Tag;
+use App\Models\Team;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -124,7 +125,7 @@ final class BuyerResource extends Resource
                 });
         }
 
-        $fields = array_merge($fields, [
+        return array_merge($fields, [
             Section::make('Location')
                 ->schema([
                     TextInput::make('country')
@@ -203,8 +204,6 @@ final class BuyerResource extends Resource
                 ])
                 ->columns(1),
         ]);
-
-        return $fields;
     }
 
     public static function form(Schema $schema): Schema
@@ -245,12 +244,12 @@ final class BuyerResource extends Resource
                     ->toggleable(),
                 TextColumn::make('credit_limit')
                     ->label('Credit Limit')
-                    ->money('USD')
+                    ->money(fn (): string => Filament::getTenant() instanceof Team ? Filament::getTenant()->getBaseCurrencyCode() : 'USD')
                     ->sortable()
                     ->toggleable(),
                 TextColumn::make('availableCredit')
                     ->label('Available Credit')
-                    ->money('USD')
+                    ->money(fn (): string => Filament::getTenant() instanceof Team ? Filament::getTenant()->getBaseCurrencyCode() : 'USD')
                     ->sortable()
                     ->toggleable(),
                 IconColumn::make('is_on_hold')

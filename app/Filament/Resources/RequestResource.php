@@ -300,9 +300,9 @@ final class RequestResource extends Resource
         return [
             ItemsRelationManager::class,
             SupplierQuotesRelationManager::class,
-            SupplierOrdersRelationManager::class,
             BuyerQuotesRelationManager::class,
             BuyerOrdersRelationManager::class,
+            SupplierOrdersRelationManager::class,
             ShipmentsRelationManager::class,
             TasksRelationManager::class,
             NotesRelationManager::class,

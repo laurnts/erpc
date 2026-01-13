@@ -162,6 +162,16 @@ final class BuyerQuoteItem extends Model
     }
 
     /**
+     * The source supplier quote item (if created from a supplier quote).
+     *
+     * @return BelongsTo<SupplierQuoteItem, $this>
+     */
+    public function supplierQuoteItem(): BelongsTo
+    {
+        return $this->belongsTo(SupplierQuoteItem::class);
+    }
+
+    /**
      * Calculate the margin amount (selling price - cost price) per unit.
      *
      * @return Attribute<float, never>

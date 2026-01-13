@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Data\TeamErpSettings;
+use App\Models\Currency;
 use App\Models\Team;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use DanHarrin\LivewireRateLimiting\WithRateLimiting;
@@ -98,13 +99,16 @@ final class Settings extends Page implements HasForms
             ->schema([
                 Select::make('default_currency')
                     ->label('Default Currency')
-                    ->options([
-                        'USD' => 'USD - US Dollar',
-                        'IDR' => 'IDR - Indonesian Rupiah',
-                        'EUR' => 'EUR - Euro',
-                        'SGD' => 'SGD - Singapore Dollar',
-                        'CNY' => 'CNY - Chinese Yuan',
-                    ])
+                    ->options(fn (): array => Currency::query()
+                        ->where('is_active', true)
+                        ->orderBy('code')
+                        ->get()
+                        ->mapWithKeys(fn (Currency $currency): array => [
+                            $currency->code => "{$currency->code} - {$currency->name}",
+                        ])
+                        ->all()
+                    )
+                    ->searchable()
                     ->required(),
                 TextInput::make('default_tax_percent')
                     ->label('Default Tax Percentage')
