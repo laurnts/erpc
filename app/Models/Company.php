@@ -219,6 +219,27 @@ final class Company extends Model implements HasCustomFields, HasMedia
     }
 
     /**
+     * Get all articles supplied by this company (when acting as supplier).
+     *
+     * @return BelongsToMany<Article, $this>
+     */
+    public function articles(): BelongsToMany
+    {
+        return $this->belongsToMany(Article::class, 'supplier_articles', 'supplier_id', 'article_id')
+            ->withPivot([
+                'supplier_sku',
+                'last_quoted_price',
+                'last_quoted_currency_id',
+                'last_quoted_at',
+                'lead_time_days',
+                'notes',
+                'is_preferred',
+                'is_active',
+            ])
+            ->withTimestamps();
+    }
+
+    /**
      * Generate the next company code for the given team.
      */
     public static function generateNextCode(int $teamId): string
