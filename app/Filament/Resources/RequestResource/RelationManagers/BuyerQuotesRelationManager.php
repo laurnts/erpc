@@ -208,13 +208,16 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 ]),
                             Grid::make(12)
                                 ->schema([
+                                    Hidden::make('from_supplier'),
                                     TextInput::make('cost_price')
                                         ->label('Cost Price')
                                         ->numeric()
                                         ->default(0)
                                         ->step(0.0001)
                                         ->columnSpan(2)
-                                        ->helperText('From supplier')
+                                        ->helperText(fn (Get $get): string => $get('from_supplier') !== null
+                                            ? "From: {$get('from_supplier')}"
+                                            : 'No supplier quote')
                                         ->live(onBlur: true)
                                         ->afterStateUpdated(function (Set $set, Get $get): void {
                                             $costPrice = (float) ($get('cost_price') ?? 0);
@@ -228,7 +231,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             $this->calculateItemTotals($set, $get);
                                         }),
                                     TextInput::make('unit_price')
-                                        ->label('Selling Price')
+                                        ->label('Selling Price (Net)')
                                         ->numeric()
                                         ->required()
                                         ->default(0)
@@ -296,7 +299,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             $this->calculateItemTotals($set, $get);
                                         }),
                                     Checkbox::make('is_tax_inclusive')
-                                        ->label('Tax Inc.')
+                                        ->label('+ Tax')
                                         ->inline(false)
                                         ->columnSpan(1)
                                         ->live()
@@ -312,7 +315,12 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     TextInput::make('margin_percent_input')
                                         ->label('Margin %')
                                         ->numeric()
-                                        ->default(fn (): float => Filament::getTenant()?->getErpSettings()->default_margin_percent ?? 3.0)
+                                        ->default(function (): float {
+                                            /** @var \App\Models\Team|null $team */
+                                            $team = Filament::getTenant();
+
+                                            return $team?->getErpSettings()->default_margin_percent ?? 3.0;
+                                        })
                                         ->step(0.01)
                                         ->suffix('%')
                                         ->columnSpan(2)
@@ -346,6 +354,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->reorderable()
                         ->orderColumn('sort_order')
                         ->collapsible()
+                        ->live()
                         ->deletable(fn (?BuyerQuote $record): bool => $record === null || $record->status->canEdit())
                         ->addable(fn (?BuyerQuote $record): bool => $record === null || $record->status->canEdit())
                         ->itemLabel(fn (array $state): ?string => $state['description'] ?? null),
@@ -357,24 +366,64 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->schema([
                             Placeholder::make('subtotal_display')
                                 ->label('Subtotal')
-                                ->content(fn (?BuyerQuote $record): string => $record instanceof \App\Models\BuyerQuote
-                                    ? number_format((float) $record->subtotal, 2)
-                                    : '0.00'),
+                                ->live()
+                                ->content(function (Get $get): string {
+                                    /** @var array<int, array<string, mixed>> $items */
+                                    $items = $get('items') ?? [];
+                                    $subtotal = 0.0;
+                                    foreach ($items as $item) {
+                                        $subtotal += (float) ($item['line_subtotal'] ?? 0);
+                                    }
+
+                                    return number_format($subtotal, 2);
+                                }),
                             Placeholder::make('tax_total_display')
                                 ->label('Tax Total')
-                                ->content(fn (?BuyerQuote $record): string => $record instanceof \App\Models\BuyerQuote
-                                    ? number_format((float) $record->tax_total, 2)
-                                    : '0.00'),
+                                ->live()
+                                ->content(function (Get $get): string {
+                                    /** @var array<int, array<string, mixed>> $items */
+                                    $items = $get('items') ?? [];
+                                    $taxTotal = 0.0;
+                                    foreach ($items as $item) {
+                                        $taxTotal += (float) ($item['line_tax'] ?? 0);
+                                    }
+
+                                    return number_format($taxTotal, 2);
+                                }),
                             Placeholder::make('total_display')
                                 ->label('Total')
-                                ->content(fn (?BuyerQuote $record): string => $record instanceof \App\Models\BuyerQuote
-                                    ? number_format((float) $record->total, 2)
-                                    : '0.00'),
+                                ->live()
+                                ->content(function (Get $get): string {
+                                    /** @var array<int, array<string, mixed>> $items */
+                                    $items = $get('items') ?? [];
+                                    $total = 0.0;
+                                    foreach ($items as $item) {
+                                        $total += (float) ($item['line_total'] ?? 0);
+                                    }
+
+                                    return number_format($total, 2);
+                                }),
                             Placeholder::make('margin_display')
                                 ->label('Total Margin')
-                                ->content(fn (?BuyerQuote $record): string => $record instanceof \App\Models\BuyerQuote
-                                    ? sprintf('%s (%.1f%%)', number_format($record->total_margin_amount, 2), $record->total_margin_percent)
-                                    : '0.00 (0.0%)'),
+                                ->live()
+                                ->content(function (Get $get): string {
+                                    /** @var array<int, array<string, mixed>> $items */
+                                    $items = $get('items') ?? [];
+                                    $totalMargin = 0.0;
+                                    $totalCost = 0.0;
+
+                                    foreach ($items as $item) {
+                                        $qty = (float) ($item['quantity'] ?? 0);
+                                        $marginAmount = (float) ($item['margin_amount'] ?? 0);
+                                        $costPrice = (float) ($item['cost_price'] ?? 0);
+                                        $totalMargin += $marginAmount * $qty;
+                                        $totalCost += $costPrice * $qty;
+                                    }
+
+                                    $marginPercent = $totalCost > 0 ? ($totalMargin / $totalCost) * 100 : 0;
+
+                                    return sprintf('%s (%.1f%%)', number_format($totalMargin, 2), $marginPercent);
+                                }),
                         ]),
                 ])
                 ->collapsible(),
@@ -503,24 +552,25 @@ final class BuyerQuotesRelationManager extends RelationManager
                         $items = [];
                         $sortOrder = 0;
 
-                        foreach ($request->items()->with(['article', 'supplier'])->get() as $requestItem) {
-                            // Try to get cost price from selected supplier quote
+                        foreach ($request->items()->with(['article'])->get() as $requestItem) {
+                            // Try to get cost price from any SELECTED supplier quote for this request item
                             $costPrice = 0.0;
                             $supplierQuoteItemId = null;
+                            $supplierName = null;
 
-                            if ($requestItem->supplier_id !== null) {
-                                $supplierQuoteItem = \App\Models\SupplierQuoteItem::query()
-                                    ->whereHas('supplierQuote', fn ($q) => $q
-                                        ->where('request_id', $request->getKey())
-                                        ->where('supplier_id', $requestItem->supplier_id)
-                                        ->where('status', \App\Enums\SupplierQuoteStatus::SELECTED))
-                                    ->where('request_item_id', $requestItem->getKey())
-                                    ->first();
+                            // Find SupplierQuoteItem from any SELECTED quote matching this request item
+                            $supplierQuoteItem = \App\Models\SupplierQuoteItem::query()
+                                ->whereHas('supplierQuote', fn ($q) => $q
+                                    ->where('request_id', $request->getKey())
+                                    ->where('status', \App\Enums\SupplierQuoteStatus::SELECTED))
+                                ->where('request_item_id', $requestItem->getKey())
+                                ->with('supplierQuote.supplier')
+                                ->first();
 
-                                if ($supplierQuoteItem !== null) {
-                                    $costPrice = (float) $supplierQuoteItem->unit_price;
-                                    $supplierQuoteItemId = $supplierQuoteItem->getKey();
-                                }
+                            if ($supplierQuoteItem !== null) {
+                                $costPrice = (float) $supplierQuoteItem->unit_price_exc_tax;
+                                $supplierQuoteItemId = $supplierQuoteItem->getKey();
+                                $supplierName = $supplierQuoteItem->supplierQuote->supplier->name ?? null;
                             }
 
                             // Calculate selling price with default margin
@@ -530,27 +580,25 @@ final class BuyerQuotesRelationManager extends RelationManager
 
                             // Calculate tax-related values
                             $taxRate = $defaultTaxCode !== null ? (float) $defaultTaxCode->rate : 0.0;
-                            $isTaxInclusive = $defaultTaxCode !== null && $defaultTaxCode->is_inclusive_default;
+                            $addTax = $defaultTaxCode !== null && $defaultTaxCode->is_inclusive_default;
                             $quantity = (float) $requestItem->quantity;
 
-                            // Calculate unit price excluding tax
-                            $unitPriceExcTax = $isTaxInclusive && $taxRate > 0
-                                ? $unitPrice / (1 + $taxRate / 100)
-                                : $unitPrice;
+                            // Unit price is always the NET price
+                            $unitPriceExcTax = $unitPrice;
 
-                            // Calculate line totals
-                            $lineAmount = $quantity * $unitPrice;
-                            if ($isTaxInclusive) {
-                                $lineTotal = $lineAmount;
-                                $lineSubtotal = $taxRate > 0 ? $lineAmount / (1 + $taxRate / 100) : $lineAmount;
-                                $lineTax = $lineTotal - $lineSubtotal;
-                            } else {
-                                $lineSubtotal = $lineAmount;
-                                $lineTax = $lineAmount * $taxRate / 100;
+                            // Line subtotal is quantity * net price
+                            $lineSubtotal = $quantity * $unitPrice;
+
+                            // Calculate tax and total based on checkbox
+                            if ($addTax) {
+                                $lineTax = $lineSubtotal * $taxRate / 100;
                                 $lineTotal = $lineSubtotal + $lineTax;
+                            } else {
+                                $lineTax = 0;
+                                $lineTotal = $lineSubtotal;
                             }
 
-                            // Calculate margin
+                            // Calculate margin (based on net prices)
                             $marginAmount = $unitPriceExcTax - $costPrice;
                             $marginPercent = $costPrice > 0 ? ($marginAmount / $costPrice) * 100 : 0;
 
@@ -558,6 +606,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 'request_item_id' => $requestItem->getKey(),
                                 'article_id' => $requestItem->article_id,
                                 'supplier_quote_item_id' => $supplierQuoteItemId,
+                                'from_supplier' => $supplierName,
                                 'description' => $requestItem->article !== null ? $requestItem->article->name : $requestItem->description,
                                 'quantity' => (string) $requestItem->quantity,
                                 'unit' => $requestItem->unit,
@@ -567,7 +616,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 'tax_code_id' => $defaultTaxCode?->getKey(),
                                 'tax_rate' => (string) $taxRate,
                                 'tax_amount' => (string) round($lineTax / max($quantity, 0.0001), 4),
-                                'is_tax_inclusive' => $isTaxInclusive,
+                                'is_tax_inclusive' => $addTax,
                                 'line_subtotal' => (string) round($lineSubtotal, 4),
                                 'line_tax' => (string) round($lineTax, 4),
                                 'line_total' => (string) round($lineTotal, 4),
@@ -611,24 +660,22 @@ final class BuyerQuotesRelationManager extends RelationManager
 
                             $sortOrder = 0;
 
-                            foreach ($request->items()->with(['article', 'supplier'])->get() as $requestItem) {
-                                // Try to get cost price from selected supplier quote
+                            foreach ($request->items()->with(['article'])->get() as $requestItem) {
+                                // Try to get cost price from any SELECTED supplier quote for this request item
                                 $costPrice = 0.0;
                                 $supplierQuoteItemId = null;
 
-                                if ($requestItem->supplier_id !== null) {
-                                    $supplierQuoteItem = \App\Models\SupplierQuoteItem::query()
-                                        ->whereHas('supplierQuote', fn ($q) => $q
-                                            ->where('request_id', $request->getKey())
-                                            ->where('supplier_id', $requestItem->supplier_id)
-                                            ->where('status', \App\Enums\SupplierQuoteStatus::SELECTED))
-                                        ->where('request_item_id', $requestItem->getKey())
-                                        ->first();
+                                // Find SupplierQuoteItem from any SELECTED quote matching this request item
+                                $supplierQuoteItem = \App\Models\SupplierQuoteItem::query()
+                                    ->whereHas('supplierQuote', fn ($q) => $q
+                                        ->where('request_id', $request->getKey())
+                                        ->where('status', \App\Enums\SupplierQuoteStatus::SELECTED))
+                                    ->where('request_item_id', $requestItem->getKey())
+                                    ->first();
 
-                                    if ($supplierQuoteItem !== null) {
-                                        $costPrice = (float) $supplierQuoteItem->unit_price;
-                                        $supplierQuoteItemId = $supplierQuoteItem->getKey();
-                                    }
+                                if ($supplierQuoteItem !== null) {
+                                    $costPrice = (float) $supplierQuoteItem->unit_price_exc_tax;
+                                    $supplierQuoteItemId = $supplierQuoteItem->getKey();
                                 }
 
                                 // Calculate selling price with default margin
@@ -638,27 +685,25 @@ final class BuyerQuotesRelationManager extends RelationManager
 
                                 // Calculate tax-related values
                                 $taxRate = $defaultTaxCode !== null ? (float) $defaultTaxCode->rate : 0.0;
-                                $isTaxInclusive = $defaultTaxCode !== null && $defaultTaxCode->is_inclusive_default;
+                                $addTax = $defaultTaxCode !== null && $defaultTaxCode->is_inclusive_default;
                                 $quantity = (float) $requestItem->quantity;
 
-                                // Calculate unit price excluding tax
-                                $unitPriceExcTax = $isTaxInclusive && $taxRate > 0
-                                    ? $unitPrice / (1 + $taxRate / 100)
-                                    : $unitPrice;
+                                // Unit price is always the NET price
+                                $unitPriceExcTax = $unitPrice;
 
-                                // Calculate line totals
-                                $lineAmount = $quantity * $unitPrice;
-                                if ($isTaxInclusive) {
-                                    $lineTotal = $lineAmount;
-                                    $lineSubtotal = $taxRate > 0 ? $lineAmount / (1 + $taxRate / 100) : $lineAmount;
-                                    $lineTax = $lineTotal - $lineSubtotal;
-                                } else {
-                                    $lineSubtotal = $lineAmount;
-                                    $lineTax = $lineAmount * $taxRate / 100;
+                                // Line subtotal is quantity * net price
+                                $lineSubtotal = $quantity * $unitPrice;
+
+                                // Calculate tax and total based on checkbox
+                                if ($addTax) {
+                                    $lineTax = $lineSubtotal * $taxRate / 100;
                                     $lineTotal = $lineSubtotal + $lineTax;
+                                } else {
+                                    $lineTax = 0;
+                                    $lineTotal = $lineSubtotal;
                                 }
 
-                                // Calculate margin
+                                // Calculate margin (based on net prices)
                                 $marginAmount = $unitPriceExcTax - $costPrice;
                                 $marginPercent = $costPrice > 0 ? ($marginAmount / $costPrice) * 100 : 0;
 
@@ -675,7 +720,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     'tax_code_id' => $defaultTaxCode?->getKey(),
                                     'tax_rate' => $taxRate,
                                     'tax_amount' => round($lineTax / max($quantity, 0.0001), 4),
-                                    'is_tax_inclusive' => $isTaxInclusive,
+                                    'is_tax_inclusive' => $addTax,
                                     'line_subtotal' => round($lineSubtotal, 4),
                                     'line_tax' => round($lineTax, 4),
                                     'line_total' => round($lineTotal, 4),
@@ -797,30 +842,34 @@ final class BuyerQuotesRelationManager extends RelationManager
 
     /**
      * Calculate item totals based on form values.
+     *
+     * Selling Price (unit_price) is always the NET/exclusive price.
+     * When "Add Tax" is checked, tax is added to get the line total.
      */
     private function calculateItemTotals(Set $set, Get $get): void
     {
         $quantity = (float) ($get('quantity') ?? 0);
-        $unitPrice = (float) ($get('unit_price') ?? 0);
+        $unitPrice = (float) ($get('unit_price') ?? 0); // Always NET price
         $costPrice = (float) ($get('cost_price') ?? 0);
         $taxRate = (float) ($get('tax_rate') ?? 0);
-        $isTaxInclusive = (bool) $get('is_tax_inclusive');
+        $addTax = (bool) $get('is_tax_inclusive'); // When checked, add tax to total
 
-        $lineAmount = $quantity * $unitPrice;
+        // Unit price is always the net price
+        $unitPriceExcTax = $unitPrice;
 
-        if ($isTaxInclusive) {
-            $lineTotal = $lineAmount;
-            $lineSubtotal = $taxRate > 0 ? $lineAmount / (1 + $taxRate / 100) : $lineAmount;
-            $lineTax = $lineTotal - $lineSubtotal;
-            $unitPriceExcTax = $taxRate > 0 ? $unitPrice / (1 + $taxRate / 100) : $unitPrice;
-        } else {
-            $lineSubtotal = $lineAmount;
-            $lineTax = $lineAmount * $taxRate / 100;
+        // Line subtotal is quantity * net price
+        $lineSubtotal = $quantity * $unitPrice;
+
+        // Calculate tax and total based on checkbox
+        if ($addTax) {
+            $lineTax = $lineSubtotal * $taxRate / 100;
             $lineTotal = $lineSubtotal + $lineTax;
-            $unitPriceExcTax = $unitPrice;
+        } else {
+            $lineTax = 0;
+            $lineTotal = $lineSubtotal;
         }
 
-        // Calculate margin
+        // Calculate margin (based on net prices)
         $marginAmount = $unitPriceExcTax - $costPrice;
         $marginPercent = $costPrice > 0 ? ($marginAmount / $costPrice) * 100 : 0;
 

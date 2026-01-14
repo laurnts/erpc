@@ -12,6 +12,7 @@ use App\Models\Currency;
 use App\Models\Request;
 use App\Models\SupplierQuote;
 use App\Models\TaxCode;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -34,6 +35,7 @@ use Filament\Support\Enums\Size;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Model;
 
 final class SupplierQuotesRelationManager extends RelationManager
@@ -469,7 +471,27 @@ final class SupplierQuotesRelationManager extends RelationManager
                         ->pluck('code', 'id')
                         ->all()),
             ])
-            ->headerActions([])
+            ->headerActions([
+                Action::make('compareQuotes')
+                    ->label('Compare Quotes')
+                    ->icon('heroicon-o-scale')
+                    ->color('info')
+                    ->modalHeading('Compare Supplier Quotes')
+                    ->modalWidth('7xl')
+                    ->modalContent(fn (): View => view('filament.modals.supplier-quote-comparison', [
+                        'request' => $this->getOwnerRecord(),
+                    ]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close')
+                    ->visible(function (): bool {
+                        /** @var Request $request */
+                        $request = $this->getOwnerRecord();
+
+                        return $request->supplierQuotes()
+                            ->whereIn('status', [SupplierQuoteStatus::PENDING, SupplierQuoteStatus::SELECTED])
+                            ->count() >= 2;
+                    }),
+            ])
             ->recordAction('edit')
             ->recordActions([
                 EditAction::make()

@@ -1,6 +1,12 @@
 parameters:
 	ignoreErrors:
 		-
+			message: '#^Using nullsafe property access "\?\-\>display_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/ArticleResource.php
+
+		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
 			identifier: property.notFound
 			count: 1
@@ -13,34 +19,34 @@ parameters:
 			path: app/Filament/Resources/RequestResource.php
 
 		-
+			message: '#^Method App\\Filament\\Resources\\RequestResource\\Pages\\ViewRequest\:\:getMaxWidth\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Filament/Resources/RequestResource/Pages/ViewRequest.php
+
+		-
+			message: '#^Method App\\Filament\\Resources\\RequestResource\\Pages\\ViewRequest\:\:getMaxWidth\(\) never returns string so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Filament/Resources/RequestResource/Pages/ViewRequest.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\BuyerOrder\:\:\$total_base\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/BuyerOrdersRelationManager.php
+
+		-
 			message: '#^Anonymous function never returns null so it can be removed from the return type\.$#'
 			identifier: return.unusedType
 			count: 1
 			path: app/Filament/Resources/RequestResource/RelationManagers/ItemsRelationManager.php
 
 		-
-			message: '#^Parameter \#1 \$article of method App\\Models\\RequestItem\:\:matchToArticle\(\) expects App\\Models\\Article, App\\Models\\Article\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Article\> given\.$#'
-			identifier: argument.type
-			count: 1
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 4
 			path: app/Filament/Resources/RequestResource/RelationManagers/ItemsRelationManager.php
-
-		-
-			message: '#^Access to an undefined property App\\Models\\SupplierOrder\:\:\$order_number\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Resources/RequestResource/RelationManagers/ShipmentsRelationManager.php
-
-		-
-			message: '#^Call to an undefined method App\\Models\\BuyerOrder\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\BuyerOrder\>\:\:items\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Filament/Resources/RequestResource/RelationManagers/ShipmentsRelationManager.php
-
-		-
-			message: '#^Call to an undefined method App\\Models\\SupplierOrder\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\SupplierOrder\>\:\:items\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Filament/Resources/RequestResource/RelationManagers/ShipmentsRelationManager.php
 
 		-
 			message: '#^Access to an undefined property App\\Models\\SupplierQuote\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\SupplierQuote\>\:\:\$quote_number\.$#'

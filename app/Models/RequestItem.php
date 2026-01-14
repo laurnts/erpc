@@ -8,6 +8,7 @@ use Database\Factories\RequestItemFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property string $description
@@ -22,6 +23,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read Request $request
  * @property-read Article|null $article
  * @property-read Company|null $supplier
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, SupplierQuoteItem> $supplierQuoteItems
+ * @property-read int $supplier_quote_items_count
  */
 final class RequestItem extends Model
 {
@@ -93,6 +96,16 @@ final class RequestItem extends Model
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Company::class, 'supplier_id');
+    }
+
+    /**
+     * The supplier quote items referencing this request item.
+     *
+     * @return HasMany<SupplierQuoteItem, $this>
+     */
+    public function supplierQuoteItems(): HasMany
+    {
+        return $this->hasMany(SupplierQuoteItem::class);
     }
 
     /**

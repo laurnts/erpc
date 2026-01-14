@@ -147,18 +147,10 @@ final class ItemsRelationManager extends RelationManager
 
                 return "Status: {$matchedCount}/{$totalCount} items matched to articles";
             })
-            ->modifyQueryUsing(fn ($query) => $query->with('article'))
+            ->modifyQueryUsing(fn ($query) => $query->with('article')->withCount('supplierQuoteItems'))
             ->reorderable('sort_order')
             ->defaultSort('sort_order')
             ->columns([
-                IconColumn::make('is_matched')
-                    ->label('Matched')
-                    ->boolean()
-                    ->trueIcon('heroicon-o-check-circle')
-                    ->falseIcon('heroicon-o-x-circle')
-                    ->trueColor('success')
-                    ->falseColor('danger')
-                    ->width(80),
                 TextColumn::make('description')
                     ->searchable()
                     ->limit(50)
@@ -172,6 +164,16 @@ final class ItemsRelationManager extends RelationManager
                     ->numeric(decimalPlaces: 2)
                     ->sortable(),
                 TextColumn::make('unit'),
+                IconColumn::make('supplier_quote_items_count')
+                    ->label('Sent')
+                    ->icon(fn (RequestItem $record): ?string => $record->supplier_quote_items_count > 0
+                        ? 'heroicon-o-check-circle'
+                        : null)
+                    ->color('success')
+                    ->tooltip(fn (RequestItem $record): ?string => $record->supplier_quote_items_count > 0
+                        ? "Sent to {$record->supplier_quote_items_count} supplier(s)"
+                        : null)
+                    ->width(60),
             ])
             ->filters([
             ])

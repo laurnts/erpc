@@ -240,7 +240,7 @@ enum RequestStage: string implements HasColor, HasIcon, HasLabel
     public function allowsItemEditing(): bool
     {
         return match ($this) {
-            self::DRAFT, self::AWAITING_SUPPLIER_RESPONSE => true,
+            self::DRAFT, self::AWAITING_SUPPLIER_RESPONSE, self::PREPARING_BUYER_QUOTE => true,
             default => false,
         };
     }
