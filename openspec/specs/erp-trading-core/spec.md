@@ -247,7 +247,29 @@ The system SHALL manage Requests as the atomic unit representing a single buyer 
 
 #### Scenario: Match request item to article
 - **WHEN** an admin matches "Tyre for Toyota Prius" to "Michelin Pilot Sport 215/45R17"
-- **THEN** article_id is set, matched_at and matched_by are recorded
+- **THEN** article_id is set and is_matched becomes true
+
+#### Scenario: Combined article-supplier selection
+- **WHEN** an admin creates or edits a request item
+- **THEN** the form shows a single "Match to Article" dropdown (full width)
+- **AND** each option shows: "[CODE] Article Name → Supplier Name ★"
+- **AND** articles without suppliers show: "[CODE] Article Name"
+- **AND** preferred suppliers are marked with ★
+
+#### Scenario: Select article and supplier together
+- **WHEN** an admin selects an option from the dropdown
+- **THEN** both article_id and supplier_id are set from the selection
+- **AND** is_matched becomes true
+
+#### Scenario: View item assignment status
+- **WHEN** viewing request items in the Items tab
+- **THEN** each item shows: match status (checkmark/X), article code, supplier name, quantity, unit
+- **AND** a status summary shows "X/Y items matched" and "X/Y items assigned to suppliers"
+
+#### Scenario: Clear selection
+- **WHEN** an admin clears the "Match to Article" dropdown
+- **THEN** both article_id and supplier_id are cleared
+- **AND** is_matched becomes false
 
 #### Scenario: Validate stage transition to sourcing
 - **WHEN** stage transitions from "new" to "sourcing"

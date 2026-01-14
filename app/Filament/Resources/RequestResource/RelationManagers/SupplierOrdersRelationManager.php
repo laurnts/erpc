@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Filament\Resources\RequestResource\RelationManagers;
 
 use App\Enums\OrderStatus;
+use App\Enums\RequestStage;
 use App\Enums\SupplierQuoteStatus;
 use App\Filament\Actions\DownloadPdfAction;
+use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Models\BuyerOrder;
 use App\Models\Company;
 use App\Models\Currency;
@@ -17,12 +19,12 @@ use App\Models\SupplierQuote;
 use App\Models\TaxCode;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -39,12 +41,27 @@ use Filament\Support\Enums\Size;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 final class SupplierOrdersRelationManager extends RelationManager
 {
+    use HasRequestStageTab;
+
     protected static string $relationship = 'supplierOrders';
 
+    protected static ?string $title = 'Supplier Orders';
+
     protected static string|\BackedEnum|null $icon = 'heroicon-o-shopping-cart';
+
+    protected static function getAssociatedStage(): RequestStage
+    {
+        return RequestStage::PREPARING_SUPPLIER_ORDER;
+    }
+
+    protected static function getBaseTabTitle(): string
+    {
+        return 'Supplier Orders';
+    }
 
     public function form(Schema $schema): Schema
     {
@@ -172,14 +189,25 @@ final class SupplierOrdersRelationManager extends RelationManager
                                                 if ($state === null) {
                                                     return;
                                                 }
-                                                $requestItem = $request->items()->find($state);
+                                                $requestItem = $request->items()->with('article.defaultTaxCode')->find($state);
                                                 if ($requestItem !== null) {
                                                     $set('article_id', $requestItem->article_id);
                                                     $set('description', $requestItem->description);
                                                     $set('quantity', $requestItem->quantity);
                                                     $set('unit', $requestItem->unit);
+
+                                                    // Prefill tax code from article's default tax code
+                                                    if ($requestItem->article?->default_tax_code_id !== null) {
+                                                        $set('tax_code_id', $requestItem->article->default_tax_code_id);
+                                                        $taxCode = $requestItem->article->defaultTaxCode;
+                                                        if ($taxCode !== null) {
+                                                            $set('tax_rate', $taxCode->rate);
+                                                            $set('is_tax_inclusive', $taxCode->is_inclusive_default);
+                                                        }
+                                                    }
                                                 }
                                             }),
+                                        Hidden::make('article_id'),
                                         TextInput::make('description')
                                             ->required()
                                             ->columnSpan(4),
@@ -217,9 +245,32 @@ final class SupplierOrdersRelationManager extends RelationManager
                                                     $taxCode->getKey() => $taxCode->display_name,
                                                 ])
                                                 ->all())
+                                            ->default(fn (): ?int => TaxCode::query()
+                                                ->where('team_id', $request->team_id)
+                                                ->where('is_default', true)
+                                                ->where('is_active', true)
+                                                ->value('id'))
                                             ->searchable()
                                             ->columnSpan(3)
                                             ->live()
+                                            ->afterStateHydrated(function (Set $set, Get $get, ?int $state): void {
+                                                // Prefill tax code from article's default if not set
+                                                if ($state === null) {
+                                                    $articleId = $get('article_id');
+                                                    if ($articleId !== null) {
+                                                        /** @var \App\Models\Article|null $article */
+                                                        $article = \App\Models\Article::query()->find($articleId);
+                                                        if ($article !== null && $article->default_tax_code_id !== null) {
+                                                            $set('tax_code_id', $article->default_tax_code_id);
+                                                            $taxCode = $article->defaultTaxCode;
+                                                            if ($taxCode !== null) {
+                                                                $set('tax_rate', $taxCode->rate);
+                                                                $set('is_tax_inclusive', $taxCode->is_inclusive_default);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            })
                                             ->afterStateUpdated(function (Set $set, Get $get, ?int $state): void {
                                                 if ($state === null) {
                                                     $set('tax_rate', 0);
@@ -380,9 +431,6 @@ final class SupplierOrdersRelationManager extends RelationManager
                         ->all()),
             ])
             ->headerActions([
-                CreateAction::make()
-                    ->icon('heroicon-o-plus')
-                    ->size(Size::Small),
                 Action::make('createFromQuote')
                     ->label('Create from Quote')
                     ->icon('heroicon-o-document-duplicate')
@@ -424,125 +472,288 @@ final class SupplierOrdersRelationManager extends RelationManager
                     ->icon('heroicon-o-shopping-cart')
                     ->color('info')
                     ->size(Size::Small)
-                    ->form([
-                        Select::make('buyer_order_id')
-                            ->label('Select Buyer Order')
-                            ->options(function (): array {
-                                /** @var Request $request */
-                                $request = $this->getOwnerRecord();
-
-                                return BuyerOrder::query()
-                                    ->where('request_id', $request->getKey())
-                                    ->where('status', OrderStatus::CONFIRMED)
-                                    ->with('buyer')
-                                    ->get()
-                                    ->mapWithKeys(fn (BuyerOrder $order): array => [
-                                        $order->getKey() => "[{$order->order_number}] {$order->buyer->name} - ".number_format((float) $order->total, 2),
-                                    ])
-                                    ->all();
-                            })
-                            ->required()
-                            ->searchable()
-                            ->live()
-                            ->helperText('Select a confirmed buyer order to fulfill'),
-                        Select::make('supplier_id')
-                            ->label('Supplier')
-                            ->options(function (): array {
-                                /** @var Request $request */
-                                $request = $this->getOwnerRecord();
-
-                                return Company::query()
-                                    ->where('team_id', $request->team_id)
-                                    ->where('is_supplier', true)
-                                    ->where('is_active', true)
-                                    ->orderBy('name')
-                                    ->get()
-                                    ->mapWithKeys(fn (Company $supplier): array => [
-                                        $supplier->getKey() => "[{$supplier->code}] {$supplier->name}",
-                                    ])
-                                    ->all();
-                            })
-                            ->required()
-                            ->searchable()
-                            ->helperText('Select the supplier to order from'),
-                        Select::make('currency_id')
-                            ->label('Currency')
-                            ->options(
-                                Currency::query()
-                                    ->where('is_active', true)
-                                    ->orderBy('code')
-                                    ->get()
-                                    ->mapWithKeys(fn (Currency $currency): array => [
-                                        $currency->getKey() => "{$currency->code} - {$currency->name}",
-                                    ])
-                            )
-                            ->default(function (): ?int {
-                                /** @var \App\Models\Team|null $team */
-                                $team = Filament::getTenant();
-                                $defaultCode = $team?->getErpSettings()->default_currency ?? 'USD';
-
-                                return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
-                            })
-                            ->required()
-                            ->searchable(),
-                    ])
-                    ->action(function (array $data): void {
+                    ->modalHeading('Create Supplier Orders from Buyer Order')
+                    ->modalDescription('Review the supplier orders that will be created:')
+                    ->modalWidth('4xl')
+                    ->form(function (): array {
                         /** @var Request $request */
                         $request = $this->getOwnerRecord();
 
-                        /** @var BuyerOrder $buyerOrder */
-                        $buyerOrder = BuyerOrder::with(['items.buyerQuoteItem.supplierQuoteItem', 'items.requestItem'])
-                            ->findOrFail($data['buyer_order_id']);
+                        // Get confirmed buyer order
+                        /** @var BuyerOrder|null $buyerOrder */
+                        $buyerOrder = BuyerOrder::query()
+                            ->where('request_id', $request->getKey())
+                            ->where('status', OrderStatus::CONFIRMED)
+                            ->with(['items.buyerQuoteItem.supplierQuoteItem', 'items.requestItem.supplier'])
+                            ->first();
 
-                        // Create the supplier order
-                        $supplierOrder = new SupplierOrder;
-                        $supplierOrder->team_id = $request->team_id;
-                        /** @var int|null $creatorId */
-                        $creatorId = auth()->id();
-                        $supplierOrder->creator_id = $creatorId;
-                        $supplierOrder->request_id = $request->getKey();
-                        $supplierOrder->supplier_id = $data['supplier_id'];
-                        $supplierOrder->currency_id = $data['currency_id'];
-                        $supplierOrder->exchange_rate = '1.00000000';
-                        $supplierOrder->notes = "Created from Buyer Order #{$buyerOrder->order_number}";
-                        $supplierOrder->save();
+                        if ($buyerOrder === null) {
+                            return [
+                                Placeholder::make('no_order')
+                                    ->label('')
+                                    ->content('No confirmed buyer order available.'),
+                            ];
+                        }
 
-                        // Copy items from buyer order - what the buyer ordered is what we need to purchase
-                        foreach ($buyerOrder->items as $index => $buyerOrderItem) {
+                        // Group items by supplier
+                        $itemsBySupplier = [];
+                        foreach ($buyerOrder->items as $buyerOrderItem) {
                             /** @var \App\Models\BuyerOrderItem $buyerOrderItem */
-                            // Try to get cost price from supplier quote item chain
-                            $costPrice = '0.0000';
-                            if ($buyerOrderItem->buyerQuoteItem?->supplierQuoteItem !== null) {
-                                $costPrice = $buyerOrderItem->buyerQuoteItem->supplierQuoteItem->unit_price ?? '0.0000';
-                            } elseif ($buyerOrderItem->buyerQuoteItem !== null) {
-                                $costPrice = $buyerOrderItem->buyerQuoteItem->cost_price ?? '0.0000';
+                            $requestItem = $buyerOrderItem->requestItem;
+                            if ($requestItem === null || $requestItem->supplier_id === null) {
+                                continue;
                             }
 
-                            SupplierOrderItem::create([
-                                'supplier_order_id' => $supplierOrder->getKey(),
-                                'request_item_id' => $buyerOrderItem->request_item_id,
-                                'article_id' => $buyerOrderItem->article_id,
+                            $supplierId = $requestItem->supplier_id;
+                            if (! isset($itemsBySupplier[$supplierId])) {
+                                $itemsBySupplier[$supplierId] = [
+                                    'supplier' => $requestItem->supplier,
+                                    'items' => [],
+                                    'total' => 0,
+                                ];
+                            }
+
+                            // Get cost price
+                            $costPrice = 0;
+                            if ($buyerOrderItem->buyerQuoteItem?->supplierQuoteItem !== null) {
+                                $costPrice = (float) ($buyerOrderItem->buyerQuoteItem->supplierQuoteItem->unit_price ?? 0);
+                            } elseif ($buyerOrderItem->buyerQuoteItem !== null) {
+                                $costPrice = (float) ($buyerOrderItem->buyerQuoteItem->cost_price ?? 0);
+                            }
+
+                            $lineTotal = $costPrice * (float) $buyerOrderItem->quantity;
+
+                            $itemsBySupplier[$supplierId]['items'][] = [
                                 'description' => $buyerOrderItem->description,
                                 'quantity' => $buyerOrderItem->quantity,
                                 'unit' => $buyerOrderItem->unit,
                                 'unit_price' => $costPrice,
-                                'unit_price_exc_tax' => $costPrice,
-                                'tax_amount' => '0.0000',
-                                'line_total' => (string) ((float) $buyerOrderItem->quantity * (float) $costPrice),
-                                'tax_rate' => '0.0000',
-                                'sort_order' => $index,
-                                'notes' => $buyerOrderItem->notes,
-                            ]);
+                                'line_total' => $lineTotal,
+                            ];
+                            $itemsBySupplier[$supplierId]['total'] += $lineTotal;
                         }
 
-                        // Recalculate totals
-                        $supplierOrder->recalculateTotals();
+                        if (empty($itemsBySupplier)) {
+                            return [
+                                Placeholder::make('no_suppliers')
+                                    ->label('')
+                                    ->content('No items with assigned suppliers found. Please assign suppliers to request items first.'),
+                            ];
+                        }
 
-                        Notification::make()
-                            ->title('Purchase order created')
-                            ->body("PO #{$supplierOrder->po_number} created from Buyer Order #{$buyerOrder->order_number}")
-                            ->success()
-                            ->send();
+                        // Build form sections for each supplier
+                        $sections = [];
+                        $grandTotal = 0;
+
+                        foreach ($itemsBySupplier as $supplierId => $data) {
+                            /** @var Company $supplier */
+                            $supplier = $data['supplier'];
+                            $items = $data['items'];
+                            $supplierTotal = $data['total'];
+                            $grandTotal += $supplierTotal;
+
+                            // Check if order already exists
+                            $existingOrder = SupplierOrder::query()
+                                ->where('request_id', $request->getKey())
+                                ->where('supplier_id', $supplierId)
+                                ->whereNotIn('status', [OrderStatus::CANCELLED])
+                                ->exists();
+
+                            $statusBadge = $existingOrder ? ' ⚠️ (Order exists - will skip)' : '';
+
+                            // Build items table as HTML
+                            $itemsHtml = '<div class="space-y-1 text-sm">';
+                            foreach ($items as $item) {
+                                $itemsHtml .= sprintf(
+                                    '<div class="flex justify-between"><span>• %s</span><span class="text-gray-500">%s %s × %s = <strong>%s</strong></span></div>',
+                                    e($item['description']),
+                                    number_format((float) $item['quantity'], 2),
+                                    e($item['unit']),
+                                    number_format($item['unit_price'], 2),
+                                    number_format($item['line_total'], 2)
+                                );
+                            }
+                            $itemsHtml .= sprintf(
+                                '</div><div class="mt-2 pt-2 border-t text-right font-semibold">Supplier Total: %s</div>',
+                                number_format($supplierTotal, 2)
+                            );
+
+                            $sections[] = \Filament\Schemas\Components\Section::make("[{$supplier->code}] {$supplier->name}{$statusBadge}")
+                                ->description(count($items).' item(s)')
+                                ->schema([
+                                    Placeholder::make("items_{$supplierId}")
+                                        ->label('')
+                                        ->content(new \Illuminate\Support\HtmlString($itemsHtml)),
+                                ])
+                                ->collapsible()
+                                ->collapsed(count($itemsBySupplier) > 3);
+                        }
+
+                        // Add summary section with options
+                        $summaryHtml = sprintf(
+                            '<div class="grid grid-cols-2 gap-4 text-sm"><div><span class="text-gray-500">Total Suppliers:</span> <strong>%d</strong></div><div><span class="text-gray-500">Total Cost:</span> <strong>%s</strong></div></div>',
+                            count($itemsBySupplier),
+                            number_format($grandTotal, 2)
+                        );
+
+                        $sections[] = \Filament\Schemas\Components\Section::make('Summary')
+                            ->schema([
+                                Placeholder::make('summary')
+                                    ->label('')
+                                    ->content(new \Illuminate\Support\HtmlString($summaryHtml)),
+                            ]);
+
+                        // Add options section
+                        $sections[] = \Filament\Schemas\Components\Section::make('Options')
+                            ->schema([
+                                \Filament\Forms\Components\Checkbox::make('confirm_and_send')
+                                    ->label('Confirm and send to suppliers')
+                                    ->helperText('Confirm orders and send PO emails to suppliers'),
+                            ]);
+
+                        return $sections;
+                    })
+                    ->action(function (array $data): void {
+                        /** @var Request $request */
+                        $request = $this->getOwnerRecord();
+
+                        // Get the default currency
+                        /** @var \App\Models\Team|null $team */
+                        $team = Filament::getTenant();
+                        $defaultCurrencyCode = $team?->getErpSettings()->default_currency ?? 'USD';
+                        $defaultCurrencyId = Currency::query()
+                            ->where('code', $defaultCurrencyCode)
+                            ->where('is_active', true)
+                            ->value('id');
+
+                        // Get confirmed buyer order
+                        /** @var BuyerOrder|null $buyerOrder */
+                        $buyerOrder = BuyerOrder::query()
+                            ->where('request_id', $request->getKey())
+                            ->where('status', OrderStatus::CONFIRMED)
+                            ->with(['items.buyerQuoteItem.supplierQuoteItem', 'items.requestItem'])
+                            ->first();
+
+                        if ($buyerOrder === null) {
+                            Notification::make()
+                                ->title('No confirmed buyer order')
+                                ->body('There is no confirmed buyer order to create supplier orders from.')
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
+
+                        // Group items by supplier from request items
+                        $itemsBySupplier = [];
+                        foreach ($buyerOrder->items as $buyerOrderItem) {
+                            /** @var \App\Models\BuyerOrderItem $buyerOrderItem */
+                            $requestItem = $buyerOrderItem->requestItem;
+                            if ($requestItem === null || $requestItem->supplier_id === null) {
+                                continue;
+                            }
+
+                            $supplierId = $requestItem->supplier_id;
+                            if (! isset($itemsBySupplier[$supplierId])) {
+                                $itemsBySupplier[$supplierId] = [];
+                            }
+                            $itemsBySupplier[$supplierId][] = $buyerOrderItem;
+                        }
+
+                        if (empty($itemsBySupplier)) {
+                            Notification::make()
+                                ->title('No suppliers assigned')
+                                ->body('Request items do not have suppliers assigned. Please assign suppliers to items first.')
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
+
+                        $ordersCreated = 0;
+
+                        // Create a supplier order for each supplier
+                        foreach ($itemsBySupplier as $supplierId => $items) {
+                            // Check if a supplier order already exists for this request and supplier
+                            $existingOrder = SupplierOrder::query()
+                                ->where('request_id', $request->getKey())
+                                ->where('supplier_id', $supplierId)
+                                ->whereNotIn('status', [OrderStatus::CANCELLED])
+                                ->exists();
+
+                            if ($existingOrder) {
+                                continue; // Skip if order already exists
+                            }
+
+                            // Create the supplier order
+                            $supplierOrder = new SupplierOrder;
+                            $supplierOrder->team_id = $request->team_id;
+                            /** @var int|null $creatorId */
+                            $creatorId = auth()->id();
+                            $supplierOrder->creator_id = $creatorId;
+                            $supplierOrder->request_id = $request->getKey();
+                            $supplierOrder->supplier_id = $supplierId;
+                            $supplierOrder->currency_id = $defaultCurrencyId;
+                            $supplierOrder->exchange_rate = '1.00000000';
+                            $supplierOrder->notes = "Created from Buyer Order #{$buyerOrder->order_number}";
+                            $supplierOrder->save();
+
+                            // Add items for this supplier
+                            foreach ($items as $index => $buyerOrderItem) {
+                                /** @var \App\Models\BuyerOrderItem $buyerOrderItem */
+                                // Try to get cost price from supplier quote item chain
+                                $costPrice = '0.0000';
+                                if ($buyerOrderItem->buyerQuoteItem?->supplierQuoteItem !== null) {
+                                    $costPrice = $buyerOrderItem->buyerQuoteItem->supplierQuoteItem->unit_price ?? '0.0000';
+                                } elseif ($buyerOrderItem->buyerQuoteItem !== null) {
+                                    $costPrice = $buyerOrderItem->buyerQuoteItem->cost_price ?? '0.0000';
+                                }
+
+                                SupplierOrderItem::create([
+                                    'supplier_order_id' => $supplierOrder->getKey(),
+                                    'request_item_id' => $buyerOrderItem->request_item_id,
+                                    'article_id' => $buyerOrderItem->article_id,
+                                    'description' => $buyerOrderItem->description,
+                                    'quantity' => $buyerOrderItem->quantity,
+                                    'unit' => $buyerOrderItem->unit,
+                                    'unit_price' => $costPrice,
+                                    'unit_price_exc_tax' => $costPrice,
+                                    'tax_amount' => '0.0000',
+                                    'line_total' => (string) ((float) $buyerOrderItem->quantity * (float) $costPrice),
+                                    'tax_rate' => '0.0000',
+                                    'sort_order' => $index,
+                                    'notes' => $buyerOrderItem->notes,
+                                ]);
+                            }
+
+                            // Recalculate totals
+                            $supplierOrder->recalculateTotals();
+
+                            // Confirm and send if requested
+                            if ($data['confirm_and_send'] ?? false) {
+                                $supplierOrder->confirm();
+                                $supplierOrder->markAsOrdered();
+                                // TODO: Send email to supplier
+                            }
+
+                            $ordersCreated++;
+                        }
+
+                        if ($ordersCreated > 0) {
+                            $statusText = ($data['confirm_and_send'] ?? false) ? ' and sent to suppliers' : '';
+
+                            Notification::make()
+                                ->title('Supplier orders created')
+                                ->body("{$ordersCreated} purchase order(s) created{$statusText} from Buyer Order #{$buyerOrder->order_number}")
+                                ->success()
+                                ->send();
+                        } else {
+                            Notification::make()
+                                ->title('No new orders created')
+                                ->body('Supplier orders already exist for all assigned suppliers.')
+                                ->info()
+                                ->send();
+                        }
                     })
                     ->visible(fn (): bool => BuyerOrder::query()
                         ->where('request_id', $this->getOwnerRecord()->getKey())
@@ -634,5 +845,25 @@ final class SupplierOrdersRelationManager extends RelationManager
         $set('unit_price_exc_tax', round($unitPriceExcTax, 4));
         $set('tax_amount', round($taxAmount, 4));
         $set('line_total', round($lineTotal, 4));
+    }
+
+    public static function getBadge(Model $ownerRecord, string $pageClass): ?string
+    {
+        /** @var Request $ownerRecord */
+        $hasConfirmed = $ownerRecord->supplierOrders()
+            ->whereNotIn('status', [OrderStatus::DRAFT, OrderStatus::CANCELLED])
+            ->exists();
+
+        return $hasConfirmed ? '✓' : null;
+    }
+
+    public static function getBadgeColor(Model $ownerRecord, string $pageClass): ?string
+    {
+        /** @var Request $ownerRecord */
+        $hasConfirmed = $ownerRecord->supplierOrders()
+            ->whereNotIn('status', [OrderStatus::DRAFT, OrderStatus::CANCELLED])
+            ->exists();
+
+        return $hasConfirmed ? 'success' : null;
     }
 }

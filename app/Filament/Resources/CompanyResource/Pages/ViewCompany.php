@@ -8,6 +8,7 @@ use App\Enums\CustomFields\CompanyField;
 use App\Filament\Actions\GenerateRecordSummaryAction;
 use App\Filament\Components\Infolists\AvatarName;
 use App\Filament\Resources\CompanyResource;
+use App\Filament\Resources\CompanyResource\RelationManagers\ArticlesRelationManager;
 use App\Filament\Resources\CompanyResource\RelationManagers\NotesRelationManager;
 use App\Filament\Resources\CompanyResource\RelationManagers\PeopleRelationManager;
 use App\Filament\Resources\CompanyResource\RelationManagers\TasksRelationManager;
@@ -112,10 +113,21 @@ final class ViewCompany extends ViewRecord
 
     public function getRelationManagers(): array
     {
-        return [
+        /** @var Company $record */
+        $record = $this->getRecord();
+
+        $managers = [
             PeopleRelationManager::class,
-            TasksRelationManager::class,
-            NotesRelationManager::class,
         ];
+
+        // Only show Articles relation manager for suppliers
+        if ($record->is_supplier) {
+            $managers[] = ArticlesRelationManager::class;
+        }
+
+        $managers[] = TasksRelationManager::class;
+        $managers[] = NotesRelationManager::class;
+
+        return $managers;
     }
 }

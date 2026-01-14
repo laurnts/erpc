@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ArticleResource\Pages\ListArticles;
+use App\Filament\Resources\ArticleResource\Pages\ViewArticle;
 use App\Models\Article;
 use App\Models\Tag;
+use App\Models\TaxCode;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -67,6 +69,18 @@ final class ArticleResource extends Resource
                 ->maxLength(50)
                 ->default('pcs')
                 ->helperText('e.g., pcs, kg, ltr, set, box'),
+            Select::make('default_tax_code_id')
+                ->label('Default Tax Code')
+                ->relationship('defaultTaxCode', 'name')
+                ->getOptionLabelFromRecordUsing(fn (?TaxCode $record): string => $record?->display_name ?? '')
+                ->default(fn (): ?int => TaxCode::query()
+                    ->where('team_id', Filament::getTenant()?->getKey())
+                    ->where('is_default', true)
+                    ->where('is_active', true)
+                    ->value('id'))
+                ->searchable()
+                ->preload()
+                ->helperText('Tax code to apply when using this article'),
             Select::make('tags')
                 ->label('Categories')
                 ->relationship('tags', 'name')
@@ -195,6 +209,7 @@ final class ArticleResource extends Resource
     {
         return [
             'index' => ListArticles::route('/'),
+            'view' => ViewArticle::route('/{record}'),
         ];
     }
 

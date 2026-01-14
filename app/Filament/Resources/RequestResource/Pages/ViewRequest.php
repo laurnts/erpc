@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\RequestResource\Pages;
 
+use App\Enums\RequestStage;
 use App\Filament\Resources\BuyerResource;
 use App\Filament\Resources\ProjectResource;
 use App\Filament\Resources\RequestResource;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerOrdersRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerQuotesRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\ItemsRelationManager;
-use App\Filament\Resources\RequestResource\RelationManagers\RequestActivitiesRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\ShipmentsRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierOrdersRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierQuotesRelationManager;
@@ -21,16 +21,125 @@ use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\TextEntry;
-use Filament\Infolists\Components\ViewEntry;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Width;
 use Relaticle\CustomFields\Facades\CustomFields;
 
 final class ViewRequest extends ViewRecord
 {
     protected static string $resource = RequestResource::class;
+
+    /**
+     * Map relation manager keys to their index in the relation managers array.
+     *
+     * @var array<string, int>
+     */
+    private const array RELATION_MANAGER_MAP = [
+        'items' => 0,
+        'supplierQuotes' => 1,
+        'buyerQuotes' => 2,
+        'buyerOrders' => 3,
+        'supplierOrders' => 4,
+        'shipments' => 5,
+    ];
+
+    public function getMaxWidth(): Width|string|null
+    {
+        return Width::Full;
+    }
+
+    /**
+     * Called when the active relation manager changes (tab switch).
+     * Auto-advances the stage if appropriate.
+     */
+    public function updatedActiveRelationManager(int|string|null $value): void
+    {
+        if ($value === null) {
+            return;
+        }
+
+        // Convert numeric index to relation manager key
+        $relationKey = $this->getRelationManagerKeyFromIndex($value);
+
+        if ($relationKey === null) {
+            return;
+        }
+
+        // Get the target stage for this relation manager
+        $targetStage = RequestStage::fromRelationManagerKey($relationKey);
+
+        if ($targetStage === null) {
+            return;
+        }
+
+        $this->tryAdvanceToStage($targetStage);
+    }
+
+    /**
+     * Convert a relation manager index to its key.
+     */
+    private function getRelationManagerKeyFromIndex(int|string $index): ?string
+    {
+        // If it's already a string key, return it
+        if (is_string($index) && ! is_numeric($index)) {
+            return $index;
+        }
+
+        $index = (int) $index;
+        $keys = array_keys(self::RELATION_MANAGER_MAP);
+
+        return $keys[$index] ?? null;
+    }
+
+    /**
+     * Try to advance the request to the target stage.
+     * Only advances if the current stage is before the target stage.
+     */
+    private function tryAdvanceToStage(RequestStage $targetStage): void
+    {
+        /** @var Request $record */
+        $record = $this->getRecord();
+        $currentStage = $record->stage;
+
+        // Only advance forward, never backward
+        if (! $currentStage->isBefore($targetStage)) {
+            return;
+        }
+
+        // Check if we can transition (respects business rules)
+        if (! $currentStage->canTransitionTo($targetStage)) {
+            return;
+        }
+
+        // Check if items need to be matched for this stage
+        if ($targetStage->requiresMatchedItems() && ! $record->all_items_matched) {
+            Notification::make()
+                ->title('Cannot advance stage')
+                ->body('All items must be matched to articles before advancing to '.$targetStage->getLabel())
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        // Perform the transition
+        $record->stage = $targetStage;
+        $record->save();
+
+        // Show success notification
+        Notification::make()
+            ->title('Stage updated')
+            ->body('Request moved to: '.$targetStage->getLabelWithStep())
+            ->success()
+            ->send();
+
+        // Refresh the record to update the UI
+        $this->refreshFormData(['stage']);
+    }
 
     protected function getHeaderActions(): array
     {
@@ -52,154 +161,40 @@ final class ViewRequest extends ViewRecord
                     Grid::make(4)
                         ->schema([
                             TextEntry::make('request_number')
-                                ->label('Request #')
+                                ->label('')
                                 ->weight('bold')
                                 ->size('lg')
-                                ->copyable(),
-                            TextEntry::make('stage')
-                                ->badge(),
+                                ->copyable()
+                                ->columnSpan(1),
+                            TextEntry::make('title')
+                                ->label('')
+                                ->weight('bold')
+                                ->size('lg')
+                                ->columnSpan(3),
+                        ]),
+                    Grid::make(5)
+                        ->schema([
                             TextEntry::make('priority')
                                 ->badge(),
-                            IconEntry::make('is_active')
-                                ->label('Active')
-                                ->boolean(),
-                        ]),
-                    TextEntry::make('title')
-                        ->label('')
-                        ->size('lg')
-                        ->columnSpanFull(),
-                    Grid::make(2)
-                        ->schema([
                             TextEntry::make('buyer.name')
                                 ->label('Buyer')
                                 ->icon('heroicon-o-user-group')
                                 ->color('primary')
                                 ->url(fn (Request $record): ?string => $record->buyer ? BuyerResource::getUrl('index') : null),
+                            TextEntry::make('project.name')
+                                ->label('Project')
+                                ->icon('heroicon-o-folder')
+                                ->color('primary')
+                                ->placeholder('-')
+                                ->url(fn (Request $record): ?string => $record->project ? ProjectResource::getUrl('index') : null),
                             TextEntry::make('created_at')
                                 ->label('Created')
                                 ->dateTime(),
-                        ]),
-                    Grid::make(2)
-                        ->schema([
-                            TextEntry::make('buyer.email')
-                                ->label('Email')
-                                ->icon('heroicon-o-envelope')
-                                ->copyable()
-                                ->visible(fn (Request $record): bool => $record->buyer?->email !== null),
                             TextEntry::make('updated_at')
                                 ->label('Last Updated')
                                 ->since(),
                         ]),
                 ])
-                ->columnSpanFull(),
-
-            // Stage Progress Bar
-            Section::make('Stage Progress')
-                ->schema([
-                    ViewEntry::make('stage_progress')
-                        ->view('filament.infolists.components.request-stage-progress')
-                        ->columnSpanFull(),
-                ])
-                ->collapsible()
-                ->columnSpanFull(),
-
-            // Financial Summary & Quick Actions (side by side)
-            Grid::make(2)
-                ->schema([
-                    Section::make('Financial Summary')
-                        ->icon('heroicon-o-banknotes')
-                        ->schema([
-                            Grid::make(2)
-                                ->schema([
-                                    TextEntry::make('buyer_total_display')
-                                        ->label('Buyer Total')
-                                        ->state(fn (Request $record): string => $this->formatCurrency($record->buyer_total))
-                                        ->color('success'),
-                                    TextEntry::make('supplier_cost_display')
-                                        ->label('Supplier Costs')
-                                        ->state(fn (Request $record): string => $this->formatCurrency($record->supplier_cost))
-                                        ->color('warning'),
-                                    TextEntry::make('gross_margin_display')
-                                        ->label('Gross Margin')
-                                        ->state(fn (Request $record): string => $this->formatCurrency($record->gross_margin))
-                                        ->color(fn (Request $record): string => $record->gross_margin > 0 ? 'success' : 'danger'),
-                                    TextEntry::make('margin_percent_display')
-                                        ->label('Margin %')
-                                        ->state(fn (Request $record): string => $this->formatPercentage($record->margin_percent))
-                                        ->badge()
-                                        ->color(fn (Request $record): string => $record->margin_percent >= 10 ? 'success' : ($record->margin_percent >= 5 ? 'warning' : 'danger')),
-                                ]),
-                        ]),
-                    Section::make('Quick Actions')
-                        ->icon('heroicon-o-bolt')
-                        ->schema([
-                            TextEntry::make('quick_actions_hint')
-                                ->label('')
-                                ->state('Use the action menu above for:')
-                                ->color('gray'),
-                            TextEntry::make('quick_actions_list')
-                                ->label('')
-                                ->state('• Create/Revise Quotes
-• Extend Quote Validity
-• Resend to Buyer
-• Mark Accepted/Rejected')
-                                ->markdown()
-                                ->color('gray'),
-                        ]),
-                ])
-                ->columnSpanFull(),
-
-            // Items Summary Card
-            Section::make('Items Summary')
-                ->icon('heroicon-o-clipboard-document-list')
-                ->schema([
-                    Grid::make(4)
-                        ->schema([
-                            TextEntry::make('items_count')
-                                ->label('Total Items')
-                                ->state(fn (Request $record): int => $record->items()->count()),
-                            TextEntry::make('matched_items_count')
-                                ->label('Matched')
-                                ->state(fn (Request $record): int => $record->items()->where('is_matched', true)->count())
-                                ->color('success'),
-                            TextEntry::make('unmatched_items_count')
-                                ->label('Unmatched')
-                                ->state(fn (Request $record): int => $record->items()->where('is_matched', false)->count())
-                                ->color(fn (Request $record): string => $record->items()->where('is_matched', false)->exists() ? 'warning' : 'gray'),
-                            IconEntry::make('all_items_matched')
-                                ->label('Ready for Quoting')
-                                ->state(fn (Request $record): bool => $record->all_items_matched)
-                                ->boolean(),
-                        ]),
-                ])
-                ->collapsible()
-                ->columnSpanFull(),
-
-            // Description (if exists)
-            Section::make('Description')
-                ->schema([
-                    TextEntry::make('description')
-                        ->label('')
-                        ->markdown()
-                        ->columnSpanFull(),
-                ])
-                ->collapsible()
-                ->collapsed()
-                ->visible(fn (Request $record): bool => $record->description !== null)
-                ->columnSpanFull(),
-
-            // Project Link (if exists)
-            Section::make('Project')
-                ->schema([
-                    TextEntry::make('project.name')
-                        ->label('Linked Project')
-                        ->icon('heroicon-o-folder')
-                        ->color('primary')
-                        ->url(fn (Request $record): ?string => $record->project ? ProjectResource::getUrl('index') : null),
-                ])
-                ->collapsible()
-                ->collapsed()
-                ->visible(fn (Request $record): bool => $record->project_id !== null)
                 ->columnSpanFull(),
 
             // Internal Notes
@@ -214,6 +209,72 @@ final class ViewRequest extends ViewRecord
                 ])
                 ->collapsible()
                 ->collapsed()
+                ->visible(fn (Request $record): bool => $record->internal_notes !== null && $record->internal_notes !== '')
+                ->columnSpanFull(),
+
+            // Financial Summary & Items Summary (side by side)
+            Grid::make(2)
+                ->schema([
+                    Section::make('Financial Summary')
+                        ->icon('heroicon-o-banknotes')
+                        ->schema([
+                            Grid::make(2)
+                                ->schema([
+                                    TextEntry::make('buyer_total_display')
+                                        ->label('Buyer Total')
+                                        ->state(fn (Request $record): string => $this->getDisplayBuyerTotal($record))
+                                        ->color(fn (Request $record): string => $this->getBuyerTotalColor($record)),
+                                    TextEntry::make('supplier_cost_display')
+                                        ->label('Supplier Costs')
+                                        ->state(fn (Request $record): string => $this->getDisplaySupplierCost($record))
+                                        ->color(fn (Request $record): string => $this->getSupplierCostColor($record)),
+                                    TextEntry::make('gross_margin_display')
+                                        ->label('Gross Margin')
+                                        ->state(fn (Request $record): string => $this->getDisplayGrossMargin($record))
+                                        ->color(fn (Request $record): string => $this->getGrossMarginColor($record)),
+                                    TextEntry::make('margin_percent_display')
+                                        ->label('Margin %')
+                                        ->state(fn (Request $record): string => $this->getDisplayMarginPercent($record))
+                                        ->badge()
+                                        ->color(fn (Request $record): string => $this->getMarginPercentColor($record)),
+                                ]),
+                        ]),
+                    Section::make('Requested Items')
+                        ->icon('heroicon-o-clipboard-document-list')
+                        ->schema([
+                            Grid::make(2)
+                                ->schema([
+                                    TextEntry::make('items_count')
+                                        ->label('Total Items')
+                                        ->state(fn (Request $record): int => $record->items()->count()),
+                                    TextEntry::make('matched_items_count')
+                                        ->label('Matched')
+                                        ->state(fn (Request $record): int => $record->items()->where('is_matched', true)->count())
+                                        ->color('success'),
+                                    TextEntry::make('unmatched_items_count')
+                                        ->label('Unmatched')
+                                        ->state(fn (Request $record): int => $record->items()->where('is_matched', false)->count())
+                                        ->color(fn (Request $record): string => $record->items()->where('is_matched', false)->exists() ? 'warning' : 'gray'),
+                                    IconEntry::make('all_items_matched')
+                                        ->label('Ready for Quoting')
+                                        ->state(fn (Request $record): bool => $record->all_items_matched)
+                                        ->boolean(),
+                                ]),
+                        ]),
+                ])
+                ->columnSpanFull(),
+
+            // Description (if exists)
+            Section::make('Description')
+                ->schema([
+                    TextEntry::make('description')
+                        ->label('')
+                        ->markdown()
+                        ->columnSpanFull(),
+                ])
+                ->collapsible()
+                ->collapsed()
+                ->visible(fn (Request $record): bool => $record->description !== null)
                 ->columnSpanFull(),
 
             // Custom Fields
@@ -230,12 +291,11 @@ final class ViewRequest extends ViewRecord
             BuyerOrdersRelationManager::class,
             SupplierOrdersRelationManager::class,
             ShipmentsRelationManager::class,
-            RequestActivitiesRelationManager::class,
         ];
     }
 
     /**
-     * Format a currency value.
+     * Format a currency value using the team's base currency.
      */
     private function formatCurrency(float $value): string
     {
@@ -243,7 +303,15 @@ final class ViewRequest extends ViewRecord
             return '-';
         }
 
-        return '$'.number_format($value, 2);
+        /** @var \App\Models\Team|null $team */
+        $team = filament()->getTenant();
+        $currency = $team?->getBaseCurrency();
+
+        if ($currency === null) {
+            return number_format($value, 2);
+        }
+
+        return $currency->format($value);
     }
 
     /**
@@ -252,5 +320,198 @@ final class ViewRequest extends ViewRecord
     private function formatPercentage(float $value): string
     {
         return number_format($value, 1).'%';
+    }
+
+    /**
+     * Get the buyer total to display (from orders if confirmed, otherwise from quotes).
+     */
+    private function getDisplayBuyerTotal(Request $record): string
+    {
+        // Use confirmed order totals if available
+        if ($record->has_buyer_order_confirmed) {
+            return $this->formatCurrency($record->buyer_total);
+        }
+
+        // Fall back to draft order totals
+        if ($record->buyer_total > 0) {
+            return $this->formatCurrency($record->buyer_total);
+        }
+
+        // Fall back to expected totals from accepted quotes
+        if ($record->expected_buyer_total > 0) {
+            return $this->formatCurrency($record->expected_buyer_total);
+        }
+
+        return '-';
+    }
+
+    /**
+     * Get the supplier cost to display (from orders if confirmed, otherwise from quotes).
+     */
+    private function getDisplaySupplierCost(Request $record): string
+    {
+        // Use confirmed order totals if available
+        if ($record->has_supplier_order_confirmed) {
+            return $this->formatCurrency($record->supplier_cost);
+        }
+
+        // Fall back to draft order totals
+        if ($record->supplier_cost > 0) {
+            return $this->formatCurrency($record->supplier_cost);
+        }
+
+        // Fall back to expected costs from selected quotes
+        if ($record->expected_supplier_cost > 0) {
+            return $this->formatCurrency($record->expected_supplier_cost);
+        }
+
+        return '-';
+    }
+
+    /**
+     * Get the gross margin to display.
+     */
+    private function getDisplayGrossMargin(Request $record): string
+    {
+        $buyerTotal = $this->getEffectiveBuyerTotal($record);
+        $supplierCost = $this->getEffectiveSupplierCost($record);
+
+        if ($buyerTotal === 0.0 && $supplierCost === 0.0) {
+            return '-';
+        }
+
+        return $this->formatCurrency($buyerTotal - $supplierCost);
+    }
+
+    /**
+     * Get the margin percent to display.
+     */
+    private function getDisplayMarginPercent(Request $record): string
+    {
+        $buyerTotal = $this->getEffectiveBuyerTotal($record);
+        $supplierCost = $this->getEffectiveSupplierCost($record);
+
+        if ($buyerTotal === 0.0) {
+            return '0.0%';
+        }
+
+        $margin = ($buyerTotal - $supplierCost) / $buyerTotal * 100;
+
+        return $this->formatPercentage($margin);
+    }
+
+    /**
+     * Get effective buyer total (confirmed orders > draft orders > expected from quotes).
+     */
+    private function getEffectiveBuyerTotal(Request $record): float
+    {
+        if ($record->has_buyer_order_confirmed || $record->buyer_total > 0) {
+            return $record->buyer_total;
+        }
+
+        return $record->expected_buyer_total;
+    }
+
+    /**
+     * Get effective supplier cost (confirmed orders > draft orders > expected from quotes).
+     */
+    private function getEffectiveSupplierCost(Request $record): float
+    {
+        if ($record->has_supplier_order_confirmed || $record->supplier_cost > 0) {
+            return $record->supplier_cost;
+        }
+
+        return $record->expected_supplier_cost;
+    }
+
+    /**
+     * Get the color for buyer total based on confirmation status.
+     */
+    private function getBuyerTotalColor(Request $record): string
+    {
+        if ($record->has_buyer_order_confirmed) {
+            return 'success';
+        }
+
+        if ($record->buyer_total > 0 || $record->expected_buyer_total > 0) {
+            return 'info';
+        }
+
+        return 'gray';
+    }
+
+    /**
+     * Get the color for supplier cost based on confirmation status.
+     */
+    private function getSupplierCostColor(Request $record): string
+    {
+        if ($record->has_supplier_order_confirmed) {
+            return 'success';
+        }
+
+        if ($record->supplier_cost > 0 || $record->expected_supplier_cost > 0) {
+            return 'info';
+        }
+
+        return 'gray';
+    }
+
+    /**
+     * Get the color for gross margin based on confirmation status and value.
+     */
+    private function getGrossMarginColor(Request $record): string
+    {
+        $buyerTotal = $this->getEffectiveBuyerTotal($record);
+        $supplierCost = $this->getEffectiveSupplierCost($record);
+        $margin = $buyerTotal - $supplierCost;
+
+        // Check if both are confirmed
+        $isConfirmed = $record->has_buyer_order_confirmed && $record->has_supplier_order_confirmed;
+
+        if ($margin < 0) {
+            return 'danger';
+        }
+
+        if ($isConfirmed) {
+            return 'success';
+        }
+
+        if ($buyerTotal > 0 || $supplierCost > 0) {
+            return 'info';
+        }
+
+        return 'gray';
+    }
+
+    /**
+     * Get the color for margin percent based on confirmation status and value.
+     */
+    private function getMarginPercentColor(Request $record): string
+    {
+        $buyerTotal = $this->getEffectiveBuyerTotal($record);
+        $supplierCost = $this->getEffectiveSupplierCost($record);
+
+        if ($buyerTotal === 0.0) {
+            return 'gray';
+        }
+
+        $marginPercent = ($buyerTotal - $supplierCost) / $buyerTotal * 100;
+
+        // Check if both are confirmed
+        $isConfirmed = $record->has_buyer_order_confirmed && $record->has_supplier_order_confirmed;
+
+        if ($marginPercent < 5) {
+            return 'danger';
+        }
+
+        if ($marginPercent < 10) {
+            return 'warning';
+        }
+
+        if ($isConfirmed) {
+            return 'success';
+        }
+
+        return 'info';
     }
 }

@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\BuyerQuoteStatus;
+use App\Enums\OrderStatus;
 use App\Enums\RequestPriority;
 use App\Enums\RequestStage;
+use App\Enums\SupplierQuoteStatus;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasNotes;
 use App\Models\Concerns\HasTeam;
@@ -51,6 +54,13 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property-read float $amount_collected
  * @property-read float $amount_paid_out
  * @property-read float $net_cash_flow
+ * @property-read float $expected_buyer_total
+ * @property-read float $expected_supplier_cost
+ * @property-read float $expected_gross_margin
+ * @property-read float $expected_margin_percent
+ * @property-read bool $has_buyer_order_confirmed
+ * @property-read bool $has_supplier_order_confirmed
+ * @property-read string $financial_status
  */
 #[ObservedBy(RequestObserver::class)]
 final class Request extends Model implements HasCustomFields, HasMedia
@@ -436,6 +446,128 @@ final class Request extends Model implements HasCustomFields, HasMedia
     {
         return Attribute::make(
             get: fn (): float => $this->amount_collected - $this->amount_paid_out,
+        );
+    }
+
+    /**
+     * Get expected buyer total from accepted quotes (when no confirmed orders exist).
+     *
+     * @return Attribute<float, never>
+     */
+    protected function expectedBuyerTotal(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): float => (float) $this->buyerQuotes()
+                ->where('status', BuyerQuoteStatus::ACCEPTED)
+                ->sum('total'),
+        );
+    }
+
+    /**
+     * Get expected supplier cost from selected quotes (when no confirmed orders exist).
+     *
+     * @return Attribute<float, never>
+     */
+    protected function expectedSupplierCost(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): float => (float) $this->supplierQuotes()
+                ->where('status', SupplierQuoteStatus::SELECTED)
+                ->sum('total_base'),
+        );
+    }
+
+    /**
+     * Get expected gross margin (expected buyer total minus expected supplier cost).
+     *
+     * @return Attribute<float, never>
+     */
+    protected function expectedGrossMargin(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): float => $this->expected_buyer_total - $this->expected_supplier_cost,
+        );
+    }
+
+    /**
+     * Get expected margin percentage.
+     *
+     * @return Attribute<float, never>
+     */
+    protected function expectedMarginPercent(): Attribute
+    {
+        return Attribute::make(
+            get: function (): float {
+                $buyerTotal = $this->expected_buyer_total;
+
+                if ($buyerTotal === 0.0) {
+                    return 0.0;
+                }
+
+                return ($this->expected_gross_margin / $buyerTotal) * 100;
+            },
+        );
+    }
+
+    /**
+     * Check if at least one buyer order is confirmed (not draft or cancelled).
+     *
+     * @return Attribute<bool, never>
+     */
+    protected function hasBuyerOrderConfirmed(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): bool => $this->buyerOrders()
+                ->whereNotIn('status', [OrderStatus::DRAFT, OrderStatus::CANCELLED])
+                ->exists(),
+        );
+    }
+
+    /**
+     * Check if at least one supplier order is confirmed (not draft or cancelled).
+     *
+     * @return Attribute<bool, never>
+     */
+    protected function hasSupplierOrderConfirmed(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): bool => $this->supplierOrders()
+                ->whereNotIn('status', [OrderStatus::DRAFT, OrderStatus::CANCELLED])
+                ->exists(),
+        );
+    }
+
+    /**
+     * Get financial status for display.
+     * Returns 'confirmed' when both buyer and supplier orders are confirmed,
+     * 'expected' when there are accepted/selected quotes but orders not confirmed,
+     * or 'none' when no financial data exists.
+     *
+     * @return Attribute<string, never>
+     */
+    protected function financialStatus(): Attribute
+    {
+        return Attribute::make(
+            get: function (): string {
+                // Check if both buyer and supplier orders are confirmed
+                if ($this->has_buyer_order_confirmed && $this->has_supplier_order_confirmed) {
+                    return 'confirmed';
+                }
+
+                // Check if we have expected values from quotes
+                $hasExpectedBuyer = $this->expected_buyer_total > 0;
+                $hasExpectedSupplier = $this->expected_supplier_cost > 0;
+
+                // Also check if there are any orders (even draft)
+                $hasBuyerOrders = $this->buyer_total > 0;
+                $hasSupplierOrders = $this->supplier_cost > 0;
+
+                if ($hasExpectedBuyer || $hasExpectedSupplier || $hasBuyerOrders || $hasSupplierOrders) {
+                    return 'expected';
+                }
+
+                return 'none';
+            },
         );
     }
 }

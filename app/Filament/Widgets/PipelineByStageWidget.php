@@ -60,12 +60,11 @@ final class PipelineByStageWidget extends ChartWidget
 
         $activeStages = [
             RequestStage::DRAFT,
-            RequestStage::QUOTING_SUPPLIER,
-            RequestStage::QUOTING_BUYER,
-            RequestStage::QUOTE_SENT,
-            RequestStage::QUOTE_ACCEPTED,
-            RequestStage::ORDERED,
-            RequestStage::IN_PROGRESS,
+            RequestStage::AWAITING_SUPPLIER_RESPONSE,
+            RequestStage::PREPARING_BUYER_QUOTE,
+            RequestStage::AWAITING_BUYER_CONFIRMATION,
+            RequestStage::PREPARING_SUPPLIER_ORDER,
+            RequestStage::AWAITING_SHIPMENT,
             RequestStage::SHIPPED,
             RequestStage::DELIVERED,
             RequestStage::INVOICED,

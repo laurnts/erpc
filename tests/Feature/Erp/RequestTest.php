@@ -8,8 +8,11 @@ use App\Models\Buyer;
 use App\Models\Project;
 use App\Models\Request;
 use App\Models\RequestItem;
+use App\Models\Supplier;
+use App\Models\SupplierQuote;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function (): void {
     $this->team = Team::factory()->create();
@@ -194,5 +197,136 @@ describe('Request Item Editing', function (): void {
         ]);
 
         expect($request->canEditItems())->toBeFalse();
+    });
+});
+
+describe('Supplier Quote Auto-Generation', function (): void {
+    it('generates supplier quotes when transitioning from draft to awaiting_supplier_response', function (): void {
+        // Create suppliers with articles
+        $supplier1 = Supplier::factory()->recycle($this->team)->create();
+        $supplier2 = Supplier::factory()->recycle($this->team)->create();
+
+        $article = Article::factory()->recycle($this->team)->create();
+
+        // Link article to both suppliers via pivot table
+        DB::table('supplier_articles')->insert([
+            ['article_id' => $article->getKey(), 'supplier_id' => $supplier1->getKey(), 'is_active' => true, 'is_preferred' => false, 'created_at' => now(), 'updated_at' => now()],
+            ['article_id' => $article->getKey(), 'supplier_id' => $supplier2->getKey(), 'is_active' => true, 'is_preferred' => false, 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        // Create request with item linked to article
+        $request = Request::factory()->recycle($this->team)->recycle($this->buyer)->create([
+            'stage' => RequestStage::DRAFT,
+        ]);
+        RequestItem::factory()->recycle($request)->create([
+            'article_id' => $article->getKey(),
+            'is_matched' => true,
+        ]);
+
+        // Transition to AWAITING_SUPPLIER_RESPONSE
+        $request->stage = RequestStage::AWAITING_SUPPLIER_RESPONSE;
+        $request->save();
+
+        // Check that quotes were generated for both suppliers
+        expect($request->supplierQuotes)->toHaveCount(2);
+        expect($request->supplierQuotes->pluck('supplier_id')->sort()->values()->all())
+            ->toBe(collect([$supplier1->getKey(), $supplier2->getKey()])->sort()->values()->all());
+    });
+
+    it('creates quote items for each request item with matching supplier', function (): void {
+        $supplier = Supplier::factory()->recycle($this->team)->create();
+        $article = Article::factory()->recycle($this->team)->create();
+
+        DB::table('supplier_articles')->insert([
+            'article_id' => $article->getKey(),
+            'supplier_id' => $supplier->getKey(),
+            'is_active' => true,
+            'is_preferred' => false,
+            'last_quoted_price' => '150.0000',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $request = Request::factory()->recycle($this->team)->recycle($this->buyer)->create([
+            'stage' => RequestStage::DRAFT,
+        ]);
+        RequestItem::factory()->recycle($request)->create([
+            'article_id' => $article->getKey(),
+            'is_matched' => true,
+            'quantity' => '5.0000',
+        ]);
+
+        $request->stage = RequestStage::AWAITING_SUPPLIER_RESPONSE;
+        $request->save();
+
+        $quote = $request->supplierQuotes()->first();
+        expect($quote)->toBeInstanceOf(SupplierQuote::class)
+            ->and($quote->items)->toHaveCount(1)
+            ->and((float) $quote->items->first()->quantity)->toBe(5.0)
+            ->and((float) $quote->items->first()->unit_price)->toBe(150.0);
+    });
+
+    it('does not generate duplicate quotes when transitioning multiple times', function (): void {
+        $supplier = Supplier::factory()->recycle($this->team)->create();
+        $article = Article::factory()->recycle($this->team)->create();
+
+        DB::table('supplier_articles')->insert([
+            'article_id' => $article->getKey(),
+            'supplier_id' => $supplier->getKey(),
+            'is_active' => true,
+            'is_preferred' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $request = Request::factory()->recycle($this->team)->recycle($this->buyer)->create([
+            'stage' => RequestStage::DRAFT,
+        ]);
+        RequestItem::factory()->recycle($request)->create([
+            'article_id' => $article->getKey(),
+            'is_matched' => true,
+        ]);
+
+        // First transition
+        $request->stage = RequestStage::AWAITING_SUPPLIER_RESPONSE;
+        $request->save();
+
+        // Transition back and forth (simulating returning to draft and back)
+        $request->stage = RequestStage::DRAFT;
+        $request->save();
+
+        $request->stage = RequestStage::AWAITING_SUPPLIER_RESPONSE;
+        $request->save();
+
+        // Should still only have 1 quote (not 2)
+        expect($request->supplierQuotes)->toHaveCount(1);
+    });
+
+    it('does not generate quotes for inactive supplier-article relationships', function (): void {
+        $supplier = Supplier::factory()->recycle($this->team)->create();
+        $article = Article::factory()->recycle($this->team)->create();
+
+        // Insert as inactive
+        DB::table('supplier_articles')->insert([
+            'article_id' => $article->getKey(),
+            'supplier_id' => $supplier->getKey(),
+            'is_active' => false,
+            'is_preferred' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $request = Request::factory()->recycle($this->team)->recycle($this->buyer)->create([
+            'stage' => RequestStage::DRAFT,
+        ]);
+        RequestItem::factory()->recycle($request)->create([
+            'article_id' => $article->getKey(),
+            'is_matched' => true,
+        ]);
+
+        $request->stage = RequestStage::AWAITING_SUPPLIER_RESPONSE;
+        $request->save();
+
+        expect($request->supplierQuotes)->toHaveCount(0);
     });
 });

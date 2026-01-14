@@ -31,6 +31,8 @@ final class TeamErpSettings extends Data
         #[Min(0), Max(365)]
         public int $default_payment_terms_days = 30,
         public bool $prices_include_tax = false,
+        #[Min(0), Max(100)]
+        public float $default_margin_percent = 3.0,
 
         // Document Number Prefixes
         #[Max(10)]

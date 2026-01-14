@@ -11,12 +11,11 @@ use Filament\Support\Contracts\HasLabel;
 enum RequestStage: string implements HasColor, HasIcon, HasLabel
 {
     case DRAFT = 'draft';
-    case QUOTING_SUPPLIER = 'quoting_supplier';
-    case QUOTING_BUYER = 'quoting_buyer';
-    case QUOTE_SENT = 'quote_sent';
-    case QUOTE_ACCEPTED = 'quote_accepted';
-    case ORDERED = 'ordered';
-    case IN_PROGRESS = 'in_progress';
+    case AWAITING_SUPPLIER_RESPONSE = 'awaiting_supplier_response';
+    case PREPARING_BUYER_QUOTE = 'preparing_buyer_quote';
+    case AWAITING_BUYER_CONFIRMATION = 'awaiting_buyer_confirmation';
+    case PREPARING_SUPPLIER_ORDER = 'preparing_supplier_order';
+    case AWAITING_SHIPMENT = 'awaiting_shipment';
     case SHIPPED = 'shipped';
     case DELIVERED = 'delivered';
     case INVOICED = 'invoiced';
@@ -28,12 +27,11 @@ enum RequestStage: string implements HasColor, HasIcon, HasLabel
     {
         return match ($this) {
             self::DRAFT => 'Draft',
-            self::QUOTING_SUPPLIER => 'Quoting Supplier',
-            self::QUOTING_BUYER => 'Quoting Buyer',
-            self::QUOTE_SENT => 'Quote Sent',
-            self::QUOTE_ACCEPTED => 'Quote Accepted',
-            self::ORDERED => 'Ordered',
-            self::IN_PROGRESS => 'In Progress',
+            self::AWAITING_SUPPLIER_RESPONSE => 'Awaiting Supplier Response',
+            self::PREPARING_BUYER_QUOTE => 'Preparing Buyer Quote',
+            self::AWAITING_BUYER_CONFIRMATION => 'Awaiting Buyer Confirmation',
+            self::PREPARING_SUPPLIER_ORDER => 'Preparing Supplier Order',
+            self::AWAITING_SHIPMENT => 'Awaiting Shipment',
             self::SHIPPED => 'Shipped',
             self::DELIVERED => 'Delivered',
             self::INVOICED => 'Invoiced',
@@ -47,12 +45,11 @@ enum RequestStage: string implements HasColor, HasIcon, HasLabel
     {
         return match ($this) {
             self::DRAFT => 'gray',
-            self::QUOTING_SUPPLIER => 'info',
-            self::QUOTING_BUYER => 'info',
-            self::QUOTE_SENT => 'warning',
-            self::QUOTE_ACCEPTED => 'success',
-            self::ORDERED => 'primary',
-            self::IN_PROGRESS => 'primary',
+            self::AWAITING_SUPPLIER_RESPONSE => 'warning',
+            self::PREPARING_BUYER_QUOTE => 'info',
+            self::AWAITING_BUYER_CONFIRMATION => 'warning',
+            self::PREPARING_SUPPLIER_ORDER => 'info',
+            self::AWAITING_SHIPMENT => 'warning',
             self::SHIPPED => 'info',
             self::DELIVERED => 'success',
             self::INVOICED => 'warning',
@@ -66,12 +63,11 @@ enum RequestStage: string implements HasColor, HasIcon, HasLabel
     {
         return match ($this) {
             self::DRAFT => 'heroicon-o-pencil-square',
-            self::QUOTING_SUPPLIER => 'heroicon-o-document-magnifying-glass',
-            self::QUOTING_BUYER => 'heroicon-o-document-text',
-            self::QUOTE_SENT => 'heroicon-o-paper-airplane',
-            self::QUOTE_ACCEPTED => 'heroicon-o-check-badge',
-            self::ORDERED => 'heroicon-o-shopping-cart',
-            self::IN_PROGRESS => 'heroicon-o-arrow-path',
+            self::AWAITING_SUPPLIER_RESPONSE => 'heroicon-o-clock',
+            self::PREPARING_BUYER_QUOTE => 'heroicon-o-document-text',
+            self::AWAITING_BUYER_CONFIRMATION => 'heroicon-o-clock',
+            self::PREPARING_SUPPLIER_ORDER => 'heroicon-o-shopping-cart',
+            self::AWAITING_SHIPMENT => 'heroicon-o-clock',
             self::SHIPPED => 'heroicon-o-truck',
             self::DELIVERED => 'heroicon-o-check-circle',
             self::INVOICED => 'heroicon-o-document-currency-dollar',
@@ -82,6 +78,113 @@ enum RequestStage: string implements HasColor, HasIcon, HasLabel
     }
 
     /**
+     * Get the phase name for this stage.
+     */
+    public function getPhase(): string
+    {
+        return match ($this) {
+            self::DRAFT, self::AWAITING_SUPPLIER_RESPONSE => 'Sourcing',
+            self::PREPARING_BUYER_QUOTE, self::AWAITING_BUYER_CONFIRMATION => 'Quoting',
+            self::PREPARING_SUPPLIER_ORDER, self::AWAITING_SHIPMENT => 'Ordering',
+            self::SHIPPED, self::DELIVERED => 'Delivery',
+            self::INVOICED, self::PAID, self::COMPLETED => 'Closing',
+            self::CANCELLED => 'Cancelled',
+        };
+    }
+
+    /**
+     * Get the step indicator (e.g., "1/6", "2/6") for the main workflow tabs.
+     */
+    public function getPhaseStep(): string
+    {
+        return match ($this) {
+            self::DRAFT => '1/6',
+            self::AWAITING_SUPPLIER_RESPONSE => '2/6',
+            self::PREPARING_BUYER_QUOTE => '3/6',
+            self::AWAITING_BUYER_CONFIRMATION => '4/6',
+            self::PREPARING_SUPPLIER_ORDER => '5/6',
+            self::AWAITING_SHIPMENT => '6/6',
+            self::SHIPPED, self::DELIVERED, self::INVOICED, self::PAID, self::COMPLETED => '✓',
+            self::CANCELLED => '-',
+        };
+    }
+
+    /**
+     * Get the full label with phase step (e.g., "Draft (1/2)").
+     */
+    public function getLabelWithStep(): string
+    {
+        $step = $this->getPhaseStep();
+
+        if ($step === '-') {
+            return $this->getLabel();
+        }
+
+        return $this->getLabel().' ('.$step.')';
+    }
+
+    /**
+     * Get the relation manager key associated with this stage.
+     */
+    public function getRelationManagerKey(): ?string
+    {
+        return match ($this) {
+            self::DRAFT => 'items',
+            self::AWAITING_SUPPLIER_RESPONSE => 'supplierQuotes',
+            self::PREPARING_BUYER_QUOTE => 'buyerQuotes',
+            self::AWAITING_BUYER_CONFIRMATION => 'buyerOrders',
+            self::PREPARING_SUPPLIER_ORDER => 'supplierOrders',
+            self::AWAITING_SHIPMENT => 'shipments',
+            default => null,
+        };
+    }
+
+    /**
+     * Get the stage for a given relation manager key.
+     */
+    public static function fromRelationManagerKey(string $key): ?self
+    {
+        return match ($key) {
+            'items' => self::DRAFT,
+            'supplierQuotes' => self::AWAITING_SUPPLIER_RESPONSE,
+            'buyerQuotes' => self::PREPARING_BUYER_QUOTE,
+            'buyerOrders' => self::AWAITING_BUYER_CONFIRMATION,
+            'supplierOrders' => self::PREPARING_SUPPLIER_ORDER,
+            'shipments' => self::AWAITING_SHIPMENT,
+            default => null,
+        };
+    }
+
+    /**
+     * Get the numeric order of this stage for comparison.
+     */
+    public function getOrder(): int
+    {
+        return match ($this) {
+            self::DRAFT => 1,
+            self::AWAITING_SUPPLIER_RESPONSE => 2,
+            self::PREPARING_BUYER_QUOTE => 3,
+            self::AWAITING_BUYER_CONFIRMATION => 4,
+            self::PREPARING_SUPPLIER_ORDER => 5,
+            self::AWAITING_SHIPMENT => 6,
+            self::SHIPPED => 7,
+            self::DELIVERED => 8,
+            self::INVOICED => 9,
+            self::PAID => 10,
+            self::COMPLETED => 11,
+            self::CANCELLED => -1,
+        };
+    }
+
+    /**
+     * Check if this stage is before the given stage.
+     */
+    public function isBefore(self $stage): bool
+    {
+        return $this->getOrder() < $stage->getOrder() && $this->getOrder() > 0 && $stage->getOrder() > 0;
+    }
+
+    /**
      * Get the allowed transitions from this stage.
      *
      * @return list<self>
@@ -89,13 +192,12 @@ enum RequestStage: string implements HasColor, HasIcon, HasLabel
     public function getAllowedTransitions(): array
     {
         return match ($this) {
-            self::DRAFT => [self::QUOTING_SUPPLIER, self::CANCELLED],
-            self::QUOTING_SUPPLIER => [self::QUOTING_BUYER, self::DRAFT, self::CANCELLED],
-            self::QUOTING_BUYER => [self::QUOTE_SENT, self::QUOTING_SUPPLIER, self::CANCELLED],
-            self::QUOTE_SENT => [self::QUOTE_ACCEPTED, self::QUOTING_BUYER, self::CANCELLED],
-            self::QUOTE_ACCEPTED => [self::ORDERED, self::QUOTE_SENT, self::CANCELLED],
-            self::ORDERED => [self::IN_PROGRESS, self::CANCELLED],
-            self::IN_PROGRESS => [self::SHIPPED, self::CANCELLED],
+            self::DRAFT => [self::AWAITING_SUPPLIER_RESPONSE, self::CANCELLED],
+            self::AWAITING_SUPPLIER_RESPONSE => [self::PREPARING_BUYER_QUOTE, self::DRAFT, self::CANCELLED],
+            self::PREPARING_BUYER_QUOTE => [self::AWAITING_BUYER_CONFIRMATION, self::AWAITING_SUPPLIER_RESPONSE, self::CANCELLED],
+            self::AWAITING_BUYER_CONFIRMATION => [self::PREPARING_SUPPLIER_ORDER, self::PREPARING_BUYER_QUOTE, self::CANCELLED],
+            self::PREPARING_SUPPLIER_ORDER => [self::AWAITING_SHIPMENT, self::AWAITING_BUYER_CONFIRMATION, self::CANCELLED],
+            self::AWAITING_SHIPMENT => [self::SHIPPED, self::PREPARING_SUPPLIER_ORDER, self::CANCELLED],
             self::SHIPPED => [self::DELIVERED, self::CANCELLED],
             self::DELIVERED => [self::INVOICED, self::CANCELLED],
             self::INVOICED => [self::PAID, self::CANCELLED],
@@ -138,7 +240,7 @@ enum RequestStage: string implements HasColor, HasIcon, HasLabel
     public function allowsItemEditing(): bool
     {
         return match ($this) {
-            self::DRAFT, self::QUOTING_SUPPLIER => true,
+            self::DRAFT, self::AWAITING_SUPPLIER_RESPONSE => true,
             default => false,
         };
     }

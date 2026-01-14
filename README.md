@@ -1,72 +1,69 @@
-<p align="center">
-  <a href="https://relaticle.com">
-    <img src="https://relaticle.com/relaticle-logo.svg" width="100px" alt="Relaticle logo" />
-  </a>
-</p>
+# ERPC - Enterprise Trading Platform
 
-<h1 align="center"> Next-Generation Open-Source CRM</h1>
+A modern ERP system built for trading companies, combining CRM capabilities with comprehensive procurement and sales workflows.
 
-<p align="center">
-  <a href="https://github.com/Relaticle/relaticle/actions"><img src="https://img.shields.io/github/actions/workflow/status/Relaticle/relaticle/tests.yml?branch=main&style=for-the-badge&label=tests" alt="Tests"></a>
-  <a href="https://laravel.com/docs/12.x"><img src="https://img.shields.io/badge/Laravel-12.x-FF2D20?style=for-the-badge&logo=laravel" alt="Laravel 12"></a>
-  <a href="https://filamentphp.com"><img src="https://img.shields.io/badge/Filament-4.x-FBBC04?style=for-the-badge" alt="Filament 4"></a>
-  <a href="https://php.net"><img src="https://img.shields.io/badge/PHP-8.4-777BB4?style=for-the-badge&logo=php" alt="PHP 8.4"></a>
-  <a href="https://github.com/Relaticle/relaticle/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-blue.svg?style=for-the-badge" alt="License"></a>
-</p>
+## Overview
 
-<p align="center">
-  <a href="https://relaticle.com">🌐 Website</a> ·
-  <a href="https://relaticle.com/documentation">📚 Documentation</a> ·
-  <a href="https://github.com/orgs/Relaticle/projects/1/views/1">🛣️ Roadmap</a> ·
-  <a href="https://github.com/Relaticle/relaticle/discussions">💬 Discussions</a>
-</p>
+ERPC is designed for trading businesses that source products from multiple suppliers and sell to buyers. It manages the complete lifecycle from buyer inquiry through supplier sourcing, quoting, ordering, invoicing, and payment tracking.
 
-<p align="center">
-  <img src="https://relaticle.com/images/github-preview-light.png" alt="Relaticle Dashboard - Manage contacts, companies, and opportunities in a modern interface" />
-  <br>
-  <sub>Clean, modern interface built with Filament 4 and Livewire 3</sub>
-</p>
+## Tech Stack
 
----
+- **PHP 8.4** with strict types
+- **Laravel 12** framework
+- **Filament 4** admin panel
+- **Livewire 3** for reactive components
+- **PostgreSQL 15+** database
+- **Tailwind CSS 4** styling
 
-# About Relaticle
+## Key Features
 
-**Perfect for:** Laravel developers, agencies, and SMBs who need a modern CRM they can customize and self-host.
+### Trading Workflow
+- **Request Management** - Track buyer inquiries from initial request through fulfillment
+- **Supplier Quoting** - Collect and compare quotes from multiple suppliers
+- **Buyer Quoting** - Generate consolidated quotes with margin analysis
+- **Order Processing** - Manage buyer and supplier purchase orders
+- **Invoicing** - Handle buyer and supplier invoices with payment tracking
+- **Shipment Tracking** - Monitor delivery status and logistics
 
-Relaticle is a powerful, adaptable CRM platform built for teams who've outgrown spreadsheets but find Salesforce overkill. Unlike SaaS CRMs that lock your data in their cloud, Relaticle gives you complete control with self-hosting and unlimited customization through our no-code custom fields system.
+### Core Entities
+- **Companies** - Buyers and suppliers with contacts
+- **Articles** - Product catalog with flexible attributes
+- **Projects** - Group related requests for large deals
+- **Currencies & Exchange Rates** - Multi-currency support
+- **Tax Codes** - Configurable tax handling per item
 
-**Core Strengths:**
-- **Fully Customizable** - Create and manage custom fields without coding
-- **Multi-Team Support** - Securely manage multiple business units with isolated workspaces
-- **Modern Technology** - Built on Laravel 12, PHP 8.4, and Filament 4
-- **Privacy-Focused** - Self-host with complete data ownership
-- **Open Source** - Transparent development with AGPL-3.0 license
+### CRM Capabilities
+- **People/Contacts** - Contact management linked to companies
+- **Opportunities** - Sales pipeline tracking
+- **Tasks & Notes** - Activity management
+- **AI Summaries** - AI-powered entity summaries
 
-**vs Other CRMs:**
-- **vs HubSpot/Salesforce:** Self-hosted, no monthly fees, own your data
-- **vs SuiteCRM:** Modern Laravel stack, no-code customization, beautiful UI
-- **vs Custom Build:** Production-ready, maintained, community-supported
+### Platform Features
+- **Multi-Team** - Isolated workspaces per team
+- **Custom Fields** - Extend entities without code changes
+- **Role-Based Access** - Granular permissions
+- **Import/Export** - CSV data management
 
-Visit our [website](https://relaticle.com) to learn more about Relaticle's capabilities.
-
-# Requirements
+## Requirements
 
 - PHP 8.4+
 - PostgreSQL 15+
-- Composer 2 and Node.js 20+
-- Redis for queues (optional for development)
+- Composer 2
+- Node.js 20+
+- Redis (optional, for queues)
 
-# Installation
+## Installation
 
 ```bash
-git clone https://github.com/Relaticle/relaticle.git
-cd relaticle && composer app-install
+git clone <repository-url>
+cd erpc
+composer app-install
 ```
 
-# Development
+## Development
 
 ```bash
-# Start everything (server, queue, vite)
+# Start all services (server, queue, logs, vite)
 composer dev
 
 # Run tests
@@ -74,27 +71,42 @@ composer test
 
 # Format code
 composer lint
+
+# Type checking
+composer test:types
 ```
 
-# Docker Deployment
+## Testing
 
-For production deployment using Docker, see [`docker-compose.prod.yml`](docker-compose.prod.yml).
+```bash
+composer test          # Full test suite
+composer test:arch     # Architecture tests
+composer test:types    # PHPStan static analysis
+composer test:coverage # Code coverage (min 80%)
+```
 
-# Documentation
+## Project Structure
 
-Visit our [comprehensive documentation](https://relaticle.com/documentation) for guides on business usage, technical architecture, API integration, and more.
+```
+app/
+├── Actions/           # Single-purpose action classes
+├── Enums/             # PHP enums
+├── Filament/          # Admin panel resources
+├── Jobs/              # Background jobs
+├── Models/            # Eloquent models
+├── Observers/         # Model observers
+├── Policies/          # Authorization policies
+└── Services/          # Service classes
 
-# Community & Support
+app-modules/           # Isolated modules
+├── Documentation/
+├── OnboardSeed/
+└── SystemAdmin/
 
-- 🐛 [Report Issues](https://github.com/Relaticle/relaticle/issues)
-- 💡 [Request Features](https://github.com/Relaticle/relaticle/discussions/categories/ideas)
-- 💬 [Ask Questions](https://github.com/Relaticle/relaticle/discussions/categories/q-a)
-- ⭐ [Star us on GitHub](https://github.com/Relaticle/relaticle) to support the project
+openspec/              # Specifications
+└── specs/             # Feature specifications
+```
 
-# License
+## License
 
-Relaticle is open-source software licensed under the [AGPL-3.0 license](LICENSE).
-
-# Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=Relaticle/relaticle&type=Date)](https://www.star-history.com/#Relaticle/relaticle&Date)
+AGPL-3.0

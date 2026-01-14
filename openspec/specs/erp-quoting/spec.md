@@ -3,6 +3,39 @@
 ## Purpose
 TBD - created by archiving change add-erp-trading-system. Update Purpose after archive.
 ## Requirements
+### Requirement: Generate Supplier Quotes from Item Assignments
+The system SHALL allow generating supplier quotes automatically from request items that have been assigned to suppliers in the Items tab.
+
+#### Scenario: Generate supplier quotes button
+- **WHEN** an admin views the Items tab with items assigned to suppliers
+- **THEN** a "Generate Supplier Quotes" button is available
+- **AND** the button shows a confirmation with count of quotes to be created
+
+#### Scenario: Generate quotes grouped by supplier
+- **WHEN** an admin clicks "Generate Supplier Quotes"
+- **THEN** one SupplierQuote is created per unique supplier_id from assigned items
+- **AND** each quote contains SupplierQuoteItems for all items assigned to that supplier
+- **AND** quote items are pre-populated with article name, quantity, and unit from request items
+
+#### Scenario: Skip existing supplier quotes
+- **WHEN** generating supplier quotes for a request
+- **AND** a quote already exists for a supplier on this request
+- **THEN** that supplier is skipped (no duplicate quotes)
+- **AND** a notification informs how many quotes were created vs skipped
+
+#### Scenario: No items assigned warning
+- **WHEN** an admin clicks "Generate Supplier Quotes" with no items assigned to suppliers
+- **THEN** a warning notification is shown
+- **AND** no quotes are created
+
+#### Scenario: Default currency on generated quotes
+- **WHEN** supplier quotes are auto-generated
+- **THEN** currency defaults to team's default ERP currency
+- **AND** exchange_rate defaults to 1
+- **AND** quoted_at defaults to current date
+
+---
+
 ### Requirement: Supplier Quotes
 The system SHALL allow receiving quotes from multiple suppliers for a single request, each in their own currency.
 

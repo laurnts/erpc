@@ -144,7 +144,7 @@ final class BuyerResource extends Resource
                             'name',
                             modifyQueryUsing: fn ($query) => $query->where('is_active', true)
                         )
-                        ->getOptionLabelFromRecordUsing(fn (Currency $record): string => "{$record->code} - {$record->name}")
+                        ->getOptionLabelFromRecordUsing(fn (?Currency $record): string => $record ? "{$record->code} - {$record->name}" : '')
                         ->default(function (): ?int {
                             /** @var \App\Models\Team|null $team */
                             $team = Filament::getTenant();

@@ -6,7 +6,9 @@ namespace App\Filament\Resources\RequestResource\RelationManagers;
 
 use App\Enums\BuyerQuoteStatus;
 use App\Enums\OrderStatus;
+use App\Enums\RequestStage;
 use App\Filament\Actions\DownloadPdfAction;
+use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Models\BuyerOrder;
 use App\Models\BuyerQuote;
 use App\Models\Request;
@@ -15,7 +17,9 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Grid;
@@ -25,116 +29,169 @@ use Filament\Support\Enums\Size;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 final class BuyerOrdersRelationManager extends RelationManager
 {
+    use HasRequestStageTab;
+
     protected static string $relationship = 'buyerOrders';
 
+    protected static ?string $title = 'Buyer Orders';
+
     protected static string|\BackedEnum|null $icon = 'heroicon-o-shopping-cart';
+
+    protected static function getAssociatedStage(): RequestStage
+    {
+        return RequestStage::AWAITING_BUYER_CONFIRMATION;
+    }
+
+    protected static function getBaseTabTitle(): string
+    {
+        return 'Buyer Orders';
+    }
+
+    /**
+     * Get the form schema for buyer orders.
+     *
+     * @return array<int, \Filament\Schemas\Components\Component>
+     */
+    public function getFormSchema(): array
+    {
+        return [
+            Section::make('Order Details')
+                ->schema([
+                    Grid::make(4)
+                        ->schema([
+                            Placeholder::make('order_number_display')
+                                ->label('Order Number')
+                                ->content(fn (?BuyerOrder $record): string => $record->order_number ?? 'Auto-generated'),
+                            Placeholder::make('status_display')
+                                ->label('Status')
+                                ->content(fn (?BuyerOrder $record): string => $record?->status->getLabel() ?? 'Draft'),
+                            Placeholder::make('buyer_quote_display')
+                                ->label('Source Quote')
+                                ->content(fn (?BuyerOrder $record): string => $record->buyerQuote->quote_number ?? 'None'),
+                            Placeholder::make('currency_display')
+                                ->label('Currency')
+                                ->content(fn (?BuyerOrder $record): string => $record->currency->code ?? '-'),
+                        ]),
+                    Grid::make(4)
+                        ->schema([
+                            Placeholder::make('ordered_at_display')
+                                ->label('Ordered At')
+                                ->content(fn (?BuyerOrder $record): string => $record->ordered_at?->format('Y-m-d H:i') ?? '-'),
+                            Placeholder::make('confirmed_at_display')
+                                ->label('Confirmed At')
+                                ->content(fn (?BuyerOrder $record): string => $record->confirmed_at?->format('Y-m-d H:i') ?? '-'),
+                            Placeholder::make('buyer_display')
+                                ->label('Buyer')
+                                ->content(fn (?BuyerOrder $record): string => $record->buyer->name ?? '-'),
+                            Placeholder::make('buyer_reference_display')
+                                ->label('Buyer Reference')
+                                ->content(fn (?BuyerOrder $record): string => $record->buyer_reference ?? '-'),
+                        ]),
+                ]),
+
+            Section::make('Payment Terms')
+                ->schema([
+                    Grid::make(3)
+                        ->schema([
+                            Placeholder::make('prepayment_percent_display')
+                                ->label('Prepayment %')
+                                ->content(fn (?BuyerOrder $record): string => ($record->prepayment_percent ?? 0).'%'),
+                            Placeholder::make('payment_terms_days_display')
+                                ->label('Payment Terms (Days)')
+                                ->content(fn (?BuyerOrder $record): string => (string) ($record->payment_terms_days ?? 30)),
+                            Placeholder::make('payment_terms_text_display')
+                                ->label('Payment Terms Description')
+                                ->content(fn (?BuyerOrder $record): string => $record->payment_terms_text ?? '-'),
+                        ]),
+                ])
+                ->collapsible(),
+
+            Section::make('Line Items')
+                ->schema([
+                    Repeater::make('items')
+                        ->relationship()
+                        ->schema([
+                            Grid::make(12)
+                                ->schema([
+                                    TextInput::make('description')
+                                        ->columnSpan(5)
+                                        ->disabled(),
+                                    TextInput::make('quantity')
+                                        ->columnSpan(2)
+                                        ->disabled(),
+                                    TextInput::make('unit')
+                                        ->columnSpan(1)
+                                        ->disabled(),
+                                    TextInput::make('unit_price')
+                                        ->label('Price')
+                                        ->columnSpan(2)
+                                        ->disabled(),
+                                    TextInput::make('line_total')
+                                        ->label('Total')
+                                        ->columnSpan(2)
+                                        ->disabled(),
+                                ]),
+                        ])
+                        ->columns(1)
+                        ->deletable(false)
+                        ->addable(false)
+                        ->reorderable(false)
+                        ->collapsible()
+                        ->itemLabel(fn (array $state): ?string => $state['description'] ?? null),
+                ]),
+
+            Section::make('Summary')
+                ->schema([
+                    Grid::make(4)
+                        ->schema([
+                            Placeholder::make('subtotal_display')
+                                ->label('Subtotal')
+                                ->content(fn (?BuyerOrder $record): string => $record instanceof BuyerOrder
+                                    ? number_format((float) $record->subtotal, 2)
+                                    : '0.00'),
+                            Placeholder::make('tax_total_display')
+                                ->label('Tax Total')
+                                ->content(fn (?BuyerOrder $record): string => $record instanceof BuyerOrder
+                                    ? number_format((float) $record->tax_total, 2)
+                                    : '0.00'),
+                            Placeholder::make('total_display')
+                                ->label('Total')
+                                ->content(fn (?BuyerOrder $record): string => $record instanceof BuyerOrder
+                                    ? number_format((float) $record->total, 2)
+                                    : '0.00'),
+                            Placeholder::make('total_base_display')
+                                ->label('Total (Base)')
+                                ->content(fn (?BuyerOrder $record): string => $record instanceof BuyerOrder
+                                    ? number_format((float) $record->total_base, 2)
+                                    : '0.00'),
+                        ]),
+                ])
+                ->collapsible(),
+
+            Section::make('Notes')
+                ->schema([
+                    Textarea::make('notes')
+                        ->label('Notes')
+                        ->rows(2)
+                        ->disabled(),
+                    Textarea::make('internal_notes')
+                        ->label('Internal Notes')
+                        ->rows(2)
+                        ->disabled(),
+                ])
+                ->collapsed(),
+        ];
+    }
 
     public function form(Schema $schema): Schema
     {
         return $schema
             ->columns(1)
-            ->components([
-                Section::make('Order Details')
-                    ->schema([
-                        Grid::make(3)
-                            ->schema([
-                                Placeholder::make('order_number_display')
-                                    ->label('Order Number')
-                                    ->content(fn (?BuyerOrder $record): string => $record->order_number ?? 'Auto-generated'),
-                                Placeholder::make('status_display')
-                                    ->label('Status')
-                                    ->content(fn (?BuyerOrder $record): string => $record?->status->getLabel() ?? 'Draft'),
-                                Placeholder::make('buyer_quote_display')
-                                    ->label('Source Quote')
-                                    ->content(fn (?BuyerOrder $record): string => $record->buyerQuote->quote_number ?? 'None'),
-                            ]),
-                    ]),
-
-                Section::make('Payment Terms (Locked)')
-                    ->schema([
-                        Grid::make(2)
-                            ->schema([
-                                Placeholder::make('payment_terms_days_display')
-                                    ->label('Payment Terms (Days)')
-                                    ->content(fn (?BuyerOrder $record): string => (string) ($record->payment_terms_days ?? 30)),
-                                Placeholder::make('payment_terms_text_display')
-                                    ->label('Payment Terms Description')
-                                    ->content(fn (?BuyerOrder $record): string => $record->payment_terms_text ?? '-'),
-                            ]),
-                    ])
-                    ->collapsible()
-                    ->collapsed(),
-
-                Section::make('Line Items (Locked)')
-                    ->schema([
-                        Placeholder::make('items_display')
-                            ->label('')
-                            ->content(function (?BuyerOrder $record): string {
-                                if (! $record instanceof \App\Models\BuyerOrder) {
-                                    return 'No items';
-                                }
-
-                                $items = $record->items;
-                                if ($items->isEmpty()) {
-                                    return 'No items';
-                                }
-
-                                $output = '';
-                                foreach ($items as $item) {
-                                    $output .= sprintf(
-                                        "%s - Qty: %s %s @ %s = %s\n",
-                                        $item->description,
-                                        number_format((float) $item->quantity, 2),
-                                        $item->unit,
-                                        number_format((float) $item->unit_price, 2),
-                                        number_format((float) $item->line_total, 2)
-                                    );
-                                }
-
-                                return $output;
-                            }),
-                    ])
-                    ->collapsible(),
-
-                Section::make('Summary (Locked)')
-                    ->schema([
-                        Grid::make(3)
-                            ->schema([
-                                Placeholder::make('subtotal_display')
-                                    ->label('Subtotal')
-                                    ->content(fn (?BuyerOrder $record): string => $record instanceof \App\Models\BuyerOrder
-                                        ? number_format((float) $record->subtotal, 2)
-                                        : '0.00'),
-                                Placeholder::make('tax_total_display')
-                                    ->label('Tax Total')
-                                    ->content(fn (?BuyerOrder $record): string => $record instanceof \App\Models\BuyerOrder
-                                        ? number_format((float) $record->tax_total, 2)
-                                        : '0.00'),
-                                Placeholder::make('total_display')
-                                    ->label('Total')
-                                    ->content(fn (?BuyerOrder $record): string => $record instanceof \App\Models\BuyerOrder
-                                        ? number_format((float) $record->total, 2)
-                                        : '0.00'),
-                            ]),
-                    ])
-                    ->collapsible(),
-
-                Section::make('Notes')
-                    ->schema([
-                        Textarea::make('notes')
-                            ->label('Notes')
-                            ->rows(2)
-                            ->disabled(fn (?BuyerOrder $record): bool => $record instanceof \App\Models\BuyerOrder && ! $record->status->canEdit()),
-                        Textarea::make('internal_notes')
-                            ->label('Internal Notes')
-                            ->rows(2)
-                            ->disabled(fn (?BuyerOrder $record): bool => $record instanceof \App\Models\BuyerOrder && ! $record->status->canEdit()),
-                    ])
-                    ->collapsed(),
-            ]);
+            ->components($this->getFormSchema());
     }
 
     public function table(Table $table): Table
@@ -263,7 +320,9 @@ final class BuyerOrdersRelationManager extends RelationManager
                             ->exists()),
             ])
             ->recordActions([
-                ViewAction::make(),
+                ViewAction::make()
+                    ->modalWidth('7xl')
+                    ->form(fn (): array => $this->getFormSchema()),
                 DownloadPdfAction::make()
                     ->label('PDF'),
                 Action::make('confirm')
@@ -304,24 +363,6 @@ final class BuyerOrdersRelationManager extends RelationManager
                             ->warning()
                             ->send();
                     }),
-                Action::make('progress')
-                    ->label('Next Status')
-                    ->icon('heroicon-o-arrow-right')
-                    ->color('primary')
-                    ->visible(fn (BuyerOrder $record): bool => $record->status->canProgress() && $record->status !== OrderStatus::DRAFT)
-                    ->requiresConfirmation()
-                    ->modalHeading(fn (BuyerOrder $record): string => sprintf(
-                        'Progress to %s?',
-                        $record->status->getNextStatus()?->getLabel() ?? 'Next'
-                    ))
-                    ->action(function (BuyerOrder $record): void {
-                        $record->progressStatus();
-                        Notification::make()
-                            ->title('Order status updated')
-                            ->body(sprintf('Order is now %s.', $record->status->getLabel()))
-                            ->success()
-                            ->send();
-                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
@@ -329,5 +370,25 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->visible(fn (): bool => false), // Disable bulk delete for orders
                 ]),
             ]);
+    }
+
+    public static function getBadge(Model $ownerRecord, string $pageClass): ?string
+    {
+        /** @var Request $ownerRecord */
+        $hasConfirmed = $ownerRecord->buyerOrders()
+            ->whereNotIn('status', [OrderStatus::DRAFT, OrderStatus::CANCELLED])
+            ->exists();
+
+        return $hasConfirmed ? '✓' : null;
+    }
+
+    public static function getBadgeColor(Model $ownerRecord, string $pageClass): ?string
+    {
+        /** @var Request $ownerRecord */
+        $hasConfirmed = $ownerRecord->buyerOrders()
+            ->whereNotIn('status', [OrderStatus::DRAFT, OrderStatus::CANCELLED])
+            ->exists();
+
+        return $hasConfirmed ? 'success' : null;
     }
 }

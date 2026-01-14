@@ -4,43 +4,57 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\RequestResource\RelationManagers;
 
+use App\Enums\RequestStage;
 use App\Enums\SupplierQuoteStatus;
+use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Models\Company;
 use App\Models\Currency;
 use App\Models\Request;
 use App\Models\SupplierQuote;
 use App\Models\TaxCode;
-use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
-use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Size;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 final class SupplierQuotesRelationManager extends RelationManager
 {
+    use HasRequestStageTab;
+
     protected static string $relationship = 'supplierQuotes';
 
+    protected static ?string $title = 'Supplier Quotes';
+
     protected static string|\BackedEnum|null $icon = 'heroicon-o-document-currency-dollar';
+
+    protected static function getAssociatedStage(): RequestStage
+    {
+        return RequestStage::AWAITING_SUPPLIER_RESPONSE;
+    }
+
+    protected static function getBaseTabTitle(): string
+    {
+        return 'Supplier Quotes';
+    }
 
     public function form(Schema $schema): Schema
     {
@@ -73,10 +87,9 @@ final class SupplierQuotesRelationManager extends RelationManager
                                     ->label('Supplier Reference')
                                     ->maxLength(255)
                                     ->helperText('Supplier\'s quote/reference number'),
-                                Select::make('status')
-                                    ->options(SupplierQuoteStatus::class)
-                                    ->default(SupplierQuoteStatus::PENDING)
-                                    ->required(),
+                                Placeholder::make('quote_number_display')
+                                    ->label('Quote Number')
+                                    ->content(fn (?SupplierQuote $record): string => $record !== null ? ($record->quote_number ?? 'Auto-generated') : 'Auto-generated'),
                             ]),
                         Grid::make(3)
                             ->schema([
@@ -101,33 +114,91 @@ final class SupplierQuotesRelationManager extends RelationManager
                                     ->searchable()
                                     ->required()
                                     ->live()
+                                    ->helperText(function (Get $get): ?string {
+                                        $rate = (float) ($get('exchange_rate') ?? 1);
+                                        $currencyId = $get('currency_id');
+
+                                        if ($currencyId === null) {
+                                            return null;
+                                        }
+
+                                        /** @var \App\Models\Team|null $team */
+                                        $team = Filament::getTenant();
+                                        $baseCurrencyCode = $team?->getErpSettings()->default_currency ?? 'USD';
+
+                                        /** @var Currency|null $currency */
+                                        $currency = Currency::query()->find($currencyId);
+
+                                        if ($currency === null || $currency->code === $baseCurrencyCode) {
+                                            return null;
+                                        }
+
+                                        $currencyCode = $currency->code;
+
+                                        /** @var Currency|null $baseCurrency */
+                                        $baseCurrency = Currency::query()->where('code', $baseCurrencyCode)->first();
+
+                                        if ($baseCurrency === null) {
+                                            return sprintf('1 %s = %s %s', $currencyCode, $baseCurrencyCode, number_format($rate, 2));
+                                        }
+
+                                        $thousandsSep = $baseCurrency->thousands_separator ?? ',';
+                                        $decimalSep = $baseCurrency->decimal_separator ?? '.';
+                                        $decimalPlaces = $baseCurrency->decimal_places ?? 2;
+                                        $formatted = number_format($rate, $decimalPlaces, $decimalSep, $thousandsSep);
+
+                                        if ($decimalPlaces === 0 && $baseCurrencyCode === 'IDR') {
+                                            $formatted .= ',-';
+                                        }
+
+                                        return sprintf('1 %s = %s %s', $currencyCode, $baseCurrencyCode, $formatted);
+                                    })
                                     ->afterStateUpdated(function (Set $set, ?int $state): void {
                                         if ($state === null) {
                                             return;
                                         }
-                                        // Could auto-fetch exchange rate here if desired
+
+                                        /** @var \App\Models\Team|null $team */
+                                        $team = Filament::getTenant();
+                                        $baseCurrencyCode = $team?->getErpSettings()->default_currency ?? 'USD';
+                                        $baseCurrency = Currency::query()->where('code', $baseCurrencyCode)->first();
+
+                                        if ($baseCurrency === null) {
+                                            $set('exchange_rate', 1);
+
+                                            return;
+                                        }
+
+                                        if ($state === $baseCurrency->getKey()) {
+                                            $set('exchange_rate', 1);
+
+                                            return;
+                                        }
+
+                                        $exchangeRate = \App\Models\ExchangeRate::query()
+                                            ->where('team_id', $team?->getKey())
+                                            ->where('from_currency_id', $state)
+                                            ->where('to_currency_id', $baseCurrency->getKey())
+                                            ->orderByDesc('effective_date')
+                                            ->first();
+
+                                        $set('exchange_rate', $exchangeRate !== null ? $exchangeRate->rate : 1);
                                     }),
-                                TextInput::make('exchange_rate')
-                                    ->label('Exchange Rate')
-                                    ->numeric()
+                                Hidden::make('exchange_rate')
                                     ->default(1)
-                                    ->required()
-                                    ->step(0.00000001)
-                                    ->helperText('Rate to convert to base currency'),
+                                    ->dehydrated(),
                                 DatePicker::make('quoted_at')
                                     ->label('Quote Date')
                                     ->default(now())
                                     ->required(),
+                                Select::make('status')
+                                    ->options(SupplierQuoteStatus::class)
+                                    ->default(SupplierQuoteStatus::PENDING)
+                                    ->required(),
                             ]),
-                        Grid::make(2)
-                            ->schema([
-                                DatePicker::make('valid_until')
-                                    ->label('Valid Until')
-                                    ->helperText('Leave empty for default validity period'),
-                                Placeholder::make('quote_number_display')
-                                    ->label('Quote Number')
-                                    ->content(fn (?SupplierQuote $record): string => $record->quote_number ?? 'Auto-generated'),
-                            ]),
+                        DatePicker::make('valid_until')
+                            ->label('Valid Until')
+                            ->helperText('Leave empty for default validity period'),
                     ]),
 
                 Section::make('Line Items')
@@ -152,14 +223,25 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                 if ($state === null) {
                                                     return;
                                                 }
-                                                $requestItem = $request->items()->find($state);
+                                                $requestItem = $request->items()->with('article.defaultTaxCode')->find($state);
                                                 if ($requestItem !== null) {
                                                     $set('article_id', $requestItem->article_id);
                                                     $set('description', $requestItem->description);
                                                     $set('quantity', $requestItem->quantity);
                                                     $set('unit', $requestItem->unit);
+
+                                                    // Prefill tax code from article's default tax code
+                                                    if ($requestItem->article?->default_tax_code_id !== null) {
+                                                        $set('tax_code_id', $requestItem->article->default_tax_code_id);
+                                                        $taxCode = $requestItem->article->defaultTaxCode;
+                                                        if ($taxCode !== null) {
+                                                            $set('tax_rate', $taxCode->rate);
+                                                            $set('is_tax_inclusive', $taxCode->is_inclusive_default);
+                                                        }
+                                                    }
                                                 }
                                             }),
+                                        Hidden::make('article_id'),
                                         TextInput::make('description')
                                             ->required()
                                             ->columnSpan(4),
@@ -195,9 +277,32 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                     $taxCode->getKey() => $taxCode->display_name,
                                                 ])
                                                 ->all())
+                                            ->default(fn (): ?int => TaxCode::query()
+                                                ->where('team_id', $request->team_id)
+                                                ->where('is_default', true)
+                                                ->where('is_active', true)
+                                                ->value('id'))
                                             ->searchable()
                                             ->columnSpan(3)
                                             ->live()
+                                            ->afterStateHydrated(function (Set $set, Get $get, ?int $state): void {
+                                                // Prefill tax code from article's default if not set
+                                                if ($state === null) {
+                                                    $articleId = $get('article_id');
+                                                    if ($articleId !== null) {
+                                                        /** @var \App\Models\Article|null $article */
+                                                        $article = \App\Models\Article::query()->find($articleId);
+                                                        if ($article !== null && $article->default_tax_code_id !== null) {
+                                                            $set('tax_code_id', $article->default_tax_code_id);
+                                                            $taxCode = $article->defaultTaxCode;
+                                                            if ($taxCode !== null) {
+                                                                $set('tax_rate', $taxCode->rate);
+                                                                $set('is_tax_inclusive', $taxCode->is_inclusive_default);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            })
                                             ->afterStateUpdated(function (Set $set, Get $get, ?int $state): void {
                                                 if ($state === null) {
                                                     $set('tax_rate', 0);
@@ -303,6 +408,7 @@ final class SupplierQuotesRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('quote_number')
+            ->selectable()
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('quote_number')
@@ -363,44 +469,13 @@ final class SupplierQuotesRelationManager extends RelationManager
                         ->pluck('code', 'id')
                         ->all()),
             ])
-            ->headerActions([
-                CreateAction::make()
-                    ->icon('heroicon-o-plus')
-                    ->size(Size::Small),
-            ])
+            ->headerActions([])
+            ->recordAction('edit')
             ->recordActions([
-                ViewAction::make(),
-                EditAction::make(),
-                Action::make('select')
-                    ->label('Select')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->visible(fn (SupplierQuote $record): bool => $record->status === SupplierQuoteStatus::PENDING)
-                    ->requiresConfirmation()
-                    ->modalHeading('Select this quote?')
-                    ->modalDescription('This will mark this supplier quote as selected.')
-                    ->action(function (SupplierQuote $record): void {
-                        $record->markAsSelected();
-                        Notification::make()
-                            ->title('Quote selected')
-                            ->success()
-                            ->send();
-                    }),
-                Action::make('reject')
-                    ->label('Reject')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->visible(fn (SupplierQuote $record): bool => $record->status === SupplierQuoteStatus::PENDING)
-                    ->requiresConfirmation()
-                    ->modalHeading('Reject this quote?')
-                    ->modalDescription('This will mark this supplier quote as rejected.')
-                    ->action(function (SupplierQuote $record): void {
-                        $record->markAsRejected();
-                        Notification::make()
-                            ->title('Quote rejected')
-                            ->warning()
-                            ->send();
-                    }),
+                EditAction::make()
+                    ->label('Input Supplier Response')
+                    ->icon('heroicon-o-pencil-square')
+                    ->size(Size::Small),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
@@ -434,5 +509,25 @@ final class SupplierQuotesRelationManager extends RelationManager
         $set('line_subtotal', round($lineSubtotal, 4));
         $set('line_tax', round($lineTax, 4));
         $set('line_total', round($lineTotal, 4));
+    }
+
+    public static function getBadge(Model $ownerRecord, string $pageClass): ?string
+    {
+        /** @var Request $ownerRecord */
+        $hasSelected = $ownerRecord->supplierQuotes()
+            ->where('status', SupplierQuoteStatus::SELECTED)
+            ->exists();
+
+        return $hasSelected ? '✓' : null;
+    }
+
+    public static function getBadgeColor(Model $ownerRecord, string $pageClass): ?string
+    {
+        /** @var Request $ownerRecord */
+        $hasSelected = $ownerRecord->supplierQuotes()
+            ->where('status', SupplierQuoteStatus::SELECTED)
+            ->exists();
+
+        return $hasSelected ? 'success' : null;
     }
 }

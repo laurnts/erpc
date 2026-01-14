@@ -13,11 +13,9 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Facades\Filament;
-use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
-use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -36,65 +34,58 @@ final class TaxCodeResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Settings';
 
+    /**
+     * Get the base form fields for creating/editing a tax code.
+     *
+     * @return array<int, \Filament\Schemas\Components\Component>
+     */
+    public static function getFormSchema(): array
+    {
+        return [
+            TextInput::make('code')
+                ->required()
+                ->maxLength(50)
+                ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule, $record) => $rule->where('team_id', $record->team_id ?? Filament::getTenant()?->id))
+                ->helperText('A unique identifier for this tax code (e.g., PPN11, VAT20)'),
+            TextInput::make('name')
+                ->required()
+                ->maxLength(255)
+                ->helperText('Display name for this tax code'),
+            TextInput::make('rate')
+                ->required()
+                ->numeric()
+                ->default(0)
+                ->minValue(0)
+                ->maxValue(100)
+                ->step(0.01)
+                ->suffix('%')
+                ->helperText('Tax rate as a percentage (e.g., 11 for 11%)'),
+            TextInput::make('sort_order')
+                ->numeric()
+                ->default(0)
+                ->minValue(0)
+                ->helperText('Order in which tax codes appear in lists'),
+            Toggle::make('is_active')
+                ->label('Active')
+                ->default(true)
+                ->helperText('Inactive tax codes will not appear in selection lists'),
+            Toggle::make('is_default')
+                ->label('Default Tax Code')
+                ->default(false)
+                ->helperText('Only one tax code can be the default per team'),
+            Toggle::make('is_inclusive_default')
+                ->label('Tax Inclusive by Default')
+                ->default(false)
+                ->helperText('When selected, prices using this tax code are assumed to include tax'),
+        ];
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema
-            ->components([
-                Section::make('Tax Code Details')
-                    ->schema([
-                        TextInput::make('code')
-                            ->required()
-                            ->maxLength(50)
-                            ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule, $record) => $rule->where('team_id', $record->team_id ?? Filament::getTenant()?->id))
-                            ->helperText('A unique identifier for this tax code (e.g., PPN11, VAT20)'),
-                        TextInput::make('name')
-                            ->required()
-                            ->maxLength(255)
-                            ->helperText('Display name for this tax code'),
-                        TextInput::make('rate')
-                            ->required()
-                            ->numeric()
-                            ->default(0)
-                            ->minValue(0)
-                            ->maxValue(100)
-                            ->step(0.01)
-                            ->suffix('%')
-                            ->helperText('Tax rate as a percentage (e.g., 11 for 11%)'),
-                        TextInput::make('sort_order')
-                            ->numeric()
-                            ->default(0)
-                            ->minValue(0)
-                            ->helperText('Order in which tax codes appear in lists'),
-                    ])
-                    ->columns(2),
-                Section::make('Settings')
-                    ->schema([
-                        Toggle::make('is_active')
-                            ->label('Active')
-                            ->default(true)
-                            ->helperText('Inactive tax codes will not appear in selection lists'),
-                        Toggle::make('is_default')
-                            ->label('Default Tax Code')
-                            ->default(false)
-                            ->helperText('Only one tax code can be the default per team'),
-                        Toggle::make('is_inclusive_default')
-                            ->label('Tax Inclusive by Default')
-                            ->default(false)
-                            ->helperText('When selected, prices using this tax code are assumed to include tax'),
-                    ])
-                    ->columns(3),
-                Section::make('Information')
-                    ->schema([
-                        Placeholder::make('created_at')
-                            ->label('Created')
-                            ->content(fn (?TaxCode $record): string => $record?->created_at?->diffForHumans() ?? '-'),
-                        Placeholder::make('updated_at')
-                            ->label('Last Modified')
-                            ->content(fn (?TaxCode $record): string => $record?->updated_at?->diffForHumans() ?? '-'),
-                    ])
-                    ->columns(2)
-                    ->hiddenOn('create'),
-            ]);
+            ->components(self::getFormSchema())
+            ->columns(1)
+            ->inlineLabel();
     }
 
     public static function table(Table $table): Table

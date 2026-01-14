@@ -174,6 +174,16 @@ final class SupplierOrder extends Model
     }
 
     /**
+     * The shipments for this order (inbound).
+     *
+     * @return HasMany<Shipment, $this>
+     */
+    public function shipments(): HasMany
+    {
+        return $this->hasMany(Shipment::class)->orderByDesc('created_at');
+    }
+
+    /**
      * Get formatted total in order currency.
      *
      * @return Attribute<string, never>

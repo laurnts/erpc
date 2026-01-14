@@ -5,319 +5,447 @@ declare(strict_types=1);
 namespace App\Filament\Resources\RequestResource\RelationManagers;
 
 use App\Enums\ItemCondition;
+use App\Enums\OrderStatus;
+use App\Enums\RequestStage;
 use App\Enums\ShipmentStatus;
 use App\Enums\ShipmentType;
-use App\Models\BuyerOrder;
+use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Models\Request;
 use App\Models\Shipment;
 use App\Models\SupplierOrder;
 use Filament\Actions\Action;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\CreateAction;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Schema;
 use Filament\Support\Enums\Size;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\HtmlString;
 
 final class ShipmentsRelationManager extends RelationManager
 {
-    protected static string $relationship = 'shipments';
+    use HasRequestStageTab;
+
+    protected static string $relationship = 'supplierOrders';
+
+    protected static ?string $title = 'Inbound Shipments';
 
     protected static string|\BackedEnum|null $icon = 'heroicon-o-truck';
 
-    public function form(Schema $schema): Schema
+    protected static function getAssociatedStage(): RequestStage
     {
-        /** @var Request $request */
-        $request = $this->getOwnerRecord();
+        return RequestStage::AWAITING_SHIPMENT;
+    }
 
-        return $schema
-            ->columns(1)
-            ->components([
-                Section::make('Shipment Details')
-                    ->schema([
-                        Grid::make(3)
-                            ->schema([
-                                Select::make('type')
-                                    ->label('Shipment Type')
-                                    ->options(ShipmentType::class)
-                                    ->default(ShipmentType::INBOUND)
-                                    ->required()
-                                    ->live()
-                                    ->afterStateUpdated(function (Set $set, ?string $state): void {
-                                        // Clear opposite order reference when type changes
-                                        if ($state === ShipmentType::INBOUND->value) {
-                                            $set('buyer_order_id', null);
-                                        } else {
-                                            $set('supplier_order_id', null);
-                                        }
-                                    }),
-                                Select::make('status')
-                                    ->options(ShipmentStatus::class)
-                                    ->default(ShipmentStatus::PENDING)
-                                    ->required(),
-                                Placeholder::make('shipment_number_display')
-                                    ->label('Shipment Number')
-                                    ->content(fn (?Shipment $record): string => $record->shipment_number ?? 'Auto-generated'),
-                            ]),
-                        Grid::make(2)
-                            ->schema([
-                                Select::make('supplier_order_id')
-                                    ->label('Supplier Order')
-                                    ->options(fn (): array => SupplierOrder::query()
-                                        ->where('team_id', $request->team_id)
-                                        ->where('request_id', $request->getKey())
-                                        ->get()
-                                        ->mapWithKeys(fn (SupplierOrder $order): array => [
-                                            $order->getKey() => "[{$order->order_number}] {$order->supplier->name}",
-                                        ])
-                                        ->all())
-                                    ->searchable()
-                                    ->visible(fn (Get $get): bool => $get('type') === ShipmentType::INBOUND->value)
-                                    ->live()
-                                    ->afterStateUpdated(function (Set $set, ?int $state): void {
-                                        if ($state === null) {
-                                            return;
-                                        }
-                                        // Could pre-populate items from order
-                                    }),
-                                Select::make('buyer_order_id')
-                                    ->label('Buyer Order')
-                                    ->options(fn (): array => BuyerOrder::query()
-                                        ->where('team_id', $request->team_id)
-                                        ->where('request_id', $request->getKey())
-                                        ->get()
-                                        ->mapWithKeys(fn (BuyerOrder $order): array => [
-                                            $order->getKey() => "[{$order->order_number}] {$order->buyer->name}",
-                                        ])
-                                        ->all())
-                                    ->searchable()
-                                    ->visible(fn (Get $get): bool => $get('type') === ShipmentType::OUTBOUND->value)
-                                    ->live(),
-                            ]),
-                    ]),
+    protected static function getBaseTabTitle(): string
+    {
+        return 'Inbound Shipments';
+    }
 
-                Section::make('Carrier Information')
-                    ->schema([
-                        Grid::make(2)
-                            ->schema([
-                                TextInput::make('carrier_name')
-                                    ->label('Carrier Name')
-                                    ->maxLength(255)
-                                    ->placeholder('e.g., DHL, FedEx, UPS'),
-                                TextInput::make('tracking_number')
-                                    ->label('Tracking Number')
-                                    ->maxLength(255),
-                            ]),
-                        Grid::make(3)
-                            ->schema([
-                                DateTimePicker::make('shipped_at')
-                                    ->label('Shipped At'),
-                                DateTimePicker::make('expected_delivery_at')
-                                    ->label('Expected Delivery'),
-                                DateTimePicker::make('delivered_at')
-                                    ->label('Delivered At'),
-                            ]),
-                    ])
-                    ->collapsible(),
+    /**
+     * Get the form schema for creating/editing a shipment.
+     *
+     * @return array<int, \Filament\Schemas\Components\Component>
+     */
+    private function getShipmentFormSchema(SupplierOrder $supplierOrder): array
+    {
+        return [
+            Section::make('Shipment Details')
+                ->schema([
+                    Grid::make(3)
+                        ->schema([
+                            Placeholder::make('supplier_display')
+                                ->label('Supplier')
+                                ->content($supplierOrder->supplier->name),
+                            Placeholder::make('po_display')
+                                ->label('PO Number')
+                                ->content($supplierOrder->po_number),
+                            Select::make('status')
+                                ->options(ShipmentStatus::class)
+                                ->default(ShipmentStatus::PENDING)
+                                ->required(),
+                        ]),
+                ]),
 
-                Section::make('Shipment Items')
-                    ->schema([
-                        Repeater::make('items')
-                            ->relationship()
-                            ->schema([
-                                Grid::make(12)
-                                    ->schema([
-                                        Select::make('supplier_order_item_id')
-                                            ->label('Order Item (Inbound)')
-                                            ->options(function (Get $get): array {
-                                                $supplierOrderId = $get('../../supplier_order_id');
-                                                if ($supplierOrderId === null) {
-                                                    return [];
-                                                }
+            Section::make('Carrier Information')
+                ->schema([
+                    Grid::make(2)
+                        ->schema([
+                            TextInput::make('carrier_name')
+                                ->label('Carrier Name')
+                                ->maxLength(255)
+                                ->placeholder('e.g., DHL, FedEx, UPS'),
+                            TextInput::make('tracking_number')
+                                ->label('Tracking Number')
+                                ->maxLength(255),
+                        ]),
+                    Grid::make(3)
+                        ->schema([
+                            DateTimePicker::make('shipped_at')
+                                ->label('Shipped At'),
+                            DateTimePicker::make('expected_delivery_at')
+                                ->label('Expected Delivery'),
+                            DateTimePicker::make('delivered_at')
+                                ->label('Delivered At'),
+                        ]),
+                ])
+                ->collapsible(),
 
-                                                $order = SupplierOrder::find($supplierOrderId);
-                                                if ($order === null) {
-                                                    return [];
-                                                }
+            Section::make('Shipment Items')
+                ->description('Select items from this order to include in the shipment')
+                ->schema([
+                    Repeater::make('shipment_items')
+                        ->schema([
+                            Grid::make(12)
+                                ->schema([
+                                    Select::make('supplier_order_item_id')
+                                        ->label('Order Item')
+                                        ->options(
+                                            $supplierOrder->items()
+                                                ->get()
+                                                ->mapWithKeys(fn ($item): array => [
+                                                    $item->getKey() => sprintf(
+                                                        '%s (%s %s)',
+                                                        $item->description,
+                                                        $item->quantity,
+                                                        $item->unit
+                                                    ),
+                                                ])
+                                                ->all()
+                                        )
+                                        ->required()
+                                        ->searchable()
+                                        ->columnSpan(6),
+                                    TextInput::make('quantity_shipped')
+                                        ->label('Qty Shipped')
+                                        ->numeric()
+                                        ->required()
+                                        ->step(0.0001)
+                                        ->columnSpan(3),
+                                    Select::make('condition')
+                                        ->options(ItemCondition::class)
+                                        ->default(ItemCondition::GOOD)
+                                        ->required()
+                                        ->columnSpan(3),
+                                ]),
+                        ])
+                        ->columns(1)
+                        ->defaultItems(1)
+                        ->addActionLabel('Add Item')
+                        ->reorderable(false),
+                ]),
 
-                                                return $order->items()
-                                                    ->get()
-                                                    ->mapWithKeys(fn ($item): array => [
-                                                        $item->getKey() => sprintf('%s (%s %s)', $item->description, $item->quantity, $item->unit),
-                                                    ])
-                                                    ->all();
-                                            })
-                                            ->searchable()
-                                            ->columnSpan(6)
-                                            ->visible(fn (Get $get): bool => $get('../../type') === ShipmentType::INBOUND->value),
-                                        Select::make('buyer_order_item_id')
-                                            ->label('Order Item (Outbound)')
-                                            ->options(function (Get $get): array {
-                                                $buyerOrderId = $get('../../buyer_order_id');
-                                                if ($buyerOrderId === null) {
-                                                    return [];
-                                                }
+            Section::make('Notes')
+                ->schema([
+                    Textarea::make('notes')
+                        ->rows(3),
+                ])
+                ->collapsed(),
+        ];
+    }
 
-                                                $order = BuyerOrder::find($buyerOrderId);
-                                                if ($order === null) {
-                                                    return [];
-                                                }
+    /**
+     * Get the form schema for viewing shipments of a supplier order.
+     *
+     * @return array<int, \Filament\Schemas\Components\Component>
+     */
+    private function getViewShipmentsSchema(SupplierOrder $supplierOrder): array
+    {
+        $shipments = $supplierOrder->shipments()->with('items')->get();
 
-                                                return $order->items()
-                                                    ->get()
-                                                    ->mapWithKeys(fn ($item): array => [
-                                                        $item->getKey() => sprintf('%s (%s %s)', $item->description, $item->quantity, $item->unit),
-                                                    ])
-                                                    ->all();
-                                            })
-                                            ->searchable()
-                                            ->columnSpan(6)
-                                            ->visible(fn (Get $get): bool => $get('../../type') === ShipmentType::OUTBOUND->value),
-                                        TextInput::make('quantity_shipped')
-                                            ->label('Qty Shipped')
-                                            ->numeric()
-                                            ->required()
-                                            ->step(0.0001)
-                                            ->columnSpan(3),
-                                        TextInput::make('quantity_received')
-                                            ->label('Qty Received')
-                                            ->numeric()
-                                            ->step(0.0001)
-                                            ->columnSpan(3)
-                                            ->helperText('Fill on delivery'),
-                                    ]),
-                                Grid::make(12)
-                                    ->schema([
-                                        Select::make('condition')
-                                            ->options(ItemCondition::class)
-                                            ->default(ItemCondition::GOOD)
-                                            ->required()
-                                            ->columnSpan(4)
-                                            ->live(),
-                                        TextInput::make('condition_notes')
-                                            ->label('Condition Notes')
-                                            ->columnSpan(8)
-                                            ->visible(fn (Get $get): bool => $get('condition') !== ItemCondition::GOOD->value),
-                                    ]),
-                            ])
-                            ->columns(1)
-                            ->defaultItems(0)
-                            ->addActionLabel('Add Item')
-                            ->reorderable()
-                            ->orderColumn('sort_order')
-                            ->collapsible(),
-                    ]),
+        if ($shipments->isEmpty()) {
+            return [
+                Placeholder::make('no_shipments')
+                    ->label('')
+                    ->content(new HtmlString('<div class="text-gray-500 text-center py-8">No shipments created yet for this order.</div>')),
+            ];
+        }
 
-                Section::make('Notes')
-                    ->schema([
-                        Textarea::make('notes')
-                            ->rows(3),
-                    ])
-                    ->collapsed(),
-            ]);
+        $sections = [];
+        foreach ($shipments as $shipment) {
+            $sections[] = Section::make($shipment->shipment_number)
+                ->description(sprintf('%s • %s', $shipment->status->getLabel(), $shipment->carrier_name ?? 'No carrier'))
+                ->icon($this->getShipmentStatusIcon($shipment->status))
+                ->iconColor($this->getShipmentStatusColor($shipment->status))
+                ->schema([
+                    Grid::make(4)
+                        ->schema([
+                            Placeholder::make("tracking_{$shipment->id}")
+                                ->label('Tracking')
+                                ->content($shipment->tracking_number ?? '-'),
+                            Placeholder::make("shipped_{$shipment->id}")
+                                ->label('Shipped')
+                                ->content($shipment->shipped_at?->format('Y-m-d H:i') ?? '-'),
+                            Placeholder::make("expected_{$shipment->id}")
+                                ->label('Expected')
+                                ->content($shipment->expected_delivery_at?->format('Y-m-d H:i') ?? '-'),
+                            Placeholder::make("delivered_{$shipment->id}")
+                                ->label('Delivered')
+                                ->content($shipment->delivered_at?->format('Y-m-d H:i') ?? '-'),
+                        ]),
+                    Placeholder::make("items_{$shipment->id}")
+                        ->label('Items')
+                        ->content(new HtmlString($this->formatShipmentItems($shipment))),
+                ])
+                ->collapsible()
+                ->collapsed($shipment->status === ShipmentStatus::DELIVERED);
+        }
+
+        return $sections;
+    }
+
+    /**
+     * Format shipment items as HTML table.
+     */
+    private function formatShipmentItems(Shipment $shipment): string
+    {
+        if ($shipment->items->isEmpty()) {
+            return '<span class="text-gray-400">No items</span>';
+        }
+
+        $rows = $shipment->items->map(function ($item): string {
+            $orderItem = $item->supplierOrderItem;
+            $description = $orderItem !== null ? $orderItem->description : 'Unknown item';
+            $qtyShipped = number_format((float) $item->quantity_shipped, 2);
+            $qtyReceived = $item->quantity_received !== null ? number_format((float) $item->quantity_received, 2) : '-';
+            $condition = $item->condition->getLabel();
+
+            return "<tr><td class='pr-4'>{$description}</td><td class='pr-4 text-right'>{$qtyShipped}</td><td class='pr-4 text-right'>{$qtyReceived}</td><td>{$condition}</td></tr>";
+        })->join('');
+
+        return "<table class='text-sm w-full'><thead><tr class='text-gray-500'><th class='text-left pr-4'>Item</th><th class='text-right pr-4'>Shipped</th><th class='text-right pr-4'>Received</th><th class='text-left'>Condition</th></tr></thead><tbody>{$rows}</tbody></table>";
+    }
+
+    /**
+     * Get icon for shipment status.
+     */
+    private function getShipmentStatusIcon(ShipmentStatus $status): string
+    {
+        return match ($status) {
+            ShipmentStatus::PENDING => 'heroicon-o-clock',
+            ShipmentStatus::IN_TRANSIT => 'heroicon-o-truck',
+            ShipmentStatus::DELIVERED => 'heroicon-o-check-circle',
+            ShipmentStatus::PARTIAL => 'heroicon-o-exclamation-triangle',
+            ShipmentStatus::FAILED => 'heroicon-o-x-circle',
+        };
+    }
+
+    /**
+     * Get color for shipment status.
+     */
+    private function getShipmentStatusColor(ShipmentStatus $status): string
+    {
+        return match ($status) {
+            ShipmentStatus::PENDING => 'gray',
+            ShipmentStatus::IN_TRANSIT => 'info',
+            ShipmentStatus::DELIVERED => 'success',
+            ShipmentStatus::PARTIAL => 'warning',
+            ShipmentStatus::FAILED => 'danger',
+        };
+    }
+
+    /**
+     * Get the overall shipment status for a supplier order.
+     */
+    private function getOrderShipmentStatus(SupplierOrder $order): string
+    {
+        $shipments = $order->shipments;
+
+        if ($shipments->isEmpty()) {
+            return 'pending';
+        }
+
+        $allDelivered = $shipments->every(fn (Shipment $s): bool => $s->status === ShipmentStatus::DELIVERED);
+        if ($allDelivered) {
+            return 'delivered';
+        }
+
+        $anyInTransit = $shipments->contains(fn (Shipment $s): bool => $s->status === ShipmentStatus::IN_TRANSIT);
+        if ($anyInTransit) {
+            return 'in_transit';
+        }
+
+        $anyPartial = $shipments->contains(fn (Shipment $s): bool => $s->status === ShipmentStatus::PARTIAL);
+        if ($anyPartial) {
+            return 'partial';
+        }
+
+        return 'pending';
+    }
+
+    /**
+     * Get badge color for order shipment status.
+     */
+    private function getOrderShipmentStatusColor(string $status): string
+    {
+        return match ($status) {
+            'pending' => 'gray',
+            'in_transit' => 'info',
+            'delivered' => 'success',
+            'partial' => 'warning',
+            default => 'gray',
+        };
+    }
+
+    /**
+     * Get label for order shipment status.
+     */
+    private function getOrderShipmentStatusLabel(string $status): string
+    {
+        return match ($status) {
+            'pending' => 'Awaiting Shipment',
+            'in_transit' => 'In Transit',
+            'delivered' => 'Delivered',
+            'partial' => 'Partial',
+            default => 'Unknown',
+        };
     }
 
     public function table(Table $table): Table
     {
         return $table
-            ->recordTitleAttribute('shipment_number')
+            ->recordTitleAttribute('po_number')
             ->defaultSort('created_at', 'desc')
+            ->modifyQueryUsing(fn ($query) => $query
+                ->whereIn('status', [OrderStatus::CONFIRMED, OrderStatus::COMPLETED])
+                ->with(['supplier', 'shipments', 'items'])
+            )
             ->columns([
-                TextColumn::make('shipment_number')
-                    ->label('Shipment #')
-                    ->searchable()
-                    ->sortable(),
-                TextColumn::make('type')
-                    ->badge()
-                    ->sortable(),
-                TextColumn::make('status')
-                    ->badge()
-                    ->sortable(),
-                TextColumn::make('supplierOrder.supplier.name')
+                TextColumn::make('supplier.name')
                     ->label('Supplier')
-                    ->visible(fn (): bool => true)
-                    ->placeholder('-'),
-                TextColumn::make('buyerOrder.buyer.name')
-                    ->label('Buyer')
-                    ->visible(fn (): bool => true)
-                    ->placeholder('-'),
-                TextColumn::make('carrier_name')
-                    ->label('Carrier')
                     ->searchable()
-                    ->toggleable(),
-                TextColumn::make('tracking_number')
-                    ->label('Tracking')
-                    ->searchable()
-                    ->toggleable()
-                    ->copyable(),
-                TextColumn::make('shipped_at')
-                    ->label('Shipped')
-                    ->dateTime()
                     ->sortable(),
-                TextColumn::make('expected_delivery_at')
-                    ->label('Expected')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('delivered_at')
-                    ->label('Delivered')
-                    ->dateTime()
+                TextColumn::make('po_number')
+                    ->label('PO #')
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('items_count')
                     ->label('Items')
                     ->counts('items')
                     ->sortable(),
+                TextColumn::make('total')
+                    ->label('Order Total')
+                    ->numeric(decimalPlaces: 2)
+                    ->sortable(),
+                TextColumn::make('shipments_count')
+                    ->label('Shipments')
+                    ->counts('shipments')
+                    ->sortable(),
+                TextColumn::make('shipment_status')
+                    ->label('Status')
+                    ->badge()
+                    ->state(fn (SupplierOrder $record): string => $this->getOrderShipmentStatusLabel($this->getOrderShipmentStatus($record)))
+                    ->color(fn (SupplierOrder $record): string => $this->getOrderShipmentStatusColor($this->getOrderShipmentStatus($record))),
+                TextColumn::make('expected_delivery_date')
+                    ->label('Expected')
+                    ->date()
+                    ->sortable()
+                    ->placeholder('-'),
             ])
-            ->filters([
-                SelectFilter::make('type')
-                    ->options(ShipmentType::class),
-                SelectFilter::make('status')
-                    ->options(ShipmentStatus::class),
-            ])
-            ->headerActions([
-                CreateAction::make()
-                    ->icon('heroicon-o-plus')
-                    ->size(Size::Small),
-            ])
+            ->headerActions([])
             ->recordActions([
-                ViewAction::make(),
-                EditAction::make(),
+                Action::make('create_shipment')
+                    ->label('Create Shipment')
+                    ->icon('heroicon-o-plus')
+                    ->color('primary')
+                    ->size(Size::Small)
+                    ->modalHeading(fn (SupplierOrder $record): string => "Create Shipment for {$record->supplier->name}")
+                    ->modalWidth('4xl')
+                    ->form(fn (SupplierOrder $record): array => $this->getShipmentFormSchema($record))
+                    ->action(function (SupplierOrder $record, array $data): void {
+                        /** @var Request $request */
+                        $request = $this->getOwnerRecord();
+
+                        // Create the shipment
+                        $shipment = new Shipment;
+                        $shipment->team_id = $request->team_id;
+                        $shipment->creator_id = auth()->id() !== null ? (int) auth()->id() : null;
+                        $shipment->request_id = $request->getKey();
+                        $shipment->type = ShipmentType::INBOUND;
+                        $shipment->supplier_order_id = $record->getKey();
+                        $shipment->status = $data['status'];
+                        $shipment->carrier_name = $data['carrier_name'] ?? null;
+                        $shipment->tracking_number = $data['tracking_number'] ?? null;
+                        $shipment->shipped_at = $data['shipped_at'] ?? null;
+                        $shipment->expected_delivery_at = $data['expected_delivery_at'] ?? null;
+                        $shipment->delivered_at = $data['delivered_at'] ?? null;
+                        $shipment->notes = $data['notes'] ?? null;
+                        $shipment->save();
+
+                        // Create shipment items
+                        $sortOrder = 0;
+                        foreach ($data['shipment_items'] ?? [] as $itemData) {
+                            if (empty($itemData['supplier_order_item_id'])) {
+                                continue;
+                            }
+
+                            $shipment->items()->create([
+                                'supplier_order_item_id' => $itemData['supplier_order_item_id'],
+                                'quantity_shipped' => $itemData['quantity_shipped'],
+                                'condition' => $itemData['condition'],
+                                'sort_order' => $sortOrder++,
+                            ]);
+                        }
+
+                        Notification::make()
+                            ->title('Shipment created')
+                            ->body("Shipment {$shipment->shipment_number} created successfully.")
+                            ->success()
+                            ->send();
+                    }),
+                Action::make('view_shipments')
+                    ->label('View Shipments')
+                    ->icon('heroicon-o-eye')
+                    ->color('gray')
+                    ->size(Size::Small)
+                    ->visible(fn (SupplierOrder $record): bool => $record->shipments()->exists())
+                    ->modalHeading(fn (SupplierOrder $record): string => "Shipments for {$record->supplier->name} ({$record->po_number})")
+                    ->modalWidth('4xl')
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close')
+                    ->form(fn (SupplierOrder $record): array => $this->getViewShipmentsSchema($record)),
                 Action::make('mark_in_transit')
                     ->label('Ship')
                     ->icon('heroicon-o-truck')
                     ->color('info')
-                    ->visible(fn (Shipment $record): bool => $record->status === ShipmentStatus::PENDING)
+                    ->size(Size::Small)
+                    ->visible(fn (SupplierOrder $record): bool => $record->shipments()
+                        ->where('status', ShipmentStatus::PENDING)
+                        ->exists())
                     ->form([
+                        Select::make('shipment_id')
+                            ->label('Select Shipment')
+                            ->options(fn (SupplierOrder $record): array => $record->shipments()
+                                ->where('status', ShipmentStatus::PENDING)
+                                ->get()
+                                ->mapWithKeys(fn (Shipment $s): array => [
+                                    $s->getKey() => $s->shipment_number,
+                                ])
+                                ->all())
+                            ->required(),
                         TextInput::make('tracking_number')
-                            ->label('Tracking Number')
-                            ->default(fn (Shipment $record): ?string => $record->tracking_number),
+                            ->label('Tracking Number'),
                         DateTimePicker::make('expected_delivery_at')
-                            ->label('Expected Delivery')
-                            ->default(fn (Shipment $record): ?\Illuminate\Support\Carbon => $record->expected_delivery_at),
+                            ->label('Expected Delivery'),
                     ])
-                    ->action(function (Shipment $record, array $data): void {
-                        $record->markAsInTransit(
+                    ->action(function (array $data): void {
+                        /** @var Shipment $shipment */
+                        $shipment = Shipment::findOrFail($data['shipment_id']);
+                        $shipment->markAsInTransit(
                             $data['tracking_number'] ?? null,
-                            $data['expected_delivery_at'] ? \Illuminate\Support\Carbon::parse($data['expected_delivery_at']) : null
+                            $data['expected_delivery_at'] !== null ? \Illuminate\Support\Carbon::parse($data['expected_delivery_at']) : null
                         );
+
                         Notification::make()
-                            ->title('Shipment marked as in transit')
+                            ->title('Shipment in transit')
                             ->success()
                             ->send();
                     }),
@@ -325,44 +453,60 @@ final class ShipmentsRelationManager extends RelationManager
                     ->label('Deliver')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn (Shipment $record): bool => in_array($record->status, [ShipmentStatus::IN_TRANSIT, ShipmentStatus::PARTIAL], true))
+                    ->size(Size::Small)
+                    ->visible(fn (SupplierOrder $record): bool => $record->shipments()
+                        ->whereIn('status', [ShipmentStatus::IN_TRANSIT, ShipmentStatus::PARTIAL])
+                        ->exists())
                     ->form([
+                        Select::make('shipment_id')
+                            ->label('Select Shipment')
+                            ->options(fn (SupplierOrder $record): array => $record->shipments()
+                                ->whereIn('status', [ShipmentStatus::IN_TRANSIT, ShipmentStatus::PARTIAL])
+                                ->get()
+                                ->mapWithKeys(fn (Shipment $s): array => [
+                                    $s->getKey() => $s->shipment_number,
+                                ])
+                                ->all())
+                            ->required(),
                         DateTimePicker::make('delivered_at')
                             ->label('Delivered At')
                             ->default(now()),
                     ])
-                    ->action(function (Shipment $record, array $data): void {
-                        $record->markAsDelivered(
-                            $data['delivered_at'] ? \Illuminate\Support\Carbon::parse($data['delivered_at']) : null
+                    ->action(function (array $data): void {
+                        /** @var Shipment $shipment */
+                        $shipment = Shipment::findOrFail($data['shipment_id']);
+                        $shipment->markAsDelivered(
+                            $data['delivered_at'] !== null ? \Illuminate\Support\Carbon::parse($data['delivered_at']) : null
                         );
+
                         Notification::make()
-                            ->title('Shipment marked as delivered')
+                            ->title('Shipment delivered')
                             ->success()
                             ->send();
                     }),
-                Action::make('mark_failed')
-                    ->label('Failed')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->visible(fn (Shipment $record): bool => ! $record->status->isTerminal())
-                    ->form([
-                        Textarea::make('reason')
-                            ->label('Failure Reason')
-                            ->required(),
-                    ])
-                    ->requiresConfirmation()
-                    ->action(function (Shipment $record, array $data): void {
-                        $record->markAsFailed($data['reason'] ?? null);
-                        Notification::make()
-                            ->title('Shipment marked as failed')
-                            ->warning()
-                            ->send();
-                    }),
             ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
-            ]);
+            ->emptyStateHeading('No confirmed supplier orders')
+            ->emptyStateDescription('Supplier orders will appear here once confirmed. Create shipments to track deliveries.')
+            ->emptyStateIcon('heroicon-o-truck');
+    }
+
+    public static function getBadge(Model $ownerRecord, string $pageClass): ?string
+    {
+        /** @var Request $ownerRecord */
+        $hasDelivered = $ownerRecord->shipments()
+            ->where('status', ShipmentStatus::DELIVERED)
+            ->exists();
+
+        return $hasDelivered ? '✓' : null;
+    }
+
+    public static function getBadgeColor(Model $ownerRecord, string $pageClass): ?string
+    {
+        /** @var Request $ownerRecord */
+        $hasDelivered = $ownerRecord->shipments()
+            ->where('status', ShipmentStatus::DELIVERED)
+            ->exists();
+
+        return $hasDelivered ? 'success' : null;
     }
 }

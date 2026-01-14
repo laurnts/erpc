@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\Article;
 use App\Models\Buyer;
+use App\Models\Company;
 use App\Models\Request;
 use App\Models\RequestItem;
 use App\Models\Team;
@@ -54,6 +55,16 @@ describe('RequestItem Model', function (): void {
         expect($item->article)->toBeInstanceOf(Article::class)
             ->and($item->article->getKey())->toBe($article->getKey());
     });
+
+    it('can belong to a supplier', function (): void {
+        $supplier = Company::factory()->supplier()->recycle($this->team)->create();
+        $item = RequestItem::factory()->recycle($this->request)->create([
+            'supplier_id' => $supplier->getKey(),
+        ]);
+
+        expect($item->supplier)->toBeInstanceOf(Company::class)
+            ->and($item->supplier->getKey())->toBe($supplier->getKey());
+    });
 });
 
 describe('RequestItem Matching', function (): void {
@@ -67,6 +78,18 @@ describe('RequestItem Matching', function (): void {
             ->and($item->article_id)->toBe($article->getKey());
     });
 
+    it('can match to an article with supplier', function (): void {
+        $article = Article::factory()->recycle($this->team)->create();
+        $supplier = Company::factory()->supplier()->recycle($this->team)->create();
+        $item = RequestItem::factory()->recycle($this->request)->create();
+
+        $item->matchToArticle($article, $supplier);
+
+        expect($item->is_matched)->toBeTrue()
+            ->and($item->article_id)->toBe($article->getKey())
+            ->and($item->supplier_id)->toBe($supplier->getKey());
+    });
+
     it('can unmatch from an article', function (): void {
         $article = Article::factory()->recycle($this->team)->create();
         $item = RequestItem::factory()->recycle($this->request)->create([
@@ -78,6 +101,22 @@ describe('RequestItem Matching', function (): void {
 
         expect($item->is_matched)->toBeFalse()
             ->and($item->article_id)->toBeNull();
+    });
+
+    it('clears supplier when unmatched', function (): void {
+        $article = Article::factory()->recycle($this->team)->create();
+        $supplier = Company::factory()->supplier()->recycle($this->team)->create();
+        $item = RequestItem::factory()->recycle($this->request)->create([
+            'article_id' => $article->getKey(),
+            'supplier_id' => $supplier->getKey(),
+            'is_matched' => true,
+        ]);
+
+        $item->unmatch();
+
+        expect($item->is_matched)->toBeFalse()
+            ->and($item->article_id)->toBeNull()
+            ->and($item->supplier_id)->toBeNull();
     });
 });
 

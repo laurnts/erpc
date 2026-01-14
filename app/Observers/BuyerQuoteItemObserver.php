@@ -13,6 +13,9 @@ final readonly class BuyerQuoteItemObserver
      */
     public function creating(BuyerQuoteItem $item): void
     {
+        // Prefill tax code from article's default if not set
+        $this->prefillTaxCodeFromArticle($item);
+
         // Update tax rate from tax code if set
         $item->updateTaxRateFromCode();
 
@@ -59,6 +62,20 @@ final readonly class BuyerQuoteItemObserver
     public function deleted(BuyerQuoteItem $item): void
     {
         $this->recalculateQuoteTotals($item);
+    }
+
+    /**
+     * Prefill tax code from the article's default tax code if not already set.
+     */
+    private function prefillTaxCodeFromArticle(BuyerQuoteItem $item): void
+    {
+        // Only prefill if tax_code_id is not set and article_id is set
+        if ($item->tax_code_id === null && $item->article_id !== null) {
+            $article = $item->article;
+            if ($article !== null && $article->default_tax_code_id !== null) {
+                $item->tax_code_id = $article->default_tax_code_id;
+            }
+        }
     }
 
     /**

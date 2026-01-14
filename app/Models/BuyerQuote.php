@@ -265,6 +265,7 @@ final class BuyerQuote extends Model implements HasCustomFields
             'quote_number',
             'issued_at',
             'status',
+            'items_count', // Exclude virtual count attribute from table
         ]);
 
         $newQuote->version = $this->version + 1;

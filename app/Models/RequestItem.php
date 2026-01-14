@@ -18,8 +18,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property bool $is_matched
  * @property int $request_id
  * @property int|null $article_id
+ * @property int|null $supplier_id
  * @property-read Request $request
  * @property-read Article|null $article
+ * @property-read Company|null $supplier
  */
 final class RequestItem extends Model
 {
@@ -32,6 +34,7 @@ final class RequestItem extends Model
     protected $fillable = [
         'request_id',
         'article_id',
+        'supplier_id',
         'description',
         'quantity',
         'unit',
@@ -83,21 +86,33 @@ final class RequestItem extends Model
     }
 
     /**
-     * Match this item to an article.
+     * The supplier assigned to fulfill this item.
+     *
+     * @return BelongsTo<Company, $this>
      */
-    public function matchToArticle(Article $article): void
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Company::class, 'supplier_id');
+    }
+
+    /**
+     * Match this item to an article and optionally assign a supplier.
+     */
+    public function matchToArticle(Article $article, ?Company $supplier = null): void
     {
         $this->article_id = $article->getKey();
+        $this->supplier_id = $supplier?->getKey();
         $this->is_matched = true;
         $this->save();
     }
 
     /**
-     * Unmatch this item from its article.
+     * Unmatch this item from its article and clear supplier.
      */
     public function unmatch(): void
     {
         $this->article_id = null;
+        $this->supplier_id = null;
         $this->is_matched = false;
         $this->save();
     }

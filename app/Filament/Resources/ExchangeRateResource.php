@@ -14,13 +14,16 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\HtmlString;
 
 final class ExchangeRateResource extends Resource
 {
@@ -50,10 +53,11 @@ final class ExchangeRateResource extends Resource
                     'name',
                     modifyQueryUsing: fn ($query) => $query->where('is_active', true)
                 )
-                ->getOptionLabelFromRecordUsing(fn (Currency $record): string => "{$record->code} - {$record->name}")
+                ->getOptionLabelFromRecordUsing(fn (?Currency $record): string => $record ? "{$record->code} - {$record->name}" : '')
                 ->required()
                 ->searchable()
                 ->preload()
+                ->live()
                 ->createOptionForm(CurrencyResource::getFormSchema(excludeDefaultField: true))
                 ->createOptionUsing(function (array $data): int {
                     /** @var Currency $currency */
@@ -68,10 +72,11 @@ final class ExchangeRateResource extends Resource
                     'name',
                     modifyQueryUsing: fn ($query) => $query->where('is_active', true)
                 )
-                ->getOptionLabelFromRecordUsing(fn (Currency $record): string => "{$record->code} - {$record->name}")
+                ->getOptionLabelFromRecordUsing(fn (?Currency $record): string => $record ? "{$record->code} - {$record->name}" : '')
                 ->required()
                 ->searchable()
                 ->preload()
+                ->live()
                 ->different('from_currency_id')
                 ->createOptionForm(CurrencyResource::getFormSchema(excludeDefaultField: true))
                 ->createOptionUsing(function (array $data): int {
@@ -85,11 +90,46 @@ final class ExchangeRateResource extends Resource
                 ->numeric()
                 ->minValue(0.0000000001)
                 ->step(0.0000000001)
+                ->live(onBlur: true)
                 ->helperText('Exchange rate from source to target currency'),
             DatePicker::make('effective_date')
                 ->required()
                 ->default(now())
                 ->native(false),
+            Placeholder::make('rate_preview')
+                ->label('Exchange Rate Preview')
+                ->content(function (Get $get): HtmlString {
+                    $fromCurrencyId = $get('from_currency_id');
+                    $toCurrencyId = $get('to_currency_id');
+                    $rate = $get('rate');
+
+                    if ($fromCurrencyId === null || $toCurrencyId === null || $rate === null || $rate === '' || (float) $rate <= 0) {
+                        return new HtmlString('<span class="text-gray-400">Select currencies and enter rate to see preview</span>');
+                    }
+
+                    /** @var Currency|null $fromCurrency */
+                    $fromCurrency = Currency::query()->find($fromCurrencyId);
+                    /** @var Currency|null $toCurrency */
+                    $toCurrency = Currency::query()->find($toCurrencyId);
+
+                    if ($fromCurrency === null || $toCurrency === null) {
+                        return new HtmlString('<span class="text-gray-400">Select currencies and enter rate to see preview</span>');
+                    }
+
+                    $rateFloat = (float) $rate;
+
+                    $preview = sprintf(
+                        '1 %s = %s',
+                        $fromCurrency->code,
+                        $toCurrency->format($rateFloat)
+                    );
+
+                    return new HtmlString(sprintf(
+                        '<div class="font-semibold text-primary-600 dark:text-primary-400">%s</div>',
+                        $preview
+                    ));
+                })
+                ->live(),
         ];
     }
 
@@ -116,25 +156,14 @@ final class ExchangeRateResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
-                TextColumn::make('rate')
-                    ->sortable()
-                    ->numeric(decimalPlaces: 6),
-                TextColumn::make('inverse_rate')
-                    ->label('Inverse')
-                    ->state(function (ExchangeRate $record): string {
-                        $rate = (float) $record->rate;
-                        if ($rate === 0.0) {
-                            return '-';
-                        }
-
-                        return sprintf(
-                            '1 %s = %s %s',
-                            $record->toCurrency->code,
-                            number_format(1 / $rate, 2),
-                            $record->fromCurrency->code
-                        );
-                    })
-                    ->color('gray'),
+                TextColumn::make('rate_preview')
+                    ->label('Rate')
+                    ->state(fn (ExchangeRate $record): string => sprintf(
+                        '1 %s = %s',
+                        $record->fromCurrency->code,
+                        $record->toCurrency->format((float) $record->rate)
+                    ))
+                    ->sortable(query: fn ($query, string $direction) => $query->orderBy('rate', $direction)),
                 TextColumn::make('effective_date')
                     ->label('Effective Date')
                     ->date()

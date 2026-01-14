@@ -55,7 +55,7 @@ final class RequestResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Trading';
+    protected static string|\UnitEnum|null $navigationGroup = 'Workflow';
 
     /**
      * Get the base form fields for creating/editing a request.
@@ -63,9 +63,10 @@ final class RequestResource extends Resource
      *
      * @param  bool  $excludeBuyerField  Exclude Buyer field when creating from Buyer context
      * @param  bool  $excludeProjectField  Exclude Project field when creating from Project context
+     * @param  bool  $isCreate  Whether this is a create form (hides stage, defaults requested_at)
      * @return array<int, \Filament\Schemas\Components\Component>
      */
-    public static function getFormSchema(bool $excludeBuyerField = false, bool $excludeProjectField = false): array
+    public static function getFormSchema(bool $excludeBuyerField = false, bool $excludeProjectField = false, bool $isCreate = true): array
     {
         $fields = [];
 
@@ -106,30 +107,36 @@ final class RequestResource extends Resource
             ->maxLength(255)
             ->placeholder('Brief description of this request');
 
+        // Build Request Details section - stage only shown when editing
+        $requestDetailsSchema = [];
+        if (! $isCreate) {
+            $requestDetailsSchema[] = Select::make('stage')
+                ->options(RequestStage::class)
+                ->default(RequestStage::DRAFT)
+                ->required()
+                ->native(false);
+        }
+        $requestDetailsSchema[] = Select::make('priority')
+            ->options(RequestPriority::class)
+            ->default(RequestPriority::NORMAL)
+            ->required()
+            ->native(false);
+
         $fields = array_merge($fields, [
             Section::make('Request Details')
-                ->schema([
-                    Select::make('stage')
-                        ->options(RequestStage::class)
-                        ->default(RequestStage::DRAFT)
-                        ->required()
-                        ->native(false),
-                    Select::make('priority')
-                        ->options(RequestPriority::class)
-                        ->default(RequestPriority::NORMAL)
-                        ->required()
-                        ->native(false),
-                ])
-                ->columns(2),
+                ->schema($requestDetailsSchema)
+                ->columns($isCreate ? 1 : 2),
             Section::make('Timeline')
                 ->schema([
                     DatePicker::make('requested_at')
                         ->label('Requested Date')
-                        ->nullable(),
+                        ->default(now())
+                        ->nullable()
+                        ->helperText('When the buyer made the inquiry'),
                     DatePicker::make('required_by')
                         ->label('Required By')
                         ->nullable()
-                        ->helperText('When the buyer needs this order'),
+                        ->helperText('Only if buyer specified a delivery date'),
                 ])
                 ->columns(2),
             Section::make('Notes')
@@ -187,7 +194,7 @@ final class RequestResource extends Resource
                     ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule, $record) => $rule->where('team_id', $record->team_id ?? Filament::getTenant()?->id))
                     ->placeholder('Auto-generated (e.g., REQ-2026-0001)')
                     ->helperText('Leave empty to auto-generate'),
-                ...self::getFormSchema(),
+                ...self::getFormSchema(isCreate: false),
             ])
             ->columns(1);
     }
@@ -214,6 +221,7 @@ final class RequestResource extends Resource
                     ->toggledHiddenByDefault(),
                 TextColumn::make('stage')
                     ->badge()
+                    ->formatStateUsing(fn (RequestStage $state): string => $state->getLabelWithStep())
                     ->sortable(),
                 TextColumn::make('priority')
                     ->badge()

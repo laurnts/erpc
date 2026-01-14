@@ -26,6 +26,7 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Schemas\Components\Section;
 use Filament\Support\Enums\Size;
+use Filament\Support\Enums\Width;
 use Filament\Tables\Table;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\View\Factory;
@@ -124,11 +125,12 @@ final class AppPanelProvider extends PanelProvider
                 ApiTokens::class,
             ])
             ->spa()
+            ->maxContentWidth(Width::ScreenTwoExtraLarge)
             ->breadcrumbs(false)
             ->sidebarCollapsibleOnDesktop()
             ->navigationGroups([
                 NavigationGroup::make()
-                    ->label('Trading')
+                    ->label('Workflow')
                     ->icon('heroicon-o-clipboard-document-list'),
                 NavigationGroup::make()
                     ->label('Master Data')

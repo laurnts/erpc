@@ -12,6 +12,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
@@ -65,6 +66,20 @@ final class CurrencyResource extends Resource
                 ->default(2)
                 ->minValue(0)
                 ->maxValue(10),
+            TextInput::make('thousands_separator')
+                ->maxLength(1)
+                ->default(',')
+                ->helperText('Character for thousands grouping (e.g., comma or dot)'),
+            TextInput::make('decimal_separator')
+                ->maxLength(1)
+                ->default('.')
+                ->helperText('Character for decimal point (e.g., dot or comma)'),
+            Select::make('symbol_position')
+                ->options([
+                    'before' => 'Before amount (e.g., $100)',
+                    'after' => 'After amount (e.g., 100 EUR)',
+                ])
+                ->default('before'),
             Toggle::make('is_active')
                 ->label('Active')
                 ->default(true),
@@ -105,6 +120,10 @@ final class CurrencyResource extends Resource
                 TextColumn::make('decimal_places')
                     ->sortable()
                     ->alignCenter(),
+                TextColumn::make('format_preview')
+                    ->label('Format Preview')
+                    ->state(fn (Currency $record): string => $record->format(1000))
+                    ->color('gray'),
                 IconColumn::make('is_active')
                     ->label('Active')
                     ->boolean()

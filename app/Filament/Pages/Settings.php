@@ -12,7 +12,6 @@ use DanHarrin\LivewireRateLimiting\WithRateLimiting;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
@@ -62,10 +61,9 @@ final class Settings extends Page implements HasForms
 
         $this->erpForm->fill([
             'default_currency' => $settings->default_currency,
-            'default_tax_percent' => $settings->default_tax_percent,
             'quote_validity_days' => $settings->quote_validity_days,
             'default_payment_terms_days' => $settings->default_payment_terms_days,
-            'prices_include_tax' => $settings->prices_include_tax,
+            'default_margin_percent' => $settings->default_margin_percent,
         ]);
 
         $this->prefixForm->fill([
@@ -110,13 +108,6 @@ final class Settings extends Page implements HasForms
                     )
                     ->searchable()
                     ->required(),
-                TextInput::make('default_tax_percent')
-                    ->label('Default Tax Percentage')
-                    ->numeric()
-                    ->suffix('%')
-                    ->required()
-                    ->minValue(0)
-                    ->maxValue(100),
                 TextInput::make('quote_validity_days')
                     ->label('Quote Validity (Days)')
                     ->numeric()
@@ -129,9 +120,15 @@ final class Settings extends Page implements HasForms
                     ->required()
                     ->minValue(0)
                     ->maxValue(365),
-                Toggle::make('prices_include_tax')
-                    ->label('Prices Include Tax by Default')
-                    ->helperText('When enabled, entered prices will be treated as tax-inclusive'),
+                TextInput::make('default_margin_percent')
+                    ->label('Default Margin %')
+                    ->numeric()
+                    ->required()
+                    ->minValue(0)
+                    ->maxValue(100)
+                    ->step(0.1)
+                    ->suffix('%')
+                    ->helperText('Applied to buyer quotes based on supplier cost price'),
             ])
             ->statePath('erpData');
     }
@@ -210,10 +207,9 @@ final class Settings extends Page implements HasForms
             company_phone: $currentSettings->company_phone,
             company_email: $currentSettings->company_email,
             default_currency: $erpData['default_currency'] ?? 'USD',
-            default_tax_percent: (float) ($erpData['default_tax_percent'] ?? 11.0),
             quote_validity_days: (int) ($erpData['quote_validity_days'] ?? 30),
             default_payment_terms_days: (int) ($erpData['default_payment_terms_days'] ?? 30),
-            prices_include_tax: (bool) ($erpData['prices_include_tax'] ?? false),
+            default_margin_percent: (float) ($erpData['default_margin_percent'] ?? 3.0),
             request_number_prefix: $currentSettings->request_number_prefix,
             project_number_prefix: $currentSettings->project_number_prefix,
             buyer_quote_number_prefix: $currentSettings->buyer_quote_number_prefix,
@@ -257,10 +253,9 @@ final class Settings extends Page implements HasForms
             company_phone: $currentSettings->company_phone,
             company_email: $currentSettings->company_email,
             default_currency: $currentSettings->default_currency,
-            default_tax_percent: $currentSettings->default_tax_percent,
             quote_validity_days: $currentSettings->quote_validity_days,
             default_payment_terms_days: $currentSettings->default_payment_terms_days,
-            prices_include_tax: $currentSettings->prices_include_tax,
+            default_margin_percent: $currentSettings->default_margin_percent,
             request_number_prefix: $prefixData['request_number_prefix'] ?? 'REQ',
             project_number_prefix: $prefixData['project_number_prefix'] ?? 'PRJ',
             buyer_quote_number_prefix: $prefixData['buyer_quote_number_prefix'] ?? 'BQ',

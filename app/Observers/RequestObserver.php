@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Observers;
 
+use App\Actions\Erp\GenerateSupplierQuotesForRequest;
 use App\Data\TeamErpSettings;
+use App\Enums\RequestStage;
 use App\Models\Request;
 use App\Models\Team;
 use App\Models\User;
@@ -66,5 +68,43 @@ final readonly class RequestObserver
         }
 
         return sprintf('%s-%s-%04d', $prefix, $year, $nextNumber);
+    }
+
+    /**
+     * Handle the Request "updated" event.
+     *
+     * When a request transitions to AWAITING_SUPPLIER_RESPONSE,
+     * automatically generate supplier quotes for all suppliers
+     * of the articles in the request.
+     */
+    public function updated(Request $request): void
+    {
+        // Check if stage changed to AWAITING_SUPPLIER_RESPONSE
+        if (! $request->wasChanged('stage')) {
+            return;
+        }
+
+        $originalStage = $request->getOriginal('stage');
+        $previousStage = $originalStage instanceof RequestStage
+            ? $originalStage
+            : RequestStage::tryFrom((string) $originalStage);
+
+        // Only generate quotes when transitioning FROM DRAFT to AWAITING_SUPPLIER_RESPONSE
+        if ($previousStage !== RequestStage::DRAFT) {
+            return;
+        }
+
+        if ($request->stage !== RequestStage::AWAITING_SUPPLIER_RESPONSE) {
+            return;
+        }
+
+        // Check if quotes already exist for this request to avoid duplicates
+        if ($request->supplierQuotes()->exists()) {
+            return;
+        }
+
+        // Generate supplier quotes
+        $action = new GenerateSupplierQuotesForRequest;
+        $action->execute($request);
     }
 }
