@@ -6,12 +6,15 @@ namespace App\Filament\Resources;
 
 use App\Enums\CreationSource;
 use App\Filament\Exports\CompanyExporter;
+use App\Filament\Resources\CompanyResource\Pages\CreateCompany;
 use App\Filament\Resources\CompanyResource\Pages\ListCompanies;
 use App\Filament\Resources\CompanyResource\Pages\ViewCompany;
+use App\Models\Article;
 use App\Models\Company;
 use App\Models\Currency;
 use App\Models\People;
 use App\Models\Tag;
+use App\Models\Team;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -69,6 +72,13 @@ final class CompanyResource extends Resource
                 ->label('Company Name')
                 ->required()
                 ->maxLength(255),
+
+            TextInput::make('domain')
+                ->label('Domain')
+                ->placeholder('example.com')
+                ->url(false)
+                ->maxLength(255)
+                ->helperText('Company website domain'),
 
             Section::make('Company Type')
                 ->schema([
@@ -165,7 +175,20 @@ final class CompanyResource extends Resource
                         ->label('Credit Limit')
                         ->numeric()
                         ->default(0)
-                        ->prefix('$'),
+                        ->prefix(function (): string {
+                            /** @var Team|null $team */
+                            $team = Filament::getTenant();
+                            $currency = $team?->getBaseCurrency();
+
+                            return $currency?->symbol_position === 'before' ? ($currency->symbol ?? '$') : '';
+                        })
+                        ->suffix(function (): string {
+                            /** @var Team|null $team */
+                            $team = Filament::getTenant();
+                            $currency = $team?->getBaseCurrency();
+
+                            return $currency?->symbol_position === 'after' ? ($currency->symbol ?? '') : '';
+                        }),
                     Toggle::make('is_on_hold')
                         ->label('On Hold')
                         ->helperText('Prevent new orders for this buyer'),
@@ -186,6 +209,27 @@ final class CompanyResource extends Resource
                         ->default(0)
                         ->minValue(0)
                         ->suffix('days'),
+                    Select::make('articles')
+                        ->label('Articles / Products')
+                        ->relationship('articles', 'name')
+                        ->multiple()
+                        ->preload()
+                        ->searchable()
+                        ->helperText('Articles this supplier provides. Manage pricing details in the Articles tab.')
+                        ->createOptionForm(ArticleResource::getFormSchema())
+                        ->createOptionUsing(function (array $data): int {
+                            /** @var \App\Models\Team $team */
+                            $team = Filament::getTenant();
+
+                            /** @var Article $article */
+                            $article = Article::create([
+                                ...$data,
+                                'team_id' => $team->id,
+                                'creator_id' => auth()->id(),
+                            ]);
+
+                            return $article->id;
+                        }),
                 ])
                 ->visible(fn ($get): bool => (bool) $get('is_supplier'))
                 ->collapsed(),
@@ -262,6 +306,12 @@ final class CompanyResource extends Resource
                 TextColumn::make('name')
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('domain')
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable()
+                    ->url(fn (?string $state): ?string => $state ? "https://{$state}" : null)
+                    ->openUrlInNewTab(),
                 TextColumn::make('people_count')
                     ->label('Contacts')
                     ->counts('people')
@@ -349,15 +399,6 @@ final class CompanyResource extends Resource
                     ->multiple(),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
-                ActionGroup::make([
-                    ViewAction::make(),
-                    EditAction::make(),
-                    RestoreAction::make(),
-                    DeleteAction::make(),
-                    ForceDeleteAction::make(),
-                ]),
-            ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     ExportBulkAction::make()
@@ -373,13 +414,14 @@ final class CompanyResource extends Resource
     {
         return [
             'index' => ListCompanies::route('/'),
+            'create' => CreateCompany::route('/create'),
             'view' => ViewCompany::route('/{record}'),
         ];
     }
 
     public static function getGloballySearchableAttributes(): array
     {
-        return ['code', 'name', 'country'];
+        return ['code', 'name', 'domain', 'country'];
     }
 
     /**

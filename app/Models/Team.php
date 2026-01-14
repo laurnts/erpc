@@ -137,4 +137,19 @@ final class Team extends JetstreamTeam implements HasAvatar
     {
         return $this->getErpSettings()->default_currency;
     }
+
+    /**
+     * Format an amount using the team's base currency formatting.
+     * Example: For IDR 10000 → "Rp 10.000,-"
+     */
+    public function formatMoney(float|int $amount): string
+    {
+        $currency = $this->getBaseCurrency();
+
+        if ($currency === null) {
+            return number_format((float) $amount, 2);
+        }
+
+        return $currency->format($amount);
+    }
 }

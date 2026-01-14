@@ -90,14 +90,6 @@ final class NoteResource extends Resource
                     ->multiple(),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
-                ActionGroup::make([
-                    EditAction::make(),
-                    DeleteAction::make(),
-                    ForceDeleteAction::make(),
-                    RestoreAction::make(),
-                ]),
-            ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     ExportBulkAction::make()

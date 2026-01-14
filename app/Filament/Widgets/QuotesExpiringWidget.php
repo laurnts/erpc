@@ -46,9 +46,8 @@ final class QuotesExpiringWidget extends BaseWidget
 
                 TextColumn::make('total')
                     ->label('Total')
-                    ->numeric(decimalPlaces: 2)
-                    ->sortable()
-                    ->prefix(fn (BuyerQuote $record): string => $record->currency->symbol ?? ''),
+                    ->formatStateUsing(fn (BuyerQuote $record): string => $record->currency !== null ? $record->currency->format((float) $record->total) : number_format((float) $record->total, 2))
+                    ->sortable(),
 
                 TextColumn::make('status')
                     ->badge()

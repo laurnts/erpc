@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\Resources\ArticleResource\Pages\CreateArticle;
 use App\Filament\Resources\ArticleResource\Pages\ListArticles;
 use App\Filament\Resources\ArticleResource\Pages\ViewArticle;
 use App\Models\Article;
@@ -24,6 +25,7 @@ use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -106,6 +108,9 @@ final class ArticleResource extends Resource
             Textarea::make('description')
                 ->maxLength(2000)
                 ->rows(3),
+            Toggle::make('is_active')
+                ->label('Active')
+                ->default(true),
             Section::make('Custom Attributes')
                 ->schema([
                     KeyValue::make('attributes')
@@ -187,15 +192,6 @@ final class ArticleResource extends Resource
                     ->relationship('defaultTaxCode', 'name'),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
-                ActionGroup::make([
-                    ViewAction::make(),
-                    EditAction::make(),
-                    RestoreAction::make(),
-                    DeleteAction::make(),
-                    ForceDeleteAction::make(),
-                ]),
-            ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
@@ -209,6 +205,7 @@ final class ArticleResource extends Resource
     {
         return [
             'index' => ListArticles::route('/'),
+            'create' => CreateArticle::route('/create'),
             'view' => ViewArticle::route('/{record}'),
         ];
     }

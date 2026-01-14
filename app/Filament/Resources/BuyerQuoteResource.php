@@ -67,14 +67,13 @@ final class BuyerQuoteResource extends Resource
                     ->sortable(),
                 TextColumn::make('total')
                     ->label('Total')
-                    ->numeric(decimalPlaces: 2)
-                    ->sortable()
-                    ->description(fn (BuyerQuote $record): string => $record->currency->code ?? ''),
+                    ->formatStateUsing(fn (BuyerQuote $record): string => $record->currency?->format($record->total) ?? number_format($record->total, 2))
+                    ->sortable(),
                 TextColumn::make('total_margin_amount')
                     ->label('Margin')
                     ->getStateUsing(fn (BuyerQuote $record): string => sprintf(
                         '%s (%.1f%%)',
-                        number_format($record->total_margin_amount, 2),
+                        $record->currency?->formatNumber($record->total_margin_amount) ?? number_format($record->total_margin_amount, 2),
                         $record->total_margin_percent
                     ))
                     ->toggleable(),
@@ -117,12 +116,7 @@ final class BuyerQuoteResource extends Resource
                     ->searchable(),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
-                ActionGroup::make([
-                    ViewAction::make()
-                        ->url(fn (BuyerQuote $record): string => RequestResource::getUrl('view', ['record' => $record->request_id])),
-                ]),
-            ])
+            ->recordUrl(fn (BuyerQuote $record): string => RequestResource::getUrl('view', ['record' => $record->request_id]))
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

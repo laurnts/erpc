@@ -330,10 +330,21 @@ final class Request extends Model implements HasCustomFields, HasMedia
 
     /**
      * Check if request items can be edited in current stage.
+     * Allows editing in early stages, or in AWAITING_BUYER_CONFIRMATION if no buyer order is confirmed yet.
      */
     public function canEditItems(): bool
     {
-        return $this->stage->allowsItemEditing();
+        // Allow editing in early stages (DRAFT, AWAITING_SUPPLIER_RESPONSE, PREPARING_BUYER_QUOTE)
+        if ($this->stage->allowsItemEditing()) {
+            return true;
+        }
+
+        // Also allow in AWAITING_BUYER_CONFIRMATION if no confirmed buyer order exists
+        if ($this->stage === RequestStage::AWAITING_BUYER_CONFIRMATION && ! $this->has_buyer_order_confirmed) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

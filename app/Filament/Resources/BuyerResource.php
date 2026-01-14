@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Enums\CreationSource;
+use App\Filament\Resources\BuyerResource\Pages\CreateBuyer;
 use App\Filament\Resources\BuyerResource\Pages\ListBuyers;
 use App\Filament\Resources\BuyerResource\Pages\ViewBuyer;
 use App\Models\Company;
@@ -75,6 +76,12 @@ final class BuyerResource extends Resource
                 ->label('Company Name')
                 ->required()
                 ->maxLength(255),
+
+            TextInput::make('domain')
+                ->label('Domain')
+                ->placeholder('example.com')
+                ->maxLength(255)
+                ->helperText('Company website domain'),
 
             Select::make('tags')
                 ->label('Categories')
@@ -182,7 +189,20 @@ final class BuyerResource extends Resource
                         ->label('Credit Limit')
                         ->numeric()
                         ->default(0)
-                        ->prefix('$'),
+                        ->prefix(function (): string {
+                            /** @var Team|null $team */
+                            $team = Filament::getTenant();
+                            $currency = $team?->getBaseCurrency();
+
+                            return $currency?->symbol_position === 'before' ? ($currency->symbol ?? '$') : '';
+                        })
+                        ->suffix(function (): string {
+                            /** @var Team|null $team */
+                            $team = Filament::getTenant();
+                            $currency = $team?->getBaseCurrency();
+
+                            return $currency?->symbol_position === 'after' ? ($currency->symbol ?? '') : '';
+                        }),
                     Toggle::make('is_on_hold')
                         ->label('On Hold')
                         ->helperText('Prevent new orders for this buyer'),
@@ -300,15 +320,6 @@ final class BuyerResource extends Resource
                     ->multiple(),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
-                ActionGroup::make([
-                    ViewAction::make(),
-                    EditAction::make(),
-                    RestoreAction::make(),
-                    DeleteAction::make(),
-                    ForceDeleteAction::make(),
-                ]),
-            ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
@@ -322,6 +333,7 @@ final class BuyerResource extends Resource
     {
         return [
             'index' => ListBuyers::route('/'),
+            'create' => CreateBuyer::route('/create'),
             'view' => ViewBuyer::route('/{record}'),
         ];
     }

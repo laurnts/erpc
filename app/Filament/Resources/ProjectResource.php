@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Enums\ProjectStatus;
+use App\Filament\Resources\ProjectResource\Pages\CreateProject;
 use App\Filament\Resources\ProjectResource\Pages\ListProjects;
 use App\Models\Project;
 use Filament\Actions\Action;
@@ -219,15 +220,6 @@ final class ProjectResource extends Resource
                     ->preload(),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
-                ActionGroup::make([
-                    ViewAction::make(),
-                    EditAction::make(),
-                    RestoreAction::make(),
-                    DeleteAction::make(),
-                    ForceDeleteAction::make(),
-                ]),
-            ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
@@ -241,6 +233,7 @@ final class ProjectResource extends Resource
     {
         return [
             'index' => ListProjects::route('/'),
+            'create' => CreateProject::route('/create'),
         ];
     }
 

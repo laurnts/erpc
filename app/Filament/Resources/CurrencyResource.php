@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\Resources\CurrencyResource\Pages\CreateCurrency;
 use App\Filament\Resources\CurrencyResource\Pages\ListCurrencies;
 use App\Models\Currency;
 use Filament\Actions\ActionGroup;
@@ -148,13 +149,6 @@ final class CurrencyResource extends Resource
                         '0' => 'Inactive',
                     ]),
             ])
-            ->recordActions([
-                ActionGroup::make([
-                    ViewAction::make(),
-                    EditAction::make(),
-                    DeleteAction::make(),
-                ]),
-            ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
@@ -166,6 +160,7 @@ final class CurrencyResource extends Resource
     {
         return [
             'index' => ListCurrencies::route('/'),
+            'create' => CreateCurrency::route('/create'),
         ];
     }
 

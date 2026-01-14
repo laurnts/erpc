@@ -67,7 +67,7 @@ final class BuyerOrderResource extends Resource
                     ->sortable(),
                 TextColumn::make('total')
                     ->label('Total')
-                    ->numeric(decimalPlaces: 2)
+                    ->formatStateUsing(fn (BuyerOrder $record): string => $record->currency?->format($record->total) ?? number_format($record->total, 2))
                     ->sortable(),
                 TextColumn::make('payment_terms_days')
                     ->label('Terms')
@@ -113,12 +113,7 @@ final class BuyerOrderResource extends Resource
                     ->searchable(),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
-                ActionGroup::make([
-                    ViewAction::make()
-                        ->url(fn (BuyerOrder $record): string => RequestResource::getUrl('view', ['record' => $record->request_id])),
-                ]),
-            ])
+            ->recordUrl(fn (BuyerOrder $record): string => RequestResource::getUrl('view', ['record' => $record->request_id]))
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

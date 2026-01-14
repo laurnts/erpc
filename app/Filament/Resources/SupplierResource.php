@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Enums\CreationSource;
+use App\Filament\Resources\SupplierResource\Pages\CreateSupplier;
 use App\Filament\Resources\SupplierResource\Pages\ListSuppliers;
 use App\Filament\Resources\SupplierResource\Pages\ViewSupplier;
 use App\Models\Company;
@@ -74,6 +75,12 @@ final class SupplierResource extends Resource
                 ->label('Company Name')
                 ->required()
                 ->maxLength(255),
+
+            TextInput::make('domain')
+                ->label('Domain')
+                ->placeholder('example.com')
+                ->maxLength(255)
+                ->helperText('Company website domain'),
 
             Select::make('tags')
                 ->label('Categories')
@@ -285,15 +292,6 @@ final class SupplierResource extends Resource
                     ->multiple(),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
-                ActionGroup::make([
-                    ViewAction::make(),
-                    EditAction::make(),
-                    RestoreAction::make(),
-                    DeleteAction::make(),
-                    ForceDeleteAction::make(),
-                ]),
-            ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
@@ -307,6 +305,7 @@ final class SupplierResource extends Resource
     {
         return [
             'index' => ListSuppliers::route('/'),
+            'create' => CreateSupplier::route('/create'),
             'view' => ViewSupplier::route('/{record}'),
         ];
     }

@@ -209,7 +209,16 @@ final class SupplierQuote extends Model
     protected function formattedTotalBase(): Attribute
     {
         return Attribute::make(
-            get: fn (): string => number_format((float) $this->total_base, 2),
+            get: function (): string {
+                $team = $this->team;
+                $baseCurrency = $team?->getBaseCurrency();
+
+                if ($baseCurrency === null) {
+                    return number_format((float) $this->total_base, 2);
+                }
+
+                return $baseCurrency->format((float) $this->total_base);
+            },
         );
     }
 

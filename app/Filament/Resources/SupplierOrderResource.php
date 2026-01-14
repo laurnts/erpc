@@ -128,12 +128,7 @@ final class SupplierOrderResource extends Resource
                     ->searchable(),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
-                ActionGroup::make([
-                    ViewAction::make()
-                        ->url(fn (SupplierOrder $record): string => RequestResource::getUrl('view', ['record' => $record->request_id])),
-                ]),
-            ])
+            ->recordUrl(fn (SupplierOrder $record): string => RequestResource::getUrl('view', ['record' => $record->request_id]))
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

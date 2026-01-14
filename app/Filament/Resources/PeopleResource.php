@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Enums\CreationSource;
 use App\Filament\Exports\PeopleExporter;
+use App\Filament\Resources\PeopleResource\Pages\CreatePeople;
 use App\Filament\Resources\PeopleResource\Pages\ListPeople;
 use App\Filament\Resources\PeopleResource\Pages\ViewPeople;
 use App\Filament\Resources\PeopleResource\RelationManagers\NotesRelationManager;
@@ -91,7 +92,7 @@ final class PeopleResource extends Resource
                 });
         }
 
-        // Always include custom fields (Emails, Phone, Job Title, LinkedIn, etc.)
+        // Always include custom fields (Emails, Phone, Job Title, etc.)
         $fields[] = CustomFields::form()->build()->columnSpanFull();
 
         return $fields;
@@ -147,15 +148,6 @@ final class PeopleResource extends Resource
                     ->multiple(),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
-                ActionGroup::make([
-                    ViewAction::make(),
-                    EditAction::make(),
-                    RestoreAction::make(),
-                    DeleteAction::make(),
-                    ForceDeleteAction::make(),
-                ]),
-            ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     ExportBulkAction::make()
@@ -179,6 +171,7 @@ final class PeopleResource extends Resource
     {
         return [
             'index' => ListPeople::route('/'),
+            'create' => CreatePeople::route('/create'),
             'view' => ViewPeople::route('/{record}'),
         ];
     }

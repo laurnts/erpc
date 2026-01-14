@@ -1,5 +1,2 @@
 name: Apple
-custom_fields:
-  domain_name: https://apple.com
-  icp: true
-  linkedin: https://www.linkedin.com/company/apple 
+domain: apple.com

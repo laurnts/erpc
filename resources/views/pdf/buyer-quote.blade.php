@@ -83,11 +83,11 @@
                             <br><small style="color: #6b7280;">{{ $item->notes }}</small>
                         @endif
                     </td>
-                    <td class="text-center">{{ number_format((float)$item->quantity, 2) }}</td>
+                    <td class="text-center">{{ $quote->currency?->formatNumber((float)$item->quantity) ?? number_format((float)$item->quantity, 2) }}</td>
                     <td class="text-center">{{ $item->unit }}</td>
-                    <td class="text-right">{{ number_format((float)$item->unit_price_exc_tax, 2) }}</td>
-                    <td class="text-right">{{ number_format((float)$item->line_tax, 2) }}</td>
-                    <td class="text-right">{{ number_format((float)$item->line_total, 2) }}</td>
+                    <td class="text-right">{{ $quote->currency?->formatNumber((float)$item->unit_price_exc_tax) ?? number_format((float)$item->unit_price_exc_tax, 2) }}</td>
+                    <td class="text-right">{{ $quote->currency?->formatNumber((float)$item->line_tax) ?? number_format((float)$item->line_tax, 2) }}</td>
+                    <td class="text-right">{{ $quote->currency?->formatNumber((float)$item->line_total) ?? number_format((float)$item->line_total, 2) }}</td>
                 </tr>
             @empty
                 <tr>
@@ -102,15 +102,15 @@
         <table class="totals-table">
             <tr>
                 <td>Subtotal:</td>
-                <td>{{ $quote->currency?->symbol ?? '' }}{{ number_format((float)$quote->subtotal, 2) }}</td>
+                <td>{{ $quote->currency?->format((float)$quote->subtotal) ?? number_format((float)$quote->subtotal, 2) }}</td>
             </tr>
             <tr>
                 <td>Tax:</td>
-                <td>{{ $quote->currency?->symbol ?? '' }}{{ number_format((float)$quote->tax_total, 2) }}</td>
+                <td>{{ $quote->currency?->format((float)$quote->tax_total) ?? number_format((float)$quote->tax_total, 2) }}</td>
             </tr>
             <tr class="grand-total">
                 <td>Grand Total:</td>
-                <td>{{ $quote->currency?->symbol ?? '' }}{{ number_format((float)$quote->total, 2) }} {{ $quote->currency?->code ?? '' }}</td>
+                <td>{{ $quote->currency?->format((float)$quote->total) ?? number_format((float)$quote->total, 2) }}</td>
             </tr>
         </table>
     </div>
@@ -121,7 +121,7 @@
             <div class="payment-info-title">Payment Terms</div>
             <div class="payment-info-content">
                 @if($quote->prepayment_percent > 0)
-                    <strong>Prepayment Required:</strong> {{ $quote->prepayment_percent }}% ({{ $quote->currency?->symbol ?? '' }}{{ number_format((float)$quote->total * $quote->prepayment_percent / 100, 2) }})<br>
+                    <strong>Prepayment Required:</strong> {{ $quote->prepayment_percent }}% ({{ $quote->currency?->format((float)$quote->total * $quote->prepayment_percent / 100) ?? number_format((float)$quote->total * $quote->prepayment_percent / 100, 2) }})<br>
                 @endif
                 @if($quote->payment_terms_description)
                     {{ $quote->payment_terms_description }}

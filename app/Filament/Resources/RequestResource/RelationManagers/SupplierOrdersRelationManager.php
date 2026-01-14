@@ -318,36 +318,63 @@ final class SupplierOrdersRelationManager extends RelationManager
                                 Placeholder::make('subtotal_display')
                                     ->label('Subtotal')
                                     ->content(fn (?SupplierOrder $record): string => $record instanceof \App\Models\SupplierOrder
-                                        ? number_format((float) $record->subtotal, 2)
-                                        : '0.00'),
+                                        ? ($record->currency?->formatNumber((float) $record->subtotal) ?? number_format((float) $record->subtotal, 2))
+                                        : '0,-'),
                                 Placeholder::make('tax_total_display')
                                     ->label('Tax Total')
                                     ->content(fn (?SupplierOrder $record): string => $record instanceof \App\Models\SupplierOrder
-                                        ? number_format((float) $record->tax_total, 2)
-                                        : '0.00'),
+                                        ? ($record->currency?->formatNumber((float) $record->tax_total) ?? number_format((float) $record->tax_total, 2))
+                                        : '0,-'),
                                 Placeholder::make('total_display')
                                     ->label('Total')
                                     ->content(fn (?SupplierOrder $record): string => $record instanceof \App\Models\SupplierOrder
-                                        ? number_format((float) $record->total, 2)
-                                        : '0.00'),
+                                        ? ($record->currency?->format((float) $record->total) ?? number_format((float) $record->total, 2))
+                                        : '0,-'),
                             ]),
                         Grid::make(3)
                             ->schema([
                                 Placeholder::make('base_subtotal_display')
                                     ->label('Subtotal (Base)')
-                                    ->content(fn (?SupplierOrder $record): string => $record instanceof \App\Models\SupplierOrder
-                                        ? number_format((float) $record->base_subtotal, 2)
-                                        : '0.00'),
+                                    ->content(function (?SupplierOrder $record): string {
+                                        if (! $record instanceof \App\Models\SupplierOrder) {
+                                            return '0,-';
+                                        }
+                                        /** @var \App\Models\Team|null $team */
+                                        $team = Filament::getTenant();
+                                        $baseCurrency = $team?->getBaseCurrency();
+
+                                        return $baseCurrency !== null
+                                            ? $baseCurrency->formatNumber((float) $record->base_subtotal)
+                                            : number_format((float) $record->base_subtotal, 2);
+                                    }),
                                 Placeholder::make('base_tax_total_display')
                                     ->label('Tax Total (Base)')
-                                    ->content(fn (?SupplierOrder $record): string => $record instanceof \App\Models\SupplierOrder
-                                        ? number_format((float) $record->base_tax_total, 2)
-                                        : '0.00'),
+                                    ->content(function (?SupplierOrder $record): string {
+                                        if (! $record instanceof \App\Models\SupplierOrder) {
+                                            return '0,-';
+                                        }
+                                        /** @var \App\Models\Team|null $team */
+                                        $team = Filament::getTenant();
+                                        $baseCurrency = $team?->getBaseCurrency();
+
+                                        return $baseCurrency !== null
+                                            ? $baseCurrency->formatNumber((float) $record->base_tax_total)
+                                            : number_format((float) $record->base_tax_total, 2);
+                                    }),
                                 Placeholder::make('base_total_display')
                                     ->label('Total (Base)')
-                                    ->content(fn (?SupplierOrder $record): string => $record instanceof \App\Models\SupplierOrder
-                                        ? number_format((float) $record->base_total, 2)
-                                        : '0.00'),
+                                    ->content(function (?SupplierOrder $record): string {
+                                        if (! $record instanceof \App\Models\SupplierOrder) {
+                                            return '0,-';
+                                        }
+                                        /** @var \App\Models\Team|null $team */
+                                        $team = Filament::getTenant();
+                                        $baseCurrency = $team?->getBaseCurrency();
+
+                                        return $baseCurrency !== null
+                                            ? $baseCurrency->format((float) $record->base_total)
+                                            : number_format((float) $record->base_total, 2);
+                                    }),
                             ]),
                     ])
                     ->collapsible(),
@@ -392,12 +419,17 @@ final class SupplierOrdersRelationManager extends RelationManager
                     ->sortable(),
                 TextColumn::make('total')
                     ->label('Total')
-                    ->numeric(decimalPlaces: 2)
-                    ->sortable()
-                    ->description(fn (SupplierOrder $record): string => $record->currency->code ?? ''),
+                    ->formatStateUsing(fn (SupplierOrder $record): string => $record->currency !== null ? $record->currency->format((float) $record->total) : number_format((float) $record->total, 2))
+                    ->sortable(),
                 TextColumn::make('base_total')
                     ->label('Total (Base)')
-                    ->numeric(decimalPlaces: 2)
+                    ->formatStateUsing(function (SupplierOrder $record): string {
+                        /** @var \App\Models\Team|null $team */
+                        $team = Filament::getTenant();
+                        $baseCurrency = $team?->getBaseCurrency();
+
+                        return $baseCurrency !== null ? $baseCurrency->format((float) $record->base_total) : number_format((float) $record->base_total, 2);
+                    })
                     ->sortable()
                     ->toggleable(),
                 TextColumn::make('exchange_rate')

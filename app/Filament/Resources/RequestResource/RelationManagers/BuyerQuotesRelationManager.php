@@ -375,7 +375,11 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         $subtotal += (float) ($item['line_subtotal'] ?? 0);
                                     }
 
-                                    return number_format($subtotal, 2);
+                                    $currencyId = $get('currency_id');
+                                    /** @var Currency|null $currency */
+                                    $currency = $currencyId !== null ? Currency::find($currencyId) : null;
+
+                                    return $currency instanceof Currency ? $currency->formatNumber($subtotal) : number_format($subtotal, 2);
                                 }),
                             Placeholder::make('tax_total_display')
                                 ->label('Tax Total')
@@ -388,7 +392,11 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         $taxTotal += (float) ($item['line_tax'] ?? 0);
                                     }
 
-                                    return number_format($taxTotal, 2);
+                                    $currencyId = $get('currency_id');
+                                    /** @var Currency|null $currency */
+                                    $currency = $currencyId !== null ? Currency::find($currencyId) : null;
+
+                                    return $currency instanceof Currency ? $currency->formatNumber($taxTotal) : number_format($taxTotal, 2);
                                 }),
                             Placeholder::make('total_display')
                                 ->label('Total')
@@ -401,7 +409,11 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         $total += (float) ($item['line_total'] ?? 0);
                                     }
 
-                                    return number_format($total, 2);
+                                    $currencyId = $get('currency_id');
+                                    /** @var Currency|null $currency */
+                                    $currency = $currencyId !== null ? Currency::find($currencyId) : null;
+
+                                    return $currency instanceof Currency ? $currency->format($total) : number_format($total, 2);
                                 }),
                             Placeholder::make('margin_display')
                                 ->label('Total Margin')
@@ -422,7 +434,12 @@ final class BuyerQuotesRelationManager extends RelationManager
 
                                     $marginPercent = $totalCost > 0 ? ($totalMargin / $totalCost) * 100 : 0;
 
-                                    return sprintf('%s (%.1f%%)', number_format($totalMargin, 2), $marginPercent);
+                                    $currencyId = $get('currency_id');
+                                    /** @var Currency|null $currency */
+                                    $currency = $currencyId !== null ? Currency::find($currencyId) : null;
+                                    $formattedMargin = $currency instanceof Currency ? $currency->formatNumber($totalMargin) : number_format($totalMargin, 2);
+
+                                    return sprintf('%s (%.1f%%)', $formattedMargin, $marginPercent);
                                 }),
                         ]),
                 ])
@@ -478,19 +495,18 @@ final class BuyerQuotesRelationManager extends RelationManager
                     ->sortable(),
                 TextColumn::make('subtotal')
                     ->label('Subtotal')
-                    ->numeric(decimalPlaces: 2)
+                    ->formatStateUsing(fn (BuyerQuote $record): string => $record->currency !== null ? $record->currency->formatNumber((float) $record->subtotal) : number_format((float) $record->subtotal, 2))
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('total')
                     ->label('Total')
-                    ->numeric(decimalPlaces: 2)
-                    ->sortable()
-                    ->description(fn (BuyerQuote $record): string => $record->currency->code ?? ''),
+                    ->formatStateUsing(fn (BuyerQuote $record): string => $record->currency !== null ? $record->currency->format((float) $record->total) : number_format((float) $record->total, 2))
+                    ->sortable(),
                 TextColumn::make('total_margin_amount')
                     ->label('Margin')
                     ->getStateUsing(fn (BuyerQuote $record): string => sprintf(
                         '%s (%.1f%%)',
-                        number_format($record->total_margin_amount, 2),
+                        $record->currency !== null ? $record->currency->formatNumber((float) $record->total_margin_amount) : number_format((float) $record->total_margin_amount, 2),
                         $record->total_margin_percent
                     ))
                     ->sortable(query: fn ($query, $direction) => $query->orderByRaw(

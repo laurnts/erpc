@@ -122,59 +122,6 @@ final class TaskResource extends Resource
                 ...collect(['status', 'priority'])->map(fn (string $fieldCode): ?\Filament\Tables\Grouping\Group => $customFields->has($fieldCode) ? self::makeCustomFieldGroup($fieldCode, $customFields, $valueResolver) : null
                 )->filter()->toArray(),
             ]))
-            ->recordActions([
-                ActionGroup::make([
-                    EditAction::make()
-                        ->using(function (Task $record, array $data): Task {
-                            try {
-                                DB::beginTransaction();
-
-                                $record->update($data);
-
-                                /** @var Collection<int, User> $assignees */
-                                $assignees = $record->assignees;
-
-                                // TODO: Improve the logic to check if the task is already assigned to the user
-                                // Send notifications to assignees if they haven't been notified about this task yet
-                                if ($assignees->isNotEmpty()) {
-                                    $assignees->each(function (User $recipient) use ($record): void {
-                                        // Check if a notification for this task already exists for this user
-                                        $notificationExists = $recipient->notifications()
-                                            ->where('data->viewData->task_id', $record->id)
-                                            ->exists();
-
-                                        // Only send notification if one doesn't already exist
-                                        if (! $notificationExists) {
-                                            Notification::make()
-                                                ->title('New Task Assignment: '.$record->title)
-                                                ->actions([
-                                                    Action::make('view')
-                                                        ->button()
-                                                        ->label('View Task')
-                                                        ->url(ManageTasks::getUrl(['record' => $record]))
-                                                        ->markAsRead(),
-                                                ])
-                                                ->icon('heroicon-o-check-circle')
-                                                ->iconColor('primary')
-                                                ->viewData(['task_id' => $record->id]) // Store task ID in notification data
-                                                ->sendToDatabase($recipient);
-                                        }
-                                    });
-                                }
-
-                                DB::commit();
-                            } catch (Throwable $e) {
-                                DB::rollBack();
-                                throw $e;
-                            }
-
-                            return $record;
-                        }),
-                    RestoreAction::make(),
-                    DeleteAction::make(),
-                    ForceDeleteAction::make(),
-                ]),
-            ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

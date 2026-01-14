@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Relaticle\OnboardSeed\ModelSeeders;
 
-use App\Enums\CustomFields\CompanyField as CompanyCustomField;
 use App\Models\Company;
 use App\Models\Team;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -16,11 +15,8 @@ final class CompanySeeder extends BaseModelSeeder
 
     protected string $entityType = 'companies';
 
-    protected array $fieldCodes = [
-        CompanyCustomField::DOMAIN_NAME->value,
-        CompanyCustomField::ICP->value,
-        CompanyCustomField::LINKEDIN->value,
-    ];
+    /** @var array<int, string> */
+    protected array $fieldCodes = [];
 
     /**
      * Create company entities from fixtures
@@ -54,6 +50,7 @@ final class CompanySeeder extends BaseModelSeeder
     {
         $attributes = [
             'name' => $data['name'],
+            'domain' => $data['domain'] ?? null,
             'account_owner_id' => $user->getAuthIdentifier(),
         ];
 

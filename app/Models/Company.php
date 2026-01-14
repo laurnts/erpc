@@ -41,6 +41,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string|null $phone
  * @property string|null $address
  * @property string|null $country
+ * @property string|null $domain
  * @property bool $is_buyer
  * @property bool $is_supplier
  * @property string $credit_limit
@@ -85,6 +86,7 @@ final class Company extends Model implements HasCustomFields, HasMedia
         'phone',
         'address',
         'country',
+        'domain',
         'is_buyer',
         'is_supplier',
         'credit_limit',

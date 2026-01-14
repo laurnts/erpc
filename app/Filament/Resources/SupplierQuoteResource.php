@@ -123,12 +123,7 @@ final class SupplierQuoteResource extends Resource
                     ->searchable(),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
-                ActionGroup::make([
-                    ViewAction::make()
-                        ->url(fn (SupplierQuote $record): string => RequestResource::getUrl('view', ['record' => $record->request_id])),
-                ]),
-            ])
+            ->recordUrl(fn (SupplierQuote $record): string => RequestResource::getUrl('view', ['record' => $record->request_id]))
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

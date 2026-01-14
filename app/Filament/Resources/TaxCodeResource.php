@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\Resources\TaxCodeResource\Pages\CreateTaxCode;
 use App\Filament\Resources\TaxCodeResource\Pages\ListTaxCodes;
 use App\Models\TaxCode;
 use Filament\Actions\ActionGroup;
@@ -149,13 +150,6 @@ final class TaxCodeResource extends Resource
                         '0' => 'No',
                     ]),
             ])
-            ->recordActions([
-                ActionGroup::make([
-                    ViewAction::make(),
-                    EditAction::make(),
-                    DeleteAction::make(),
-                ]),
-            ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
@@ -167,6 +161,7 @@ final class TaxCodeResource extends Resource
     {
         return [
             'index' => ListTaxCodes::route('/'),
+            'create' => CreateTaxCode::route('/create'),
         ];
     }
 

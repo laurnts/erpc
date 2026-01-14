@@ -12,8 +12,6 @@ use App\Models\Request;
 use App\Models\RequestItem;
 use App\Models\SupplierQuote;
 use Filament\Actions\Action;
-use Filament\Actions\BulkAction;
-use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -32,7 +30,6 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 final class ItemsRelationManager extends RelationManager
@@ -183,17 +180,35 @@ final class ItemsRelationManager extends RelationManager
                     ->size(Size::Small)
                     ->visible($canEdit),
                 Action::make('sendRequestToAllSuppliers')
-                    ->label('Send Request to All Suppliers')
+                    ->label(fn (): string => count($this->getSelectedTableRecords()) > 0
+                        ? 'Send Selected to Suppliers'
+                        : 'Send All to Suppliers')
                     ->icon('heroicon-o-paper-airplane')
                     ->color('primary')
                     ->size(Size::Small)
                     ->requiresConfirmation()
-                    ->modalHeading('Send Request to All Suppliers')
+                    ->modalHeading(fn (): string => count($this->getSelectedTableRecords()) > 0
+                        ? 'Send Selected Items to Suppliers'
+                        : 'Send All Items to Suppliers')
                     ->modalDescription(function () use ($request): string {
-                        $matchedItems = $request->items()->whereNotNull('article_id')->with('article.suppliers')->get();
+                        $selectedRecords = $this->getSelectedTableRecords();
+                        $hasSelection = count($selectedRecords) > 0;
+
+                        if ($hasSelection) {
+                            $selectedIds = collect($selectedRecords)
+                                ->filter(fn (RequestItem $item): bool => $item->article_id !== null)
+                                ->pluck('id');
+                            $matchedItems = RequestItem::whereIn('id', $selectedIds)
+                                ->with('article.suppliers')
+                                ->get();
+                        } else {
+                            $matchedItems = $request->items()->whereNotNull('article_id')->with('article.suppliers')->get();
+                        }
 
                         if ($matchedItems->isEmpty()) {
-                            return 'No items are matched to articles yet.';
+                            return $hasSelection
+                                ? 'None of the selected items are matched to articles.'
+                                : 'No items are matched to articles yet.';
                         }
 
                         $supplierIds = $matchedItems
@@ -201,18 +216,34 @@ final class ItemsRelationManager extends RelationManager
                             ->unique()
                             ->count();
 
-                        return "Send {$matchedItems->count()} matched item(s) to {$supplierIds} supplier(s) for quote requests?";
+                        $prefix = $hasSelection ? 'selected ' : '';
+
+                        return "Send {$matchedItems->count()} {$prefix}matched item(s) to {$supplierIds} supplier(s) for quote requests?";
                     })
                     ->action(function () use ($request): void {
-                        $matchedItems = $request->items()
-                            ->whereNotNull('article_id')
-                            ->with('article.suppliers')
-                            ->get();
+                        $selectedRecords = $this->getSelectedTableRecords();
+                        $hasSelection = count($selectedRecords) > 0;
+
+                        if ($hasSelection) {
+                            $selectedIds = collect($selectedRecords)
+                                ->filter(fn (RequestItem $item): bool => $item->article_id !== null)
+                                ->pluck('id');
+                            $matchedItems = RequestItem::whereIn('id', $selectedIds)
+                                ->with('article.suppliers')
+                                ->get();
+                        } else {
+                            $matchedItems = $request->items()
+                                ->whereNotNull('article_id')
+                                ->with('article.suppliers')
+                                ->get();
+                        }
 
                         if ($matchedItems->isEmpty()) {
                             Notification::make()
                                 ->title('No matched items')
-                                ->body('Match items to articles before sending to suppliers.')
+                                ->body($hasSelection
+                                    ? 'None of the selected items are matched to articles.'
+                                    : 'Match items to articles before sending to suppliers.')
                                 ->warning()
                                 ->send();
 
@@ -273,6 +304,11 @@ final class ItemsRelationManager extends RelationManager
                                 }
                             }
                         });
+
+                        // Deselect records after action
+                        if ($hasSelection) {
+                            $this->deselectAllTableRecords();
+                        }
 
                         if ($itemsAdded > 0 || $quotesCreated > 0) {
                             Notification::make()
@@ -406,113 +442,7 @@ final class ItemsRelationManager extends RelationManager
                     }),
             ])
             ->toolbarActions([
-                BulkActionGroup::make([
-                    BulkAction::make('sendToSuppliers')
-                        ->label('Send Request to All Suppliers')
-                        ->icon('heroicon-o-paper-airplane')
-                        ->color('primary')
-                        ->requiresConfirmation()
-                        ->modalHeading('Send Request to All Suppliers')
-                        ->modalDescription(fn (Collection $records): string => "Send {$records->count()} item(s) to all their article suppliers for quote requests?")
-                        ->action(function (Collection $records) use ($request): void {
-                            // Filter to items with matched articles
-                            $matchedItems = $records->filter(fn (RequestItem $item): bool => $item->article_id !== null);
-
-                            if ($matchedItems->isEmpty()) {
-                                Notification::make()
-                                    ->title('No matched items')
-                                    ->body('Selected items have no articles matched.')
-                                    ->warning()
-                                    ->send();
-
-                                return;
-                            }
-
-                            // Get default currency
-                            /** @var \App\Models\Team|null $team */
-                            $team = Filament::getTenant();
-                            $defaultCurrencyCode = $team?->getErpSettings()->default_currency ?? 'USD';
-                            $defaultCurrency = Currency::query()
-                                ->where('code', $defaultCurrencyCode)
-                                ->where('is_active', true)
-                                ->first();
-
-                            $itemsAdded = 0;
-                            $quotesCreated = 0;
-
-                            DB::transaction(function () use ($matchedItems, $defaultCurrency, $request, &$itemsAdded, &$quotesCreated): void {
-                                foreach ($matchedItems as $item) {
-                                    /** @var RequestItem $item */
-                                    if ($item->article === null) {
-                                        continue;
-                                    }
-
-                                    // Get all active suppliers for this article
-                                    $suppliers = $item->article->suppliers()
-                                        ->where('companies.is_active', true)
-                                        ->get();
-
-                                    foreach ($suppliers as $supplier) {
-                                        // Check if a quote already exists for this supplier
-                                        $existingQuote = $request->supplierQuotes()
-                                            ->where('supplier_id', $supplier->getKey())
-                                            ->first();
-
-                                        if ($existingQuote === null) {
-                                            // Create new supplier quote
-                                            /** @var SupplierQuote $existingQuote */
-                                            $existingQuote = $request->supplierQuotes()->create([
-                                                'supplier_id' => $supplier->getKey(),
-                                                'currency_id' => $defaultCurrency?->getKey(),
-                                                'exchange_rate' => 1,
-                                                'quoted_at' => now(),
-                                            ]);
-                                            $quotesCreated++;
-                                        }
-
-                                        // Check if item already in quote
-                                        if ($existingQuote->items()->where('request_item_id', $item->getKey())->exists()) {
-                                            continue;
-                                        }
-
-                                        $existingQuote->items()->create([
-                                            'request_item_id' => $item->getKey(),
-                                            'article_id' => $item->article_id,
-                                            'description' => $item->article?->name ?? $item->description,
-                                            'quantity' => $item->quantity,
-                                            'unit' => $item->unit,
-                                            'sort_order' => $existingQuote->items()->count(),
-                                        ]);
-                                        $itemsAdded++;
-                                    }
-                                }
-                            });
-
-                            if ($itemsAdded > 0 || $quotesCreated > 0) {
-                                $message = [];
-                                if ($quotesCreated > 0) {
-                                    $message[] = "{$quotesCreated} quote request(s) created";
-                                }
-                                if ($itemsAdded > 0) {
-                                    $message[] = "{$itemsAdded} item(s) added";
-                                }
-
-                                Notification::make()
-                                    ->title('Sent to suppliers')
-                                    ->body(implode(', ', $message))
-                                    ->success()
-                                    ->send();
-                            } else {
-                                Notification::make()
-                                    ->title('No changes')
-                                    ->body('All selected items are already in quote requests or have no suppliers.')
-                                    ->info()
-                                    ->send();
-                            }
-                        })
-                        ->deselectRecordsAfterCompletion(),
-                    DeleteBulkAction::make()->visible($canEdit),
-                ]),
+                DeleteBulkAction::make()->visible($canEdit),
             ]);
     }
 

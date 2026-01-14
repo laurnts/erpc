@@ -24,7 +24,6 @@ final class PeopleSeeder extends BaseModelSeeder
         PeopleCustomField::EMAILS->value,
         PeopleCustomField::PHONE_NUMBER->value,
         PeopleCustomField::JOB_TITLE->value,
-        PeopleCustomField::LINKEDIN->value,
     ];
 
     /**

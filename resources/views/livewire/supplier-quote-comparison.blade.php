@@ -115,7 +115,7 @@
 
                             {{-- Quantity --}}
                             <td class="px-4 py-3 text-sm text-center text-gray-600 dark:text-gray-300">
-                                {{ number_format((float) $requestItem->quantity, 2) }}
+                                {{ $this->quotes->first()?->currency?->formatNumber((float) $requestItem->quantity) ?? number_format((float) $requestItem->quantity, 2) }}
                                 <span class="text-xs text-gray-400">{{ $requestItem->unit }}</span>
                             </td>
 
@@ -136,11 +136,11 @@
                                             <div class="flex items-center justify-between gap-2">
                                                 <div>
                                                     <div class="font-medium {{ $isBestPrice ? 'text-success-700 dark:text-success-400' : 'text-gray-900 dark:text-gray-100' }}">
-                                                        {{ $quote->currency->symbol ?? '' }}{{ number_format((float) $quoteItem->unit_price_exc_tax, 2) }}
+                                                        {{ $quote->currency?->format((float) $quoteItem->unit_price_exc_tax) ?? number_format((float) $quoteItem->unit_price_exc_tax, 2) }}
                                                         <span class="text-xs text-gray-400 font-normal">/{{ $quoteItem->unit }}</span>
                                                     </div>
                                                     <div class="text-xs text-gray-500 dark:text-gray-400">
-                                                        Total: {{ $quote->currency->symbol ?? '' }}{{ number_format((float) $quoteItem->line_total, 2) }}
+                                                        Total: {{ $quote->currency?->format((float) $quoteItem->line_total) ?? number_format((float) $quoteItem->line_total, 2) }}
                                                     </div>
                                                 </div>
                                                 <div class="flex items-center gap-1">

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\CompanyResource\Pages;
 
-use App\Enums\CustomFields\CompanyField;
 use App\Filament\Actions\GenerateRecordSummaryAction;
 use App\Filament\Components\Infolists\AvatarName;
 use App\Filament\Resources\CompanyResource;
@@ -43,25 +42,17 @@ final class ViewCompany extends ViewRecord
     }
 
     /**
-     * Dispatch favicon fetch job if domain_name custom field has changed.
+     * Dispatch favicon fetch job if domain field has changed.
      *
      * @param  array<string, mixed>  $data
      */
     private function dispatchFaviconFetchIfNeeded(Company $company, array $data): void
     {
-        $customFieldsData = $data['custom_fields'] ?? [];
-        $newDomain = $customFieldsData['domain_name'] ?? null;
-
-        // Get the old domain value from the database
-        $domainField = $company->customFields()
-            ->whereBelongsTo($company->team)
-            ->where('code', CompanyField::DOMAIN_NAME->value)
-            ->first();
-
-        $oldDomain = $domainField !== null ? $company->getCustomFieldValue($domainField) : null;
+        $newDomain = $data['domain'] ?? null;
+        $oldDomain = $company->getOriginal('domain');
 
         // Only dispatch if domain changed and new value is not empty
-        if (! in_array($newDomain, [$oldDomain, null, '', '0'], true)) {
+        if ($newDomain !== $oldDomain && ! in_array($newDomain, [null, '', '0'], true)) {
             FetchFaviconForCompany::dispatch($company)->afterCommit();
         }
     }

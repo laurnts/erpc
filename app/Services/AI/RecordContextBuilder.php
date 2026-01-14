@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\AI;
 
-use App\Enums\CustomFields\CompanyField;
 use App\Enums\CustomFields\NoteField;
 use App\Enums\CustomFields\OpportunityField;
 use App\Enums\CustomFields\PeopleField;
@@ -139,8 +138,7 @@ final readonly class RecordContextBuilder
     private function getCompanyBasicInfo(Company $company): array
     {
         return collect([
-            'domain' => $this->getCustomFieldValue($company, CompanyField::DOMAIN_NAME->value),
-            'is_icp' => (bool) $this->getCustomFieldValue($company, CompanyField::ICP->value),
+            'domain' => $company->domain,
             'account_owner' => $company->accountOwner?->name,
         ])->filter(fn (mixed $value): bool => filled($value))->all();
     }

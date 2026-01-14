@@ -7,6 +7,36 @@ parameters:
 			path: app/Filament/Resources/ArticleResource.php
 
 		-
+			message: '#^Access to an undefined property App\\Models\\BuyerOrder\:\:\$currency\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/BuyerOrderResource.php
+
+		-
+			message: '#^Parameter \#1 \$num of function number_format expects float, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/BuyerOrderResource.php
+
+		-
+			message: '#^Parameter \#1 \$amount of method App\\Models\\Currency\:\:format\(\) expects float\|int, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/BuyerQuoteResource.php
+
+		-
+			message: '#^Parameter \#1 \$num of function number_format expects float, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/BuyerQuoteResource.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type App\\Models\\Currency\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Filament/Resources/BuyerQuoteResource.php
+
+		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
 			identifier: property.notFound
 			count: 1
@@ -31,8 +61,8 @@ parameters:
 			path: app/Filament/Resources/RequestResource/Pages/ViewRequest.php
 
 		-
-			message: '#^Access to an undefined property App\\Models\\BuyerOrder\:\:\$total_base\.$#'
-			identifier: property.notFound
+			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Filament/Resources/RequestResource/RelationManagers/BuyerOrdersRelationManager.php
 
@@ -45,7 +75,7 @@ parameters:
 		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
-			count: 4
+			count: 3
 			path: app/Filament/Resources/RequestResource/RelationManagers/ItemsRelationManager.php
 
 		-

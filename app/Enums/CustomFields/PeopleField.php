@@ -16,14 +16,12 @@ enum PeopleField: string
     case EMAILS = 'emails';
     case PHONE_NUMBER = 'phone_number';
     case JOB_TITLE = 'job_title';
-    case LINKEDIN = 'linkedin';
 
     public function getFieldType(): string
     {
         return match ($this) {
             self::EMAILS => CustomFieldType::TAGS_INPUT->value,
             self::PHONE_NUMBER, self::JOB_TITLE => CustomFieldType::TEXT->value,
-            self::LINKEDIN => CustomFieldType::LINK->value,
         };
     }
 
@@ -33,7 +31,6 @@ enum PeopleField: string
             self::EMAILS => 'Emails',
             self::PHONE_NUMBER => 'Phone Number',
             self::JOB_TITLE => 'Job Title',
-            self::LINKEDIN => 'LinkedIn',
         };
     }
 

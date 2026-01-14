@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Enums\RequestPriority;
 use App\Enums\RequestStage;
+use App\Filament\Resources\RequestResource\Pages\CreateRequest;
 use App\Filament\Resources\RequestResource\Pages\ListRequests;
 use App\Filament\Resources\RequestResource\Pages\ViewRequest;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerOrdersRelationManager;
@@ -285,15 +286,6 @@ final class RequestResource extends Resource
                     ]),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
-                ActionGroup::make([
-                    ViewAction::make(),
-                    EditAction::make(),
-                    RestoreAction::make(),
-                    DeleteAction::make(),
-                    ForceDeleteAction::make(),
-                ]),
-            ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
@@ -322,6 +314,7 @@ final class RequestResource extends Resource
     {
         return [
             'index' => ListRequests::route('/'),
+            'create' => CreateRequest::route('/create'),
             'view' => ViewRequest::route('/{record}'),
         ];
     }

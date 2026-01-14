@@ -210,7 +210,16 @@ final class SupplierOrder extends Model
     protected function formattedBaseTotal(): Attribute
     {
         return Attribute::make(
-            get: fn (): string => number_format((float) $this->base_total, 2),
+            get: function (): string {
+                $team = $this->team;
+                $baseCurrency = $team?->getBaseCurrency();
+
+                if ($baseCurrency === null) {
+                    return number_format((float) $this->base_total, 2);
+                }
+
+                return $baseCurrency->format((float) $this->base_total);
+            },
         );
     }
 

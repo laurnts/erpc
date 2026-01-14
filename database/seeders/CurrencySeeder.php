@@ -28,6 +28,8 @@ final class CurrencySeeder extends Seeder
                 'name' => 'Indonesian Rupiah',
                 'symbol' => 'Rp',
                 'decimal_places' => 0,
+                'thousands_separator' => '.',
+                'decimal_separator' => ',',
                 'is_active' => true,
                 'is_default' => false,
             ],

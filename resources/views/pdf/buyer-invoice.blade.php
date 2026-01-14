@@ -117,11 +117,11 @@
                 <tr>
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td>{{ $item->description }}</td>
-                    <td class="text-center">{{ number_format((float)$item->quantity, 2) }}</td>
-                    <td class="text-right">{{ number_format((float)$item->unit_price, 2) }}</td>
+                    <td class="text-center">{{ $invoice->currency?->formatNumber((float)$item->quantity) ?? number_format((float)$item->quantity, 2) }}</td>
+                    <td class="text-right">{{ $invoice->currency?->formatNumber((float)$item->unit_price) ?? number_format((float)$item->unit_price, 2) }}</td>
                     <td class="text-right">{{ number_format((float)$item->tax_rate, 1) }}%</td>
-                    <td class="text-right">{{ number_format((float)$item->line_tax, 2) }}</td>
-                    <td class="text-right">{{ number_format((float)$item->line_total, 2) }}</td>
+                    <td class="text-right">{{ $invoice->currency?->formatNumber((float)$item->line_tax) ?? number_format((float)$item->line_tax, 2) }}</td>
+                    <td class="text-right">{{ $invoice->currency?->formatNumber((float)$item->line_total) ?? number_format((float)$item->line_total, 2) }}</td>
                 </tr>
             @empty
                 <tr>
@@ -151,7 +151,7 @@
                                 <tr>
                                     <td style="padding: 5px; border: 1px solid #e5e7eb;">{{ $payment->payment_date?->format('d M Y') ?? '-' }}</td>
                                     <td style="padding: 5px; border: 1px solid #e5e7eb;">{{ $payment->payment_number ?? '-' }}</td>
-                                    <td style="text-align: right; padding: 5px; border: 1px solid #e5e7eb;">{{ number_format((float)$payment->amount, 2) }}</td>
+                                    <td style="text-align: right; padding: 5px; border: 1px solid #e5e7eb;">{{ $invoice->currency?->formatNumber((float)$payment->amount) ?? number_format((float)$payment->amount, 2) }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -165,26 +165,26 @@
                 <table class="totals-table">
                     <tr>
                         <td>Subtotal:</td>
-                        <td>{{ $invoice->currency?->symbol ?? '' }}{{ number_format((float)$invoice->subtotal, 2) }}</td>
+                        <td>{{ $invoice->currency?->format((float)$invoice->subtotal) ?? number_format((float)$invoice->subtotal, 2) }}</td>
                     </tr>
                     <tr>
                         <td>Tax:</td>
-                        <td>{{ $invoice->currency?->symbol ?? '' }}{{ number_format((float)$invoice->tax_total, 2) }}</td>
+                        <td>{{ $invoice->currency?->format((float)$invoice->tax_total) ?? number_format((float)$invoice->tax_total, 2) }}</td>
                     </tr>
                     <tr class="grand-total">
                         <td>Total:</td>
-                        <td>{{ $invoice->currency?->symbol ?? '' }}{{ number_format((float)$invoice->total, 2) }} {{ $invoice->currency?->code ?? '' }}</td>
+                        <td>{{ $invoice->currency?->format((float)$invoice->total) ?? number_format((float)$invoice->total, 2) }}</td>
                     </tr>
                     @if((float)$invoice->amount_paid > 0)
                         <tr>
                             <td>Amount Paid:</td>
-                            <td style="color: #059669;">{{ $invoice->currency?->symbol ?? '' }}{{ number_format((float)$invoice->amount_paid, 2) }}</td>
+                            <td style="color: #059669;">{{ $invoice->currency?->format((float)$invoice->amount_paid) ?? number_format((float)$invoice->amount_paid, 2) }}</td>
                         </tr>
                     @endif
                     @if($invoice->amount_outstanding > 0)
                         <tr class="amount-due">
                             <td>Amount Due:</td>
-                            <td>{{ $invoice->currency?->symbol ?? '' }}{{ number_format($invoice->amount_outstanding, 2) }}</td>
+                            <td>{{ $invoice->currency?->format($invoice->amount_outstanding) ?? number_format($invoice->amount_outstanding, 2) }}</td>
                         </tr>
                     @endif
                 </table>

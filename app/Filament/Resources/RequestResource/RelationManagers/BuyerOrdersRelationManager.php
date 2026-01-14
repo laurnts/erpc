@@ -74,7 +74,7 @@ final class BuyerOrdersRelationManager extends RelationManager
                                 ->content(fn (?BuyerOrder $record): string => $record->buyerQuote->quote_number ?? 'None'),
                             Placeholder::make('currency_display')
                                 ->label('Currency')
-                                ->content(fn (?BuyerOrder $record): string => $record->currency->code ?? '-'),
+                                ->content(fn (?BuyerOrder $record): string => $record?->buyerQuote?->currency?->code ?? '-'),
                         ]),
                     Grid::make(4)
                         ->schema([
@@ -151,23 +151,32 @@ final class BuyerOrdersRelationManager extends RelationManager
                             Placeholder::make('subtotal_display')
                                 ->label('Subtotal')
                                 ->content(fn (?BuyerOrder $record): string => $record instanceof BuyerOrder
-                                    ? number_format((float) $record->subtotal, 2)
-                                    : '0.00'),
+                                    ? ($record->buyerQuote?->currency?->formatNumber((float) $record->subtotal) ?? number_format((float) $record->subtotal, 2))
+                                    : '0,-'),
                             Placeholder::make('tax_total_display')
                                 ->label('Tax Total')
                                 ->content(fn (?BuyerOrder $record): string => $record instanceof BuyerOrder
-                                    ? number_format((float) $record->tax_total, 2)
-                                    : '0.00'),
+                                    ? ($record->buyerQuote?->currency?->formatNumber((float) $record->tax_total) ?? number_format((float) $record->tax_total, 2))
+                                    : '0,-'),
                             Placeholder::make('total_display')
                                 ->label('Total')
                                 ->content(fn (?BuyerOrder $record): string => $record instanceof BuyerOrder
-                                    ? number_format((float) $record->total, 2)
-                                    : '0.00'),
+                                    ? ($record->buyerQuote?->currency?->format((float) $record->total) ?? number_format((float) $record->total, 2))
+                                    : '0,-'),
                             Placeholder::make('total_base_display')
                                 ->label('Total (Base)')
-                                ->content(fn (?BuyerOrder $record): string => $record instanceof BuyerOrder
-                                    ? number_format((float) $record->total_base, 2)
-                                    : '0.00'),
+                                ->content(function (?BuyerOrder $record): string {
+                                    if (! $record instanceof BuyerOrder) {
+                                        return '0,-';
+                                    }
+                                    /** @var \App\Models\Team|null $team */
+                                    $team = \Filament\Facades\Filament::getTenant();
+                                    $baseCurrency = $team?->getBaseCurrency();
+
+                                    return $baseCurrency !== null
+                                        ? $baseCurrency->format((float) $record->total)
+                                        : number_format((float) $record->total, 2);
+                                }),
                         ]),
                 ])
                 ->collapsible(),
@@ -220,12 +229,12 @@ final class BuyerOrdersRelationManager extends RelationManager
                     ->sortable(),
                 TextColumn::make('subtotal')
                     ->label('Subtotal')
-                    ->numeric(decimalPlaces: 2)
+                    ->formatStateUsing(fn (BuyerOrder $record): string => $record->buyerQuote?->currency?->formatNumber((float) $record->subtotal) ?? number_format((float) $record->subtotal, 2))
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('total')
                     ->label('Total')
-                    ->numeric(decimalPlaces: 2)
+                    ->formatStateUsing(fn (BuyerOrder $record): string => $record->buyerQuote?->currency?->format((float) $record->total) ?? number_format((float) $record->total, 2))
                     ->sortable(),
                 TextColumn::make('payment_terms_days')
                     ->label('Terms')

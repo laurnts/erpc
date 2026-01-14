@@ -194,13 +194,6 @@ final class ExchangeRateResource extends Resource
                         ->pluck('code', 'id')
                         ->all()),
             ])
-            ->recordActions([
-                ActionGroup::make([
-                    ViewAction::make(),
-                    EditAction::make(),
-                    DeleteAction::make(),
-                ]),
-            ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

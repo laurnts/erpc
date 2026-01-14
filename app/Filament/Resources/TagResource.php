@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\Resources\TagResource\Pages\CreateTag;
 use App\Filament\Resources\TagResource\Pages\ListTags;
 use App\Models\Tag;
 use Filament\Actions\ActionGroup;
@@ -15,6 +16,7 @@ use Filament\Actions\ViewAction;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\ColorColumn;
@@ -59,6 +61,9 @@ final class TagResource extends Resource
             Textarea::make('description')
                 ->maxLength(500)
                 ->rows(2),
+            Toggle::make('is_active')
+                ->label('Active')
+                ->default(true),
         ];
     }
 
@@ -74,7 +79,6 @@ final class TagResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->description('Categories are shared between Articles and Companies for classification.')
             ->columns([
                 ColorColumn::make('color')
                     ->label('')
@@ -115,13 +119,6 @@ final class TagResource extends Resource
                         '0' => 'Inactive',
                     ]),
             ])
-            ->recordActions([
-                ActionGroup::make([
-                    ViewAction::make(),
-                    EditAction::make(),
-                    DeleteAction::make(),
-                ]),
-            ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
@@ -133,6 +130,7 @@ final class TagResource extends Resource
     {
         return [
             'index' => ListTags::route('/'),
+            'create' => CreateTag::route('/create'),
         ];
     }
 

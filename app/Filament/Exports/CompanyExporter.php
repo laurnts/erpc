@@ -21,6 +21,8 @@ final class CompanyExporter extends BaseExporter
                 ->label('ID'),
             ExportColumn::make('name')
                 ->label('Company Name'),
+            ExportColumn::make('domain')
+                ->label('Domain'),
             ExportColumn::make('team.name')
                 ->label('Team'),
             ExportColumn::make('accountOwner.name')
