@@ -135,8 +135,10 @@ final class BuyerResource extends Resource
         return array_merge($fields, [
             Section::make('Location')
                 ->schema([
-                    TextInput::make('country')
-                        ->maxLength(100),
+                    Select::make('country')
+                        ->options(self::getCountryOptions())
+                        ->default('Indonesia')
+                        ->searchable(),
                     Textarea::make('address')
                         ->label('Address')
                         ->rows(2),
@@ -353,5 +355,15 @@ final class BuyerResource extends Resource
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
+    }
+
+    /**
+     * Get country options for select field.
+     *
+     * @return array<string, string>
+     */
+    public static function getCountryOptions(): array
+    {
+        return CompanyResource::getCountryOptions();
     }
 }

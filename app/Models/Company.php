@@ -49,6 +49,10 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property bool $is_on_hold
  * @property string|null $on_hold_reason
  * @property int $lead_time_days
+ * @property string|null $delivery_type
+ * @property string|null $delivery_type_details
+ * @property bool $is_taxable
+ * @property string|null $delivery_term
  * @property int $payment_terms_days
  * @property string|null $notes
  * @property bool $is_active
@@ -94,6 +98,10 @@ final class Company extends Model implements HasCustomFields, HasMedia
         'is_on_hold',
         'on_hold_reason',
         'lead_time_days',
+        'delivery_type',
+        'delivery_type_details',
+        'is_taxable',
+        'delivery_term',
         'payment_terms_days',
         'notes',
         'is_active',
@@ -111,6 +119,7 @@ final class Company extends Model implements HasCustomFields, HasMedia
         'credit_used' => 0,
         'is_on_hold' => false,
         'lead_time_days' => 0,
+        'is_taxable' => true,
         'payment_terms_days' => 30,
         'is_active' => true,
         'creation_source' => CreationSource::WEB,
@@ -130,6 +139,7 @@ final class Company extends Model implements HasCustomFields, HasMedia
             'credit_used' => 'decimal:2',
             'is_on_hold' => 'boolean',
             'lead_time_days' => 'integer',
+            'is_taxable' => 'boolean',
             'payment_terms_days' => 'integer',
             'is_active' => 'boolean',
             'creation_source' => CreationSource::class,

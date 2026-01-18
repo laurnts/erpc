@@ -215,6 +215,16 @@ final class Request extends Model implements HasCustomFields, HasMedia
     }
 
     /**
+     * The quotation evaluations for this request.
+     *
+     * @return HasMany<QuotationEvaluation, $this>
+     */
+    public function quotationEvaluations(): HasMany
+    {
+        return $this->hasMany(QuotationEvaluation::class);
+    }
+
+    /**
      * The activity log for this request.
      *
      * @return HasMany<RequestActivity, $this>

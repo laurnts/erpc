@@ -46,22 +46,19 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
     }
 
     /**
-     * Initialize selections from already selected quotes.
+     * Initialize selections from items marked as selected.
      */
     private function initializeSelections(): void
     {
-        // Get currently selected quote items and map them
-        $selectedQuotes = $this->request->supplierQuotes()
-            ->where('status', SupplierQuoteStatus::SELECTED)
-            ->with('items')
+        // Get items that are specifically marked as selected
+        $selectedItems = SupplierQuoteItem::query()
+            ->whereHas('supplierQuote', fn ($query) => $query->where('request_id', $this->request->getKey()))
+            ->where('is_selected', true)
+            ->whereNotNull('request_item_id')
             ->get();
 
-        foreach ($selectedQuotes as $quote) {
-            foreach ($quote->items as $item) {
-                if ($item->request_item_id !== null) {
-                    $this->itemSelections[$item->request_item_id] = $quote->getKey();
-                }
-            }
+        foreach ($selectedItems as $item) {
+            $this->itemSelections[$item->request_item_id] = $item->supplier_quote_id;
         }
     }
 
@@ -134,7 +131,7 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
     }
 
     /**
-     * Apply the current selections by updating quote statuses.
+     * Apply the current selections by updating quote statuses and item selections.
      */
     public function applySelections(): void
     {
@@ -146,10 +143,21 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
             }
         }
 
-        // Mark selected quotes
+        // First, clear all is_selected flags for this request's quotes
+        SupplierQuoteItem::query()
+            ->whereHas('supplierQuote', fn ($query) => $query->where('request_id', $this->request->getKey()))
+            ->update(['is_selected' => false]);
+
+        // Mark selected quotes and their specific items
         foreach ($this->quotes as $quote) {
             if (array_key_exists($quote->getKey(), $quoteSelections)) {
                 $quote->markAsSelected();
+
+                // Mark the specific items as selected
+                SupplierQuoteItem::query()
+                    ->where('supplier_quote_id', $quote->getKey())
+                    ->whereIn('request_item_id', $quoteSelections[$quote->getKey()])
+                    ->update(['is_selected' => true]);
             } elseif ($quote->status === SupplierQuoteStatus::SELECTED) {
                 // Quote was selected but no longer has selections, mark as pending
                 $quote->status = SupplierQuoteStatus::PENDING;

@@ -122,7 +122,7 @@ final class ArticlesRelationManager extends RelationManager
                     ->icon('heroicon-o-cube')
                     ->size(Size::Small)
                     ->form([
-                        ...ArticleResource::getFormSchema(),
+                        ...ArticleResource::getFormSchema(forModal: true),
                         ...self::getPivotFormSchema(),
                     ])
                     ->using(function (array $data, RelationManager $livewire): Article {

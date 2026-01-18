@@ -133,6 +133,18 @@ final class ErpPermissionSeeder extends Seeder
             // Audit Log permissions
             'view audit logs',
             'export audit logs',
+
+            // Key Account permissions
+            'view key accounts',
+            'create key accounts',
+            'update key accounts',
+            'delete key accounts',
+
+            // Quotation Evaluation permissions
+            'view quotation evaluations',
+            'create quotation evaluations',
+            'update quotation evaluations',
+            'delete quotation evaluations',
         ];
 
         // Create permissions
@@ -182,6 +194,8 @@ final class ErpPermissionSeeder extends Seeder
             'view tax codes', 'create tax codes', 'update tax codes', 'delete tax codes',
             'view projects', 'create projects', 'update projects', 'delete projects',
             'view audit logs',
+            'view key accounts', 'create key accounts', 'update key accounts', 'delete key accounts',
+            'view quotation evaluations', 'create quotation evaluations', 'update quotation evaluations', 'delete quotation evaluations',
         ]);
     }
 
@@ -206,6 +220,8 @@ final class ErpPermissionSeeder extends Seeder
             'view currencies',
             'view tax codes',
             'view projects', 'create projects', 'update projects',
+            'view key accounts', 'create key accounts',
+            'view quotation evaluations', 'create quotation evaluations', 'update quotation evaluations',
         ]);
     }
 

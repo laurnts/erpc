@@ -31,6 +31,15 @@
                     Select Best Prices
                 </x-filament::button>
 
+                <x-filament::button
+                    size="sm"
+                    color="gray"
+                    x-on:click="$dispatch('open-modal', { id: 'create-qe-modal' })"
+                    icon="heroicon-o-document-check"
+                >
+                    Create QE
+                </x-filament::button>
+
                 @if($this->selectedSuppliersCount > 0)
                     <x-filament::button
                         size="sm"
@@ -115,7 +124,7 @@
 
                             {{-- Quantity --}}
                             <td class="px-4 py-3 text-sm text-center text-gray-600 dark:text-gray-300">
-                                {{ $this->quotes->first()?->currency?->formatNumber((float) $requestItem->quantity) ?? number_format((float) $requestItem->quantity, 2) }}
+                                {{ number_format((float) $requestItem->quantity, 0) }}
                                 <span class="text-xs text-gray-400">{{ $requestItem->unit }}</span>
                             </td>
 
@@ -202,4 +211,15 @@
             </div>
         </x-filament::section>
     @endif
+
+    {{-- Create QE Modal --}}
+    <x-filament::modal
+        id="create-qe-modal"
+        slide-over
+        width="xl"
+        :heading="__('Create Quotation Evaluation')"
+        :description="__('Generate an internal QE document from this quote comparison')"
+    >
+        @livewire(\App\Livewire\QuotationEvaluationForm::class, ['request' => $this->request], key('qe-form-' . $this->request->id))
+    </x-filament::modal>
 </div>

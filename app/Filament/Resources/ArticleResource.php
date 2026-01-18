@@ -53,10 +53,73 @@ final class ArticleResource extends Resource
      * Get the base form fields for creating/editing an article.
      * Used both in main form and inline create modals.
      *
+     * @param  bool  $forModal  When true, uses options() instead of relationship() to avoid model context issues
      * @return array<int, \Filament\Schemas\Components\Component>
      */
-    public static function getFormSchema(): array
+    public static function getFormSchema(bool $forModal = false): array
     {
+        $taxCodeSelect = Select::make('default_tax_code_id')
+            ->label('Default Tax Code')
+            ->default(fn (): ?int => TaxCode::query()
+                ->where('team_id', Filament::getTenant()?->getKey())
+                ->where('is_default', true)
+                ->where('is_active', true)
+                ->value('id'))
+            ->searchable()
+            ->preload()
+            ->helperText('Tax code to apply when using this article');
+
+        if ($forModal) {
+            $taxCodeSelect->options(fn (): array => TaxCode::query()
+                ->where('team_id', Filament::getTenant()?->getKey())
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get()
+                ->mapWithKeys(fn (TaxCode $taxCode): array => [
+                    $taxCode->getKey() => $taxCode->display_name,
+                ])
+                ->toArray());
+        } else {
+            $taxCodeSelect->relationship('defaultTaxCode', 'name')
+                ->getOptionLabelFromRecordUsing(fn (?TaxCode $record): string => $record?->display_name ?? '');
+        }
+
+        $tagsSelect = Select::make('tags')
+            ->label('Categories')
+            ->multiple()
+            ->preload()
+            ->searchable()
+            ->createOptionForm(TagResource::getFormSchema())
+            ->createOptionUsing(function (array $data): int {
+                /** @var \App\Models\Team $team */
+                $team = Filament::getTenant();
+
+                /** @var Tag $tag */
+                $tag = Tag::create([
+                    'name' => $data['name'],
+                    'color' => $data['color'],
+                    'description' => $data['description'] ?? null,
+                    'team_id' => $team->id,
+                    'creator_id' => auth()->id(),
+                ]);
+
+                return $tag->id;
+            });
+
+        if ($forModal) {
+            $tagsSelect->options(fn (): array => Tag::query()
+                ->where('team_id', Filament::getTenant()?->getKey())
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get()
+                ->mapWithKeys(fn (Tag $tag): array => [
+                    $tag->getKey() => $tag->name,
+                ])
+                ->toArray());
+        } else {
+            $tagsSelect->relationship('tags', 'name');
+        }
+
         return [
             TextInput::make('name')
                 ->label('Article Name')
@@ -71,40 +134,8 @@ final class ArticleResource extends Resource
                 ->maxLength(50)
                 ->default('pcs')
                 ->helperText('e.g., pcs, kg, ltr, set, box'),
-            Select::make('default_tax_code_id')
-                ->label('Default Tax Code')
-                ->relationship('defaultTaxCode', 'name')
-                ->getOptionLabelFromRecordUsing(fn (?TaxCode $record): string => $record?->display_name ?? '')
-                ->default(fn (): ?int => TaxCode::query()
-                    ->where('team_id', Filament::getTenant()?->getKey())
-                    ->where('is_default', true)
-                    ->where('is_active', true)
-                    ->value('id'))
-                ->searchable()
-                ->preload()
-                ->helperText('Tax code to apply when using this article'),
-            Select::make('tags')
-                ->label('Categories')
-                ->relationship('tags', 'name')
-                ->multiple()
-                ->preload()
-                ->searchable()
-                ->createOptionForm(TagResource::getFormSchema())
-                ->createOptionUsing(function (array $data): int {
-                    /** @var \App\Models\Team $team */
-                    $team = Filament::getTenant();
-
-                    /** @var Tag $tag */
-                    $tag = Tag::create([
-                        'name' => $data['name'],
-                        'color' => $data['color'],
-                        'description' => $data['description'] ?? null,
-                        'team_id' => $team->id,
-                        'creator_id' => auth()->id(),
-                    ]);
-
-                    return $tag->id;
-                }),
+            $taxCodeSelect,
+            $tagsSelect,
             Textarea::make('description')
                 ->maxLength(2000)
                 ->rows(3),

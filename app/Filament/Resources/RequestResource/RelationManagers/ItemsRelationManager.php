@@ -91,7 +91,7 @@ final class ItemsRelationManager extends RelationManager
                     ->preload()
                     ->placeholder('Select article...')
                     ->helperText('Quotes will be sent to all suppliers of this article. Use + to create a new article.')
-                    ->createOptionForm(\App\Filament\Resources\ArticleResource::getFormSchema())
+                    ->createOptionForm(\App\Filament\Resources\ArticleResource::getFormSchema(forModal: true))
                     ->createOptionUsing(function (array $data) use ($request): int {
                         /** @var Article $article */
                         $article = Article::create([
@@ -208,7 +208,7 @@ final class ItemsRelationManager extends RelationManager
                         if ($matchedItems->isEmpty()) {
                             return $hasSelection
                                 ? 'None of the selected items are matched to articles.'
-                                : 'No items are matched to articles yet.';
+                                : 'No items are matched to articles yet. Please match items to articles first.';
                         }
 
                         $supplierIds = $matchedItems
@@ -216,9 +216,12 @@ final class ItemsRelationManager extends RelationManager
                             ->unique()
                             ->count();
 
-                        $prefix = $hasSelection ? 'selected ' : '';
+                        $itemsList = $matchedItems->take(5)->map(fn (RequestItem $item): string => "• {$item->article?->name} (" . number_format((float) $item->quantity, 0) . " {$item->unit})")->implode("\n");
+                        $moreItems = $matchedItems->count() > 5 ? "\n• ... and " . ($matchedItems->count() - 5) . " more item(s)" : '';
 
-                        return "Send {$matchedItems->count()} {$prefix}matched item(s) to {$supplierIds} supplier(s) for quote requests?";
+                        $prefix = $hasSelection ? 'SELECTED ' : 'ALL ';
+
+                        return "You are about to send {$prefix}matched items to their respective suppliers.\n\n{$itemsList}{$moreItems}\n\nTotal: {$matchedItems->count()} item(s) will be sent to {$supplierIds} supplier(s).";
                     })
                     ->action(function () use ($request): void {
                         $selectedRecords = $this->getSelectedTableRecords();
@@ -341,15 +344,18 @@ final class ItemsRelationManager extends RelationManager
                     ->size(Size::Small)
                     ->visible(fn (RequestItem $record): bool => $record->article_id !== null)
                     ->requiresConfirmation()
-                    ->modalHeading('Send to All Suppliers')
+                    ->modalHeading('Send Single Item to Suppliers')
                     ->modalDescription(function (RequestItem $record): string {
                         $supplierCount = $record->article?->suppliers()->where('companies.is_active', true)->count() ?? 0;
+                        $articleName = $record->article?->name ?? $record->description;
 
                         if ($supplierCount === 0) {
-                            return 'This article has no active suppliers. Add suppliers to the article first.';
+                            return "The article \"{$articleName}\" has no active suppliers. Add suppliers to the article first.";
                         }
 
-                        return "Send quote request for this item to all {$supplierCount} supplier(s) of this article?";
+                        $qty = number_format((float) $record->quantity, 0);
+
+                        return "You are about to send a quote request for:\n\n• Item: {$articleName}\n• Quantity: {$qty} {$record->unit}\n\nThis will be sent to {$supplierCount} supplier(s) linked to this article.";
                     })
                     ->action(function (RequestItem $record) use ($request): void {
                         if ($record->article === null) {

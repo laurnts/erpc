@@ -119,8 +119,10 @@ final class CompanyResource extends Resource
 
             Section::make('Location')
                 ->schema([
-                    TextInput::make('country')
-                        ->maxLength(100),
+                    Select::make('country')
+                        ->options(self::getCountryOptions())
+                        ->default('Indonesia')
+                        ->searchable(),
                     Textarea::make('address')
                         ->label('Address')
                         ->rows(2),
@@ -216,7 +218,7 @@ final class CompanyResource extends Resource
                         ->preload()
                         ->searchable()
                         ->helperText('Articles this supplier provides. Manage pricing details in the Articles tab.')
-                        ->createOptionForm(ArticleResource::getFormSchema())
+                        ->createOptionForm(ArticleResource::getFormSchema(forModal: true))
                         ->createOptionUsing(function (array $data): int {
                             /** @var \App\Models\Team $team */
                             $team = Filament::getTenant();
@@ -433,5 +435,79 @@ final class CompanyResource extends Resource
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
+    }
+
+    /**
+     * Get country options for select field.
+     *
+     * @return array<string, string>
+     */
+    public static function getCountryOptions(): array
+    {
+        return [
+            'Indonesia' => 'Indonesia',
+            'Afghanistan' => 'Afghanistan',
+            'Albania' => 'Albania',
+            'Algeria' => 'Algeria',
+            'Argentina' => 'Argentina',
+            'Australia' => 'Australia',
+            'Austria' => 'Austria',
+            'Bangladesh' => 'Bangladesh',
+            'Belgium' => 'Belgium',
+            'Brazil' => 'Brazil',
+            'Brunei' => 'Brunei',
+            'Cambodia' => 'Cambodia',
+            'Canada' => 'Canada',
+            'Chile' => 'Chile',
+            'China' => 'China',
+            'Colombia' => 'Colombia',
+            'Czech Republic' => 'Czech Republic',
+            'Denmark' => 'Denmark',
+            'Egypt' => 'Egypt',
+            'Finland' => 'Finland',
+            'France' => 'France',
+            'Germany' => 'Germany',
+            'Greece' => 'Greece',
+            'Hong Kong' => 'Hong Kong',
+            'Hungary' => 'Hungary',
+            'India' => 'India',
+            'Ireland' => 'Ireland',
+            'Israel' => 'Israel',
+            'Italy' => 'Italy',
+            'Japan' => 'Japan',
+            'Kenya' => 'Kenya',
+            'Laos' => 'Laos',
+            'Malaysia' => 'Malaysia',
+            'Mexico' => 'Mexico',
+            'Myanmar' => 'Myanmar',
+            'Netherlands' => 'Netherlands',
+            'New Zealand' => 'New Zealand',
+            'Nigeria' => 'Nigeria',
+            'Norway' => 'Norway',
+            'Pakistan' => 'Pakistan',
+            'Peru' => 'Peru',
+            'Philippines' => 'Philippines',
+            'Poland' => 'Poland',
+            'Portugal' => 'Portugal',
+            'Qatar' => 'Qatar',
+            'Romania' => 'Romania',
+            'Russia' => 'Russia',
+            'Saudi Arabia' => 'Saudi Arabia',
+            'Singapore' => 'Singapore',
+            'South Africa' => 'South Africa',
+            'South Korea' => 'South Korea',
+            'Spain' => 'Spain',
+            'Sri Lanka' => 'Sri Lanka',
+            'Sweden' => 'Sweden',
+            'Switzerland' => 'Switzerland',
+            'Taiwan' => 'Taiwan',
+            'Thailand' => 'Thailand',
+            'Turkey' => 'Turkey',
+            'Ukraine' => 'Ukraine',
+            'United Arab Emirates' => 'United Arab Emirates',
+            'United Kingdom' => 'United Kingdom',
+            'United States' => 'United States',
+            'Vietnam' => 'Vietnam',
+        ];
     }
 }

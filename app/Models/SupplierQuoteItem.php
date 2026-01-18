@@ -29,6 +29,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $line_subtotal
  * @property string $line_tax
  * @property string $line_total
+ * @property bool $is_selected
  * @property int $sort_order
  * @property string|null $notes
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -65,6 +66,7 @@ final class SupplierQuoteItem extends Model
         'line_subtotal',
         'line_tax',
         'line_total',
+        'is_selected',
         'sort_order',
         'notes',
     ];
@@ -83,6 +85,7 @@ final class SupplierQuoteItem extends Model
         'line_subtotal' => '0.0000',
         'line_tax' => '0.0000',
         'line_total' => '0.0000',
+        'is_selected' => false,
         'sort_order' => 0,
     ];
 
@@ -101,6 +104,7 @@ final class SupplierQuoteItem extends Model
             'line_subtotal' => 'decimal:4',
             'line_tax' => 'decimal:4',
             'line_total' => 'decimal:4',
+            'is_selected' => 'boolean',
             'sort_order' => 'integer',
         ];
     }

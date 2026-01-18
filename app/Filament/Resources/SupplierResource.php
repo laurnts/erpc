@@ -135,8 +135,10 @@ final class SupplierResource extends Resource
         $fields = array_merge($fields, [
             Section::make('Location')
                 ->schema([
-                    TextInput::make('country')
-                        ->maxLength(100),
+                    Select::make('country')
+                        ->options(self::getCountryOptions())
+                        ->default('Indonesia')
+                        ->searchable(),
                     Textarea::make('address')
                         ->label('Address')
                         ->rows(2),
@@ -181,6 +183,27 @@ final class SupplierResource extends Resource
                         ->default(14)
                         ->minValue(0)
                         ->suffix('days'),
+                    Select::make('delivery_type')
+                        ->label('Delivery Type')
+                        ->options([
+                            'Franco' => 'Franco',
+                            'Loco' => 'Loco',
+                        ])
+                        ->live()
+                        ->nullable(),
+                    TextInput::make('delivery_type_details')
+                        ->label('Delivery Type Details')
+                        ->placeholder('Additional delivery type information')
+                        ->maxLength(255)
+                        ->visible(fn ($get): bool => $get('delivery_type') !== null),
+                    Toggle::make('is_taxable')
+                        ->label('Taxable Company')
+                        ->default(true)
+                        ->helperText('Whether this supplier charges tax'),
+                    Textarea::make('delivery_term')
+                        ->label('Delivery Term')
+                        ->rows(2)
+                        ->placeholder('Enter delivery terms and conditions'),
                 ])
                 ->columns(1),
             Section::make('Additional Information')
@@ -325,5 +348,15 @@ final class SupplierResource extends Resource
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
+    }
+
+    /**
+     * Get country options for select field.
+     *
+     * @return array<string, string>
+     */
+    public static function getCountryOptions(): array
+    {
+        return CompanyResource::getCountryOptions();
     }
 }
