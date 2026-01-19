@@ -6,6 +6,7 @@ namespace App\Filament\Resources\SupplierResource\Pages;
 
 use App\Filament\Resources\SupplierResource;
 use App\Filament\Resources\SupplierResource\RelationManagers\ArticlesRelationManager;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
@@ -17,8 +18,10 @@ final class ViewSupplier extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            EditAction::make()->slideOver(),
-            DeleteAction::make(),
+            ActionGroup::make([
+                EditAction::make()->slideOver(),
+                DeleteAction::make(),
+            ]),
         ];
     }
 

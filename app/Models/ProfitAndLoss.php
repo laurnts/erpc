@@ -1,0 +1,154 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use App\Enums\PnlStatus;
+use App\Models\Concerns\HasCreator;
+use App\Models\Concerns\HasTeam;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
+
+/**
+ * Profit and Loss document for internal tracking.
+ *
+ * @property int $id
+ * @property int $team_id
+ * @property int $request_id
+ * @property int|null $buyer_quote_id
+ * @property string $pnl_number
+ * @property string|null $description
+ * @property Carbon $pnl_date
+ * @property int|null $prepared_by_id
+ * @property string|null $dept_head_sales_name
+ * @property string|null $deputy_director_name
+ * @property string|null $approved_by_name
+ * @property array<string, mixed>|null $data
+ * @property int|null $creator_id
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read string $created_by
+ * @property-read PnlStatus $status
+ */
+final class ProfitAndLoss extends Model
+{
+    use HasCreator;
+    use HasTeam;
+
+    /**
+     * Roman numerals for months.
+     */
+    private const ROMAN_MONTHS = [
+        1 => 'I',
+        2 => 'II',
+        3 => 'III',
+        4 => 'IV',
+        5 => 'V',
+        6 => 'VI',
+        7 => 'VII',
+        8 => 'VIII',
+        9 => 'IX',
+        10 => 'X',
+        11 => 'XI',
+        12 => 'XII',
+    ];
+
+    /**
+     * @var list<string>
+     */
+    protected $fillable = [
+        'request_id',
+        'buyer_quote_id',
+        'pnl_number',
+        'description',
+        'pnl_date',
+        'prepared_by_id',
+        'dept_head_sales_name',
+        'deputy_director_name',
+        'approved_by_name',
+        'data',
+    ];
+
+    /**
+     * @return array<string, string|class-string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'pnl_date' => 'date',
+            'data' => 'array',
+        ];
+    }
+
+    /**
+     * Generate a unique PNL number for the given team.
+     * Format: {4digit increment}/EL-PNL/{roman_month}/{year}
+     */
+    public static function generatePnlNumber(int $teamId): string
+    {
+        $year = now()->year;
+        $month = now()->month;
+
+        $lastPnl = self::where('team_id', $teamId)
+            ->whereYear('created_at', $year)
+            ->orderByDesc('id')
+            ->first();
+
+        $increment = 1;
+        if ($lastPnl !== null) {
+            preg_match('/^(\d+)\//', $lastPnl->pnl_number, $matches);
+            $increment = ((int) ($matches[1] ?? 0)) + 1;
+        }
+
+        return sprintf('%04d/EL-PNL/%s/%d', $increment, self::ROMAN_MONTHS[$month], $year);
+    }
+
+    /**
+     * The request this PNL is for.
+     *
+     * @return BelongsTo<Request, $this>
+     */
+    public function request(): BelongsTo
+    {
+        return $this->belongsTo(Request::class);
+    }
+
+    /**
+     * The buyer quote this PNL is for.
+     *
+     * @return BelongsTo<BuyerQuote, $this>
+     */
+    public function buyerQuote(): BelongsTo
+    {
+        return $this->belongsTo(BuyerQuote::class);
+    }
+
+    /**
+     * The person who prepared the PNL.
+     *
+     * @return BelongsTo<KeyAccount, $this>
+     */
+    public function preparedBy(): BelongsTo
+    {
+        return $this->belongsTo(KeyAccount::class, 'prepared_by_id');
+    }
+
+    /**
+     * Get the computed status based on whether the request has buyer orders.
+     *
+     * @return Attribute<PnlStatus, never>
+     */
+    protected function status(): Attribute
+    {
+        return Attribute::make(
+            get: function (): PnlStatus {
+                $hasBuyerOrders = $this->request?->buyerOrders()->exists() ?? false;
+
+                return $hasBuyerOrders ? PnlStatus::ORDERED : PnlStatus::PENDING;
+            },
+        );
+    }
+}

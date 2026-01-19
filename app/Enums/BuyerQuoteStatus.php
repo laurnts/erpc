@@ -58,7 +58,7 @@ enum BuyerQuoteStatus: string implements HasColor, HasIcon, HasLabel
      */
     public function canEdit(): bool
     {
-        return $this === self::DRAFT;
+        return in_array($this, [self::DRAFT, self::SENT], true);
     }
 
     /**

@@ -77,14 +77,10 @@ final class KeyAccount extends Model
     }
 
     /**
-     * Get display name with email if available.
+     * Get display name.
      */
     public function getDisplayNameAttribute(): string
     {
-        if ($this->email) {
-            return "{$this->name} ({$this->email})";
-        }
-
         return $this->name;
     }
 }

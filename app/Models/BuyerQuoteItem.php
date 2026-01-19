@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Observers\BuyerQuoteItemObserver;
-use App\Services\Erp\TaxCalculationService;
 use Database\Factories\BuyerQuoteItemFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -209,35 +208,37 @@ final class BuyerQuoteItem extends Model
      */
     public function recalculatePrices(): void
     {
-        $taxService = app(TaxCalculationService::class);
-
         $quantity = (float) $this->quantity;
         $unitPrice = (float) $this->unit_price;
         $taxRate = (float) $this->tax_rate;
-        $isInclusive = $this->is_tax_inclusive;
+        $addTax = $this->is_tax_inclusive; // true = add tax on top of net price
 
-        // Calculate unit price excluding tax
-        if ($isInclusive) {
-            $this->unit_price_exc_tax = (string) $taxService->calculatePriceWithoutTax($unitPrice, $taxRate);
+        // unit_price is always the NET price (before tax)
+        $this->unit_price_exc_tax = (string) $unitPrice;
+
+        // Line subtotal is quantity * net price
+        $lineSubtotal = $quantity * $unitPrice;
+
+        // Calculate tax and total based on addTax flag
+        if ($addTax) {
+            $lineTax = $lineSubtotal * $taxRate / 100;
+            $lineTotal = $lineSubtotal + $lineTax;
         } else {
-            $this->unit_price_exc_tax = (string) $unitPrice;
+            $lineTax = 0;
+            $lineTotal = $lineSubtotal;
         }
 
-        // Calculate line totals using tax service
-        $lineResult = $taxService->calculateLineTotal($quantity, $unitPrice, $taxRate, $isInclusive);
+        $this->line_subtotal = (string) round($lineSubtotal, 4);
+        $this->line_tax = (string) round($lineTax, 4);
+        $this->line_total = (string) round($lineTotal, 4);
+        $this->tax_amount = (string) round($lineTax / max($quantity, 0.0001), 4);
 
-        $this->line_subtotal = (string) $lineResult['subtotal'];
-        $this->line_tax = (string) $lineResult['tax_amount'];
-        $this->line_total = (string) $lineResult['total'];
-        $this->tax_amount = (string) ($lineResult['tax_amount'] / max($quantity, 0.0001));
-
-        // Calculate margin
+        // Calculate margin (based on net prices)
         $costPrice = (float) $this->cost_price;
-        $unitPriceExcTax = (float) $this->unit_price_exc_tax;
-        $this->margin_amount = (string) ($unitPriceExcTax - $costPrice);
+        $this->margin_amount = (string) round($unitPrice - $costPrice, 4);
 
         if ($costPrice > 0) {
-            $this->margin_percent = (string) round((($unitPriceExcTax - $costPrice) / $costPrice) * 100, 4);
+            $this->margin_percent = (string) round((($unitPrice - $costPrice) / $costPrice) * 100, 4);
         } else {
             $this->margin_percent = '0.0000';
         }

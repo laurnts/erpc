@@ -36,10 +36,14 @@
                             $supplierId = (string) $supplier['id'];
                             $priceData = $item['prices'][$supplierId] ?? null;
                             $isBestPrice = $priceData['is_best_price'] ?? false;
+                            $isSelected = $priceData['is_selected'] ?? false;
                         @endphp
-                        <td class="px-3 py-2 text-right {{ $isBestPrice ? 'bg-success-50 dark:bg-success-950' : '' }}">
+                        <td class="px-3 py-2 text-right {{ $isSelected ? 'bg-primary-50 dark:bg-primary-950 ring-2 ring-inset ring-primary-500' : ($isBestPrice ? 'bg-success-50 dark:bg-success-950' : '') }}">
                             @if($priceData)
-                                <div class="{{ $isBestPrice ? 'font-semibold text-success-600 dark:text-success-400' : 'text-gray-900 dark:text-gray-100' }}">
+                                <div class="{{ $isSelected ? 'font-semibold text-primary-600 dark:text-primary-400' : ($isBestPrice ? 'font-semibold text-success-600 dark:text-success-400' : 'text-gray-900 dark:text-gray-100') }}">
+                                    @if($isSelected)
+                                        <x-heroicon-s-check-circle class="inline-block w-4 h-4 mr-1 text-primary-500" />
+                                    @endif
                                     @if($isBestPrice)
                                         <x-heroicon-s-star class="inline-block w-4 h-4 mr-1 text-success-500" />
                                     @endif

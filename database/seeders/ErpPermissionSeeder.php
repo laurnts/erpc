@@ -145,6 +145,12 @@ final class ErpPermissionSeeder extends Seeder
             'create quotation evaluations',
             'update quotation evaluations',
             'delete quotation evaluations',
+
+            // Profit and Loss permissions
+            'view profit and losses',
+            'create profit and losses',
+            'update profit and losses',
+            'delete profit and losses',
         ];
 
         // Create permissions
@@ -196,6 +202,7 @@ final class ErpPermissionSeeder extends Seeder
             'view audit logs',
             'view key accounts', 'create key accounts', 'update key accounts', 'delete key accounts',
             'view quotation evaluations', 'create quotation evaluations', 'update quotation evaluations', 'delete quotation evaluations',
+            'view profit and losses', 'create profit and losses', 'update profit and losses', 'delete profit and losses',
         ]);
     }
 
@@ -222,6 +229,7 @@ final class ErpPermissionSeeder extends Seeder
             'view projects', 'create projects', 'update projects',
             'view key accounts', 'create key accounts',
             'view quotation evaluations', 'create quotation evaluations', 'update quotation evaluations',
+            'view profit and losses', 'create profit and losses', 'update profit and losses',
         ]);
     }
 

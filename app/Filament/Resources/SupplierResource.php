@@ -82,6 +82,12 @@ final class SupplierResource extends Resource
                 ->maxLength(255)
                 ->helperText('Company website domain'),
 
+            TextInput::make('email')
+                ->label('Email')
+                ->email()
+                ->maxLength(255)
+                ->placeholder('supplier@example.com'),
+
             Select::make('tags')
                 ->label('Categories')
                 ->relationship('tags', 'name')

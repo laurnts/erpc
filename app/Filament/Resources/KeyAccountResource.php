@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\KeyAccountResource\Pages\CreateKeyAccount;
+use App\Filament\Resources\KeyAccountResource\Pages\EditKeyAccount;
 use App\Filament\Resources\KeyAccountResource\Pages\ListKeyAccounts;
 use App\Models\KeyAccount;
 use Filament\Actions\BulkActionGroup;
@@ -119,6 +120,7 @@ final class KeyAccountResource extends Resource
         return [
             'index' => ListKeyAccounts::route('/'),
             'create' => CreateKeyAccount::route('/create'),
+            'edit' => EditKeyAccount::route('/{record}/edit'),
         ];
     }
 

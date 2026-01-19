@@ -67,13 +67,13 @@ final class BuyerQuoteResource extends Resource
                     ->sortable(),
                 TextColumn::make('total')
                     ->label('Total')
-                    ->formatStateUsing(fn (BuyerQuote $record): string => $record->currency?->format($record->total) ?? number_format($record->total, 2))
+                    ->formatStateUsing(fn (BuyerQuote $record): string => $record->currency?->format((float) $record->total) ?? number_format((float) $record->total, 2))
                     ->sortable(),
                 TextColumn::make('total_margin_amount')
                     ->label('Margin')
                     ->getStateUsing(fn (BuyerQuote $record): string => sprintf(
                         '%s (%.1f%%)',
-                        $record->currency?->formatNumber($record->total_margin_amount) ?? number_format($record->total_margin_amount, 2),
+                        $record->currency?->formatNumber((float) $record->total_margin_amount) ?? number_format((float) $record->total_margin_amount, 2),
                         $record->total_margin_percent
                     ))
                     ->toggleable(),

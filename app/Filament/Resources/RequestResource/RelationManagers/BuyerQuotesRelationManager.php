@@ -7,9 +7,13 @@ namespace App\Filament\Resources\RequestResource\RelationManagers;
 use App\Enums\BuyerQuoteStatus;
 use App\Enums\RequestStage;
 use App\Filament\Actions\DownloadPdfAction;
+use App\Filament\Resources\KeyAccountResource;
+use App\Filament\Resources\ProfitAndLossResource;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Models\BuyerQuote;
 use App\Models\Currency;
+use App\Models\KeyAccount;
+use App\Models\ProfitAndLoss;
 use App\Models\Request;
 use App\Models\TaxCode;
 use Filament\Actions\Action;
@@ -124,15 +128,24 @@ final class BuyerQuotesRelationManager extends RelationManager
 
             Section::make('Payment Terms')
                 ->schema([
-                    Grid::make(3)
+                    Grid::make(4)
                         ->schema([
-                            TextInput::make('prepayment_percent')
-                                ->label('Prepayment %')
+                            Select::make('prepayment_type')
+                                ->label('Prepayment Type')
+                                ->options([
+                                    'percent' => 'Percentage (%)',
+                                    'fixed' => 'Fixed Amount',
+                                ])
+                                ->default('percent')
+                                ->live()
+                                ->afterStateUpdated(fn (Set $set) => $set('prepayment_amount', 0)),
+                            TextInput::make('prepayment_amount')
+                                ->label('Prepayment')
                                 ->numeric()
                                 ->default(0)
                                 ->minValue(0)
-                                ->maxValue(100)
-                                ->suffix('%'),
+                                ->maxValue(fn (Get $get): ?int => $get('prepayment_type') === 'percent' ? 100 : null)
+                                ->suffix(fn (Get $get): string => $get('prepayment_type') === 'percent' ? '%' : ''),
                             TextInput::make('payment_terms_days')
                                 ->label('Payment Terms (Days)')
                                 ->numeric()
@@ -208,16 +221,35 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 ]),
                             Grid::make(12)
                                 ->schema([
-                                    Hidden::make('from_supplier'),
+                                    Hidden::make('from_supplier')
+                                        ->dehydrated(false),
+                                    Hidden::make('supplier_quote_item_id'),
+                                    Hidden::make('margin_amount'),
+                                    Hidden::make('margin_percent'),
                                     TextInput::make('cost_price')
                                         ->label('Cost Price')
                                         ->numeric()
                                         ->default(0)
                                         ->step(0.0001)
                                         ->columnSpan(2)
-                                        ->helperText(fn (Get $get): string => $get('from_supplier') !== null
-                                            ? "From: {$get('from_supplier')}"
-                                            : 'No supplier quote')
+                                        ->helperText(function (Get $get): string {
+                                            // First check the form state
+                                            $fromSupplier = $get('from_supplier');
+                                            if ($fromSupplier !== null) {
+                                                return "From: {$fromSupplier}";
+                                            }
+
+                                            // Then check if we can get it from the supplier_quote_item_id
+                                            $supplierQuoteItemId = $get('supplier_quote_item_id');
+                                            if ($supplierQuoteItemId !== null) {
+                                                $supplierQuoteItem = \App\Models\SupplierQuoteItem::with('supplierQuote.supplier')->find($supplierQuoteItemId);
+                                                if ($supplierQuoteItem?->supplierQuote?->supplier) {
+                                                    return "From: {$supplierQuoteItem->supplierQuote->supplier->name}";
+                                                }
+                                            }
+
+                                            return 'No supplier quote';
+                                        })
                                         ->live(onBlur: true)
                                         ->afterStateUpdated(function (Set $set, Get $get): void {
                                             $costPrice = (float) ($get('cost_price') ?? 0);
@@ -325,6 +357,13 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->suffix('%')
                                         ->columnSpan(2)
                                         ->live(onBlur: true)
+                                        ->afterStateHydrated(function (Set $set, Get $get): void {
+                                            // Populate from stored margin_percent when editing
+                                            $marginPercent = $get('margin_percent');
+                                            if ($marginPercent !== null) {
+                                                $set('margin_percent_input', round((float) $marginPercent, 2));
+                                            }
+                                        })
                                         ->afterStateUpdated(function (Set $set, Get $get, ?float $state): void {
                                             $marginPercent = $state ?? 0;
                                             $costPrice = (float) ($get('cost_price') ?? 0);
@@ -502,16 +541,6 @@ final class BuyerQuotesRelationManager extends RelationManager
                     ->label('Total')
                     ->formatStateUsing(fn (BuyerQuote $record): string => $record->currency !== null ? $record->currency->format((float) $record->total) : number_format((float) $record->total, 2))
                     ->sortable(),
-                TextColumn::make('total_margin_amount')
-                    ->label('Margin')
-                    ->getStateUsing(fn (BuyerQuote $record): string => sprintf(
-                        '%s (%.1f%%)',
-                        $record->currency !== null ? $record->currency->formatNumber((float) $record->total_margin_amount) : number_format((float) $record->total_margin_amount, 2),
-                        $record->total_margin_percent
-                    ))
-                    ->sortable(query: fn ($query, $direction) => $query->orderByRaw(
-                        "(SELECT SUM(margin_amount * quantity) FROM buyer_quote_items WHERE buyer_quote_id = buyer_quotes.id) {$direction}"
-                    )),
                 TextColumn::make('valid_until')
                     ->label('Valid Until')
                     ->date()
@@ -564,30 +593,26 @@ final class BuyerQuotesRelationManager extends RelationManager
                         // Get default margin percentage
                         $defaultMarginPercent = $settings->default_margin_percent ?? 3.0;
 
-                        // Pre-populate items from request items
+                        // Pre-populate items from SELECTED supplier quote items only
                         $items = [];
                         $sortOrder = 0;
 
-                        foreach ($request->items()->with(['article'])->get() as $requestItem) {
-                            // Try to get cost price from any SELECTED supplier quote for this request item
-                            $costPrice = 0.0;
-                            $supplierQuoteItemId = null;
-                            $supplierName = null;
+                        // Get all selected supplier quote items for this request (is_selected = true)
+                        $selectedSupplierQuoteItems = \App\Models\SupplierQuoteItem::query()
+                            ->whereHas('supplierQuote', fn ($q) => $q->where('request_id', $request->getKey()))
+                            ->where('is_selected', true)
+                            ->with(['supplierQuote.supplier', 'requestItem.article'])
+                            ->get();
 
-                            // Find SupplierQuoteItem from any SELECTED quote matching this request item
-                            $supplierQuoteItem = \App\Models\SupplierQuoteItem::query()
-                                ->whereHas('supplierQuote', fn ($q) => $q
-                                    ->where('request_id', $request->getKey())
-                                    ->where('status', \App\Enums\SupplierQuoteStatus::SELECTED))
-                                ->where('request_item_id', $requestItem->getKey())
-                                ->with('supplierQuote.supplier')
-                                ->first();
-
-                            if ($supplierQuoteItem !== null) {
-                                $costPrice = (float) $supplierQuoteItem->unit_price_exc_tax;
-                                $supplierQuoteItemId = $supplierQuoteItem->getKey();
-                                $supplierName = $supplierQuoteItem->supplierQuote->supplier->name ?? null;
+                        foreach ($selectedSupplierQuoteItems as $supplierQuoteItem) {
+                            $requestItem = $supplierQuoteItem->requestItem;
+                            if ($requestItem === null) {
+                                continue;
                             }
+
+                            $costPrice = (float) $supplierQuoteItem->unit_price_exc_tax;
+                            $supplierQuoteItemId = $supplierQuoteItem->getKey();
+                            $supplierName = $supplierQuoteItem->supplierQuote->supplier->name ?? null;
 
                             // Calculate selling price with default margin
                             $unitPrice = $costPrice > 0
@@ -649,7 +674,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                             'exchange_rate' => 1,
                             'valid_until' => now()->addDays($settings->quote_validity_days ?? 30),
                             'payment_terms_days' => $settings->default_payment_terms_days ?? 30,
-                            'prepayment_percent' => 0,
+                            'prepayment_type' => 'percent',
+                            'prepayment_amount' => 0,
                             'items' => $items,
                         ];
                     })
@@ -676,23 +702,21 @@ final class BuyerQuotesRelationManager extends RelationManager
 
                             $sortOrder = 0;
 
-                            foreach ($request->items()->with(['article'])->get() as $requestItem) {
-                                // Try to get cost price from any SELECTED supplier quote for this request item
-                                $costPrice = 0.0;
-                                $supplierQuoteItemId = null;
+                            // Get all selected supplier quote items for this request (is_selected = true)
+                            $selectedSupplierQuoteItems = \App\Models\SupplierQuoteItem::query()
+                                ->whereHas('supplierQuote', fn ($q) => $q->where('request_id', $request->getKey()))
+                                ->where('is_selected', true)
+                                ->with(['requestItem.article'])
+                                ->get();
 
-                                // Find SupplierQuoteItem from any SELECTED quote matching this request item
-                                $supplierQuoteItem = \App\Models\SupplierQuoteItem::query()
-                                    ->whereHas('supplierQuote', fn ($q) => $q
-                                        ->where('request_id', $request->getKey())
-                                        ->where('status', \App\Enums\SupplierQuoteStatus::SELECTED))
-                                    ->where('request_item_id', $requestItem->getKey())
-                                    ->first();
-
-                                if ($supplierQuoteItem !== null) {
-                                    $costPrice = (float) $supplierQuoteItem->unit_price_exc_tax;
-                                    $supplierQuoteItemId = $supplierQuoteItem->getKey();
+                            foreach ($selectedSupplierQuoteItems as $supplierQuoteItem) {
+                                $requestItem = $supplierQuoteItem->requestItem;
+                                if ($requestItem === null) {
+                                    continue;
                                 }
+
+                                $costPrice = (float) $supplierQuoteItem->unit_price_exc_tax;
+                                $supplierQuoteItemId = $supplierQuoteItem->getKey();
 
                                 // Calculate selling price with default margin
                                 $unitPrice = $costPrice > 0
@@ -746,6 +770,111 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 ]);
                             }
                         }
+                    }),
+                Action::make('createPnl')
+                    ->label('Create PNL')
+                    ->icon('heroicon-o-chart-bar')
+                    ->size(Size::Small)
+                    ->color('success')
+                    ->visible(fn () => $request->buyerQuotes()->exists())
+                    ->modalWidth('xl')
+                    ->form([
+                        Section::make('PNL Information')
+                            ->schema([
+                                Placeholder::make('pnl_number_placeholder')
+                                    ->label('PNL Number')
+                                    ->content('Auto-generated after save'),
+                                DatePicker::make('pnl_date')
+                                    ->label('Date')
+                                    ->required()
+                                    ->default(now()),
+                                TextInput::make('request_number')
+                                    ->label('Request')
+                                    ->default($request->request_number)
+                                    ->disabled()
+                                    ->dehydrated(false),
+                                Textarea::make('description')
+                                    ->label('Description')
+                                    ->rows(2)
+                                    ->columnSpanFull(),
+                            ])
+                            ->columns(3),
+                        Section::make('Central Purchasing')
+                            ->description('Approval workflow personnel')
+                            ->schema([
+                                Select::make('prepared_by_id')
+                                    ->label('Prepared By')
+                                    ->options(fn (): array => KeyAccount::query()
+                                        ->where('team_id', Filament::getTenant()?->getKey())
+                                        ->where('is_active', true)
+                                        ->orderBy('name')
+                                        ->get()
+                                        ->mapWithKeys(fn (KeyAccount $ka): array => [$ka->getKey() => $ka->display_name])
+                                        ->toArray())
+                                    ->searchable()
+                                    ->preload()
+                                    ->createOptionForm(KeyAccountResource::getFormSchema())
+                                    ->createOptionUsing(function (array $data): int {
+                                        /** @var \App\Models\Team $team */
+                                        $team = Filament::getTenant();
+
+                                        /** @var KeyAccount $keyAccount */
+                                        $keyAccount = KeyAccount::create([
+                                            'name' => $data['name'],
+                                            'email' => $data['email'] ?? null,
+                                            'phone' => $data['phone'] ?? null,
+                                            'is_active' => $data['is_active'] ?? true,
+                                            'team_id' => $team->id,
+                                            'creator_id' => auth()->id(),
+                                        ]);
+
+                                        return $keyAccount->id;
+                                    }),
+                                TextInput::make('dept_head_sales_name')
+                                    ->label('Dept Head of Sales')
+                                    ->maxLength(255),
+                                TextInput::make('deputy_director_name')
+                                    ->label('Deputy Director')
+                                    ->maxLength(255),
+                                TextInput::make('approved_by_name')
+                                    ->label('Approved By')
+                                    ->maxLength(255),
+                            ])
+                            ->columns(2),
+                    ])
+                    ->action(function (array $data) use ($request): void {
+                        /** @var \App\Models\Team $team */
+                        $team = Filament::getTenant();
+
+                        $pnlNumber = ProfitAndLoss::generatePnlNumber($team->id);
+
+                        // Find the latest valid buyer quote (not rejected/superseded)
+                        $buyerQuote = $request->buyerQuotes()
+                            ->whereNotIn('status', [BuyerQuoteStatus::REJECTED, BuyerQuoteStatus::SUPERSEDED])
+                            ->latest()
+                            ->first();
+
+                        $pnl = ProfitAndLoss::create([
+                            'team_id' => $team->id,
+                            'request_id' => $request->getKey(),
+                            'buyer_quote_id' => $buyerQuote?->getKey(),
+                            'pnl_number' => $pnlNumber,
+                            'description' => $data['description'] ?? null,
+                            'pnl_date' => $data['pnl_date'],
+                            'prepared_by_id' => $data['prepared_by_id'] ?? null,
+                            'dept_head_sales_name' => $data['dept_head_sales_name'] ?? null,
+                            'deputy_director_name' => $data['deputy_director_name'] ?? null,
+                            'approved_by_name' => $data['approved_by_name'] ?? null,
+                            'creator_id' => auth()->id(),
+                        ]);
+
+                        Notification::make()
+                            ->title('PNL created')
+                            ->body("PNL {$pnlNumber} has been created successfully.")
+                            ->success()
+                            ->send();
+
+                        redirect(ProfitAndLossResource::getUrl('view', ['record' => $pnl]));
                     }),
             ])
             ->recordActions([

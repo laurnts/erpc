@@ -260,6 +260,7 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
                         'line_tax' => (float) $quoteItem->line_tax,
                         'line_total' => (float) $quoteItem->line_total,
                         'is_best_price' => $isBestPrice,
+                        'is_selected' => $quoteItem->is_selected,
                     ];
                 }
             }

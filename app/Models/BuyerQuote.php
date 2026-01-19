@@ -35,6 +35,8 @@ use Relaticle\CustomFields\Models\Contracts\HasCustomFields;
  * @property string $subtotal
  * @property string $tax_total
  * @property string $total
+ * @property string $prepayment_type
+ * @property string $prepayment_amount
  * @property int $prepayment_percent
  * @property int $payment_terms_days
  * @property string|null $payment_terms_description
@@ -84,6 +86,8 @@ final class BuyerQuote extends Model implements HasCustomFields
         'subtotal',
         'tax_total',
         'total',
+        'prepayment_type',
+        'prepayment_amount',
         'prepayment_percent',
         'payment_terms_days',
         'payment_terms_description',
@@ -105,6 +109,8 @@ final class BuyerQuote extends Model implements HasCustomFields
         'subtotal' => '0.0000',
         'tax_total' => '0.0000',
         'total' => '0.0000',
+        'prepayment_type' => 'percent',
+        'prepayment_amount' => '0.0000',
         'prepayment_percent' => 0,
         'payment_terms_days' => 30,
     ];
@@ -121,6 +127,8 @@ final class BuyerQuote extends Model implements HasCustomFields
             'subtotal' => 'decimal:4',
             'tax_total' => 'decimal:4',
             'total' => 'decimal:4',
+            'prepayment_type' => 'string',
+            'prepayment_amount' => 'decimal:4',
             'prepayment_percent' => 'integer',
             'payment_terms_days' => 'integer',
             'issued_at' => 'date',

@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\QuotationEvaluationResource\Pages\EditQuotationEvaluation;
-use App\Filament\Resources\QuotationEvaluationResource\Pages\ListQuotationEvaluations;
-use App\Filament\Resources\QuotationEvaluationResource\Pages\ViewQuotationEvaluation;
+use App\Filament\Resources\ProfitAndLossResource\Pages\EditProfitAndLoss;
+use App\Filament\Resources\ProfitAndLossResource\Pages\ListProfitAndLosses;
+use App\Filament\Resources\ProfitAndLossResource\Pages\ViewProfitAndLoss;
 use App\Models\KeyAccount;
-use App\Models\QuotationEvaluation;
+use App\Models\ProfitAndLoss;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -19,23 +19,23 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
-final class QuotationEvaluationResource extends Resource
+final class ProfitAndLossResource extends Resource
 {
-    protected static ?string $model = QuotationEvaluation::class;
+    protected static ?string $model = ProfitAndLoss::class;
 
-    protected static ?string $recordTitleAttribute = 'qe_number';
+    protected static ?string $recordTitleAttribute = 'pnl_number';
 
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-check';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chart-bar';
 
-    protected static ?int $navigationSort = 11;
+    protected static ?int $navigationSort = 12;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
 
-    protected static ?string $navigationLabel = 'Quotation Evaluations';
+    protected static ?string $navigationLabel = 'Profit & Loss';
 
-    protected static ?string $pluralModelLabel = 'Quotation Evaluations';
+    protected static ?string $pluralModelLabel = 'Profit & Loss';
 
-    protected static ?string $modelLabel = 'Quotation Evaluation';
+    protected static ?string $modelLabel = 'Profit & Loss';
 
     /**
      * Get the key account select options for forms.
@@ -80,7 +80,7 @@ final class QuotationEvaluationResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('QE Information')
+                Section::make('PNL Information')
                     ->schema([
                         Textarea::make('description')
                             ->label('Description')
@@ -102,10 +102,10 @@ final class QuotationEvaluationResource extends Resource
                             ->editOptionForm(KeyAccountResource::getFormSchema())
                             ->editOptionAction(fn ($action) => $action->modalHeading('Edit Key Account')),
                         TextInput::make('dept_head_sales_name')
-                            ->label('Acknowledged By - Dept Head of Sales')
+                            ->label('Dept Head of Sales')
                             ->maxLength(255),
                         TextInput::make('deputy_director_name')
-                            ->label('Acknowledged By - Deputy Director')
+                            ->label('Deputy Director')
                             ->maxLength(255),
                         TextInput::make('approved_by_name')
                             ->label('Approved By')
@@ -119,20 +119,29 @@ final class QuotationEvaluationResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('qe_number')
-                    ->label('QE Number')
+                TextColumn::make('pnl_number')
+                    ->label('PNL Number')
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
+                TextColumn::make('status')
+                    ->badge()
+                    ->sortable(query: fn ($query, $direction) => $query
+                        ->withExists(['request as has_buyer_orders' => fn ($q) => $q->whereHas('buyerOrders')])
+                        ->orderBy('has_buyer_orders', $direction)),
                 TextColumn::make('request.request_number')
                     ->label('Request')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->url(fn (ProfitAndLoss $record): ?string => $record->request_id
+                        ? RequestResource::getUrl('view', ['record' => $record->request_id])
+                        : null)
+                    ->color('primary'),
                 TextColumn::make('description')
                     ->limit(40)
                     ->searchable()
                     ->toggleable(),
-                TextColumn::make('qe_date')
+                TextColumn::make('pnl_date')
                     ->label('Date')
                     ->date()
                     ->sortable(),
@@ -153,15 +162,15 @@ final class QuotationEvaluationResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListQuotationEvaluations::route('/'),
-            'view' => ViewQuotationEvaluation::route('/{record}'),
-            'edit' => EditQuotationEvaluation::route('/{record}/edit'),
+            'index' => ListProfitAndLosses::route('/'),
+            'view' => ViewProfitAndLoss::route('/{record}'),
+            'edit' => EditProfitAndLoss::route('/{record}/edit'),
         ];
     }
 
     public static function getGloballySearchableAttributes(): array
     {
-        return ['qe_number', 'description'];
+        return ['pnl_number', 'description'];
     }
 
     public static function getNavigationBadge(): ?string
