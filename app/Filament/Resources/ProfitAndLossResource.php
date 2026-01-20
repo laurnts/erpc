@@ -98,9 +98,7 @@ final class ProfitAndLossResource extends Resource
                             ->createOptionForm(KeyAccountResource::getFormSchema())
                             ->createOptionUsing(function (array $data): int {
                                 return self::createKeyAccount($data);
-                            })
-                            ->editOptionForm(KeyAccountResource::getFormSchema())
-                            ->editOptionAction(fn ($action) => $action->modalHeading('Edit Key Account')),
+                            }),
                         TextInput::make('dept_head_sales_name')
                             ->label('Dept Head of Sales')
                             ->maxLength(255),
@@ -132,11 +130,7 @@ final class ProfitAndLossResource extends Resource
                 TextColumn::make('request.request_number')
                     ->label('Request')
                     ->searchable()
-                    ->sortable()
-                    ->url(fn (ProfitAndLoss $record): ?string => $record->request_id
-                        ? RequestResource::getUrl('view', ['record' => $record->request_id])
-                        : null)
-                    ->color('primary'),
+                    ->sortable(),
                 TextColumn::make('description')
                     ->limit(40)
                     ->searchable()

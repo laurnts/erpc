@@ -2,32 +2,29 @@
 
 declare(strict_types=1);
 
-namespace App\Filament\Resources\ArticleResource\Pages;
+namespace App\Filament\Resources\KeyAccountResource\Pages;
 
-use App\Filament\Resources\ArticleResource;
-use App\Filament\Resources\ArticleResource\RelationManagers\SuppliersRelationManager;
+use App\Filament\Resources\KeyAccountResource;
+use App\Filament\Resources\KeyAccountResource\RelationManagers\BuyersRelationManager;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
-use Filament\Actions\RestoreAction;
 use Filament\Infolists\Components\IconEntry;
-use Filament\Infolists\Components\KeyValueEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Flex;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
-final class ViewArticle extends ViewRecord
+final class ViewKeyAccount extends ViewRecord
 {
-    protected static string $resource = ArticleResource::class;
+    protected static string $resource = KeyAccountResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
             ActionGroup::make([
-                EditAction::make(),
-                RestoreAction::make(),
+                EditAction::make()->slideOver(),
                 DeleteAction::make(),
             ]),
         ];
@@ -38,26 +35,19 @@ final class ViewArticle extends ViewRecord
         return $schema
             ->schema([
                 Flex::make([
-                    Section::make('Article Details')
+                    Section::make('Key Account Details')
                         ->schema([
-                            TextEntry::make('code')
-                                ->label('Code')
-                                ->weight('bold')
-                                ->copyable(),
                             TextEntry::make('name')
-                                ->label('Name'),
-                            TextEntry::make('sku')
-                                ->label('SKU')
+                                ->label('Name')
+                                ->weight('bold'),
+                            TextEntry::make('email')
+                                ->label('Email')
+                                ->copyable()
                                 ->placeholder('—'),
-                            TextEntry::make('unit')
-                                ->label('Unit of Measure'),
-                            TextEntry::make('defaultTaxCode.name')
-                                ->label('Default Tax Code')
+                            TextEntry::make('phone')
+                                ->label('Phone')
+                                ->copyable()
                                 ->placeholder('—'),
-                            TextEntry::make('description')
-                                ->label('Description')
-                                ->placeholder('—')
-                                ->columnSpanFull(),
                         ])
                         ->columns(2),
                     Section::make('Status')
@@ -82,7 +72,7 @@ final class ViewArticle extends ViewRecord
     public function getRelationManagers(): array
     {
         return [
-            SuppliersRelationManager::class,
+            BuyersRelationManager::class,
         ];
     }
 }

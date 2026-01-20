@@ -92,7 +92,25 @@ final class QuotationEvaluationResource extends Resource
                     ->schema([
                         Select::make('prepared_by_id')
                             ->label('Prepared By')
-                            ->relationship('preparedBy', 'name')
+                            ->relationship(
+                                'preparedBy',
+                                'name',
+                                modifyQueryUsing: function ($query, $livewire) {
+                                    $query->where('is_active', true);
+                                    
+                                    // Filter to only show key accounts assigned to handle the request's buyer
+                                    if (isset($livewire->record) && $livewire->record && $livewire->record->request) {
+                                        $request = $livewire->record->request;
+                                        if ($request->buyer_id) {
+                                            $query->whereHas('buyers', function ($q) use ($request) {
+                                                $q->where('companies.id', $request->buyer_id);
+                                            });
+                                        }
+                                    }
+                                    
+                                    return $query;
+                                }
+                            )
                             ->searchable()
                             ->preload()
                             ->createOptionForm(KeyAccountResource::getFormSchema())

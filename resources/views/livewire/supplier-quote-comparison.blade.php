@@ -17,28 +17,32 @@
                         <span class="font-semibold ml-1 text-primary-600 dark:text-primary-400">{{ $this->formatCurrency($this->selectionTotal) }}</span>
                     </div>
                 @else
-                    <span class="text-gray-500 dark:text-gray-400">Click on a price to select supplier for each item</span>
+                    @if($this->hasPricesEntered)
+                        <span class="text-gray-500 dark:text-gray-400">Click on a price to select supplier for each item</span>
+                    @endif    
                 @endif
             </div>
 
             <div class="flex items-center gap-2">
-                <x-filament::button
-                    size="sm"
-                    color="gray"
-                    wire:click="selectBestPrices"
-                    icon="heroicon-o-sparkles"
-                >
-                    Select Best Prices
-                </x-filament::button>
+                @if($this->hasPricesEntered)
+                    <x-filament::button
+                        size="sm"
+                        color="gray"
+                        wire:click="selectBestPrices"
+                        icon="heroicon-o-sparkles"
+                    >
+                        Select Best Prices
+                    </x-filament::button>
 
-                <x-filament::button
-                    size="sm"
-                    color="gray"
-                    x-on:click="$dispatch('open-modal', { id: 'create-qe-modal' })"
-                    icon="heroicon-o-document-check"
-                >
-                    Create QE
-                </x-filament::button>
+                    <x-filament::button
+                        size="sm"
+                        color="gray"
+                        x-on:click="$dispatch('open-modal', { id: 'create-qe-modal' })"
+                        icon="heroicon-o-document-check"
+                    >
+                        Create QE
+                    </x-filament::button>
+                @endif
 
                 @if($this->selectedSuppliersCount > 0)
                     <x-filament::button
@@ -80,10 +84,12 @@
                                         <span class="font-semibold text-gray-900 dark:text-gray-100">
                                             {{ $quote->supplier->name }}
                                         </span>
-                                        @if($quote->getKey() === $this->bestOverallQuoteId)
-                                            <x-filament::badge size="xs" color="success">
-                                                Best
-                                            </x-filament::badge>
+                                        @if($this->hasPricesEntered)
+                                            @if($quote->getKey() === $this->bestOverallQuoteId)
+                                                <x-filament::badge size="xs" color="success">
+                                                    Best
+                                                </x-filament::badge>
+                                            @endif
                                         @endif
                                     </div>
                                     <div class="flex items-center gap-2 text-xs font-normal normal-case text-gray-500">
@@ -178,7 +184,7 @@
                             Quote Total
                         </td>
                         @foreach($this->quotes as $quote)
-                            <td class="px-4 py-3 text-sm font-semibold {{ $quote->getKey() === $this->bestOverallQuoteId ? 'text-success-700 dark:text-success-400' : 'text-gray-900 dark:text-gray-100' }}">
+                            <td class="px-4 py-3 text-sm font-semibold {{ $this->hasPricesEntered ? ($quote->getKey() === $this->bestOverallQuoteId ? 'text-success-700 dark:text-success-400' : 'text-gray-900 dark:text-gray-100') : '' }}">
                                 {{ $quote->formatted_total }}
                             </td>
                         @endforeach

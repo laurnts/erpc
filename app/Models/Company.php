@@ -223,6 +223,17 @@ final class Company extends Model implements HasCustomFields, HasMedia
     }
 
     /**
+     * Key accounts assigned to handle this buyer.
+     *
+     * @return BelongsToMany<KeyAccount, $this>
+     */
+    public function keyAccounts(): BelongsToMany
+    {
+        return $this->belongsToMany(KeyAccount::class, 'key_account_buyers', 'buyer_id', 'key_account_id')
+            ->withTimestamps();
+    }
+
+    /**
      * @return MorphToMany<Task, $this>
      */
     public function tasks(): MorphToMany

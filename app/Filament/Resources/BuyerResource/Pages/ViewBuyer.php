@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\BuyerResource\Pages;
 
 use App\Filament\Resources\BuyerResource;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
@@ -16,8 +17,10 @@ final class ViewBuyer extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            EditAction::make()->slideOver(),
-            DeleteAction::make(),
+            ActionGroup::make([
+                EditAction::make()->slideOver(),
+                DeleteAction::make(),
+            ]),
         ];
     }
 }

@@ -149,6 +149,12 @@ final class CurrencyResource extends Resource
                         '0' => 'Inactive',
                     ]),
             ])
+            ->recordActions([
+                ActionGroup::make([
+                    EditAction::make()->slideOver(),
+                    DeleteAction::make(),
+                ]),
+            ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -74,6 +75,18 @@ final class KeyAccount extends Model
     public function approvedEvaluations(): HasMany
     {
         return $this->hasMany(QuotationEvaluation::class, 'approved_by_id');
+    }
+
+    /**
+     * Buyers assigned to this key account.
+     *
+     * @return BelongsToMany<Company, $this>
+     */
+    public function buyers(): BelongsToMany
+    {
+        return $this->belongsToMany(Company::class, 'key_account_buyers', 'key_account_id', 'buyer_id')
+            ->where('is_buyer', true)
+            ->withTimestamps();
     }
 
     /**

@@ -229,6 +229,7 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
 
     /**
      * Find the best (lowest) price for each request item.
+     * Only considers items with actual prices (> 0).
      *
      * @return array<int, int|null>
      */
@@ -254,7 +255,8 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
                 // Compare unit price in base currency
                 $unitPriceBase = (float) $quoteItem->unit_price_exc_tax * (float) $quote->exchange_rate;
 
-                if ($bestUnitPriceBase === null || $unitPriceBase < $bestUnitPriceBase) {
+                // Only consider prices greater than 0
+                if ($unitPriceBase > 0 && ($bestUnitPriceBase === null || $unitPriceBase < $bestUnitPriceBase)) {
                     $bestUnitPriceBase = $unitPriceBase;
                     $bestQuoteId = $quoteId;
                 }
@@ -264,6 +266,60 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
         }
 
         return $bestPrices;
+    }
+
+    /**
+     * Check if all items have prices entered from all suppliers.
+     * Returns true only if:
+     * 1. Every request item has at least one quote item with a price > 0
+     * 2. Every supplier that has quoted items has prices > 0 for all their quoted items
+     *
+     * @return bool
+     */
+    #[Computed]
+    public function hasPricesEntered(): bool
+    {
+        // If no request items or quotes, return false
+        if ($this->requestItems->isEmpty() || $this->quotes->isEmpty()) {
+            return false;
+        }
+
+        // First check: Every request item must have at least one quote item with price > 0
+        foreach ($this->priceMatrix as $requestItemId => $quoteItems) {
+            $hasPriceForItem = false;
+
+            foreach ($quoteItems as $quoteItem) {
+                if ($quoteItem !== null) {
+                    $unitPrice = (float) $quoteItem->unit_price_exc_tax;
+                    if ($unitPrice > 0) {
+                        $hasPriceForItem = true;
+                        break;
+                    }
+                }
+            }
+
+            // If any item doesn't have a price from any supplier, return false
+            if (! $hasPriceForItem) {
+                return false;
+            }
+        }
+
+        // Second check: Every supplier must have prices > 0 for all items they've quoted
+        foreach ($this->quotes as $quote) {
+            foreach ($this->requestItems as $requestItem) {
+                $quoteItem = $this->priceMatrix[$requestItem->getKey()][$quote->getKey()] ?? null;
+                
+                // If supplier has quoted this item, it must have a price > 0
+                if ($quoteItem !== null) {
+                    $unitPrice = (float) $quoteItem->unit_price_exc_tax;
+                    if ($unitPrice <= 0) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
     }
 
     /**

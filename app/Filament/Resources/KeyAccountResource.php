@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\KeyAccountResource\Pages\CreateKeyAccount;
-use App\Filament\Resources\KeyAccountResource\Pages\EditKeyAccount;
 use App\Filament\Resources\KeyAccountResource\Pages\ListKeyAccounts;
+use App\Filament\Resources\KeyAccountResource\Pages\ViewKeyAccount;
 use App\Models\KeyAccount;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Facades\Filament;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
@@ -87,6 +86,11 @@ final class KeyAccountResource extends Resource
                     ->label('Active')
                     ->boolean()
                     ->sortable(),
+                TextColumn::make('buyers_count')
+                    ->label('Assigned Buyers')
+                    ->counts('buyers')
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('creator.name')
                     ->label('Created By')
                     ->sortable()
@@ -120,7 +124,7 @@ final class KeyAccountResource extends Resource
         return [
             'index' => ListKeyAccounts::route('/'),
             'create' => CreateKeyAccount::route('/create'),
-            'edit' => EditKeyAccount::route('/{record}/edit'),
+            'view' => ViewKeyAccount::route('/{record}'),
         ];
     }
 

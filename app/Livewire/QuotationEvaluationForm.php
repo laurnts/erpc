@@ -90,14 +90,24 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
 
     /**
      * Get key account options for select fields.
+     * Only shows key accounts that are assigned to handle the request's buyer.
      *
      * @return array<int, string>
      */
     private function getKeyAccountOptions(): array
     {
-        return KeyAccount::query()
+        $query = KeyAccount::query()
             ->where('team_id', Filament::getTenant()?->getKey())
-            ->where('is_active', true)
+            ->where('is_active', true);
+
+        // Filter to only show key accounts assigned to handle this request's buyer
+        if ($this->request->buyer_id) {
+            $query->whereHas('buyers', function ($q) {
+                $q->where('companies.id', $this->request->buyer_id);
+            });
+        }
+
+        return $query
             ->orderBy('name')
             ->get()
             ->mapWithKeys(fn (KeyAccount $ka): array => [$ka->getKey() => $ka->display_name])

@@ -14,6 +14,7 @@ use App\Filament\Resources\RequestResource\RelationManagers\ItemsRelationManager
 use App\Filament\Resources\RequestResource\RelationManagers\ShipmentsRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierOrdersRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierQuotesRelationManager;
+use App\Models\Currency;
 use App\Models\Request;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -305,7 +306,17 @@ final class ViewRequest extends ViewRecord
 
         /** @var \App\Models\Team|null $team */
         $team = filament()->getTenant();
+        
+        // Try to get the base currency (active)
         $currency = $team?->getBaseCurrency();
+        
+        // If not found (e.g., inactive), try to get it by code anyway
+        if ($currency === null && $team !== null) {
+            $code = $team->getErpSettings()->default_currency;
+            $currency = Currency::query()
+                ->where('code', $code)
+                ->first();
+        }
 
         if ($currency === null) {
             return number_format($value, 2);
