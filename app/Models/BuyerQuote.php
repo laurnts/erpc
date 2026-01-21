@@ -208,6 +208,16 @@ final class BuyerQuote extends Model implements HasCustomFields
     }
 
     /**
+     * The payment terms for this quote.
+     *
+     * @return HasMany<BuyerQuotePaymentTerm, $this>
+     */
+    public function paymentTerms(): HasMany
+    {
+        return $this->hasMany(BuyerQuotePaymentTerm::class)->orderBy('sort_order');
+    }
+
+    /**
      * Check if the quote is expired.
      *
      * @return Attribute<bool, never>
@@ -288,6 +298,13 @@ final class BuyerQuote extends Model implements HasCustomFields
             $newItem = $item->replicate();
             $newItem->buyer_quote_id = $newQuote->getKey();
             $newItem->save();
+        }
+
+        // Copy payment terms to new quote
+        foreach ($this->paymentTerms as $paymentTerm) {
+            $newPaymentTerm = $paymentTerm->replicate();
+            $newPaymentTerm->buyer_quote_id = $newQuote->getKey();
+            $newPaymentTerm->save();
         }
 
         // Mark this quote as superseded

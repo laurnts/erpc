@@ -261,6 +261,11 @@ final class BuyerOrder extends Model implements HasCustomFields
             throw new \InvalidArgumentException('Can only create orders from accepted quotes.');
         }
 
+        // Ensure payment terms are loaded
+        if (! $buyerQuote->relationLoaded('paymentTerms')) {
+            $buyerQuote->load('paymentTerms');
+        }
+
         $order = new self;
         $order->team_id = $buyerQuote->team_id;
         /** @var int|null $creatorId */
@@ -272,8 +277,26 @@ final class BuyerOrder extends Model implements HasCustomFields
         $order->status = OrderStatus::DRAFT;
 
         // Lock payment terms from quote
-        $order->payment_terms_days = $buyerQuote->payment_terms_days;
-        $order->payment_terms_text = $buyerQuote->payment_terms_description;
+        // Use first payment term's due days for backward compatibility
+        $firstPaymentTerm = $buyerQuote->paymentTerms->first();
+        if ($firstPaymentTerm !== null) {
+            $order->payment_terms_days = $firstPaymentTerm->due_days;
+        } else {
+            // Fallback to old field if no payment terms exist
+            $order->payment_terms_days = $buyerQuote->payment_terms_days ?? 30;
+        }
+        
+        // Generate description from all payment terms
+        if ($buyerQuote->paymentTerms->isNotEmpty()) {
+            $termsDescriptions = $buyerQuote->paymentTerms
+                ->sortBy('sort_order')
+                ->map(fn ($term) => "{$term->percentage}% in {$term->due_days} days")
+                ->join(', ');
+            $order->payment_terms_text = $termsDescriptions;
+        } else {
+            // Fallback to old description field
+            $order->payment_terms_text = $buyerQuote->payment_terms_description;
+        }
 
         // Lock totals from quote
         $order->subtotal = (string) round((float) $buyerQuote->subtotal, 2);

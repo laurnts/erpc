@@ -183,13 +183,16 @@
     <div class="section-title">Items by Supplier</div>
     
     @php
-        // Get the buyer quote linked to the PNL
-        $buyerQuote = $pnl->buyerQuote;
-        
-        // Fall back to finding a valid buyer quote from the request
-        if ($buyerQuote === null && $pnl->request !== null) {
+        // Always use the latest valid buyer quote (not REJECTED, EXPIRED, or SUPERSEDED)
+        // This ensures PNL always reflects the most recent quote changes
+        $buyerQuote = null;
+        if ($pnl->request !== null) {
             $buyerQuote = $pnl->request->buyerQuotes()
-                ->whereNotIn('status', [\App\Enums\BuyerQuoteStatus::REJECTED, \App\Enums\BuyerQuoteStatus::SUPERSEDED])
+                ->whereNotIn('status', [
+                    \App\Enums\BuyerQuoteStatus::REJECTED,
+                    \App\Enums\BuyerQuoteStatus::EXPIRED,
+                    \App\Enums\BuyerQuoteStatus::SUPERSEDED
+                ])
                 ->latest()
                 ->first();
         }

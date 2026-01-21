@@ -84,7 +84,47 @@ final class SupplierQuotesRelationManager extends RelationManager
                                             ])
                                     )
                                     ->searchable()
-                                    ->required(),
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(function (Set $set, Get $get): void {
+                                        // Check if supplier is taxable
+                                        $supplierId = $get('supplier_id');
+                                        $isTaxable = true; // Default
+                                        
+                                        if ($supplierId !== null) {
+                                            /** @var Company|null $supplier */
+                                            $supplier = Company::query()->find($supplierId);
+                                            $isTaxable = $supplier?->is_taxable ?? true;
+                                        }
+                                        
+                                        // Trigger recalculation for all line items when supplier changes
+                                        $items = $get('items') ?? [];
+                                        foreach ($items as $index => $item) {
+                                            // Get current values
+                                            $quantity = (float) ($item['quantity'] ?? 1);
+                                            $unitPrice = (float) ($item['unit_price'] ?? 0);
+                                            
+                                            if ($unitPrice > 0 && $quantity > 0) {
+                                                // Clear tax values if supplier is not taxable BEFORE recalculation
+                                                if (! $isTaxable) {
+                                                    $set("items.{$index}.tax_rate", 0);
+                                                    $set("items.{$index}.tax_code_id", null);
+                                                    $set("items.{$index}.is_tax_inclusive", false);
+                                                    
+                                                    // Directly calculate and set line_total without tax
+                                                    $lineTotal = $quantity * $unitPrice;
+                                                    $set("items.{$index}.line_subtotal", round($lineTotal, 4));
+                                                    $set("items.{$index}.line_tax", 0);
+                                                    $set("items.{$index}.line_total", round($lineTotal, 4));
+                                                } else {
+                                                    // Trigger recalculation by modifying unit_price slightly
+                                                    // This will trigger the afterStateUpdated callback on unit_price field
+                                                    $set("items.{$index}.unit_price", $unitPrice + 0.0001);
+                                                    $set("items.{$index}.unit_price", $unitPrice);
+                                                }
+                                            }
+                                        }
+                                    }),
                                 TextInput::make('supplier_reference')
                                     ->label('Supplier Reference')
                                     ->maxLength(255)
@@ -252,7 +292,9 @@ final class SupplierQuotesRelationManager extends RelationManager
                                             ->required()
                                             ->default(1)
                                             ->step(0.0001)
-                                            ->columnSpan(2),
+                                            ->columnSpan(2)
+                                            ->live(onBlur: true)
+                                            ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
                                         TextInput::make('unit')
                                             ->default('pcs')
                                             ->columnSpan(2),
@@ -287,6 +329,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                             ->searchable()
                                             ->columnSpan(3)
                                             ->live()
+                                            ->visible(fn (Get $get): bool => $this->isSupplierTaxable($get))
                                             ->afterStateHydrated(function (Set $set, Get $get, ?int $state): void {
                                                 // Prefill tax code from article's default if not set
                                                 if ($state === null) {
@@ -322,7 +365,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                             ->inline(false)
                                             ->columnSpan(2)
                                             ->live()
-                                            ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
+                                            ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get))
+                                            ->visible(fn (Get $get): bool => $this->isSupplierTaxable($get)),
                                         TextInput::make('tax_rate')
                                             ->label('Tax %')
                                             ->numeric()
@@ -330,7 +374,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                             ->step(0.01)
                                             ->columnSpan(2)
                                             ->disabled()
-                                            ->dehydrated(),
+                                            ->dehydrated()
+                                            ->visible(fn (Get $get): bool => $this->isSupplierTaxable($get)),
                                         TextInput::make('line_total')
                                             ->label('Line Total')
                                             ->numeric()
@@ -364,7 +409,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                     ->label('Tax Total')
                                     ->content(fn (?SupplierQuote $record): string => $record instanceof \App\Models\SupplierQuote
                                         ? ($record->currency?->formatNumber((float) $record->tax_total) ?? number_format((float) $record->tax_total, 2))
-                                        : '0,-'),
+                                        : '0,-')
+                                    ->visible(fn (?SupplierQuote $record): bool => $record === null || $this->isRecordSupplierTaxable($record)),
                                 Placeholder::make('total_display')
                                     ->label('Total')
                                     ->content(fn (?SupplierQuote $record): string => $record instanceof \App\Models\SupplierQuote
@@ -400,7 +446,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                         return $baseCurrency !== null
                                             ? $baseCurrency->formatNumber((float) $record->tax_total_base)
                                             : number_format((float) $record->tax_total_base, 2);
-                                    }),
+                                    })
+                                    ->visible(fn (?SupplierQuote $record): bool => $record === null || $this->isRecordSupplierTaxable($record)),
                                 Placeholder::make('total_base_display')
                                     ->label('Total (Base)')
                                     ->content(function (?SupplierQuote $record): string {
@@ -545,14 +592,25 @@ final class SupplierQuotesRelationManager extends RelationManager
     {
         $quantity = (float) ($get('quantity') ?? 0);
         $unitPrice = (float) ($get('unit_price') ?? 0);
-        $taxRate = (float) ($get('tax_rate') ?? 0);
-        $isTaxInclusive = (bool) $get('is_tax_inclusive');
+        
+        // Check if supplier is taxable
+        $isTaxable = $this->isSupplierTaxable($get);
+        
+        // If not taxable, set tax values to 0 and clear tax fields
+        if (! $isTaxable) {
+            $set('tax_rate', 0);
+            $set('tax_code_id', null);
+            $set('is_tax_inclusive', false);
+        }
+        
+        $taxRate = $isTaxable ? (float) ($get('tax_rate') ?? 0) : 0;
+        $isTaxInclusive = $isTaxable && (bool) $get('is_tax_inclusive');
 
         $lineAmount = $quantity * $unitPrice;
 
-        if ($isTaxInclusive) {
+        if ($isTaxInclusive && $taxRate > 0) {
             $lineTotal = $lineAmount;
-            $lineSubtotal = $taxRate > 0 ? $lineAmount / (1 + $taxRate / 100) : $lineAmount;
+            $lineSubtotal = $lineAmount / (1 + $taxRate / 100);
             $lineTax = $lineTotal - $lineSubtotal;
         } else {
             $lineSubtotal = $lineAmount;
@@ -573,6 +631,45 @@ final class SupplierQuotesRelationManager extends RelationManager
             ->exists();
 
         return $hasSelected ? '✓' : null;
+    }
+
+    /**
+     * Check if the supplier selected in the form is taxable.
+     */
+    private function isSupplierTaxable(Get $get): bool
+    {
+        // Get supplier_id from the parent form (go up from repeater item to form level)
+        $supplierId = $get('../../supplier_id');
+        
+        if ($supplierId === null) {
+            // When editing existing quote, check the record's supplier
+            $record = $this->getMountedTableActionRecord() ?? $this->getRecord();
+            if ($record instanceof SupplierQuote && $record->supplier_id !== null) {
+                $supplierId = $record->supplier_id;
+            } else {
+                return true; // Default to showing tax fields if no supplier selected
+            }
+        }
+
+        /** @var Company|null $supplier */
+        $supplier = Company::query()->find($supplierId);
+
+        return $supplier?->is_taxable ?? true;
+    }
+
+    /**
+     * Check if the supplier in an existing record is taxable.
+     */
+    private function isRecordSupplierTaxable(?SupplierQuote $record): bool
+    {
+        if ($record === null || $record->supplier_id === null) {
+            return true; // Default to showing tax fields
+        }
+
+        /** @var Company|null $supplier */
+        $supplier = Company::query()->find($record->supplier_id);
+
+        return $supplier?->is_taxable ?? true;
     }
 
     public static function getBadgeColor(Model $ownerRecord, string $pageClass): ?string

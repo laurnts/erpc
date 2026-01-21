@@ -80,17 +80,28 @@
                         @foreach($this->quotes as $quote)
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[180px]">
                                 <div class="flex flex-col gap-1">
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex flex-col gap-1">
                                         <span class="font-semibold text-gray-900 dark:text-gray-100">
                                             {{ $quote->supplier->name }}
                                         </span>
-                                        @if($this->hasPricesEntered)
-                                            @if($quote->getKey() === $this->bestOverallQuoteId)
-                                                <x-filament::badge size="xs" color="success">
-                                                    Best
+                                        <div class="flex items-center gap-1">
+                                            @if($quote->supplier->is_taxable)
+                                                <x-filament::badge size="xs" color="info">
+                                                    Tax
+                                                </x-filament::badge>
+                                            @else
+                                                <x-filament::badge size="xs" color="gray">
+                                                    No Tax
                                                 </x-filament::badge>
                                             @endif
-                                        @endif
+                                            @if($this->hasPricesEntered)
+                                                @if($quote->getKey() === $this->bestOverallQuoteId)
+                                                    <x-filament::badge size="xs" color="success">
+                                                        Best
+                                                    </x-filament::badge>
+                                                @endif
+                                            @endif
+                                        </div>
                                     </div>
                                     <div class="flex items-center gap-2 text-xs font-normal normal-case text-gray-500">
                                         <span>{{ $quote->currency->code }}</span>
@@ -202,6 +213,14 @@
             <div class="flex items-center gap-1">
                 <x-heroicon-s-check-circle class="w-4 h-4 text-primary-500" />
                 <span>Selected</span>
+            </div>
+            <div class="flex items-center gap-1">
+                <x-filament::badge size="xs" color="info">Tax</x-filament::badge>
+                <span>Taxable company</span>
+            </div>
+            <div class="flex items-center gap-1">
+                <x-filament::badge size="xs" color="gray">No Tax</x-filament::badge>
+                <span>Non-taxable company</span>
             </div>
         </div>
 

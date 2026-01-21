@@ -41,7 +41,6 @@
     {{-- Buyer Information --}}
     <div class="party-section">
         <div class="party-box">
-            <div class="party-label">Quote For</div>
             <div class="party-name">{{ $quote->buyer?->name ?? 'N/A' }}</div>
             <div class="party-details">
                 @if($quote->buyer?->contact_person)
@@ -65,16 +64,15 @@
         <thead>
             <tr>
                 <th style="width: 5%;">#</th>
-                <th style="width: 40%;">Description</th>
+                <th style="width: 45%;">Description</th>
                 <th class="text-center" style="width: 10%;">Qty</th>
                 <th class="text-center" style="width: 8%;">Unit</th>
-                <th class="text-right" style="width: 12%;">Unit Price</th>
-                <th class="text-right" style="width: 10%;">Tax</th>
-                <th class="text-right" style="width: 15%;">Total</th>
+                <th class="text-right" style="width: 15%;">Unit Price</th>
+                <th class="text-right" style="width: 17%;">Total</th>
             </tr>
         </thead>
         <tbody>
-            @forelse($quote->items as $index => $item)
+            @forelse($items ?? $quote->items as $index => $item)
                 <tr>
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td>
@@ -86,12 +84,11 @@
                     <td class="text-center">{{ $quote->currency?->formatNumber((float)$item->quantity) ?? number_format((float)$item->quantity, 2) }}</td>
                     <td class="text-center">{{ $item->unit }}</td>
                     <td class="text-right">{{ $quote->currency?->formatNumber((float)$item->unit_price_exc_tax) ?? number_format((float)$item->unit_price_exc_tax, 2) }}</td>
-                    <td class="text-right">{{ $quote->currency?->formatNumber((float)$item->line_tax) ?? number_format((float)$item->line_tax, 2) }}</td>
                     <td class="text-right">{{ $quote->currency?->formatNumber((float)$item->line_total) ?? number_format((float)$item->line_total, 2) }}</td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="7" class="text-center">No items</td>
+                    <td colspan="6" class="text-center">No items</td>
                 </tr>
             @endforelse
         </tbody>
@@ -100,35 +97,28 @@
     {{-- Totals --}}
     <div class="totals-section">
         <table class="totals-table">
-            <tr>
-                <td>Subtotal:</td>
-                <td>{{ $quote->currency?->format((float)$quote->subtotal) ?? number_format((float)$quote->subtotal, 2) }}</td>
-            </tr>
-            <tr>
-                <td>Tax:</td>
-                <td>{{ $quote->currency?->format((float)$quote->tax_total) ?? number_format((float)$quote->tax_total, 2) }}</td>
-            </tr>
-            <tr class="grand-total">
-                <td>Grand Total:</td>
-                <td>{{ $quote->currency?->format((float)$quote->total) ?? number_format((float)$quote->total, 2) }}</td>
-            </tr>
+            <tbody>
+                <tr>
+                    <td>Subtotal:</td>
+                    <td>{{ $quote->currency?->format((float)($processedSubtotal ?? $quote->subtotal)) ?? number_format((float)($processedSubtotal ?? $quote->subtotal ?? 0), 2) }}</td>
+                </tr>
+                <tr>
+                    <td>Tax:</td>
+                    <td>{{ $quote->currency?->format((float)($processedTaxTotal ?? $quote->tax_total)) ?? number_format((float)($processedTaxTotal ?? $quote->tax_total ?? 0), 2) }}</td>
+                </tr>
+                <tr class="grand-total">
+                    <td>Grand Total:</td>
+                    <td>{{ $quote->currency?->format((float)($processedTotal ?? $quote->total)) ?? number_format((float)($processedTotal ?? $quote->total ?? 0), 2) }}</td>
+                </tr>
+            </tbody>
         </table>
     </div>
 
-    {{-- Payment Terms --}}
-    @if($quote->prepayment_percent > 0 || $quote->payment_terms_description)
-        <div class="payment-info">
-            <div class="payment-info-title">Payment Terms</div>
-            <div class="payment-info-content">
-                @if($quote->prepayment_percent > 0)
-                    <strong>Prepayment Required:</strong> {{ $quote->prepayment_percent }}% ({{ $quote->currency?->format((float)$quote->total * $quote->prepayment_percent / 100) ?? number_format((float)$quote->total * $quote->prepayment_percent / 100, 2) }})<br>
-                @endif
-                @if($quote->payment_terms_description)
-                    {{ $quote->payment_terms_description }}
-                @else
-                    Net {{ $quote->payment_terms_days }} days
-                @endif
-            </div>
+    {{-- Terms and Conditions --}}
+    @if($quote->terms_and_conditions)
+        <div class="terms-section">
+            <div class="terms-title">Terms and Conditions</div>
+            <div class="terms-content">{{ $quote->terms_and_conditions }}</div>
         </div>
     @endif
 
@@ -137,14 +127,6 @@
         <div class="notes-section">
             <div class="notes-label">Notes</div>
             <div class="notes-content">{{ $quote->notes }}</div>
-        </div>
-    @endif
-
-    {{-- Terms and Conditions --}}
-    @if($quote->terms_and_conditions)
-        <div class="terms-section">
-            <div class="terms-title">Terms and Conditions</div>
-            <div class="terms-content">{{ $quote->terms_and_conditions }}</div>
         </div>
     @endif
 @endsection

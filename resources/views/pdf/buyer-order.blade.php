@@ -30,7 +30,7 @@
                     @if($order->confirmed_at)
                         Confirmed: {{ $order->confirmed_at->format('d M Y') }}<br>
                     @endif
-                    Status: <span class="status-badge status-{{ strtolower($order->status->value) }}">{{ $order->status->getLabel() }}</span>
+                    Status: <span class="status-{{ strtolower($order->status->value) }}">{{ $order->status->getLabel() }}</span>
                 </div>
             </div>
         </div>
@@ -61,20 +61,14 @@
     {{-- Reference Information --}}
     @if($order->buyerQuote || $order->request)
         <div class="mb-20">
-            <table style="width: 100%; font-size: 9pt;">
+            <div class="document-meta">
                 @if($order->buyerQuote)
-                    <tr>
-                        <td style="width: 120px; color: #6b7280;"><strong>Quote Reference:</strong></td>
-                        <td>{{ $order->buyerQuote->quote_number }} (v{{ $order->buyerQuote->version }})</td>
-                    </tr>
+                    <strong>Quote Reference:</strong> {{ $order->buyerQuote->quote_number }} (v{{ $order->buyerQuote->version }})<br>
                 @endif
                 @if($order->request)
-                    <tr>
-                        <td style="width: 120px; color: #6b7280;"><strong>Request Reference:</strong></td>
-                        <td>{{ $order->request->request_number }}</td>
-                    </tr>
+                    <strong>Request Reference:</strong> {{ $order->request->request_number }}<br>
                 @endif
-            </table>
+            </div>
         </div>
     @endif
 

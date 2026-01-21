@@ -36,6 +36,7 @@ use Illuminate\Support\Carbon;
  * @property string $line_total
  * @property int $sort_order
  * @property string|null $notes
+ * @property bool $hide_from_pdf
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read BuyerQuote $buyerQuote
@@ -76,6 +77,7 @@ final class BuyerQuoteItem extends Model
         'line_total',
         'sort_order',
         'notes',
+        'hide_from_pdf',
     ];
 
     /**
@@ -96,6 +98,7 @@ final class BuyerQuoteItem extends Model
         'line_tax' => '0.0000',
         'line_total' => '0.0000',
         'sort_order' => 0,
+        'hide_from_pdf' => false,
     ];
 
     /**
@@ -117,6 +120,7 @@ final class BuyerQuoteItem extends Model
             'line_tax' => 'decimal:4',
             'line_total' => 'decimal:4',
             'sort_order' => 'integer',
+            'hide_from_pdf' => 'boolean',
         ];
     }
 

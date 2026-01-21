@@ -2,13 +2,16 @@
     /** @var \App\Models\ProfitAndLoss $record */
     $record = $getRecord();
     
-    // Use the buyer quote linked to the PNL if set
-    $buyerQuote = $record->buyerQuote;
-    
-    // Fall back to finding a valid buyer quote from the request (excluding rejected/superseded)
-    if ($buyerQuote === null && $record->request !== null) {
+    // Always use the latest valid buyer quote (not REJECTED, EXPIRED, or SUPERSEDED)
+    // This ensures PNL always reflects the most recent quote changes
+    $buyerQuote = null;
+    if ($record->request !== null) {
         $buyerQuote = $record->request->buyerQuotes()
-            ->whereNotIn('status', [\App\Enums\BuyerQuoteStatus::REJECTED, \App\Enums\BuyerQuoteStatus::SUPERSEDED])
+            ->whereNotIn('status', [
+                \App\Enums\BuyerQuoteStatus::REJECTED,
+                \App\Enums\BuyerQuoteStatus::EXPIRED,
+                \App\Enums\BuyerQuoteStatus::SUPERSEDED
+            ])
             ->latest()
             ->first();
     }

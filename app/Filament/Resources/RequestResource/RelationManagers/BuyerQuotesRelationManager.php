@@ -128,7 +128,7 @@ final class BuyerQuotesRelationManager extends RelationManager
 
             Section::make('Payment Terms')
                 ->schema([
-                    Grid::make(4)
+                    Grid::make(2)
                         ->schema([
                             Select::make('prepayment_type')
                                 ->label('Prepayment Type')
@@ -146,20 +146,34 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 ->minValue(0)
                                 ->maxValue(fn (Get $get): ?int => $get('prepayment_type') === 'percent' ? 100 : null)
                                 ->suffix(fn (Get $get): string => $get('prepayment_type') === 'percent' ? '%' : ''),
-                            TextInput::make('payment_terms_days')
-                                ->label('Payment Terms (Days)')
-                                ->numeric()
-                                ->default(function (): int {
-                                    /** @var \App\Models\Team|null $team */
-                                    $team = Filament::getTenant();
-
-                                    return $team?->getErpSettings()->default_payment_terms_days ?? 30;
-                                })
-                                ->minValue(0),
-                            TextInput::make('payment_terms_description')
-                                ->label('Payment Terms Description')
-                                ->placeholder('e.g., Net 30, 50% upfront'),
                         ]),
+                    Repeater::make('paymentTerms')
+                        ->relationship()
+                        ->schema([
+                            Grid::make(2)
+                                ->schema([
+                                    TextInput::make('due_days')
+                                        ->label('Due Days')
+                                        ->numeric()
+                                        ->required()
+                                        ->default(0)
+                                        ->minValue(0)
+                                        ->suffix('days'),
+                                    TextInput::make('percentage')
+                                        ->label('Percentage')
+                                        ->numeric()
+                                        ->required()
+                                        ->default(0)
+                                        ->minValue(0)
+                                        ->maxValue(100)
+                                        ->suffix('%'),
+                                ]),
+                        ])
+                        ->defaultItems(1)
+                        ->itemLabel(fn (array $state): ?string => isset($state['due_days'], $state['percentage']) ? "{$state['due_days']} days - {$state['percentage']}%" : null)
+                        ->addActionLabel('Add Payment Terms')
+                        ->reorderableWithButtons()
+                        ->collapsible(),
                 ])
                 ->collapsible(),
 
@@ -383,6 +397,10 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->dehydrated()
                                         ->columnSpan(2),
                                 ]),
+                            Checkbox::make('hide_from_pdf')
+                                ->label('Hide from PDF')
+                                ->helperText('This item will not appear in the PDF and its price will be distributed to visible items')
+                                ->columnSpanFull(),
                             Textarea::make('notes')
                                 ->rows(1)
                                 ->columnSpanFull(),
@@ -627,11 +645,11 @@ final class BuyerQuotesRelationManager extends RelationManager
                             // Unit price is always the NET price
                             $unitPriceExcTax = $unitPrice;
 
-                            // Line subtotal is quantity * net price
+                            // Line subtotal is quantity * net price (amount before tax)
                             $lineSubtotal = $quantity * $unitPrice;
 
-                            // Calculate tax and total based on checkbox
-                            if ($addTax) {
+                            // Calculate tax if tax rate > 0 (tax should always be calculated when tax code is selected)
+                            if ($taxRate > 0) {
                                 $lineTax = $lineSubtotal * $taxRate / 100;
                                 $lineTotal = $lineSubtotal + $lineTax;
                             } else {
@@ -668,14 +686,22 @@ final class BuyerQuotesRelationManager extends RelationManager
                             ];
                         }
 
+                        $defaultPaymentTermsDays = $settings->default_payment_terms_days ?? 30;
+
                         return [
                             'status' => BuyerQuoteStatus::DRAFT,
                             'currency_id' => $currencyId,
                             'exchange_rate' => 1,
                             'valid_until' => now()->addDays($settings->quote_validity_days ?? 30),
-                            'payment_terms_days' => $settings->default_payment_terms_days ?? 30,
                             'prepayment_type' => 'percent',
                             'prepayment_amount' => 0,
+                            'paymentTerms' => [
+                                [
+                                    'due_days' => $defaultPaymentTermsDays,
+                                    'percentage' => 100,
+                                    'sort_order' => 0,
+                                ],
+                            ],
                             'items' => $items,
                         ];
                     })
@@ -731,11 +757,11 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 // Unit price is always the NET price
                                 $unitPriceExcTax = $unitPrice;
 
-                                // Line subtotal is quantity * net price
+                                // Line subtotal is quantity * net price (amount before tax)
                                 $lineSubtotal = $quantity * $unitPrice;
 
-                                // Calculate tax and total based on checkbox
-                                if ($addTax) {
+                                // Calculate tax if tax rate > 0 (tax should always be calculated when tax code is selected)
+                                if ($taxRate > 0) {
                                     $lineTax = $lineSubtotal * $taxRate / 100;
                                     $lineTotal = $lineSubtotal + $lineTax;
                                 } else {
@@ -1002,11 +1028,12 @@ final class BuyerQuotesRelationManager extends RelationManager
         // Unit price is always the net price
         $unitPriceExcTax = $unitPrice;
 
-        // Line subtotal is quantity * net price
+        // Line subtotal is quantity * net price (amount before tax)
         $lineSubtotal = $quantity * $unitPrice;
 
-        // Calculate tax and total based on checkbox
-        if ($addTax) {
+        // Calculate tax if tax rate > 0 (tax should always be calculated when tax code is selected)
+        // The "+ Tax" checkbox indicates tax should be added on top of the subtotal
+        if ($taxRate > 0) {
             $lineTax = $lineSubtotal * $taxRate / 100;
             $lineTotal = $lineSubtotal + $lineTax;
         } else {

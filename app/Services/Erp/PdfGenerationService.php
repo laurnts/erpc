@@ -19,10 +19,69 @@ final readonly class PdfGenerationService
      */
     public function generateBuyerQuotePdf(BuyerQuote $quote): string
     {
-        $quote->load(['buyer', 'currency', 'items', 'team']);
+        $quote->load(['buyer', 'currency', 'items', 'paymentTerms', 'team']);
+
+        // Process items: filter hidden items and distribute their prices
+        $visibleItems = $quote->items->filter(fn ($item) => ! $item->hide_from_pdf);
+        $hiddenItems = $quote->items->filter(fn ($item) => $item->hide_from_pdf);
+
+        // Calculate total price of hidden items (line_total)
+        $hiddenTotal = $hiddenItems->sum(fn ($item) => (float) $item->line_total);
+
+        // Distribute hidden item prices evenly among visible items
+        $visibleCount = $visibleItems->count();
+        $distributionPerItem = $visibleCount > 0 ? $hiddenTotal / $visibleCount : 0;
+
+        // Create processed items with distributed prices
+        $processedItems = $visibleItems->map(function ($item) use ($distributionPerItem) {
+            $quantity = (float) $item->quantity;
+            
+            // Add distribution amount directly to unit price (not divided by quantity)
+            $originalUnitPrice = (float) $item->unit_price_exc_tax;
+            $newUnitPriceExcTax = $originalUnitPrice + $distributionPerItem;
+            
+            // Recalculate line subtotal (no tax per item)
+            $newLineSubtotal = $newUnitPriceExcTax * $quantity;
+            
+            // Set tax to 0 for items (tax will be calculated from subtotal)
+            $newLineTax = 0;
+            $newLineTotal = $newLineSubtotal;
+            
+            // Create a new object with adjusted values
+            $processedItem = clone $item;
+            $processedItem->unit_price_exc_tax = (string) round($newUnitPriceExcTax, 4);
+            $processedItem->line_subtotal = (string) round($newLineSubtotal, 4);
+            $processedItem->line_tax = (string) round($newLineTax, 4);
+            $processedItem->line_total = (string) round($newLineTotal, 4);
+            $processedItem->tax_amount = (string) round(0, 4);
+            
+            return $processedItem;
+        });
+
+        // Calculate subtotal from processed items
+        $processedSubtotal = $processedItems->sum(fn ($item) => (float) $item->line_subtotal);
+        
+        // Calculate tax rate from visible items
+        // Use tax rate from first visible item that has tax
+        $taxRate = 0;
+        $itemsWithTax = $visibleItems->filter(fn ($item) => (float) $item->tax_rate > 0);
+        
+        if ($itemsWithTax->isNotEmpty()) {
+            // Use tax rate from first item with tax (all items should have same tax rate)
+            $firstItemWithTax = $itemsWithTax->first();
+            $taxRate = (float) $firstItemWithTax->tax_rate;
+        }
+        
+        // Calculate tax from subtotal
+        $processedTaxTotal = $processedSubtotal * ($taxRate / 100);
+        $processedTotal = $processedSubtotal + $processedTaxTotal;
 
         $pdf = Pdf::loadView('pdf.buyer-quote', [
             'quote' => $quote,
+            'items' => $processedItems,
+            'processedSubtotal' => $processedSubtotal,
+            'processedTaxTotal' => $processedTaxTotal,
+            'processedTotal' => $processedTotal,
             'company' => $this->getCompanyDetails($quote->team),
         ]);
 

@@ -83,6 +83,12 @@ final class BuyerResource extends Resource
                 ->maxLength(255)
                 ->helperText('Company website domain'),
 
+            TextInput::make('email')
+                ->label('Email')
+                ->email()
+                ->maxLength(255)
+                ->placeholder('buyer@example.com'),
+
             Select::make('tags')
                 ->label('Categories')
                 ->relationship('tags', 'name')
