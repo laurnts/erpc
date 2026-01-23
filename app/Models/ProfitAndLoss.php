@@ -115,11 +115,11 @@ final class ProfitAndLoss extends Model
     /**
      * The person who prepared the PNL.
      *
-     * @return BelongsTo<KeyAccount, $this>
+     * @return BelongsTo<People, $this>
      */
     public function preparedBy(): BelongsTo
     {
-        return $this->belongsTo(KeyAccount::class, 'prepared_by_id');
+        return $this->belongsTo(People::class, 'prepared_by_id');
     }
 
     /**

@@ -49,6 +49,7 @@ final class People extends Model implements HasCustomFields
     protected $fillable = [
         'name',
         'creation_source',
+        'is_key_account',
     ];
 
     /**
@@ -67,6 +68,7 @@ final class People extends Model implements HasCustomFields
     {
         return [
             'creation_source' => CreationSource::class,
+            'is_key_account' => 'boolean',
         ];
     }
 
@@ -115,5 +117,38 @@ final class People extends Model implements HasCustomFields
     public function tasks(): MorphToMany
     {
         return $this->morphToMany(Task::class, 'taskable');
+    }
+
+    /**
+     * Buyers assigned to this key account person.
+     *
+     * @return BelongsToMany<Company, $this>
+     */
+    public function buyers(): BelongsToMany
+    {
+        return $this->belongsToMany(Company::class, 'key_account_buyers', 'key_account_id', 'buyer_id')
+            ->withTimestamps();
+    }
+
+    /**
+     * Quotation Evaluations where this person is the preparer.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<QuotationEvaluation, $this>
+     */
+    public function preparedEvaluations(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(QuotationEvaluation::class, 'prepared_by_id');
+    }
+
+    /**
+     * Quotation Evaluations where this person is the approver.
+     * Note: This uses approved_by_name field (string), not a foreign key.
+     * This is a query scope helper, not a true relationship.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder<QuotationEvaluation>
+     */
+    public function approvedEvaluations(): \Illuminate\Database\Eloquent\Builder
+    {
+        return QuotationEvaluation::query()->where('approved_by_name', $this->name);
     }
 }

@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace App\Livewire;
 
-use App\Actions\KeyAccount\CreateKeyAccount;
 use App\Enums\SupplierQuoteStatus;
+use App\Filament\Resources\PeopleResource;
 use App\Filament\Resources\QuotationEvaluationResource;
 use App\Livewire\Concerns\AuthorizesLivewireActions;
-use App\Models\KeyAccount;
+use App\Models\People;
 use App\Models\QuotationEvaluation;
 use App\Models\Request;
 use App\Models\SupplierQuote;
 use App\Models\SupplierQuoteItem;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Textarea;
@@ -94,18 +95,56 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
     }
 
     /**
-     * Create a new key account from inline form.
+     * Get key account (People with is_key_account = true) options for select fields.
+     * Only shows key accounts that are assigned to handle the request's buyer.
      *
-     * @param  array{name: string, email?: string|null, phone?: string|null, is_active?: bool}  $data
+     * @return array<int, string>
+     */
+    private function getKeyAccountOptions(): array
+    {
+        $query = People::query()
+            ->where('team_id', Filament::getTenant()?->getKey())
+            ->where('is_key_account', true);
+
+        // Filter to only show key accounts assigned to handle this request's buyer
+        if ($this->request->buyer_id) {
+            $query->whereHas('buyers', function ($q): void {
+                $q->where('companies.id', $this->request->buyer_id);
+            });
+        }
+
+        return $query
+            ->orderBy('name')
+            ->get()
+            ->mapWithKeys(fn (People $person): array => [$person->getKey() => $person->name])
+            ->toArray();
+    }
+
+    /**
+     * Create a new key account person from inline form.
+     *
+     * @param  array<string, mixed>  $data
      */
     public function createKeyAccount(array $data): int
     {
         // Check authorization
-        Gate::authorize('create', KeyAccount::class);
+        Gate::authorize('create', People::class);
 
-        $keyAccount = app(CreateKeyAccount::class)->execute($data);
+        /** @var \App\Models\Team $team */
+        $team = Filament::getTenant();
 
-        return $keyAccount->id;
+        /** @var People $person */
+        $person = People::create([
+            'name' => $data['name'],
+            'is_key_account' => true,
+            'team_id' => $team->id,
+            'creator_id' => auth()->id(),
+        ]);
+
+        // Note: Email and phone are custom fields and should be set through the People form
+        // The user can edit the person after creation to add email/phone
+
+        return $person->id;
     }
 
     /**
@@ -134,7 +173,7 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
     {
         // Check authorization first
         try {
-            Gate::authorize('create', KeyAccount::class);
+            Gate::authorize('create', People::class);
         } catch (AuthorizationException) {
             Notification::make()
                 ->title('Permission Denied')

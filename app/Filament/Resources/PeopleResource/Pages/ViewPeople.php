@@ -7,6 +7,9 @@ namespace App\Filament\Resources\PeopleResource\Pages;
 use App\Filament\Actions\GenerateRecordSummaryAction;
 use App\Filament\Resources\CompanyResource;
 use App\Filament\Resources\PeopleResource;
+use App\Filament\Resources\PeopleResource\RelationManagers\BuyersRelationManager;
+use App\Filament\Resources\PeopleResource\RelationManagers\NotesRelationManager;
+use App\Filament\Resources\PeopleResource\RelationManagers\TasksRelationManager;
 use App\Models\People;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -56,5 +59,23 @@ final class ViewPeople extends ViewRecord
                 CustomFields::infolist()->forSchema($schema)->build()->columnSpanFull(),
             ])->columnSpanFull(),
         ]);
+    }
+
+    public function getRelationManagers(): array
+    {
+        /** @var People $record */
+        $record = $this->getRecord();
+
+        $managers = [
+            TasksRelationManager::class,
+            NotesRelationManager::class,
+        ];
+
+        // Only show Buyers relation manager for Key Accounts
+        if ($record->is_key_account) {
+            $managers[] = BuyersRelationManager::class;
+        }
+
+        return $managers;
     }
 }

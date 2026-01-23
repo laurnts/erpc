@@ -21,6 +21,7 @@ use Filament\Actions\RestoreBulkAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\ImageColumn;
@@ -59,6 +60,9 @@ final class PeopleResource extends Resource
             TextInput::make('name')
                 ->required()
                 ->maxLength(255),
+            Toggle::make('is_key_account')
+                ->label('Key Account')
+                ->helperText('Enable this to mark this person as a Key Account. Key Accounts can be assigned buyers.'),
         ];
 
         // Add Companies field unless excluded (to prevent circular references)

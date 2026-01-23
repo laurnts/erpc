@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Filament\Resources\KeyAccountResource\RelationManagers;
+namespace App\Filament\Resources\PeopleResource\RelationManagers;
 
 use App\Filament\Resources\BuyerResource;
 use App\Models\Company;
@@ -83,9 +83,9 @@ final class BuyersRelationManager extends RelationManager
                             'creator_id' => auth()->id(),
                         ]);
 
-                        /** @var \App\Models\KeyAccount $keyAccount */
-                        $keyAccount = $livewire->getOwnerRecord();
-                        $keyAccount->buyers()->attach($buyer->id);
+                        /** @var \App\Models\People $person */
+                        $person = $livewire->getOwnerRecord();
+                        $person->buyers()->attach($buyer->id);
 
                         return $buyer;
                     }),
