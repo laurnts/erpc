@@ -20,6 +20,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Relaticle\CustomFields\Models\Concerns\UsesCustomFields;
 use Relaticle\CustomFields\Models\Contracts\HasCustomFields;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
 /**
  * @property int $id
@@ -61,7 +63,7 @@ use Relaticle\CustomFields\Models\Contracts\HasCustomFields;
  * @property-read Currency $currency
  */
 #[ObservedBy(BuyerQuoteObserver::class)]
-final class BuyerQuote extends Model implements HasCustomFields
+final class BuyerQuote extends Model implements HasCustomFields, HasMedia
 {
     use HasCreator;
 
@@ -69,6 +71,7 @@ final class BuyerQuote extends Model implements HasCustomFields
     use HasFactory;
 
     use HasTeam;
+    use InteractsWithMedia;
     use SoftDeletes;
     use UsesCustomFields;
 
@@ -216,6 +219,25 @@ final class BuyerQuote extends Model implements HasCustomFields
     public function paymentTerms(): HasMany
     {
         return $this->hasMany(BuyerQuotePaymentTerm::class)->orderBy('sort_order');
+    }
+
+    /**
+     * Register media collections for this model.
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('buyer_po')
+            ->useDisk('local') // Store in private storage
+            ->acceptsMimeTypes([
+                'application/pdf',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
+                'application/vnd.ms-excel', // xls
+                'image/png',
+                'image/jpeg',
+                'image/jpg',
+                'application/msword', // doc
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // docx
+            ]);
     }
 
     /**

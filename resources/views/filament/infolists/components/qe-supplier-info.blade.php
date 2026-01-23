@@ -1,6 +1,49 @@
 @php
-    $data = $getState();
-    $suppliers = collect($data['suppliers'] ?? []);
+    /** @var \App\Models\QuotationEvaluation $record */
+    $record = $getRecord();
+    
+    // Get supplier quote IDs from snapshot data
+    $snapshotData = $record->data;
+    $snapshotSuppliers = collect($snapshotData['suppliers'] ?? []);
+    
+    if ($snapshotSuppliers->isEmpty()) {
+        return;
+    }
+    
+    // Get supplier quote IDs from snapshot
+    $quoteIds = $snapshotSuppliers->pluck('id')->filter()->toArray();
+    
+    // Load actual supplier quotes with supplier relationships
+    $quotes = \App\Models\SupplierQuote::query()
+        ->whereIn('id', $quoteIds)
+        ->with(['supplier', 'currency'])
+        ->get()
+        ->keyBy('id');
+    
+    // Build suppliers array with live data
+    $suppliers = [];
+    foreach ($snapshotSuppliers as $snapshotSupplier) {
+        $quoteId = $snapshotSupplier['id'] ?? null;
+        $quote = $quotes->get($quoteId);
+        
+        if ($quote && $quote->supplier) {
+            $suppliers[] = [
+                'id' => $quote->getKey(),
+                'name' => $quote->supplier->name ?? 'Unknown',
+                'currency_code' => $quote->currency?->code ?? 'USD',
+                'delivery_type' => $quote->supplier->delivery_type ?? null,
+                'delivery_type_details' => $quote->supplier->delivery_type_details ?? null,
+                'is_taxable' => $quote->supplier->is_taxable ?? false,
+                'delivery_term' => $quote->supplier->delivery_term ?? null,
+                'payment_terms_days' => $quote->supplier->payment_terms_days ?? null,
+            ];
+        } else {
+            // Fallback to snapshot data if quote not found
+            $suppliers[] = $snapshotSupplier;
+        }
+    }
+    
+    $suppliers = collect($suppliers);
     
     if ($suppliers->isEmpty()) {
         return;

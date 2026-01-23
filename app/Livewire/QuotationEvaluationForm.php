@@ -14,6 +14,9 @@ use App\Models\Request;
 use App\Models\SupplierQuote;
 use App\Models\SupplierQuoteItem;
 use Filament\Facades\Filament;
+use Filament\Actions\Action;
+use Filament\Actions\Concerns\InteractsWithActions;
+use Filament\Actions\Contracts\HasActions;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Textarea;
@@ -64,6 +67,12 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
         $this->request = $request;
         $this->description = $request->title;
         $this->qeDate = now()->format('Y-m-d');
+        
+        // Fill the form with initial data
+        $this->form->fill([
+            'qeDate' => $this->qeDate,
+            'description' => $this->description,
+        ]);
     }
 
     public function form(Schema $schema): Schema
@@ -78,7 +87,8 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
                         DatePicker::make('qeDate')
                             ->label('Date')
                             ->required()
-                            ->default(now()),
+                            ->default(now())
+                            ->native(false),
                         TextInput::make('request_number')
                             ->label('Request')
                             ->default($this->request->request_number)
@@ -224,33 +234,66 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
             return;
         }
 
-        $this->validate([
-            'qeDate' => 'required|date',
-        ]);
+        try {
+            // Validate Filament form first
+            $formData = $this->form->getState();
 
-        // Build snapshot data
-        $snapshotData = $this->buildSnapshotData();
+            /** @var \App\Models\Team|null $team */
+            $team = Filament::getTenant();
 
-        // Create the QE record (team_id, creator_id, and qe_number are auto-set by observer)
-        $qe = QuotationEvaluation::create([
-            'request_id' => $this->request->getKey(),
-            'description' => $this->description,
-            'qe_date' => $this->qeDate,
-            'prepared_by_id' => $this->preparedById,
-            'dept_head_sales_name' => $this->deptHeadSalesName,
-            'deputy_director_name' => $this->deputyDirectorName,
-            'approved_by_name' => $this->approvedByName,
-            'data' => $snapshotData,
-        ]);
+            if ($team === null) {
+                Notification::make()
+                    ->title('Error')
+                    ->body('Unable to determine team context. Please refresh the page and try again.')
+                    ->danger()
+                    ->send();
 
-        Notification::make()
-            ->title('Quotation Evaluation created')
-            ->body("QE {$qe->qe_number} has been created successfully.")
-            ->success()
-            ->send();
+                return;
+            }
 
-        // Redirect to the QE view page
-        $this->redirect(QuotationEvaluationResource::getUrl('view', ['record' => $qe]));
+            // Use form data if available, otherwise fall back to properties
+            $description = $formData['description'] ?? $this->description ?? $this->request->title;
+            $qeDate = $formData['qeDate'] ?? $this->qeDate ?? now()->format('Y-m-d');
+
+            // Generate QE number
+            $qeNumber = QuotationEvaluation::generateQeNumber($team->id);
+
+            // Build snapshot data
+            $snapshotData = $this->buildSnapshotData();
+
+            // Create the QE record
+            $qe = QuotationEvaluation::create([
+                'team_id' => $team->id,
+                'request_id' => $this->request->getKey(),
+                'qe_number' => $qeNumber,
+                'description' => $description,
+                'qe_date' => $qeDate,
+                'prepared_by_id' => $this->preparedById,
+                'dept_head_sales_name' => $this->deptHeadSalesName,
+                'deputy_director_name' => $this->deputyDirectorName,
+                'approved_by_name' => $this->approvedByName,
+                'data' => $snapshotData,
+                'creator_id' => auth()->id(),
+            ]);
+
+            Notification::make()
+                ->title('Quotation Evaluation created')
+                ->body("QE {$qeNumber} has been created successfully.")
+                ->success()
+                ->send();
+
+            // Redirect to the QE view page
+            $this->redirect(QuotationEvaluationResource::getUrl('view', ['record' => $qe]));
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Validation errors are handled automatically by Livewire/Filament
+            throw $e;
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title('Error creating Quotation Evaluation')
+                ->body('An error occurred while creating the quotation evaluation. Please try again.')
+                ->danger()
+                ->send();
+        }
     }
 
     /**
@@ -316,7 +359,7 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
                 'currency_code' => $quote->currency?->code ?? 'USD',
                 'delivery_type' => $quote->supplier?->delivery_type ?? null,
                 'delivery_type_details' => $quote->supplier?->delivery_type_details ?? null,
-                'is_taxable' => (float) $quote->tax_total > 0,
+                'is_taxable' => $quote->supplier?->is_taxable ?? false,
                 'delivery_term' => $quote->supplier?->delivery_term ?? null,
                 'payment_terms_days' => $quote->supplier?->payment_terms ?? null,
                 'subtotal' => (float) $quote->subtotal,

@@ -19,6 +19,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 final class QuotationEvaluationResource extends Resource
 {
@@ -188,5 +189,16 @@ final class QuotationEvaluationResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         return null;
+    }
+
+    /**
+     * @return Builder<QuotationEvaluation>
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        $team = Filament::getTenant();
+
+        return parent::getEloquentQuery()
+            ->where('team_id', $team?->getKey());
     }
 }

@@ -26,12 +26,14 @@ use Filament\Actions\ViewAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ViewField;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Grid;
@@ -512,6 +514,70 @@ final class BuyerQuotesRelationManager extends RelationManager
                     Textarea::make('terms_and_conditions')
                         ->label('Terms & Conditions')
                         ->rows(3),
+                    FileUpload::make('buyer_po_files')
+                        ->label('Buyer PO Files')
+                        ->helperText('Upload purchasing order from buyer as reference (PDF, Excel, Word, Images)')
+                        ->hint('Maximum file size: 2MB. Files exceeding this limit will be rejected.')
+                        ->hintColor('warning')
+                        ->acceptedFileTypes([
+                            'application/pdf',
+                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
+                            'application/vnd.ms-excel', // xls
+                            'image/png',
+                            'image/jpeg',
+                            'image/jpg',
+                            'application/msword', // doc
+                            'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // docx
+                        ])
+                        ->disk('local')
+                        ->directory('buyer-quotes/po-files')
+                        ->visibility('private')
+                        ->downloadable()
+                        ->openable()
+                        ->previewable()
+                        ->multiple()
+                        ->maxFiles(10)
+                        ->maxSize(2048) // 2MB in KB - validation error will show if exceeded
+                        ->validationMessages([
+                            'max' => 'The file size must not exceed 2MB. Please compress or resize your file before uploading.',
+                        ])
+                        ->dehydrated(false)
+                        ->afterStateUpdated(function ($state, $record, $set) {
+                            // Process uploaded files immediately when they're uploaded (for edit mode)
+                            if ($record && $record->exists && $state && is_array($state) && !empty($state)) {
+                                foreach ($state as $file) {
+                                    if (is_string($file)) {
+                                        // Filament stores files relative to storage/app, so the path is already correct
+                                        $filePath = storage_path('app/' . ltrim($file, '/'));
+                                        
+                                        if (file_exists($filePath)) {
+                                            try {
+                                                $media = $record->addMedia($filePath)
+                                                    ->toMediaCollection('buyer_po');
+                                                
+                                                // Refresh the record to load new media
+                                                $record->refresh();
+                                            } catch (\Exception $e) {
+                                                // Log error for debugging
+                                                \Illuminate\Support\Facades\Log::error('Failed to add Buyer PO media: ' . $e->getMessage(), [
+                                                    'file' => $file,
+                                                    'filePath' => $filePath,
+                                                    'exists' => file_exists($filePath),
+                                                ]);
+                                            }
+                                        } else {
+                                            \Illuminate\Support\Facades\Log::warning('Buyer PO file not found: ' . $filePath);
+                                        }
+                                    }
+                                }
+                            }
+                        }),
+                    ViewField::make('buyer_po_list')
+                        ->label('Uploaded Buyer PO Files')
+                        ->view('filament.forms.components.buyer-po-list')
+                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->exists)
+                        ->dehydrated(false)
+                        ->live(),
                 ])
                 ->collapsed(),
         ];
@@ -709,7 +775,14 @@ final class BuyerQuotesRelationManager extends RelationManager
 
                         return $data;
                     })
-                    ->after(function (BuyerQuote $record) use ($request): void {
+                    ->after(function (BuyerQuote $record, array $data) use ($request): void {
+                        // Process uploaded Buyer PO files for new records (create mode)
+                        // For edit mode, files are processed in afterStateUpdated hook
+                        // Note: Since dehydrated(false), files won't be in $data, but they're processed immediately on upload
+                        
+                        // Refresh media relationship to ensure it's loaded
+                        $record->load('media');
+                        
                         // If items weren't created by the Repeater, create them manually
                         if ($record->items()->count() === 0) {
                             /** @var \App\Models\Team|null $team */

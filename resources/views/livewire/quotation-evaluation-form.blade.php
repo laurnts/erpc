@@ -186,8 +186,9 @@
                     </x-filament::button>
 
                     <x-filament::button
-                        type="submit"
+                        type="button"
                         icon="heroicon-o-document-check"
+                        wire:click="save"
                         wire:loading.attr="disabled"
                     >
                         <span wire:loading.remove wire:target="save">Save QE</span>
@@ -195,6 +196,8 @@
                     </x-filament::button>
                 </div>
             </form>
+
+            <x-filament-actions::modals />
         </div>
     @endif
 </div>

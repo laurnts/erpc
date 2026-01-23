@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Auth\CallbackController;
 use App\Http\Controllers\Auth\RedirectController;
+use App\Http\Controllers\BuyerQuotePoDownloadController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PrivacyPolicyController;
 use App\Http\Controllers\TermsOfServiceController;
+use App\Models\BuyerQuote;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Support\Facades\Route;
 use Laravel\Jetstream\Http\Controllers\TeamInvitationController;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /*
 |--------------------------------------------------------------------------
@@ -58,3 +61,53 @@ Route::get('/team-invitations/{invitation}', [TeamInvitationController::class, '
 Route::get('/discord', function () {
     return redirect()->away(config('services.discord.invite_url'));
 })->name('discord');
+
+// Buyer Quote PO file routes
+Route::middleware(['web', 'auth'])->group(function () {
+    Route::get('/buyer-quotes/{buyerQuote}/po/{media}', BuyerQuotePoDownloadController::class)
+        ->name('buyer-quotes.po.download');
+    
+    Route::delete('/buyer-quotes/{buyerQuote}/po/{media}', function (BuyerQuote $buyerQuote, Media $media) {
+        // Verify ownership
+        // Check both morph alias and full class name (Spatie stores it as morph alias)
+        $isValidModelType = $media->model_type === BuyerQuote::class || 
+                           $media->model_type === 'buyer_quote' ||
+                           $media->model_type === 'App\\Models\\BuyerQuote';
+        
+        if (!$isValidModelType || (int) $media->model_id !== (int) $buyerQuote->id) {
+            abort(404);
+        }
+        
+        if ($media->collection_name !== 'buyer_po') {
+            abort(404);
+        }
+        
+        // Check authorization - user must be authenticated
+        if (!auth()->check()) {
+            abort(403);
+        }
+        
+        try {
+            $media->delete();
+            
+            // Return JSON response for AJAX requests
+            if (request()->wantsJson() || request()->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'File deleted successfully',
+                ]);
+            }
+            
+            return redirect()->back()->with('success', 'File deleted successfully');
+        } catch (\Exception $e) {
+            if (request()->wantsJson() || request()->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to delete file: ' . $e->getMessage(),
+                ], 500);
+            }
+            
+            return redirect()->back()->with('error', 'Failed to delete file');
+        }
+    })->name('buyer-quotes.po.delete');
+});

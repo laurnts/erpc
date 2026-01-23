@@ -16,8 +16,7 @@ return [
     |
     */
 
-    'broadcasting' => [
-
+    'broadcasting' => env('VITE_PUSHER_APP_KEY') ? [
         'echo' => [
             'broadcaster' => 'pusher',
             'key' => env('VITE_PUSHER_APP_KEY'),
@@ -30,8 +29,7 @@ return [
             'encrypted' => true,
             'forceTLS' => true,
         ],
-
-    ],
+    ] : [],
 
     /*
     |--------------------------------------------------------------------------

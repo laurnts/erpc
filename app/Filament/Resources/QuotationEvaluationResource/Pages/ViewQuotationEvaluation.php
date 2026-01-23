@@ -104,7 +104,7 @@ final class ViewQuotationEvaluation extends ViewRecord
 
                 Section::make('Supplier Information')
                     ->schema([
-                        ViewEntry::make('data')
+                        ViewEntry::make('id')
                             ->label('')
                             ->view('filament.infolists.components.qe-supplier-info'),
                     ])
