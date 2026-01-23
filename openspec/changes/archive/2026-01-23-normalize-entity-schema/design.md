@@ -51,32 +51,45 @@ This design addresses normalization while maintaining backward compatibility.
 - Abstract `PersonBase` model: Over-engineering, breaks existing relationships
 - Separate `contacts` table: Would create same duplication problem
 
-### Decision 2: KeyAccount as Filtered View
+### Decision 2: Central Purchasing Role-Based Filtering
 
-**What:** Keep `KeyAccount` as a model that filters `People` where `is_key_account=true`.
+**What:** Replace `is_key_account` boolean with `is_central_purchasing` boolean and `central_purchasing_role` enum for granular role-based filtering.
 
 **Why:**
-- Backward compatible API
-- Existing code using `KeyAccount::` continues to work
-- Clear semantic meaning preserved
-- Gradual deprecation possible
+- More granular control over approval workflow roles
+- Supports filtering by specific roles (KEY_ACCOUNT, DEPT_HEAD_SALES, DEPUTY_DIRECTOR, DIRECTOR)
+- Enables conditional UI elements (e.g., Buyer tab only for KEY_ACCOUNT role)
+- Better type safety with enum instead of boolean
 
 **Implementation:**
 ```php
-// KeyAccount.php - becomes a filtered proxy
-final class KeyAccount extends People
+// CentralPurchasingRole enum
+enum CentralPurchasingRole: string implements HasDescription, HasLabel
 {
-    protected static function booted(): void
-    {
-        static::addGlobalScope('key_account', function (Builder $builder) {
-            $builder->where('is_key_account', true);
-        });
-
-        static::creating(function (self $model) {
-            $model->is_key_account = true;
-        });
-    }
+    case KEY_ACCOUNT = 'key_account';
+    case DEPT_HEAD_SALES = 'dept_head_sales';
+    case DEPUTY_DIRECTOR = 'deputy_director';
+    case DIRECTOR = 'director';
 }
+
+// People model
+public function scopeCentralPurchasing($query, ?CentralPurchasingRole $role = null)
+{
+    $query->where('is_central_purchasing', true);
+    if ($role) {
+        $query->where('central_purchasing_role', $role);
+    }
+    return $query;
+}
+
+// KeyAccountSelect component filters by role
+KeyAccountSelect::makeWithRelationship(
+    'prepared_by_id',
+    'Prepared By',
+    'preparedBy',
+    CentralPurchasingRole::KEY_ACCOUNT, // Filter by specific role
+    $buyerId
+)
 ```
 
 ### Decision 3: Dual-Column Transition for Approval Fields
@@ -238,12 +251,12 @@ foreach ($names as $record) {
 ## Open Questions
 
 1. **Custom fields on People:** Should email/phone be schema columns or custom fields?
-   - **Decision:** Schema columns for core fields, custom fields for extras
-   - **Rationale:** Email/phone are universal, need indexing and validation
+   - **Decision:** ✅ **IMPLEMENTED AS CUSTOM FIELDS** (via `PeopleField` enum)
+   - **Rationale:** System already uses custom fields architecture for People. Email stored as tags (JSON array), phone/job_title as text fields. This maintains consistency with existing patterns.
 
 2. **KeyAccount pivot table:** Keep `key_account_buyers` or rename to `people_buyers`?
-   - **Decision:** Rename to `people_buyers` with `is_key_account` filter in query
-   - **Rationale:** Cleaner schema, same functionality
+   - **Decision:** Keep `key_account_buyers` (uses `key_account_id` FK which now points to `people.id`)
+   - **Rationale:** FK already updated to point to `people.id`, no schema change needed. Filtering uses `is_central_purchasing` and `central_purchasing_role` in queries.
 
 3. **Approval workflow history:** Should we track who was approver at time of approval?
    - **Decision:** Snapshot in JSON `data` column (existing pattern)
@@ -253,10 +266,10 @@ foreach ($names as $record) {
 
 | Type | Location |
 |------|----------|
-| Enum | `app/Enums/ContactRole.php` |
+| Enum | `app/Enums/ContactRole.php`, `app/Enums/CentralPurchasingRole.php` |
 | Updated Models | `app/Models/{People,Company,QuotationEvaluation,ProfitAndLoss}.php` |
-| Deprecated Model | `app/Models/KeyAccount.php` (facade) |
-| Form Components | `app/Filament/Forms/Components/KeyAccountSelect.php` |
+| Deprecated Model | `app/Models/KeyAccount.php` (removed) |
+| Form Components | `app/Filament/Forms/Components/KeyAccountSelect.php`, `app/Filament/Forms/Components/ApprovalPersonnelSchema.php` |
 | Migrations | `database/migrations/YYYY_MM_DD_*_normalize_*.php` |
 | Tests | `tests/{Feature,Unit}/...` |
 
@@ -265,17 +278,30 @@ foreach ($names as $record) {
 ### Before
 ```
 key_accounts (id, team_id, name, email, phone, is_active)
-people (id, team_id, name)  -- email/phone in custom fields
+people (id, team_id, name)  -- email/phone/job_title in custom fields
 company_people (company_id, people_id, role VARCHAR)
 quotation_evaluations (..., prepared_by_id → key_accounts, dept_head_sales_name VARCHAR, ...)
 companies (..., contact_person VARCHAR)
 ```
 
-### After
+### After (Current State) ✅
 ```
-people (id, team_id, name, email, phone, job_title, is_key_account, is_active)
-company_people (company_id, people_id, role ENUM)
-quotation_evaluations (..., prepared_by_id → people, dept_head_sales_id → people, ...)
-companies (..., contact_person_id → people)
--- key_accounts table deprecated/removed
+people (id, team_id, name, is_central_purchasing, central_purchasing_role ENUM)  -- email/phone/job_title remain as custom fields ✅
+company_people (company_id, people_id, role ENUM)  -- ✅ COMPLETED (ContactRole enum)
+quotation_evaluations (..., prepared_by_id → people, dept_head_sales_id → people, deputy_director_id → people, approved_by_id → people, ...)  -- ✅ COMPLETED
+profit_and_losses (..., prepared_by_id → people, dept_head_sales_id → people, deputy_director_id → people, approved_by_id → people, ...)  -- ✅ COMPLETED
+companies (..., contact_person VARCHAR)  -- ❌ NOT NEEDED (use company_people pivot with is_primary instead)
+-- key_accounts table removed ✅
+-- is_key_account deprecated (kept for backward compatibility, will be dropped) ✅
+-- *_name columns deprecated (kept for backward compatibility) ✅
+```
+
+### After (Target State)
+```
+people (id, team_id, name, is_central_purchasing, central_purchasing_role ENUM)  -- email/phone/job_title as custom fields ✅
+company_people (company_id, people_id, role ENUM)  -- ✅ COMPLETED (ContactRole enum)
+quotation_evaluations (..., prepared_by_id → people, dept_head_sales_id → people, deputy_director_id → people, approved_by_id → people, ...)  -- ✅ COMPLETED
+profit_and_losses (..., prepared_by_id → people, dept_head_sales_id → people, deputy_director_id → people, approved_by_id → people, ...)  -- ✅ COMPLETED
+companies (..., contact_person VARCHAR)  -- ❌ NOT NEEDED (use company_people pivot with is_primary instead)
+-- is_key_account column removed (future cleanup migration)
 ```
