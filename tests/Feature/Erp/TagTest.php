@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Models\Company;
+
 use App\Models\Tag;
 use App\Models\Team;
 use App\Models\User;

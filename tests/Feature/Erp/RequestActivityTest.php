@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Models\Company;
+
 use App\Enums\ActivityType;
 use App\Models\BuyerOrder;
 use App\Models\Request;

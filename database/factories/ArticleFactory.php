@@ -22,7 +22,8 @@ final class ArticleFactory extends Factory
      */
     public function definition(): array
     {
-        $units = ['pcs', 'kg', 'set', 'box', 'unit', 'm', 'l', 'pack'];
+        // Use only valid Unit enum values
+        $units = ['pcs', 'kg', 'mt', 'set', 'box', 'roll', 'pair', 'l', 'm'];
 
         return [
             'code' => strtoupper($this->faker->unique()->lexify('ART-????')),

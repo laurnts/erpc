@@ -41,7 +41,7 @@ final class BuyerOrderItemFactory extends Factory
             'article_id' => null,
             'description' => $this->faker->sentence(4),
             'quantity' => (string) $quantity,
-            'unit' => $this->faker->randomElement(['pcs', 'kg', 'm', 'set', 'lot']),
+            'unit' => $this->faker->randomElement(['pcs', 'kg', 'mt', 'set', 'box', 'roll', 'pair', 'l', 'm']),
             'unit_price' => (string) round($unitPrice, 2),
             'unit_price_exc_tax' => (string) round($unitPrice, 2),
             'tax_amount' => (string) round($taxAmount, 2),

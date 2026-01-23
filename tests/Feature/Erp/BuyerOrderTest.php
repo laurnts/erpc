@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Models\Company;
+
 use App\Enums\OrderStatus;
-use App\Models\Buyer;
 use App\Models\BuyerOrder;
 use App\Models\BuyerOrderItem;
 use App\Models\BuyerQuote;
@@ -18,7 +19,7 @@ use App\Models\User;
 beforeEach(function (): void {
     $this->team = Team::factory()->create();
     $this->user = User::factory()->recycle($this->team)->create();
-    $this->buyer = Buyer::factory()->recycle($this->team)->create([
+    $this->buyer = Company::factory()->buyer()->recycle($this->team)->create([
         'credit_limit' => 10000,
         'credit_used' => 0,
     ]);
@@ -71,7 +72,7 @@ describe('BuyerOrder Model', function (): void {
             ->forRequest($this->request)
             ->create();
 
-        expect($order->buyer)->toBeInstanceOf(Buyer::class)
+        expect($order->buyer)->toBeInstanceOf(Company::class)
             ->and($order->buyer->getKey())->toBe($this->buyer->getKey());
     });
 
@@ -298,7 +299,7 @@ describe('BuyerOrder Create From Quote', function (): void {
 
 describe('BuyerOrder Credit Limit Check', function (): void {
     it('detects when order exceeds credit limit', function (): void {
-        $buyer = Buyer::factory()->recycle($this->team)->create([
+        $buyer = Company::factory()->buyer()->recycle($this->team)->create([
             'credit_limit' => 1000,
             'credit_used' => 500,
         ]);
@@ -317,7 +318,7 @@ describe('BuyerOrder Credit Limit Check', function (): void {
     });
 
     it('does not flag order within credit limit', function (): void {
-        $buyer = Buyer::factory()->recycle($this->team)->create([
+        $buyer = Company::factory()->buyer()->recycle($this->team)->create([
             'credit_limit' => 10000,
             'credit_used' => 0,
         ]);
@@ -333,7 +334,7 @@ describe('BuyerOrder Credit Limit Check', function (): void {
     });
 
     it('returns warning message when credit limit exceeded', function (): void {
-        $buyer = Buyer::factory()->recycle($this->team)->create([
+        $buyer = Company::factory()->buyer()->recycle($this->team)->create([
             'credit_limit' => 1000,
             'credit_used' => 800,
         ]);
@@ -352,7 +353,7 @@ describe('BuyerOrder Credit Limit Check', function (): void {
     });
 
     it('returns null when no credit limit set', function (): void {
-        $buyer = Buyer::factory()->recycle($this->team)->create([
+        $buyer = Company::factory()->buyer()->recycle($this->team)->create([
             'credit_limit' => 0,
             'credit_used' => 0,
         ]);

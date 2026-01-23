@@ -26,12 +26,19 @@ return new class extends Migration
         });
 
         // Migrate existing company_id data from people table to pivot
-        DB::statement('
-            INSERT INTO company_people (company_id, people_id, is_primary, created_at, updated_at)
-            SELECT company_id, id, true, NOW(), NOW()
-            FROM people
-            WHERE company_id IS NOT NULL
-        ');
+        $now = now()->toDateTimeString();
+        DB::table('people')
+            ->whereNotNull('company_id')
+            ->get(['id', 'company_id'])
+            ->each(function ($person) use ($now): void {
+                DB::table('company_people')->insert([
+                    'company_id' => $person->company_id,
+                    'people_id' => $person->id,
+                    'is_primary' => true,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            });
     }
 
     /**

@@ -14,7 +14,7 @@ use ValueError;
  * instead of throwing an exception. This prevents errors when loading models
  * with invalid unit values like "orang".
  */
-final class SafeUnitCast implements CastsAttributes
+final readonly class SafeUnitCast implements CastsAttributes
 {
     /**
      * Transform the attribute from the underlying model values.

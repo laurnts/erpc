@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Models\Company;
+
 use App\Enums\InvoiceStatus;
 use App\Enums\InvoiceType;
 use App\Models\Article;
-use App\Models\Buyer;
 use App\Models\Currency;
 use App\Models\Request;
 use App\Models\RequestItem;
-use App\Models\Supplier;
 use App\Models\SupplierInvoice;
 use App\Models\SupplierInvoiceItem;
 use App\Models\SupplierOrder;
@@ -21,8 +21,8 @@ use App\Models\User;
 beforeEach(function (): void {
     $this->team = Team::factory()->create();
     $this->user = User::factory()->recycle($this->team)->create();
-    $this->buyer = Buyer::factory()->recycle($this->team)->create();
-    $this->supplier = Supplier::factory()->recycle($this->team)->create();
+    $this->buyer = Company::factory()->buyer()->recycle($this->team)->create();
+    $this->supplier = Company::factory()->supplier()->recycle($this->team)->create();
     $this->currency = Currency::factory()->create(['code' => 'USD', 'is_default' => true]);
     $this->request = Request::factory()
         ->recycle($this->team)
@@ -103,7 +103,7 @@ describe('SupplierInvoice Model', function (): void {
             ->recycle($this->currency)
             ->create();
 
-        expect($invoice->supplier)->toBeInstanceOf(Supplier::class)
+        expect($invoice->supplier)->toBeInstanceOf(Company::class)
             ->and($invoice->supplier->getKey())->toBe($this->supplier->getKey());
     });
 

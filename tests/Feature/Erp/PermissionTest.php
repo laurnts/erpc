@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Models\Company;
+
 use App\Models\User;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;

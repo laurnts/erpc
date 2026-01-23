@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Models\Company;
+
 use App\Enums\InvoiceStatus;
 use App\Enums\OrderStatus;
 use App\Enums\RequestStage;
@@ -12,7 +14,6 @@ use App\Filament\Widgets\MonthlyRevenueWidget;
 use App\Filament\Widgets\PipelineByStageWidget;
 use App\Filament\Widgets\QuotesExpiringWidget;
 use App\Filament\Widgets\RequiresAttentionWidget;
-use App\Models\Buyer;
 use App\Models\BuyerInvoice;
 use App\Models\BuyerOrder;
 use App\Models\BuyerQuote;
@@ -33,7 +34,7 @@ beforeEach(function (): void {
     Filament::setTenant($this->user->personalTeam());
     $this->team = $this->user->personalTeam();
     $this->currency = Currency::factory()->create();
-    $this->buyer = Buyer::factory()->for($this->team)->create();
+    $this->buyer = Company::factory()->buyer()->for($this->team)->create();
 });
 
 describe('ActiveRequestsWidget', function (): void {
@@ -54,7 +55,7 @@ describe('ActiveRequestsWidget', function (): void {
         Request::factory()
             ->for($this->team)
             ->for($this->buyer, 'buyer')
-            ->withStage(RequestStage::ORDERED)
+            ->withStage(RequestStage::PREPARING_SUPPLIER_ORDER)
             ->count(2)
             ->create();
 
@@ -88,7 +89,7 @@ describe('ActiveRequestsWidget', function (): void {
             ->create();
 
         // Create request for other team
-        $otherBuyer = Buyer::factory()->for($otherUser->personalTeam())->create();
+        $otherBuyer = Company::factory()->buyer()->for($otherUser->personalTeam())->create();
         Request::factory()
             ->for($otherUser->personalTeam())
             ->for($otherBuyer, 'buyer')
@@ -278,7 +279,7 @@ describe('AwaitingPaymentWidget', function (): void {
             ->withTotals(1000, 100, 1100)
             ->create();
 
-        $otherBuyer = Buyer::factory()->for($otherTeam)->create();
+        $otherBuyer = Company::factory()->buyer()->for($otherTeam)->create();
         $otherRequest = Request::factory()
             ->for($otherTeam)
             ->for($otherBuyer, 'buyer')
@@ -359,14 +360,14 @@ describe('PipelineByStageWidget', function (): void {
         Request::factory()
             ->for($this->team)
             ->for($this->buyer, 'buyer')
-            ->withStage(RequestStage::QUOTE_SENT)
+            ->withStage(RequestStage::AWAITING_BUYER_CONFIRMATION)
             ->count(2)
             ->create();
 
         Request::factory()
             ->for($this->team)
             ->for($this->buyer, 'buyer')
-            ->withStage(RequestStage::ORDERED)
+            ->withStage(RequestStage::PREPARING_SUPPLIER_ORDER)
             ->count(4)
             ->create();
 
@@ -484,7 +485,7 @@ describe('RequiresAttentionWidget', function (): void {
     it('filters by team', function (): void {
         $otherUser = User::factory()->withPersonalTeam()->create();
         $otherTeam = $otherUser->personalTeam();
-        $otherBuyer = Buyer::factory()->for($otherTeam)->create();
+        $otherBuyer = Company::factory()->buyer()->for($otherTeam)->create();
 
         $ourRequest = Request::factory()
             ->for($this->team)

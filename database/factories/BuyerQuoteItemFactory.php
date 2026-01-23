@@ -41,7 +41,8 @@ final class BuyerQuoteItemFactory extends Factory
             'supplier_quote_item_id' => null,
             'description' => $this->faker->sentence(4),
             'quantity' => (string) $quantity,
-            'unit' => $this->faker->randomElement(['pcs', 'kg', 'm', 'set', 'lot']),
+            // Use only valid Unit enum values
+            'unit' => $this->faker->randomElement(['pcs', 'kg', 'mt', 'set', 'box', 'roll', 'pair', 'l', 'm']),
             'cost_price' => (string) $costPrice,
             'unit_price' => (string) $unitPrice,
             'unit_price_exc_tax' => (string) $unitPrice,

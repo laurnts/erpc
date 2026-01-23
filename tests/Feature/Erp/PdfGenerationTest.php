@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Models\Company;
+
 use App\Enums\BuyerQuoteStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\OrderStatus;
-use App\Models\Buyer;
 use App\Models\BuyerInvoice;
 use App\Models\BuyerInvoiceItem;
 use App\Models\BuyerOrder;
@@ -14,7 +15,6 @@ use App\Models\BuyerQuote;
 use App\Models\BuyerQuoteItem;
 use App\Models\Currency;
 use App\Models\Request;
-use App\Models\Supplier;
 use App\Models\SupplierOrder;
 use App\Models\SupplierOrderItem;
 use App\Models\Team;
@@ -25,14 +25,14 @@ use App\Settings\ErpSettings;
 beforeEach(function (): void {
     $this->team = Team::factory()->create();
     $this->user = User::factory()->recycle($this->team)->create();
-    $this->buyer = Buyer::factory()->recycle($this->team)->create([
+    $this->buyer = Company::factory()->buyer()->recycle($this->team)->create([
         'name' => 'Test Buyer Company',
         'contact_person' => 'John Doe',
         'address' => '123 Buyer Street, City, Country',
         'phone' => '+1234567890',
         'email' => 'buyer@test.com',
     ]);
-    $this->supplier = Supplier::factory()->recycle($this->team)->create([
+    $this->supplier = Company::factory()->supplier()->recycle($this->team)->create([
         'name' => 'Test Supplier Company',
         'contact_person' => 'Jane Smith',
         'address' => '456 Supplier Road, Town, Country',

@@ -12,7 +12,7 @@ use ValueError;
  * A safe enum cast that returns null for invalid enum values instead of throwing an exception.
  * This is useful during migrations when data might have invalid enum values.
  */
-final class SafeEnumCast implements CastsAttributes
+final readonly class SafeEnumCast implements CastsAttributes
 {
     /**
      * @param  class-string<\BackedEnum>  $enumClass

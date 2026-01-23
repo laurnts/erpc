@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
-final class BuyerQuotePoDownloadController
+final readonly class BuyerQuotePoDownloadController
 {
     public function __invoke(Request $request, BuyerQuote $buyerQuote, Media $media): BinaryFileResponse
     {

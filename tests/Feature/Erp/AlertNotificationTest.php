@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Models\Company;
+
 use App\Enums\InvoiceStatus;
 use App\Jobs\Erp\CheckAwaitingSupplierQuotesJob;
 use App\Jobs\Erp\CheckExpiringQuotesJob;
 use App\Jobs\Erp\CheckOverdueInvoicesJob;
-use App\Models\Buyer;
 use App\Models\BuyerInvoice;
 use App\Models\BuyerQuote;
 use App\Models\SupplierQuote;
@@ -350,7 +351,7 @@ describe('CheckAwaitingSupplierQuotesJob', function (): void {
 // Credit Limit Warning Service Tests
 describe('CreditLimitWarningService', function (): void {
     it('returns exceeds_limit true when order exceeds available credit', function (): void {
-        $buyer = Buyer::factory()
+        $buyer = Company::factory()->buyer()
             ->for($this->team)
             ->create([
                 'credit_limit' => 10000,
@@ -368,7 +369,7 @@ describe('CreditLimitWarningService', function (): void {
     });
 
     it('returns exceeds_limit false when order within available credit', function (): void {
-        $buyer = Buyer::factory()
+        $buyer = Company::factory()->buyer()
             ->for($this->team)
             ->create([
                 'credit_limit' => 10000,
@@ -384,7 +385,7 @@ describe('CreditLimitWarningService', function (): void {
     });
 
     it('returns no limit warning when credit limit is zero', function (): void {
-        $buyer = Buyer::factory()
+        $buyer = Company::factory()->buyer()
             ->for($this->team)
             ->create([
                 'credit_limit' => 0,
@@ -400,7 +401,7 @@ describe('CreditLimitWarningService', function (): void {
     });
 
     it('warns when order uses significant portion of remaining credit', function (): void {
-        $buyer = Buyer::factory()
+        $buyer = Company::factory()->buyer()
             ->for($this->team)
             ->create([
                 'credit_limit' => 10000,
@@ -416,7 +417,7 @@ describe('CreditLimitWarningService', function (): void {
     });
 
     it('calculates approaching limit correctly', function (): void {
-        $buyer = Buyer::factory()
+        $buyer = Company::factory()->buyer()
             ->for($this->team)
             ->create([
                 'credit_limit' => 10000,
@@ -432,7 +433,7 @@ describe('CreditLimitWarningService', function (): void {
     });
 
     it('returns credit summary correctly', function (): void {
-        $buyer = Buyer::factory()
+        $buyer = Company::factory()->buyer()
             ->for($this->team)
             ->create([
                 'name' => 'Test Buyer',
@@ -451,7 +452,7 @@ describe('CreditLimitWarningService', function (): void {
     });
 
     it('returns on hold status when buyer is on hold', function (): void {
-        $buyer = Buyer::factory()
+        $buyer = Company::factory()->buyer()
             ->for($this->team)
             ->onHold('Payment issues')
             ->create([

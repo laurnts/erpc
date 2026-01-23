@@ -14,7 +14,7 @@ use ValueError;
  * instead of throwing an exception. This prevents errors when loading models
  * with invalid delivery_type values like "Franco".
  */
-final class SafeDeliveryTypeCast implements CastsAttributes
+final readonly class SafeDeliveryTypeCast implements CastsAttributes
 {
     /**
      * Transform the attribute from the underlying model values.

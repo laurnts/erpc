@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Models\Article;
-use App\Models\Buyer;
 use App\Models\Company;
 use App\Models\Request;
 use App\Models\RequestItem;
@@ -13,7 +12,7 @@ use App\Models\User;
 beforeEach(function (): void {
     $this->team = Team::factory()->create();
     $this->user = User::factory()->recycle($this->team)->create();
-    $this->buyer = Buyer::factory()->recycle($this->team)->create();
+    $this->buyer = Company::factory()->buyer()->recycle($this->team)->create();
     $this->request = Request::factory()->recycle($this->team)->recycle($this->buyer)->create();
     $this->actingAs($this->user);
 });
@@ -29,7 +28,7 @@ describe('RequestItem Model', function (): void {
         expect($item)->toBeInstanceOf(RequestItem::class)
             ->and($item->description)->toBe('Test Item')
             ->and($item->quantity)->toBe('10.0000')
-            ->and($item->unit)->toBe('pcs');
+            ->and($item->unit)->toBe(\App\Enums\Unit::PCS);
     });
 
     it('defaults to not matched', function (): void {

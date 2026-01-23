@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Models\Company;
+
 use App\Enums\ProjectStatus;
-use App\Models\Buyer;
 use App\Models\Project;
 use App\Models\Team;
 use App\Models\User;
@@ -129,7 +130,7 @@ test('on hold factory state works', function () {
 });
 
 test('project can be linked to buyer', function () {
-    $buyer = Buyer::factory()->for($this->user->personalTeam())->create([
+    $buyer = Company::factory()->buyer()->for($this->user->personalTeam())->create([
         'name' => 'Test Buyer',
     ]);
 
@@ -137,7 +138,7 @@ test('project can be linked to buyer', function () {
         'buyer_id' => $buyer->id,
     ]);
 
-    expect($project->buyer)->toBeInstanceOf(Buyer::class)
+    expect($project->buyer)->toBeInstanceOf(Company::class)
         ->and($project->buyer->id)->toBe($buyer->id)
         ->and($project->buyer->name)->toBe('Test Buyer');
 });
@@ -220,7 +221,7 @@ test('project can be restored after soft delete', function () {
 });
 
 test('for buyer factory state works', function () {
-    $buyer = Buyer::factory()->for($this->user->personalTeam())->create();
+    $buyer = Company::factory()->buyer()->for($this->user->personalTeam())->create();
 
     $project = Project::factory()
         ->for($this->user->personalTeam())

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Models\Company;
+
 use App\Models\Currency;
 use App\Models\ExchangeRate;
 use App\Models\Team;
@@ -57,7 +59,7 @@ test('currency can format amount', function () {
         'decimal_places' => 2,
     ]);
 
-    expect($currency->format(1234.567))->toBe('$1,234.57');
+    expect($currency->format(1234.567))->toBe('$ 1,234.57');
 });
 
 test('currency factory creates usd currency', function () {

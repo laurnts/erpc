@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Models\Company;
+
 use App\Enums\InvoiceStatus;
 use App\Enums\InvoiceType;
 use App\Models\BuyerInvoice;

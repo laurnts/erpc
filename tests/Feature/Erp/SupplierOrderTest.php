@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Models\Company;
+
 use App\Enums\OrderStatus;
 use App\Models\Article;
-use App\Models\Buyer;
 use App\Models\Currency;
 use App\Models\Request;
 use App\Models\RequestItem;
-use App\Models\Supplier;
 use App\Models\SupplierOrder;
 use App\Models\SupplierOrderItem;
 use App\Models\SupplierQuote;
@@ -19,8 +19,8 @@ use App\Models\User;
 beforeEach(function (): void {
     $this->team = Team::factory()->create();
     $this->user = User::factory()->recycle($this->team)->create();
-    $this->buyer = Buyer::factory()->recycle($this->team)->create();
-    $this->supplier = Supplier::factory()->recycle($this->team)->create();
+    $this->buyer = Company::factory()->buyer()->recycle($this->team)->create();
+    $this->supplier = Company::factory()->supplier()->recycle($this->team)->create();
     $this->currency = Currency::factory()->create(['code' => 'USD', 'is_default' => true]);
     $this->request = Request::factory()
         ->recycle($this->team)
@@ -86,7 +86,7 @@ describe('SupplierOrder Model', function (): void {
             ->recycle($this->currency)
             ->create();
 
-        expect($order->supplier)->toBeInstanceOf(Supplier::class)
+        expect($order->supplier)->toBeInstanceOf(Company::class)
             ->and($order->supplier->getKey())->toBe($this->supplier->getKey());
     });
 

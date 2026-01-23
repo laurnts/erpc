@@ -49,12 +49,13 @@ test('company belongs to account owner', function () {
 
 test('company has many people', function () {
     $company = Company::factory()->create();
-    $people = People::factory()->create([
-        'company_id' => $company->getKey(),
-    ]);
+    $person = People::factory()->create();
+
+    // Attach person to company through pivot table
+    $company->people()->attach($person->getKey());
 
     expect($company->people->first())->toBeInstanceOf(People::class)
-        ->and($company->people->first()->getKey())->toBe($people->getKey());
+        ->and($company->people->first()->getKey())->toBe($person->getKey());
 });
 
 test('company has many opportunities', function () {

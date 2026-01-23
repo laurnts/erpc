@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Models\Company;
+
 use App\Models\Article;
 use App\Models\Tag;
 use App\Models\TaxCode;
@@ -53,7 +55,7 @@ test('article has default values', function () {
         'is_active' => true,
     ]);
 
-    expect($article->unit)->toBe('pcs')
+    expect($article->unit)->toBe(\App\Enums\Unit::PCS)
         ->and($article->is_active)->toBeTrue();
 });
 
@@ -294,7 +296,7 @@ test('with unit factory state works', function () {
         ->withUnit('kg')
         ->create();
 
-    expect($article->unit)->toBe('kg');
+    expect($article->unit)->toBe(\App\Enums\Unit::KG);
 });
 
 test('with sku factory state works', function () {

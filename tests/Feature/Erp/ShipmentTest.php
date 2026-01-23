@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Models\Company;
+
 use App\Enums\ItemCondition;
 use App\Enums\ShipmentStatus;
 use App\Enums\ShipmentType;
-use App\Models\Buyer;
 use App\Models\Request;
 use App\Models\Shipment;
 use App\Models\ShipmentItem;
@@ -15,7 +16,7 @@ use App\Models\User;
 beforeEach(function (): void {
     $this->team = Team::factory()->create();
     $this->user = User::factory()->recycle($this->team)->create();
-    $this->buyer = Buyer::factory()->recycle($this->team)->create();
+    $this->buyer = Company::factory()->buyer()->recycle($this->team)->create();
     $this->request = Request::factory()
         ->recycle($this->team)
         ->recycle($this->buyer)

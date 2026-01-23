@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Models\Company;
+
 use App\Enums\RequestStage;
 use App\Models\Article;
-use App\Models\Buyer;
 use App\Models\Project;
 use App\Models\Request;
 use App\Models\RequestItem;
-use App\Models\Supplier;
 use App\Models\SupplierQuote;
 use App\Models\Team;
 use App\Models\User;
@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\DB;
 beforeEach(function (): void {
     $this->team = Team::factory()->create();
     $this->user = User::factory()->recycle($this->team)->create();
-    $this->buyer = Buyer::factory()->recycle($this->team)->create();
+    $this->buyer = Company::factory()->buyer()->recycle($this->team)->create();
     $this->actingAs($this->user);
 });
 
@@ -48,7 +48,7 @@ describe('Request Model', function (): void {
     it('belongs to a buyer', function (): void {
         $request = Request::factory()->recycle($this->team)->recycle($this->buyer)->create();
 
-        expect($request->buyer)->toBeInstanceOf(Buyer::class)
+        expect($request->buyer)->toBeInstanceOf(Company::class)
             ->and($request->buyer->getKey())->toBe($this->buyer->getKey());
     });
 
@@ -76,7 +76,7 @@ describe('Request Stage Transitions', function (): void {
             'stage' => RequestStage::DRAFT,
         ]);
 
-        expect($request->canTransitionTo(RequestStage::QUOTING_SUPPLIER))->toBeTrue();
+        expect($request->canTransitionTo(RequestStage::AWAITING_SUPPLIER_RESPONSE))->toBeTrue();
     });
 
     it('cannot transition from draft to ordered directly', function (): void {
@@ -84,7 +84,7 @@ describe('Request Stage Transitions', function (): void {
             'stage' => RequestStage::DRAFT,
         ]);
 
-        expect($request->canTransitionTo(RequestStage::ORDERED))->toBeFalse();
+        expect($request->canTransitionTo(RequestStage::PREPARING_SUPPLIER_ORDER))->toBeFalse();
     });
 
     it('transitions successfully when allowed', function (): void {
@@ -92,9 +92,9 @@ describe('Request Stage Transitions', function (): void {
             'stage' => RequestStage::DRAFT,
         ]);
 
-        $request->transitionTo(RequestStage::QUOTING_SUPPLIER);
+        $request->transitionTo(RequestStage::AWAITING_SUPPLIER_RESPONSE);
 
-        expect($request->stage)->toBe(RequestStage::QUOTING_SUPPLIER);
+        expect($request->stage)->toBe(RequestStage::AWAITING_SUPPLIER_RESPONSE);
     });
 
     it('throws exception for invalid transition', function (): void {
@@ -119,7 +119,7 @@ describe('Request Stage Transitions', function (): void {
         ]);
         RequestItem::factory()->recycle($request)->create(['is_matched' => false]);
 
-        $request->transitionTo(RequestStage::QUOTING_SUPPLIER);
+        $request->transitionTo(RequestStage::AWAITING_SUPPLIER_RESPONSE);
     })->throws(InvalidArgumentException::class);
 
     it('allows quoting_supplier transition when all items matched', function (): void {
@@ -132,9 +132,9 @@ describe('Request Stage Transitions', function (): void {
             'article_id' => $article->getKey(),
         ]);
 
-        $request->transitionTo(RequestStage::QUOTING_SUPPLIER);
+        $request->transitionTo(RequestStage::AWAITING_SUPPLIER_RESPONSE);
 
-        expect($request->stage)->toBe(RequestStage::QUOTING_SUPPLIER);
+        expect($request->stage)->toBe(RequestStage::AWAITING_SUPPLIER_RESPONSE);
     });
 });
 
@@ -185,7 +185,7 @@ describe('Request Item Editing', function (): void {
 
     it('allows item editing in quoting_supplier stage', function (): void {
         $request = Request::factory()->recycle($this->team)->recycle($this->buyer)->create([
-            'stage' => RequestStage::QUOTING_SUPPLIER,
+            'stage' => RequestStage::AWAITING_SUPPLIER_RESPONSE,
         ]);
 
         expect($request->canEditItems())->toBeTrue();
@@ -193,7 +193,7 @@ describe('Request Item Editing', function (): void {
 
     it('disallows item editing in ordered stage', function (): void {
         $request = Request::factory()->recycle($this->team)->recycle($this->buyer)->create([
-            'stage' => RequestStage::ORDERED,
+            'stage' => RequestStage::PREPARING_SUPPLIER_ORDER,
         ]);
 
         expect($request->canEditItems())->toBeFalse();
@@ -203,8 +203,8 @@ describe('Request Item Editing', function (): void {
 describe('Supplier Quote Auto-Generation', function (): void {
     it('generates supplier quotes when transitioning from draft to awaiting_supplier_response', function (): void {
         // Create suppliers with articles
-        $supplier1 = Supplier::factory()->recycle($this->team)->create();
-        $supplier2 = Supplier::factory()->recycle($this->team)->create();
+        $supplier1 = Company::factory()->supplier()->recycle($this->team)->create();
+        $supplier2 = Company::factory()->supplier()->recycle($this->team)->create();
 
         $article = Article::factory()->recycle($this->team)->create();
 
@@ -234,7 +234,7 @@ describe('Supplier Quote Auto-Generation', function (): void {
     });
 
     it('creates quote items for each request item with matching supplier', function (): void {
-        $supplier = Supplier::factory()->recycle($this->team)->create();
+        $supplier = Company::factory()->supplier()->recycle($this->team)->create();
         $article = Article::factory()->recycle($this->team)->create();
 
         DB::table('supplier_articles')->insert([
@@ -267,7 +267,7 @@ describe('Supplier Quote Auto-Generation', function (): void {
     });
 
     it('does not generate duplicate quotes when transitioning multiple times', function (): void {
-        $supplier = Supplier::factory()->recycle($this->team)->create();
+        $supplier = Company::factory()->supplier()->recycle($this->team)->create();
         $article = Article::factory()->recycle($this->team)->create();
 
         DB::table('supplier_articles')->insert([
@@ -303,7 +303,7 @@ describe('Supplier Quote Auto-Generation', function (): void {
     });
 
     it('does not generate quotes for inactive supplier-article relationships', function (): void {
-        $supplier = Supplier::factory()->recycle($this->team)->create();
+        $supplier = Company::factory()->supplier()->recycle($this->team)->create();
         $article = Article::factory()->recycle($this->team)->create();
 
         // Insert as inactive

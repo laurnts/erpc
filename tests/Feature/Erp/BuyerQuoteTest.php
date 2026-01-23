@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Models\Company;
+
 use App\Enums\BuyerQuoteStatus;
-use App\Models\Buyer;
 use App\Models\BuyerQuote;
 use App\Models\BuyerQuoteExtension;
 use App\Models\BuyerQuoteItem;
@@ -18,7 +19,7 @@ use Illuminate\Support\Carbon;
 beforeEach(function (): void {
     $this->team = Team::factory()->create();
     $this->user = User::factory()->recycle($this->team)->create();
-    $this->buyer = Buyer::factory()->recycle($this->team)->create();
+    $this->buyer = Company::factory()->buyer()->recycle($this->team)->create();
     $this->currency = Currency::factory()->create();
     $this->request = Request::factory()
         ->recycle($this->team)
@@ -73,7 +74,7 @@ describe('BuyerQuote Model', function (): void {
             ->withCurrency($this->currency)
             ->create();
 
-        expect($quote->buyer)->toBeInstanceOf(Buyer::class)
+        expect($quote->buyer)->toBeInstanceOf(Company::class)
             ->and($quote->buyer->getKey())->toBe($this->buyer->getKey());
     });
 

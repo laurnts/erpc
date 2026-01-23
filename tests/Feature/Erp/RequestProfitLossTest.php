@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use App\Models\Buyer;
+use App\Models\Company;
+
 use App\Models\BuyerOrder;
 use App\Models\Currency;
 use App\Models\Request;
-use App\Models\Supplier;
 use App\Models\SupplierOrder;
 use App\Models\Team;
 use App\Models\User;
@@ -16,8 +16,8 @@ use Illuminate\Support\Facades\Schema;
 beforeEach(function (): void {
     $this->team = Team::factory()->create();
     $this->user = User::factory()->recycle($this->team)->create();
-    $this->buyer = Buyer::factory()->recycle($this->team)->create();
-    $this->supplier = Supplier::factory()->recycle($this->team)->create();
+    $this->buyer = Company::factory()->buyer()->recycle($this->team)->create();
+    $this->supplier = Company::factory()->supplier()->recycle($this->team)->create();
     $this->currency = Currency::factory()->create(['code' => 'USD']);
     $this->request = Request::factory()
         ->recycle($this->team)
