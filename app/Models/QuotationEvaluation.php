@@ -6,6 +6,8 @@ namespace App\Models;
 
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
+use App\Observers\QuotationEvaluationObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -29,6 +31,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property-read string $created_by
  */
+#[ObservedBy(QuotationEvaluationObserver::class)]
 final class QuotationEvaluation extends Model
 {
     use HasCreator;
@@ -114,11 +117,11 @@ final class QuotationEvaluation extends Model
     /**
      * The person who prepared the QE.
      *
-     * @return BelongsTo<KeyAccount, $this>
+     * @return BelongsTo<People, $this>
      */
     public function preparedBy(): BelongsTo
     {
-        return $this->belongsTo(KeyAccount::class, 'prepared_by_id');
+        return $this->belongsTo(People::class, 'prepared_by_id');
     }
 
     /**

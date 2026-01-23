@@ -46,7 +46,7 @@ final class ViewQuotationEvaluation extends ViewRecord
                     );
                 }),
             ActionGroup::make([
-                EditAction::make(),
+                EditAction::make()->slideOver(),
                 DeleteAction::make(),
             ]),
         ];
@@ -109,7 +109,7 @@ final class ViewQuotationEvaluation extends ViewRecord
                 Section::make('Central Purchasing')
                     ->description('Approval workflow')
                     ->schema([
-                        TextEntry::make('preparedBy.display_name')
+                        TextEntry::make('preparedBy.name')
                             ->label('Prepared By')
                             ->placeholder('—'),
                         TextEntry::make('dept_head_sales_name')

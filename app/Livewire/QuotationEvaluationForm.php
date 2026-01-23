@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Livewire;
 
 use App\Enums\SupplierQuoteStatus;
-use App\Filament\Resources\KeyAccountResource;
+use App\Filament\Resources\PeopleResource;
 use App\Filament\Resources\QuotationEvaluationResource;
-use App\Models\KeyAccount;
+use App\Models\People;
 use App\Models\QuotationEvaluation;
 use App\Models\Request;
 use App\Models\SupplierQuote;
@@ -89,16 +89,16 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
     }
 
     /**
-     * Get key account options for select fields.
+     * Get key account (People with is_key_account = true) options for select fields.
      * Only shows key accounts that are assigned to handle the request's buyer.
      *
      * @return array<int, string>
      */
     private function getKeyAccountOptions(): array
     {
-        $query = KeyAccount::query()
+        $query = People::query()
             ->where('team_id', Filament::getTenant()?->getKey())
-            ->where('is_active', true);
+            ->where('is_key_account', true);
 
         // Filter to only show key accounts assigned to handle this request's buyer
         if ($this->request->buyer_id) {
@@ -110,29 +110,30 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
         return $query
             ->orderBy('name')
             ->get()
-            ->mapWithKeys(fn (KeyAccount $ka): array => [$ka->getKey() => $ka->display_name])
+            ->mapWithKeys(fn (People $person): array => [$person->getKey() => $person->name])
             ->toArray();
     }
 
     /**
-     * Create a new key account from inline form.
+     * Create a new key account person from inline form.
      */
     public function createKeyAccount(array $data): int
     {
         /** @var \App\Models\Team $team */
         $team = Filament::getTenant();
 
-        /** @var KeyAccount $keyAccount */
-        $keyAccount = KeyAccount::create([
+        /** @var People $person */
+        $person = People::create([
             'name' => $data['name'],
-            'email' => $data['email'] ?? null,
-            'phone' => $data['phone'] ?? null,
-            'is_active' => $data['is_active'] ?? true,
+            'is_key_account' => true,
             'team_id' => $team->id,
             'creator_id' => auth()->id(),
         ]);
 
-        return $keyAccount->id;
+        // Note: Email and phone are custom fields and should be set through the People form
+        // The user can edit the person after creation to add email/phone
+
+        return $person->id;
     }
 
     /**

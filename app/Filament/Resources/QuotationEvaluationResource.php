@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\Resources\PeopleResource;
 use App\Filament\Resources\QuotationEvaluationResource\Pages\EditQuotationEvaluation;
 use App\Filament\Resources\QuotationEvaluationResource\Pages\ListQuotationEvaluations;
 use App\Filament\Resources\QuotationEvaluationResource\Pages\ViewQuotationEvaluation;
-use App\Models\KeyAccount;
+use App\Models\People;
 use App\Models\QuotationEvaluation;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
@@ -38,23 +39,23 @@ final class QuotationEvaluationResource extends Resource
     protected static ?string $modelLabel = 'Quotation Evaluation';
 
     /**
-     * Get the key account select options for forms.
+     * Get the key account (People with is_key_account = true) select options for forms.
      *
      * @return array<int, string>
      */
     public static function getKeyAccountOptions(): array
     {
-        return KeyAccount::query()
+        return People::query()
             ->where('team_id', Filament::getTenant()?->getKey())
-            ->where('is_active', true)
+            ->where('is_key_account', true)
             ->orderBy('name')
             ->get()
-            ->mapWithKeys(fn (KeyAccount $ka): array => [$ka->getKey() => $ka->display_name])
+            ->mapWithKeys(fn (People $person): array => [$person->getKey() => $person->name])
             ->toArray();
     }
 
     /**
-     * Create a new key account from form data.
+     * Create a new key account person from form data.
      *
      * @param  array<string, mixed>  $data
      */
@@ -63,17 +64,15 @@ final class QuotationEvaluationResource extends Resource
         /** @var \App\Models\Team $team */
         $team = Filament::getTenant();
 
-        /** @var KeyAccount $keyAccount */
-        $keyAccount = KeyAccount::create([
+        /** @var People $person */
+        $person = People::create([
             'name' => $data['name'],
-            'email' => $data['email'] ?? null,
-            'phone' => $data['phone'] ?? null,
-            'is_active' => $data['is_active'] ?? true,
+            'is_key_account' => true,
             'team_id' => $team->id,
             'creator_id' => auth()->id(),
         ]);
 
-        return $keyAccount->id;
+        return $person->id;
     }
 
     public static function form(Schema $schema): Schema
@@ -86,7 +85,8 @@ final class QuotationEvaluationResource extends Resource
                             ->label('Description')
                             ->rows(2)
                             ->columnSpanFull(),
-                    ]),
+                    ])
+                    ->columnSpanFull(),
                 Section::make('Central Purchasing')
                     ->description('Approval workflow personnel')
                     ->schema([
@@ -96,7 +96,7 @@ final class QuotationEvaluationResource extends Resource
                                 'preparedBy',
                                 'name',
                                 modifyQueryUsing: function ($query, $livewire) {
-                                    $query->where('is_active', true);
+                                    $query->where('is_key_account', true);
                                     
                                     // Filter to only show key accounts assigned to handle the request's buyer
                                     if (isset($livewire->record) && $livewire->record && $livewire->record->request) {
@@ -113,11 +113,12 @@ final class QuotationEvaluationResource extends Resource
                             )
                             ->searchable()
                             ->preload()
-                            ->createOptionForm(KeyAccountResource::getFormSchema())
+                            ->createOptionForm(PeopleResource::getFormSchema())
                             ->createOptionUsing(function (array $data): int {
+                                $data['is_key_account'] = true;
                                 return self::createKeyAccount($data);
                             })
-                            ->editOptionForm(KeyAccountResource::getFormSchema())
+                            ->editOptionForm(PeopleResource::getFormSchema())
                             ->editOptionAction(fn ($action) => $action->modalHeading('Edit Key Account')),
                         TextInput::make('dept_head_sales_name')
                             ->label('Acknowledged By - Dept Head of Sales')
@@ -129,8 +130,10 @@ final class QuotationEvaluationResource extends Resource
                             ->label('Approved By')
                             ->maxLength(255),
                     ])
-                    ->columns(2),
-            ]);
+                    ->columns(2)
+                    ->columnSpanFull(),
+            ])
+            ->columns(1);
     }
 
     public static function table(Table $table): Table
@@ -173,7 +176,6 @@ final class QuotationEvaluationResource extends Resource
         return [
             'index' => ListQuotationEvaluations::route('/'),
             'view' => ViewQuotationEvaluation::route('/{record}'),
-            'edit' => EditQuotationEvaluation::route('/{record}/edit'),
         ];
     }
 

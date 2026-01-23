@@ -7,12 +7,12 @@ namespace App\Filament\Resources\RequestResource\RelationManagers;
 use App\Enums\BuyerQuoteStatus;
 use App\Enums\RequestStage;
 use App\Filament\Actions\DownloadPdfAction;
-use App\Filament\Resources\KeyAccountResource;
+use App\Filament\Resources\PeopleResource;
 use App\Filament\Resources\ProfitAndLossResource;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Models\BuyerQuote;
 use App\Models\Currency;
-use App\Models\KeyAccount;
+use App\Models\People;
 use App\Models\ProfitAndLoss;
 use App\Models\Request;
 use App\Models\TaxCode;
@@ -830,31 +830,29 @@ final class BuyerQuotesRelationManager extends RelationManager
                             ->schema([
                                 Select::make('prepared_by_id')
                                     ->label('Prepared By')
-                                    ->options(fn (): array => KeyAccount::query()
+                                    ->options(fn (): array => People::query()
                                         ->where('team_id', Filament::getTenant()?->getKey())
-                                        ->where('is_active', true)
+                                        ->where('is_key_account', true)
                                         ->orderBy('name')
                                         ->get()
-                                        ->mapWithKeys(fn (KeyAccount $ka): array => [$ka->getKey() => $ka->display_name])
+                                        ->mapWithKeys(fn (People $person): array => [$person->getKey() => $person->name])
                                         ->toArray())
                                     ->searchable()
                                     ->preload()
-                                    ->createOptionForm(KeyAccountResource::getFormSchema())
+                                    ->createOptionForm(PeopleResource::getFormSchema())
                                     ->createOptionUsing(function (array $data): int {
                                         /** @var \App\Models\Team $team */
                                         $team = Filament::getTenant();
 
-                                        /** @var KeyAccount $keyAccount */
-                                        $keyAccount = KeyAccount::create([
+                                        /** @var People $person */
+                                        $person = People::create([
                                             'name' => $data['name'],
-                                            'email' => $data['email'] ?? null,
-                                            'phone' => $data['phone'] ?? null,
-                                            'is_active' => $data['is_active'] ?? true,
+                                            'is_key_account' => true,
                                             'team_id' => $team->id,
                                             'creator_id' => auth()->id(),
                                         ]);
 
-                                        return $keyAccount->id;
+                                        return $person->id;
                                     }),
                                 TextInput::make('dept_head_sales_name')
                                     ->label('Dept Head of Sales')

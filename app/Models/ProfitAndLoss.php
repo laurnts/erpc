@@ -7,6 +7,8 @@ namespace App\Models;
 use App\Enums\PnlStatus;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
+use App\Observers\ProfitAndLossObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -33,6 +35,7 @@ use Illuminate\Support\Carbon;
  * @property-read string $created_by
  * @property-read PnlStatus $status
  */
+#[ObservedBy(ProfitAndLossObserver::class)]
 final class ProfitAndLoss extends Model
 {
     use HasCreator;
@@ -129,11 +132,11 @@ final class ProfitAndLoss extends Model
     /**
      * The person who prepared the PNL.
      *
-     * @return BelongsTo<KeyAccount, $this>
+     * @return BelongsTo<People, $this>
      */
     public function preparedBy(): BelongsTo
     {
-        return $this->belongsTo(KeyAccount::class, 'prepared_by_id');
+        return $this->belongsTo(People::class, 'prepared_by_id');
     }
 
     /**
