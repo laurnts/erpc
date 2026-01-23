@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Casts\SafeUnitCast;
 use App\Enums\Unit;
 use Database\Factories\SupplierOrderItemFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -90,7 +91,7 @@ final class SupplierOrderItem extends Model
     {
         return [
             'quantity' => 'decimal:4',
-            'unit' => Unit::class,
+            'unit' => SafeUnitCast::class,
             'unit_price' => 'decimal:4',
             'unit_price_exc_tax' => 'decimal:4',
             'tax_amount' => 'decimal:4',

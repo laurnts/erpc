@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Casts\SafeUnitCast;
 use App\Enums\Unit;
 use Database\Factories\RequestItemFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -64,7 +65,7 @@ final class RequestItem extends Model
     {
         return [
             'quantity' => 'decimal:4',
-            'unit' => Unit::class,
+            'unit' => SafeUnitCast::class,
             'sort_order' => 'integer',
             'is_matched' => 'boolean',
         ];

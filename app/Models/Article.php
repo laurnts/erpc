@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Casts\SafeUnitCast;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTags;
 use App\Models\Concerns\HasTeam;
@@ -74,6 +75,7 @@ final class Article extends Model implements HasCustomFields
     protected function casts(): array
     {
         return [
+            'unit' => SafeUnitCast::class,
             'attributes' => 'array',
             'is_active' => 'boolean',
         ];

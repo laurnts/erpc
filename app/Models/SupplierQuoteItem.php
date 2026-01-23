@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Casts\SafeUnitCast;
 use App\Enums\Unit;
 use App\Observers\SupplierQuoteItemObserver;
 use Database\Factories\SupplierQuoteItemFactory;
@@ -97,7 +98,7 @@ final class SupplierQuoteItem extends Model
     {
         return [
             'quantity' => 'decimal:4',
-            'unit' => Unit::class,
+            'unit' => SafeUnitCast::class,
             'unit_price' => 'decimal:4',
             'unit_price_exc_tax' => 'decimal:4',
             'is_tax_inclusive' => 'boolean',
