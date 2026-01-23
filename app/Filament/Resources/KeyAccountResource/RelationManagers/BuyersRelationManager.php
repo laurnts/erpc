@@ -15,7 +15,6 @@ use Filament\Actions\DetachBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Facades\Filament;
 use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Schemas\Schema;
 use Filament\Support\Enums\Size;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;

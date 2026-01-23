@@ -9,16 +9,10 @@ use App\Filament\Resources\ProjectResource\Pages\CreateProject;
 use App\Filament\Resources\ProjectResource\Pages\ListProjects;
 use App\Models\Project;
 use Filament\Actions\Action;
-use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\ForceDeleteBulkAction;
-use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
-use Filament\Actions\ViewAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
@@ -81,7 +75,7 @@ final class ProjectResource extends Resource
                 ->searchable()
                 ->helperText('Optional: Link this project to a buyer')
                 ->createOptionForm(BuyerResource::getFormSchema(excludePeopleField: true))
-                ->createOptionAction(fn (Action $action) => $action->slideOver())
+                ->createOptionAction(fn (Action $action): \Filament\Actions\Action => $action->slideOver())
                 ->createOptionUsing(function (array $data): int {
                     /** @var \App\Models\Team $team */
                     $team = Filament::getTenant();
@@ -98,7 +92,7 @@ final class ProjectResource extends Resource
                 });
         }
 
-        $fields = array_merge($fields, [
+        return array_merge($fields, [
             Section::make('Timeline')
                 ->schema([
                     DatePicker::make('start_date')
@@ -128,8 +122,6 @@ final class ProjectResource extends Resource
                 ])
                 ->columns(1),
         ]);
-
-        return $fields;
     }
 
     public static function form(Schema $schema): Schema

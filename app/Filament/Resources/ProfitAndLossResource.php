@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Actions\KeyAccount\CreateKeyAccount;
 use App\Filament\Resources\ProfitAndLossResource\Pages\EditProfitAndLoss;
 use App\Filament\Resources\ProfitAndLossResource\Pages\ListProfitAndLosses;
 use App\Filament\Resources\ProfitAndLossResource\Pages\ViewProfitAndLoss;
-use App\Models\KeyAccount;
 use App\Models\ProfitAndLoss;
-use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -38,40 +37,13 @@ final class ProfitAndLossResource extends Resource
     protected static ?string $modelLabel = 'Profit & Loss';
 
     /**
-     * Get the key account select options for forms.
-     *
-     * @return array<int, string>
-     */
-    public static function getKeyAccountOptions(): array
-    {
-        return KeyAccount::query()
-            ->where('team_id', Filament::getTenant()?->getKey())
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get()
-            ->mapWithKeys(fn (KeyAccount $ka): array => [$ka->getKey() => $ka->display_name])
-            ->toArray();
-    }
-
-    /**
      * Create a new key account from form data.
      *
      * @param  array<string, mixed>  $data
      */
     public static function createKeyAccount(array $data): int
     {
-        /** @var \App\Models\Team $team */
-        $team = Filament::getTenant();
-
-        /** @var KeyAccount $keyAccount */
-        $keyAccount = KeyAccount::create([
-            'name' => $data['name'],
-            'email' => $data['email'] ?? null,
-            'phone' => $data['phone'] ?? null,
-            'is_active' => $data['is_active'] ?? true,
-            'team_id' => $team->id,
-            'creator_id' => auth()->id(),
-        ]);
+        $keyAccount = app(CreateKeyAccount::class)->execute($data);
 
         return $keyAccount->id;
     }
@@ -96,9 +68,7 @@ final class ProfitAndLossResource extends Resource
                             ->searchable()
                             ->preload()
                             ->createOptionForm(KeyAccountResource::getFormSchema())
-                            ->createOptionUsing(function (array $data): int {
-                                return self::createKeyAccount($data);
-                            }),
+                            ->createOptionUsing(self::createKeyAccount(...)),
                         TextInput::make('dept_head_sales_name')
                             ->label('Dept Head of Sales')
                             ->maxLength(255),

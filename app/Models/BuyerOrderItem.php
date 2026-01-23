@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\Unit;
 use Database\Factories\BuyerOrderItemFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,7 +19,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $article_id
  * @property string $description
  * @property string $quantity
- * @property string $unit
+ * @property Unit $unit
  * @property string $unit_price
  * @property string $unit_price_exc_tax
  * @property string $tax_amount
@@ -85,6 +86,7 @@ final class BuyerOrderItem extends Model
     {
         return [
             'quantity' => 'decimal:4',
+            'unit' => Unit::class,
             'unit_price' => 'decimal:2',
             'unit_price_exc_tax' => 'decimal:2',
             'tax_amount' => 'decimal:2',

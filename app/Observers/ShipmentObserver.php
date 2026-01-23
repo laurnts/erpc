@@ -60,7 +60,7 @@ final readonly class ShipmentObserver
 
         $nextNumber = 1;
         if ($lastShipment !== null) {
-            $regex = '/^'.preg_quote($prefix, '/').'-'.$year.'-(\d+)$/';
+            $regex = '/^'.preg_quote((string) $prefix, '/').'-'.$year.'-(\d+)$/';
             if (preg_match($regex, (string) $lastShipment->shipment_number, $matches)) {
                 $nextNumber = (int) $matches[1] + 1;
             }

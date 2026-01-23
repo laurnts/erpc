@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 /**
  * @extends Factory<\App\Models\BuyerQuotePaymentTerm>
  */
-class BuyerQuotePaymentTermFactory extends Factory
+final class BuyerQuotePaymentTermFactory extends Factory
 {
     /**
      * Define the model's default state.

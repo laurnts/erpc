@@ -100,10 +100,10 @@ final class People extends Model implements HasCustomFields
     /**
      * Legacy relationship - returns the first/primary company.
      *
-     * @deprecated Use companies() instead
      *
      * @return BelongsTo<Company, $this>
      */
+    #[\Deprecated(message: 'Use companies() instead')]
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);

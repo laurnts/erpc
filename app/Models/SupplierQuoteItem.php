@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\Unit;
 use App\Observers\SupplierQuoteItemObserver;
 use Database\Factories\SupplierQuoteItemFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $article_id
  * @property string $description
  * @property string $quantity
- * @property string $unit
+ * @property Unit $unit
  * @property string $unit_price
  * @property string $unit_price_exc_tax
  * @property int|null $tax_code_id
@@ -96,6 +97,7 @@ final class SupplierQuoteItem extends Model
     {
         return [
             'quantity' => 'decimal:4',
+            'unit' => Unit::class,
             'unit_price' => 'decimal:4',
             'unit_price_exc_tax' => 'decimal:4',
             'is_tax_inclusive' => 'boolean',

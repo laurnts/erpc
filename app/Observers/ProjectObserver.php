@@ -59,7 +59,7 @@ final readonly class ProjectObserver
 
         $nextNumber = 1;
         if ($lastProject !== null) {
-            $regex = '/^'.preg_quote($prefix, '/').'-'.$year.'-(\d+)$/';
+            $regex = '/^'.preg_quote((string) $prefix, '/').'-'.$year.'-(\d+)$/';
             if (preg_match($regex, (string) $lastProject->project_number, $matches)) {
                 $nextNumber = (int) $matches[1] + 1;
             }

@@ -46,11 +46,7 @@ final readonly class GenerateSupplierQuotesForRequest
         }
 
         // Generate quotes within a transaction
-        return DB::transaction(function () use ($request, $itemsBySupplier): Collection {
-            return $itemsBySupplier->map(function (Collection $items, int $supplierId) use ($request): SupplierQuote {
-                return $this->createSupplierQuote($request, $supplierId, $items);
-            })->values();
-        });
+        return DB::transaction(fn (): Collection => $itemsBySupplier->map(fn (Collection $items, int $supplierId): SupplierQuote => $this->createSupplierQuote($request, $supplierId, $items))->values());
     }
 
     /**

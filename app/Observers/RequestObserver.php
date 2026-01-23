@@ -61,7 +61,7 @@ final readonly class RequestObserver
 
         $nextNumber = 1;
         if ($lastRequest !== null) {
-            $regex = '/^'.preg_quote($prefix, '/').'-'.$year.'-(\d+)$/';
+            $regex = '/^'.preg_quote((string) $prefix, '/').'-'.$year.'-(\d+)$/';
             if (preg_match($regex, (string) $lastRequest->request_number, $matches)) {
                 $nextNumber = (int) $matches[1] + 1;
             }

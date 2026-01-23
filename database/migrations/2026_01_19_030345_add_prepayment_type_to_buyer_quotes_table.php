@@ -10,7 +10,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('buyer_quotes', function (Blueprint $table) {
+        Schema::table('buyer_quotes', function (Blueprint $table): void {
             $table->string('prepayment_type', 10)->default('percent')->after('total');
             $table->decimal('prepayment_amount', 15, 4)->default(0)->after('prepayment_type');
         });
@@ -25,7 +25,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('buyer_quotes', function (Blueprint $table) {
+        Schema::table('buyer_quotes', function (Blueprint $table): void {
             $table->dropColumn(['prepayment_type', 'prepayment_amount']);
         });
     }

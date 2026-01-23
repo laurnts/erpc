@@ -104,7 +104,7 @@ final readonly class SupplierPaymentObserver
             ->get();
 
         $nextNumber = 1;
-        $regex = '/^'.preg_quote($prefix, '/').'-'.$year.'-(\d+)$/';
+        $regex = '/^'.preg_quote((string) $prefix, '/').'-'.$year.'-(\d+)$/';
 
         foreach ($allPaymentsForTeam as $payment) {
             if (preg_match($regex, (string) $payment->payment_number, $matches)) {

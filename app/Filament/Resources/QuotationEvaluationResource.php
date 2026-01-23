@@ -9,7 +9,6 @@ use App\Filament\Resources\QuotationEvaluationResource\Pages\ListQuotationEvalua
 use App\Filament\Resources\QuotationEvaluationResource\Pages\ViewQuotationEvaluation;
 use App\Models\KeyAccount;
 use App\Models\QuotationEvaluation;
-use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -38,39 +37,18 @@ final class QuotationEvaluationResource extends Resource
     protected static ?string $modelLabel = 'Quotation Evaluation';
 
     /**
-     * Get the key account select options for forms.
-     *
-     * @return array<int, string>
-     */
-    public static function getKeyAccountOptions(): array
-    {
-        return KeyAccount::query()
-            ->where('team_id', Filament::getTenant()?->getKey())
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get()
-            ->mapWithKeys(fn (KeyAccount $ka): array => [$ka->getKey() => $ka->display_name])
-            ->toArray();
-    }
-
-    /**
      * Create a new key account from form data.
      *
      * @param  array<string, mixed>  $data
      */
     public static function createKeyAccount(array $data): int
     {
-        /** @var \App\Models\Team $team */
-        $team = Filament::getTenant();
-
         /** @var KeyAccount $keyAccount */
         $keyAccount = KeyAccount::create([
             'name' => $data['name'],
             'email' => $data['email'] ?? null,
             'phone' => $data['phone'] ?? null,
             'is_active' => $data['is_active'] ?? true,
-            'team_id' => $team->id,
-            'creator_id' => auth()->id(),
         ]);
 
         return $keyAccount->id;
@@ -97,26 +75,24 @@ final class QuotationEvaluationResource extends Resource
                                 'name',
                                 modifyQueryUsing: function ($query, $livewire) {
                                     $query->where('is_active', true);
-                                    
+
                                     // Filter to only show key accounts assigned to handle the request's buyer
                                     if (isset($livewire->record) && $livewire->record && $livewire->record->request) {
                                         $request = $livewire->record->request;
                                         if ($request->buyer_id) {
-                                            $query->whereHas('buyers', function ($q) use ($request) {
+                                            $query->whereHas('buyers', function ($q) use ($request): void {
                                                 $q->where('companies.id', $request->buyer_id);
                                             });
                                         }
                                     }
-                                    
+
                                     return $query;
                                 }
                             )
                             ->searchable()
                             ->preload()
                             ->createOptionForm(KeyAccountResource::getFormSchema())
-                            ->createOptionUsing(function (array $data): int {
-                                return self::createKeyAccount($data);
-                            })
+                            ->createOptionUsing(self::createKeyAccount(...))
                             ->editOptionForm(KeyAccountResource::getFormSchema())
                             ->editOptionAction(fn ($action) => $action->modalHeading('Edit Key Account')),
                         TextInput::make('dept_head_sales_name')

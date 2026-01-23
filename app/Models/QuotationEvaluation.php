@@ -6,6 +6,9 @@ namespace App\Models;
 
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
+use App\Observers\QuotationEvaluationObserver;
+use App\Support\RomanNumerals;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -29,28 +32,11 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property-read string $created_by
  */
+#[ObservedBy(QuotationEvaluationObserver::class)]
 final class QuotationEvaluation extends Model
 {
     use HasCreator;
     use HasTeam;
-
-    /**
-     * Roman numerals for months.
-     */
-    private const ROMAN_MONTHS = [
-        1 => 'I',
-        2 => 'II',
-        3 => 'III',
-        4 => 'IV',
-        5 => 'V',
-        6 => 'VI',
-        7 => 'VII',
-        8 => 'VIII',
-        9 => 'IX',
-        10 => 'X',
-        11 => 'XI',
-        12 => 'XII',
-    ];
 
     /**
      * @var list<string>
@@ -94,11 +80,11 @@ final class QuotationEvaluation extends Model
 
         $increment = 1;
         if ($lastQe !== null) {
-            preg_match('/^(\d+)-/', $lastQe->qe_number, $matches);
+            preg_match('/^(\d+)-/', (string) $lastQe->qe_number, $matches);
             $increment = ((int) ($matches[1] ?? 0)) + 1;
         }
 
-        return sprintf('%03d-DS/QE/%s/%d', $increment, self::ROMAN_MONTHS[$month], $year);
+        return sprintf('%03d-DS/QE/%s/%d', $increment, RomanNumerals::month($month), $year);
     }
 
     /**

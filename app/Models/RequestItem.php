@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\Unit;
 use Database\Factories\RequestItemFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * @property string $description
  * @property string $quantity
- * @property string $unit
+ * @property Unit $unit
  * @property string|null $notes
  * @property int $sort_order
  * @property bool $is_matched
@@ -63,6 +64,7 @@ final class RequestItem extends Model
     {
         return [
             'quantity' => 'decimal:4',
+            'unit' => Unit::class,
             'sort_order' => 'integer',
             'is_matched' => 'boolean',
         ];

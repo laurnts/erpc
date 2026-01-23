@@ -98,7 +98,7 @@ final class BuyerInvoiceItemFactory extends Factory
     {
         return $this->state(function (array $attributes) use ($taxCode): array {
             $code = $taxCode;
-            $rate = $code !== null ? (string) $code->rate : ($attributes['tax_rate'] ?? '0.0000');
+            $rate = $code instanceof \App\Models\TaxCode ? (string) $code->rate : ($attributes['tax_rate'] ?? '0.0000');
 
             // Recalculate totals with new tax rate
             $quantity = (float) $attributes['quantity'];

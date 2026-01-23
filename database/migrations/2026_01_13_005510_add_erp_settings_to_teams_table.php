@@ -13,7 +13,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('teams', function (Blueprint $table) {
+        Schema::table('teams', function (Blueprint $table): void {
             $table->json('erp_settings')->default('{}');
         });
     }
@@ -23,7 +23,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('teams', function (Blueprint $table) {
+        Schema::table('teams', function (Blueprint $table): void {
             $table->dropColumn('erp_settings');
         });
     }

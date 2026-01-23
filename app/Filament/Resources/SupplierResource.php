@@ -12,16 +12,10 @@ use App\Models\Company;
 use App\Models\Currency;
 use App\Models\People;
 use App\Models\Tag;
-use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\ForceDeleteBulkAction;
-use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
-use Filament\Actions\ViewAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
@@ -138,7 +132,7 @@ final class SupplierResource extends Resource
                 });
         }
 
-        $fields = array_merge($fields, [
+        return array_merge($fields, [
             Section::make('Location')
                 ->schema([
                     Select::make('country')
@@ -159,7 +153,7 @@ final class SupplierResource extends Resource
                             'name',
                             modifyQueryUsing: fn ($query) => $query->where('is_active', true)
                         )
-                        ->getOptionLabelFromRecordUsing(fn (?Currency $record): string => $record ? "{$record->code} - {$record->name}" : '')
+                        ->getOptionLabelFromRecordUsing(fn (?Currency $record): string => $record instanceof \App\Models\Currency ? "{$record->code} - {$record->name}" : '')
                         ->default(function (): ?int {
                             /** @var \App\Models\Team|null $team */
                             $team = Filament::getTenant();
@@ -224,8 +218,6 @@ final class SupplierResource extends Resource
                 ])
                 ->columns(1),
         ]);
-
-        return $fields;
     }
 
     public static function form(Schema $schema): Schema

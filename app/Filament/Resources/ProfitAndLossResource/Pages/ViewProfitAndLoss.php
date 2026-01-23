@@ -7,7 +7,7 @@ namespace App\Filament\Resources\ProfitAndLossResource\Pages;
 use App\Filament\Resources\ProfitAndLossResource;
 use App\Filament\Resources\RequestResource;
 use App\Models\ProfitAndLoss;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\Erp\PdfGenerationService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -34,15 +34,20 @@ final class ViewProfitAndLoss extends ViewRecord
                     /** @var ProfitAndLoss $record */
                     $record = $this->record;
 
-                    $pdf = Pdf::loadView('pdf.profit-and-loss', [
-                        'pnl' => $record,
-                    ])->setPaper('a4', 'landscape');
+                    $service = app(PdfGenerationService::class);
+                    $pdf = $service->generateProfitAndLossPdf($record);
+                    $filename = $service->getProfitAndLossFilename($record);
 
-                    $filename = 'PNL-' . str_replace(['/', '\\'], '-', $record->pnl_number) . '.pdf';
+                    $content = $pdf->output();
 
                     return response()->streamDownload(
-                        fn () => print($pdf->output()),
-                        $filename
+                        callback: static function () use ($content): void {
+                            echo $content;
+                        },
+                        name: $filename,
+                        headers: [
+                            'Content-Type' => 'application/pdf',
+                        ],
                     );
                 }),
             ActionGroup::make([

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\Unit;
 use App\Observers\BuyerQuoteItemObserver;
 use Database\Factories\BuyerQuoteItemFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -21,7 +22,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $supplier_quote_item_id
  * @property string $description
  * @property string $quantity
- * @property string $unit
+ * @property Unit $unit
  * @property string $cost_price
  * @property string $unit_price
  * @property string $unit_price_exc_tax
@@ -108,6 +109,7 @@ final class BuyerQuoteItem extends Model
     {
         return [
             'quantity' => 'decimal:4',
+            'unit' => Unit::class,
             'cost_price' => 'decimal:4',
             'unit_price' => 'decimal:4',
             'unit_price_exc_tax' => 'decimal:4',
@@ -241,11 +243,7 @@ final class BuyerQuoteItem extends Model
         $costPrice = (float) $this->cost_price;
         $this->margin_amount = (string) round($unitPrice - $costPrice, 4);
 
-        if ($costPrice > 0) {
-            $this->margin_percent = (string) round((($unitPrice - $costPrice) / $costPrice) * 100, 4);
-        } else {
-            $this->margin_percent = '0.0000';
-        }
+        $this->margin_percent = $costPrice > 0 ? (string) round((($unitPrice - $costPrice) / $costPrice) * 100, 4) : '0.0000';
     }
 
     /**

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
@@ -12,7 +14,7 @@ return new class extends Migration
     {
         // Get IDs of custom fields to delete
         $fieldIds = DB::table('custom_fields')
-            ->where('entity_type', 'App\\Models\\Company')
+            ->where('entity_type', \App\Models\Company::class)
             ->whereIn('code', ['domain_name', 'linkedin', 'icp'])
             ->pluck('id');
 
@@ -30,7 +32,7 @@ return new class extends Migration
 
         // Also remove LinkedIn from People custom fields
         $peopleLinkedinIds = DB::table('custom_fields')
-            ->where('entity_type', 'App\\Models\\People')
+            ->where('entity_type', \App\Models\People::class)
             ->where('code', 'linkedin')
             ->pluck('id');
 

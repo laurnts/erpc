@@ -19,16 +19,10 @@ use App\Filament\Resources\RequestResource\RelationManagers\SupplierQuotesRelati
 use App\Filament\Resources\RequestResource\RelationManagers\TasksRelationManager;
 use App\Models\Request;
 use Filament\Actions\Action;
-use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\ForceDeleteBulkAction;
-use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
-use Filament\Actions\ViewAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -85,7 +79,7 @@ final class RequestResource extends Resource
                 ->live()
                 ->afterStateUpdated(fn ($set) => $set('project_id', null))
                 ->createOptionForm(BuyerResource::getFormSchema(excludePeopleField: true))
-                ->createOptionAction(fn (Action $action) => $action->slideOver())
+                ->createOptionAction(fn (Action $action): \Filament\Actions\Action => $action->slideOver())
                 ->createOptionUsing(function (array $data): int {
                     /** @var \App\Models\Team $team */
                     $team = Filament::getTenant();
@@ -166,7 +160,7 @@ final class RequestResource extends Resource
                 ->helperText('Optional: Group this request under a project (filtered by selected buyer)')
                 ->disabled(fn ($get): bool => empty($get('buyer_id')))
                 ->createOptionForm(ProjectResource::getFormSchema(excludeBuyerField: true))
-                ->createOptionAction(fn (Action $action) => $action->slideOver())
+                ->createOptionAction(fn (Action $action): \Filament\Actions\Action => $action->slideOver())
                 ->createOptionUsing(function (array $data, $get): int {
                     /** @var \App\Models\Team $team */
                     $team = Filament::getTenant();

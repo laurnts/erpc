@@ -513,7 +513,7 @@ final class BuyerInvoice extends Model implements HasMedia
 
         $nextNumber = 1;
         if ($lastInvoice !== null) {
-            $regex = '/^'.preg_quote($prefix, '/').'-'.$year.'-(\d+)$/';
+            $regex = '/^'.preg_quote((string) $prefix, '/').'-'.$year.'-(\d+)$/';
             if (preg_match($regex, (string) $lastInvoice->invoice_number, $matches)) {
                 $nextNumber = (int) $matches[1] + 1;
             }

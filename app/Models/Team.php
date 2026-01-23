@@ -146,7 +146,7 @@ final class Team extends JetstreamTeam implements HasAvatar
     {
         $currency = $this->getBaseCurrency();
 
-        if ($currency === null) {
+        if (! $currency instanceof \App\Models\Currency) {
             return number_format((float) $amount, 2);
         }
 

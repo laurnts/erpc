@@ -350,11 +350,7 @@ final class Request extends Model implements HasCustomFields, HasMedia
         }
 
         // Also allow in AWAITING_BUYER_CONFIRMATION if no confirmed buyer order exists
-        if ($this->stage === RequestStage::AWAITING_BUYER_CONFIRMATION && ! $this->has_buyer_order_confirmed) {
-            return true;
-        }
-
-        return false;
+        return $this->stage === RequestStage::AWAITING_BUYER_CONFIRMATION && ! $this->has_buyer_order_confirmed;
     }
 
     /**

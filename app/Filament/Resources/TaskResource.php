@@ -8,18 +8,10 @@ use App\Enums\CreationSource;
 use App\Filament\Resources\TaskResource\Forms\TaskForm;
 use App\Filament\Resources\TaskResource\Pages\ManageTasks;
 use App\Models\Task;
-use App\Models\User;
-use Filament\Actions\Action;
-use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\ForceDeleteBulkAction;
-use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
-use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -32,10 +24,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Collection as SupportCollection;
-use Illuminate\Support\Facades\DB;
 use Relaticle\CustomFields\Contracts\ValueResolvers;
 use Relaticle\CustomFields\Models\CustomField;
-use Throwable;
 
 final class TaskResource extends Resource
 {

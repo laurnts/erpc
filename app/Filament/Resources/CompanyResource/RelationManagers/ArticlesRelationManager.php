@@ -115,7 +115,7 @@ final class ArticlesRelationManager extends RelationManager
                     ->preloadRecordSelect()
                     ->form(fn (AttachAction $action): array => [
                         $action->getRecordSelect(),
-                        ...self::getPivotFormSchema(),
+                        ...$this->getPivotFormSchema(),
                     ]),
                 CreateAction::make()
                     ->label('Create Article')
@@ -123,7 +123,7 @@ final class ArticlesRelationManager extends RelationManager
                     ->size(Size::Small)
                     ->form([
                         ...ArticleResource::getFormSchema(forModal: true),
-                        ...self::getPivotFormSchema(),
+                        ...$this->getPivotFormSchema(),
                     ])
                     ->using(function (array $data, RelationManager $livewire): Article {
                         /** @var \App\Models\Team $team */
@@ -183,7 +183,7 @@ final class ArticlesRelationManager extends RelationManager
      *
      * @return array<int, \Filament\Schemas\Components\Component>
      */
-    private static function getPivotFormSchema(): array
+    private function getPivotFormSchema(): array
     {
         return [
             TextInput::make('supplier_sku')

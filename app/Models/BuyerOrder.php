@@ -285,12 +285,12 @@ final class BuyerOrder extends Model implements HasCustomFields
             // Fallback to old field if no payment terms exist
             $order->payment_terms_days = $buyerQuote->payment_terms_days ?? 30;
         }
-        
+
         // Generate description from all payment terms
         if ($buyerQuote->paymentTerms->isNotEmpty()) {
             $termsDescriptions = $buyerQuote->paymentTerms
                 ->sortBy('sort_order')
-                ->map(fn ($term) => "{$term->percentage}% in {$term->due_days} days")
+                ->map(fn ($term): string => "{$term->percentage}% in {$term->due_days} days")
                 ->join(', ');
             $order->payment_terms_text = $termsDescriptions;
         } else {
@@ -345,7 +345,7 @@ final class BuyerOrder extends Model implements HasCustomFields
 
         $nextNumber = 1;
         if ($lastOrder !== null) {
-            $regex = '/^'.preg_quote($prefix, '/').'-'.$year.'-(\d+)$/';
+            $regex = '/^'.preg_quote((string) $prefix, '/').'-'.$year.'-(\d+)$/';
             if (preg_match($regex, (string) $lastOrder->order_number, $matches)) {
                 $nextNumber = (int) $matches[1] + 1;
             }

@@ -111,7 +111,7 @@
                             <x-filament::input.wrapper>
                                 <x-filament::input.select wire:model="preparedById">
                                     <option value="">Select key account...</option>
-                                    @foreach($this->getKeyAccountOptions() as $id => $name)
+                                    @foreach(\App\Models\KeyAccount::selectOptions($this->request->buyer_id ?? null) as $id => $name)
                                         <option value="{{ $id }}">{{ $name }}</option>
                                     @endforeach
                                 </x-filament::input.select>

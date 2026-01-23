@@ -48,7 +48,7 @@ final class ViewRequest extends ViewRecord
         'shipments' => 5,
     ];
 
-    public function getMaxWidth(): Width|string|null
+    public function getMaxWidth(): \Filament\Support\Enums\Width
     {
         return Width::Full;
     }
@@ -73,7 +73,7 @@ final class ViewRequest extends ViewRecord
         // Get the target stage for this relation manager
         $targetStage = RequestStage::fromRelationManagerKey($relationKey);
 
-        if ($targetStage === null) {
+        if (! $targetStage instanceof \App\Enums\RequestStage) {
             return;
         }
 
@@ -306,10 +306,10 @@ final class ViewRequest extends ViewRecord
 
         /** @var \App\Models\Team|null $team */
         $team = filament()->getTenant();
-        
+
         // Try to get the base currency (active)
         $currency = $team?->getBaseCurrency();
-        
+
         // If not found (e.g., inactive), try to get it by code anyway
         if ($currency === null && $team !== null) {
             $code = $team->getErpSettings()->default_currency;

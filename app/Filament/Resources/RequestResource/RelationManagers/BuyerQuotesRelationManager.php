@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\RequestResource\RelationManagers;
 
+use App\Actions\KeyAccount\CreateKeyAccount;
 use App\Enums\BuyerQuoteStatus;
+use App\Enums\PrepaymentType;
 use App\Enums\RequestStage;
 use App\Filament\Actions\DownloadPdfAction;
 use App\Filament\Resources\KeyAccountResource;
@@ -132,20 +134,17 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->schema([
                             Select::make('prepayment_type')
                                 ->label('Prepayment Type')
-                                ->options([
-                                    'percent' => 'Percentage (%)',
-                                    'fixed' => 'Fixed Amount',
-                                ])
-                                ->default('percent')
+                                ->options(PrepaymentType::class)
+                                ->default(PrepaymentType::PERCENT)
                                 ->live()
-                                ->afterStateUpdated(fn (Set $set) => $set('prepayment_amount', 0)),
+                                ->afterStateUpdated(fn (Set $set): mixed => $set('prepayment_amount', 0)),
                             TextInput::make('prepayment_amount')
                                 ->label('Prepayment')
                                 ->numeric()
                                 ->default(0)
                                 ->minValue(0)
-                                ->maxValue(fn (Get $get): ?int => $get('prepayment_type') === 'percent' ? 100 : null)
-                                ->suffix(fn (Get $get): string => $get('prepayment_type') === 'percent' ? '%' : ''),
+                                ->maxValue(fn (Get $get): ?int => $get('prepayment_type') === PrepaymentType::PERCENT->value ? 100 : null)
+                                ->suffix(fn (Get $get): string => $get('prepayment_type') === PrepaymentType::PERCENT->value ? '%' : ''),
                         ]),
                     Repeater::make('paymentTerms')
                         ->relationship()
@@ -412,8 +411,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->orderColumn('sort_order')
                         ->collapsible()
                         ->live()
-                        ->deletable(fn (?BuyerQuote $record): bool => $record === null || $record->status->canEdit())
-                        ->addable(fn (?BuyerQuote $record): bool => $record === null || $record->status->canEdit())
+                        ->deletable(fn (?BuyerQuote $record): bool => ! $record instanceof \App\Models\BuyerQuote || $record->status->canEdit())
+                        ->addable(fn (?BuyerQuote $record): bool => ! $record instanceof \App\Models\BuyerQuote || $record->status->canEdit())
                         ->itemLabel(fn (array $state): ?string => $state['description'] ?? null),
                 ]),
 
@@ -693,7 +692,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                             'currency_id' => $currencyId,
                             'exchange_rate' => 1,
                             'valid_until' => now()->addDays($settings->quote_validity_days ?? 30),
-                            'prepayment_type' => 'percent',
+                            'prepayment_type' => PrepaymentType::PERCENT->value,
                             'prepayment_amount' => 0,
                             'paymentTerms' => [
                                 [
@@ -841,18 +840,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     ->preload()
                                     ->createOptionForm(KeyAccountResource::getFormSchema())
                                     ->createOptionUsing(function (array $data): int {
-                                        /** @var \App\Models\Team $team */
-                                        $team = Filament::getTenant();
-
-                                        /** @var KeyAccount $keyAccount */
-                                        $keyAccount = KeyAccount::create([
-                                            'name' => $data['name'],
-                                            'email' => $data['email'] ?? null,
-                                            'phone' => $data['phone'] ?? null,
-                                            'is_active' => $data['is_active'] ?? true,
-                                            'team_id' => $team->id,
-                                            'creator_id' => auth()->id(),
-                                        ]);
+                                        $keyAccount = app(CreateKeyAccount::class)->execute($data);
 
                                         return $keyAccount->id;
                                     }),
@@ -869,34 +857,27 @@ final class BuyerQuotesRelationManager extends RelationManager
                             ->columns(2),
                     ])
                     ->action(function (array $data) use ($request): void {
-                        /** @var \App\Models\Team $team */
-                        $team = Filament::getTenant();
-
-                        $pnlNumber = ProfitAndLoss::generatePnlNumber($team->id);
-
                         // Find the latest valid buyer quote (not rejected/superseded)
                         $buyerQuote = $request->buyerQuotes()
                             ->whereNotIn('status', [BuyerQuoteStatus::REJECTED, BuyerQuoteStatus::SUPERSEDED])
                             ->latest()
                             ->first();
 
+                        // Create PNL (team_id, creator_id, and pnl_number are auto-set by observer)
                         $pnl = ProfitAndLoss::create([
-                            'team_id' => $team->id,
                             'request_id' => $request->getKey(),
                             'buyer_quote_id' => $buyerQuote?->getKey(),
-                            'pnl_number' => $pnlNumber,
                             'description' => $data['description'] ?? null,
                             'pnl_date' => $data['pnl_date'],
                             'prepared_by_id' => $data['prepared_by_id'] ?? null,
                             'dept_head_sales_name' => $data['dept_head_sales_name'] ?? null,
                             'deputy_director_name' => $data['deputy_director_name'] ?? null,
                             'approved_by_name' => $data['approved_by_name'] ?? null,
-                            'creator_id' => auth()->id(),
                         ]);
 
                         Notification::make()
                             ->title('PNL created')
-                            ->body("PNL {$pnlNumber} has been created successfully.")
+                            ->body("PNL {$pnl->pnl_number} has been created successfully.")
                             ->success()
                             ->send();
 
@@ -1023,7 +1004,7 @@ final class BuyerQuotesRelationManager extends RelationManager
         $unitPrice = (float) ($get('unit_price') ?? 0); // Always NET price
         $costPrice = (float) ($get('cost_price') ?? 0);
         $taxRate = (float) ($get('tax_rate') ?? 0);
-        $addTax = (bool) $get('is_tax_inclusive'); // When checked, add tax to total
+        $get('is_tax_inclusive'); // When checked, add tax to total
 
         // Unit price is always the net price
         $unitPriceExcTax = $unitPrice;

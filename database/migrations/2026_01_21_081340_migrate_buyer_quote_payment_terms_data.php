@@ -24,7 +24,7 @@ return new class extends Migration
 
         foreach ($quotes as $quote) {
             $dueDays = $quote->payment_terms_days ?? 30;
-            
+
             DB::table('buyer_quote_payment_terms')->insert([
                 'buyer_quote_id' => $quote->id,
                 'due_days' => $dueDays,

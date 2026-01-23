@@ -79,8 +79,6 @@ final class AwaitingSupplierQuoteNotification extends Notification implements Sh
      */
     private function getTitle(): string
     {
-        $supplierName = $this->quote->supplier->name ?? 'Unknown Supplier';
-
         return "Supplier quote {$this->quote->quote_number} awaiting response for {$this->daysWaiting} days";
     }
 

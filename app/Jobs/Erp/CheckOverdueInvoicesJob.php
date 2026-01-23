@@ -48,8 +48,6 @@ final class CheckOverdueInvoicesJob implements ShouldQueue
      */
     private function processOverdueInvoice(BuyerInvoice $invoice): void
     {
-        $wasAlreadyOverdue = $invoice->status === InvoiceStatus::OVERDUE;
-
         // Update status to OVERDUE if not already
         if ($invoice->status !== InvoiceStatus::OVERDUE) {
             $invoice->status = InvoiceStatus::OVERDUE;

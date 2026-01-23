@@ -117,7 +117,7 @@ final class SuppliersRelationManager extends RelationManager
                     ->recordSelectOptionsQuery(fn (Builder $query): Builder => $query->where('is_supplier', true))
                     ->form(fn (AttachAction $action): array => [
                         $action->getRecordSelect(),
-                        ...self::getPivotFormSchema(),
+                        ...$this->getPivotFormSchema(),
                     ]),
                 CreateAction::make()
                     ->label('Create Supplier')
@@ -125,7 +125,7 @@ final class SuppliersRelationManager extends RelationManager
                     ->size(Size::Small)
                     ->form([
                         ...CompanyResource::getFormSchema(excludePeopleField: true),
-                        ...self::getPivotFormSchema(),
+                        ...$this->getPivotFormSchema(),
                     ])
                     ->mutateFormDataUsing(function (array $data): array {
                         $data['is_supplier'] = true;
@@ -190,7 +190,7 @@ final class SuppliersRelationManager extends RelationManager
      *
      * @return array<int, \Filament\Schemas\Components\Component>
      */
-    private static function getPivotFormSchema(): array
+    private function getPivotFormSchema(): array
     {
         return [
             TextInput::make('supplier_sku')

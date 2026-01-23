@@ -141,17 +141,17 @@ final class SupplierPaymentFactory extends Factory
      */
     public function fullPayment(): static
     {
-        return $this->state(function (array $attributes): array {
+        return $this->state(
             // This will be resolved when the model is created
-            return [];
-        })->afterCreating(function (SupplierPayment $payment): void {
-            $invoice = $payment->supplierInvoice;
-            if ($invoice !== null) {
-                $amountOutstanding = (float) $invoice->total - (float) $invoice->amount_paid + (float) $payment->amount;
-                $payment->amount = (string) max(0, $amountOutstanding);
-                $payment->saveQuietly();
-            }
-        });
+
+            fn (array $attributes): array => [])->afterCreating(function (SupplierPayment $payment): void {
+                $invoice = $payment->supplierInvoice;
+                if ($invoice !== null) {
+                    $amountOutstanding = (float) $invoice->total - (float) $invoice->amount_paid + (float) $payment->amount;
+                    $payment->amount = (string) max(0, $amountOutstanding);
+                    $payment->saveQuietly();
+                }
+            });
     }
 
     /**

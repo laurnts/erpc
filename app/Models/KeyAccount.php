@@ -6,6 +6,10 @@ namespace App\Models;
 
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
+use App\Observers\KeyAccountObserver;
+use Filament\Facades\Filament;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -25,6 +29,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read string $created_by
  * @property-read string $display_name
  */
+#[ObservedBy(KeyAccountObserver::class)]
 final class KeyAccount extends Model
 {
     use HasCreator;
@@ -95,5 +100,39 @@ final class KeyAccount extends Model
     public function getDisplayNameAttribute(): string
     {
         return $this->name;
+    }
+
+    /**
+     * Scope to active key accounts for the current Filament tenant.
+     *
+     * @param  Builder<KeyAccount>  $query
+     * @return Builder<KeyAccount>
+     */
+    #[\Illuminate\Database\Eloquent\Attributes\Scope]
+    protected function activeForCurrentTeam(Builder $query): Builder
+    {
+        $teamId = Filament::getTenant()?->getKey();
+
+        return $query
+            ->where('is_active', true)
+            ->when($teamId !== null, fn (Builder $q): Builder => $q->where('team_id', $teamId));
+    }
+
+    /**
+     * Get select options formatted for Filament select fields.
+     *
+     * @param  int|null  $buyerId  Optional buyer ID to filter key accounts assigned to handle that buyer
+     * @return array<int, string>
+     */
+    public static function selectOptions(?int $buyerId = null): array
+    {
+        return self::activeForCurrentTeam()
+            ->when($buyerId !== null, fn (Builder $q): Builder => $q->whereHas(
+                'buyers',
+                fn (Builder $bq): Builder => $bq->where('companies.id', $buyerId)
+            ))
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
     }
 }

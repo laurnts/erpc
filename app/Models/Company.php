@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\CreationSource;
+use App\Enums\DeliveryType;
 use App\Models\Concerns\HasAiSummary;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasNotes;
@@ -49,8 +50,8 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property bool $is_on_hold
  * @property string|null $on_hold_reason
  * @property int $lead_time_days
- * @property string|null $delivery_type
- * @property string|null $delivery_type_details
+ * @property DeliveryType|null $delivery_type
+ * @property DeliveryType|null $delivery_type_details
  * @property bool $is_taxable
  * @property string|null $delivery_term
  * @property int $payment_terms_days
@@ -143,6 +144,7 @@ final class Company extends Model implements HasCustomFields, HasMedia
             'payment_terms_days' => 'integer',
             'is_active' => 'boolean',
             'creation_source' => CreationSource::class,
+            'delivery_type' => DeliveryType::class,
         ];
     }
 

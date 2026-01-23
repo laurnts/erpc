@@ -75,9 +75,10 @@ final class ItemsRelationManager extends RelationManager
                 Select::make('article_id')
                     ->label('Match to Article')
                     ->columnSpanFull()
-                    ->options(function () use ($request): array {
+                    ->options(
                         // Get all unique articles (no supplier duplicates)
-                        return Article::query()
+
+                        fn (): array => Article::query()
                             ->where('team_id', $request->team_id)
                             ->where('is_active', true)
                             ->orderBy('code')
@@ -85,8 +86,7 @@ final class ItemsRelationManager extends RelationManager
                             ->mapWithKeys(fn (Article $article): array => [
                                 $article->getKey() => "[{$article->code}] {$article->name}",
                             ])
-                            ->toArray();
-                    })
+                            ->toArray())
                     ->searchable()
                     ->preload()
                     ->placeholder('Select article...')
@@ -216,8 +216,8 @@ final class ItemsRelationManager extends RelationManager
                             ->unique()
                             ->count();
 
-                        $itemsList = $matchedItems->take(5)->map(fn (RequestItem $item): string => "• {$item->article?->name} (" . number_format((float) $item->quantity, 0) . " {$item->unit})")->implode("\n");
-                        $moreItems = $matchedItems->count() > 5 ? "\n• ... and " . ($matchedItems->count() - 5) . " more item(s)" : '';
+                        $itemsList = $matchedItems->take(5)->map(fn (RequestItem $item): string => "• {$item->article?->name} (".number_format((float) $item->quantity, 0)." {$item->unit})")->implode("\n");
+                        $moreItems = $matchedItems->count() > 5 ? "\n• ... and ".($matchedItems->count() - 5).' more item(s)' : '';
 
                         $prefix = $hasSelection ? 'SELECTED ' : 'ALL ';
 

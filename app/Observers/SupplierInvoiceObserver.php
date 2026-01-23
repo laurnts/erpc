@@ -63,7 +63,7 @@ final readonly class SupplierInvoiceObserver
             ->get();
 
         $nextNumber = 1;
-        $regex = '/^'.preg_quote($prefix, '/').'-'.$year.'-(\d+)$/';
+        $regex = '/^'.preg_quote((string) $prefix, '/').'-'.$year.'-(\d+)$/';
 
         foreach ($allInvoicesForTeam as $invoice) {
             if (preg_match($regex, (string) $invoice->reference_number, $matches)) {

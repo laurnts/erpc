@@ -129,7 +129,7 @@ final class BuyerPayment extends Model implements HasMedia
 
         $nextNumber = 1;
         if ($lastPayment !== null) {
-            $regex = '/^'.preg_quote($prefix, '/').'-'.$year.'-(\d+)$/';
+            $regex = '/^'.preg_quote((string) $prefix, '/').'-'.$year.'-(\d+)$/';
             if (preg_match($regex, (string) $lastPayment->payment_number, $matches)) {
                 $nextNumber = (int) $matches[1] + 1;
             }

@@ -95,27 +95,27 @@ final class SupplierOrdersRelationManager extends RelationManager
                                         // Check if supplier is taxable
                                         $supplierId = $get('supplier_id');
                                         $isTaxable = true; // Default
-                                        
+
                                         if ($supplierId !== null) {
                                             /** @var Company|null $supplier */
                                             $supplier = Company::query()->find($supplierId);
                                             $isTaxable = $supplier?->is_taxable ?? true;
                                         }
-                                        
+
                                         // Trigger recalculation for all line items when supplier changes
                                         $items = $get('items') ?? [];
                                         foreach ($items as $index => $item) {
                                             // Get current values
                                             $quantity = (float) ($item['quantity'] ?? 1);
                                             $unitPrice = (float) ($item['unit_price'] ?? 0);
-                                            
+
                                             if ($unitPrice > 0 && $quantity > 0) {
                                                 // Clear tax values if supplier is not taxable BEFORE recalculation
                                                 if (! $isTaxable) {
                                                     $set("items.{$index}.tax_rate", 0);
                                                     $set("items.{$index}.tax_code_id", null);
                                                     $set("items.{$index}.is_tax_inclusive", false);
-                                                    
+
                                                     // Directly calculate and set line_total without tax
                                                     $lineTotal = $quantity * $unitPrice;
                                                     $set("items.{$index}.unit_price_exc_tax", round($unitPrice, 4));
@@ -367,7 +367,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                     ->content(fn (?SupplierOrder $record): string => $record instanceof \App\Models\SupplierOrder
                                         ? ($record->currency?->formatNumber((float) $record->tax_total) ?? number_format((float) $record->tax_total, 2))
                                         : '0,-')
-                                    ->visible(fn (?SupplierOrder $record): bool => $record === null || $this->isRecordSupplierTaxable($record)),
+                                    ->visible(fn (?SupplierOrder $record): bool => ! $record instanceof \App\Models\SupplierOrder || $this->isRecordSupplierTaxable($record)),
                                 Placeholder::make('total_display')
                                     ->label('Total')
                                     ->content(fn (?SupplierOrder $record): string => $record instanceof \App\Models\SupplierOrder
@@ -404,7 +404,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                             ? $baseCurrency->formatNumber((float) $record->base_tax_total)
                                             : number_format((float) $record->base_tax_total, 2);
                                     })
-                                    ->visible(fn (?SupplierOrder $record): bool => $record === null || $this->isRecordSupplierTaxable($record)),
+                                    ->visible(fn (?SupplierOrder $record): bool => ! $record instanceof \App\Models\SupplierOrder || $this->isRecordSupplierTaxable($record)),
                                 Placeholder::make('base_total_display')
                                     ->label('Total (Base)')
                                     ->content(function (?SupplierOrder $record): string {
@@ -576,7 +576,10 @@ final class SupplierOrdersRelationManager extends RelationManager
                         foreach ($buyerOrder->items as $buyerOrderItem) {
                             /** @var \App\Models\BuyerOrderItem $buyerOrderItem */
                             $requestItem = $buyerOrderItem->requestItem;
-                            if ($requestItem === null || $requestItem->supplier_id === null) {
+                            if ($requestItem === null) {
+                                continue;
+                            }
+                            if ($requestItem->supplier_id === null) {
                                 continue;
                             }
 
@@ -609,7 +612,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                             $itemsBySupplier[$supplierId]['total'] += $lineTotal;
                         }
 
-                        if (empty($itemsBySupplier)) {
+                        if ($itemsBySupplier === []) {
                             return [
                                 Placeholder::make('no_suppliers')
                                     ->label('')
@@ -725,7 +728,10 @@ final class SupplierOrdersRelationManager extends RelationManager
                         foreach ($buyerOrder->items as $buyerOrderItem) {
                             /** @var \App\Models\BuyerOrderItem $buyerOrderItem */
                             $requestItem = $buyerOrderItem->requestItem;
-                            if ($requestItem === null || $requestItem->supplier_id === null) {
+                            if ($requestItem === null) {
+                                continue;
+                            }
+                            if ($requestItem->supplier_id === null) {
                                 continue;
                             }
 
@@ -736,7 +742,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                             $itemsBySupplier[$supplierId][] = $buyerOrderItem;
                         }
 
-                        if (empty($itemsBySupplier)) {
+                        if ($itemsBySupplier === []) {
                             Notification::make()
                                 ->title('No suppliers assigned')
                                 ->body('Request items do not have suppliers assigned. Please assign suppliers to items first.')
@@ -902,17 +908,17 @@ final class SupplierOrdersRelationManager extends RelationManager
     {
         $quantity = (float) ($get('quantity') ?? 0);
         $unitPrice = (float) ($get('unit_price') ?? 0);
-        
+
         // Check if supplier is taxable
         $isTaxable = $this->isSupplierTaxable($get);
-        
+
         // If not taxable, set tax values to 0 and clear tax fields
         if (! $isTaxable) {
             $set('tax_rate', 0);
             $set('tax_code_id', null);
             $set('is_tax_inclusive', false);
         }
-        
+
         $taxRate = $isTaxable ? (float) ($get('tax_rate') ?? 0) : 0;
         $isTaxInclusive = $isTaxable && (bool) $get('is_tax_inclusive');
 
@@ -951,7 +957,7 @@ final class SupplierOrdersRelationManager extends RelationManager
     {
         // Get supplier_id from the parent form (go up from repeater item to form level)
         $supplierId = $get('../../supplier_id');
-        
+
         if ($supplierId === null) {
             // When editing existing order, check the record's supplier
             $record = $this->getMountedTableActionRecord() ?? $this->getRecord();
@@ -973,7 +979,7 @@ final class SupplierOrdersRelationManager extends RelationManager
      */
     private function isRecordSupplierTaxable(?SupplierOrder $record): bool
     {
-        if ($record === null || $record->supplier_id === null) {
+        if (! $record instanceof \App\Models\SupplierOrder || $record->supplier_id === null) {
             return true; // Default to showing tax fields
         }
 

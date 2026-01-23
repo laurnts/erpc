@@ -7,12 +7,8 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\ExchangeRateResource\Pages\ListExchangeRates;
 use App\Models\Currency;
 use App\Models\ExchangeRate;
-use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
@@ -53,7 +49,7 @@ final class ExchangeRateResource extends Resource
                     'name',
                     modifyQueryUsing: fn ($query) => $query->where('is_active', true)
                 )
-                ->getOptionLabelFromRecordUsing(fn (?Currency $record): string => $record ? "{$record->code} - {$record->name}" : '')
+                ->getOptionLabelFromRecordUsing(fn (?Currency $record): string => $record instanceof \App\Models\Currency ? "{$record->code} - {$record->name}" : '')
                 ->required()
                 ->searchable()
                 ->preload()
@@ -72,7 +68,7 @@ final class ExchangeRateResource extends Resource
                     'name',
                     modifyQueryUsing: fn ($query) => $query->where('is_active', true)
                 )
-                ->getOptionLabelFromRecordUsing(fn (?Currency $record): string => $record ? "{$record->code} - {$record->name}" : '')
+                ->getOptionLabelFromRecordUsing(fn (?Currency $record): string => $record instanceof \App\Models\Currency ? "{$record->code} - {$record->name}" : '')
                 ->required()
                 ->searchable()
                 ->preload()

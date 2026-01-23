@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\BuyerQuoteStatus;
+use App\Enums\PrepaymentType;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use App\Observers\BuyerQuoteObserver;
@@ -35,7 +36,7 @@ use Relaticle\CustomFields\Models\Contracts\HasCustomFields;
  * @property string $subtotal
  * @property string $tax_total
  * @property string $total
- * @property string $prepayment_type
+ * @property PrepaymentType $prepayment_type
  * @property string $prepayment_amount
  * @property int $prepayment_percent
  * @property int $payment_terms_days
@@ -109,7 +110,7 @@ final class BuyerQuote extends Model implements HasCustomFields
         'subtotal' => '0.0000',
         'tax_total' => '0.0000',
         'total' => '0.0000',
-        'prepayment_type' => 'percent',
+        'prepayment_type' => PrepaymentType::PERCENT,
         'prepayment_amount' => '0.0000',
         'prepayment_percent' => 0,
         'payment_terms_days' => 30,
@@ -127,7 +128,7 @@ final class BuyerQuote extends Model implements HasCustomFields
             'subtotal' => 'decimal:4',
             'tax_total' => 'decimal:4',
             'total' => 'decimal:4',
-            'prepayment_type' => 'string',
+            'prepayment_type' => PrepaymentType::class,
             'prepayment_amount' => 'decimal:4',
             'prepayment_percent' => 'integer',
             'payment_terms_days' => 'integer',
@@ -416,7 +417,7 @@ final class BuyerQuote extends Model implements HasCustomFields
 
         $nextNumber = 1;
         if ($lastQuote !== null) {
-            $regex = '/^'.preg_quote($prefix, '/').'-'.$year.'-(\d+)$/';
+            $regex = '/^'.preg_quote((string) $prefix, '/').'-'.$year.'-(\d+)$/';
             if (preg_match($regex, (string) $lastQuote->quote_number, $matches)) {
                 $nextNumber = (int) $matches[1] + 1;
             }

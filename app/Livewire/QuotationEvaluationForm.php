@@ -4,32 +4,34 @@ declare(strict_types=1);
 
 namespace App\Livewire;
 
+use App\Actions\KeyAccount\CreateKeyAccount;
 use App\Enums\SupplierQuoteStatus;
-use App\Filament\Resources\KeyAccountResource;
 use App\Filament\Resources\QuotationEvaluationResource;
+use App\Livewire\Concerns\AuthorizesLivewireActions;
 use App\Models\KeyAccount;
 use App\Models\QuotationEvaluation;
 use App\Models\Request;
 use App\Models\SupplierQuote;
 use App\Models\SupplierQuoteItem;
-use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Schemas\Components\Grid;
-use Filament\Schemas\Components\Section;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Livewire component for creating Quotation Evaluation documents.
  */
 final class QuotationEvaluationForm extends BaseLivewireComponent
 {
+    use AuthorizesLivewireActions;
+
     public Request $request;
 
     public ?string $description = null;
@@ -55,6 +57,9 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
 
     public function mount(Request $request): void
     {
+        // Verify request belongs to current team
+        $this->ensureTeamOwnership($request);
+
         $this->request = $request;
         $this->description = $request->title;
         $this->qeDate = now()->format('Y-m-d');
@@ -89,48 +94,16 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
     }
 
     /**
-     * Get key account options for select fields.
-     * Only shows key accounts that are assigned to handle the request's buyer.
-     *
-     * @return array<int, string>
-     */
-    private function getKeyAccountOptions(): array
-    {
-        $query = KeyAccount::query()
-            ->where('team_id', Filament::getTenant()?->getKey())
-            ->where('is_active', true);
-
-        // Filter to only show key accounts assigned to handle this request's buyer
-        if ($this->request->buyer_id) {
-            $query->whereHas('buyers', function ($q) {
-                $q->where('companies.id', $this->request->buyer_id);
-            });
-        }
-
-        return $query
-            ->orderBy('name')
-            ->get()
-            ->mapWithKeys(fn (KeyAccount $ka): array => [$ka->getKey() => $ka->display_name])
-            ->toArray();
-    }
-
-    /**
      * Create a new key account from inline form.
+     *
+     * @param  array{name: string, email?: string|null, phone?: string|null, is_active?: bool}  $data
      */
     public function createKeyAccount(array $data): int
     {
-        /** @var \App\Models\Team $team */
-        $team = Filament::getTenant();
+        // Check authorization
+        Gate::authorize('create', KeyAccount::class);
 
-        /** @var KeyAccount $keyAccount */
-        $keyAccount = KeyAccount::create([
-            'name' => $data['name'],
-            'email' => $data['email'] ?? null,
-            'phone' => $data['phone'] ?? null,
-            'is_active' => $data['is_active'] ?? true,
-            'team_id' => $team->id,
-            'creator_id' => auth()->id(),
-        ]);
+        $keyAccount = app(CreateKeyAccount::class)->execute($data);
 
         return $keyAccount->id;
     }
@@ -159,6 +132,19 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
      */
     public function saveNewKeyAccount(): void
     {
+        // Check authorization first
+        try {
+            Gate::authorize('create', KeyAccount::class);
+        } catch (AuthorizationException) {
+            Notification::make()
+                ->title('Permission Denied')
+                ->body('You do not have permission to create key accounts.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
         $this->validate([
             'newKeyAccountName' => 'required|string|max:255',
             'newKeyAccountEmail' => 'nullable|email|max:255',
@@ -186,24 +172,29 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
      */
     public function save(): void
     {
+        // Check authorization first
+        try {
+            Gate::authorize('create', QuotationEvaluation::class);
+        } catch (AuthorizationException) {
+            Notification::make()
+                ->title('Permission Denied')
+                ->body('You do not have permission to create quotation evaluations.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
         $this->validate([
             'qeDate' => 'required|date',
         ]);
 
-        /** @var \App\Models\Team $team */
-        $team = Filament::getTenant();
-
-        // Generate QE number
-        $qeNumber = QuotationEvaluation::generateQeNumber($team->id);
-
         // Build snapshot data
         $snapshotData = $this->buildSnapshotData();
 
-        // Create the QE record
+        // Create the QE record (team_id, creator_id, and qe_number are auto-set by observer)
         $qe = QuotationEvaluation::create([
-            'team_id' => $team->id,
             'request_id' => $this->request->getKey(),
-            'qe_number' => $qeNumber,
             'description' => $this->description,
             'qe_date' => $this->qeDate,
             'prepared_by_id' => $this->preparedById,
@@ -211,12 +202,11 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
             'deputy_director_name' => $this->deputyDirectorName,
             'approved_by_name' => $this->approvedByName,
             'data' => $snapshotData,
-            'creator_id' => auth()->id(),
         ]);
 
         Notification::make()
             ->title('Quotation Evaluation created')
-            ->body("QE {$qeNumber} has been created successfully.")
+            ->body("QE {$qe->qe_number} has been created successfully.")
             ->success()
             ->send();
 

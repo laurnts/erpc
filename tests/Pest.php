@@ -16,6 +16,19 @@ declare(strict_types=1);
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 
+/*
+|--------------------------------------------------------------------------
+| Pure Unit Tests (No Database)
+|--------------------------------------------------------------------------
+|
+| Tests in this section do not require database access and should not use
+| RefreshDatabase trait. These are for testing pure logic like enums.
+|
+*/
+
+pest()->extend(Tests\TestCase::class)
+    ->in('Unit/Enums');
+
 pest()->extend(Tests\TestCase::class)
     ->use(RefreshDatabase::class)
     ->beforeEach(function () {
@@ -29,7 +42,7 @@ pest()->extend(Tests\TestCase::class)
         // Seed ERP permissions for all tests
         $this->seed(\Database\Seeders\ErpPermissionSeeder::class);
     })
-    ->in('Feature', 'Unit');
+    ->in('Feature', 'Unit/Models', 'Unit/Services');
 
 /*
 |--------------------------------------------------------------------------

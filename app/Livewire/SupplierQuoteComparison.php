@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace App\Livewire;
 
 use App\Enums\SupplierQuoteStatus;
+use App\Livewire\Concerns\AuthorizesLivewireActions;
 use App\Models\Request;
 use App\Models\RequestItem;
 use App\Models\SupplierQuote;
 use App\Models\SupplierQuoteItem;
 use Filament\Notifications\Notification;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 
 /**
@@ -29,6 +32,8 @@ use Livewire\Attributes\Computed;
  */
 final class SupplierQuoteComparison extends BaseLivewireComponent
 {
+    use AuthorizesLivewireActions;
+
     public Request $request;
 
     /**
@@ -41,6 +46,9 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
 
     public function mount(Request $request): void
     {
+        // Verify request belongs to current team
+        $this->ensureTeamOwnership($request);
+
         $this->request = $request;
         $this->initializeSelections();
     }
@@ -67,6 +75,16 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
      */
     public function selectSupplierForItem(int $requestItemId, int $supplierQuoteId): void
     {
+        // Validate that the supplier quote exists in our quotes collection
+        if ($this->quotes->firstWhere('id', $supplierQuoteId) === null) {
+            return;
+        }
+
+        // Validate that the request item exists in our request items collection
+        if ($this->requestItems->firstWhere('id', $requestItemId) === null) {
+            return;
+        }
+
         // Toggle off if already selected
         if (($this->itemSelections[$requestItemId] ?? null) === $supplierQuoteId) {
             unset($this->itemSelections[$requestItemId]);
@@ -132,9 +150,14 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
 
     /**
      * Apply the current selections by updating quote statuses and item selections.
+     *
+     * @throws AuthorizationException
      */
     public function applySelections(): void
     {
+        // Authorize the action - user must be able to update the request
+        Gate::authorize('update', $this->request);
+
         // Group selections by quote
         $quoteSelections = [];
         foreach ($this->itemSelections as $requestItemId => $quoteId) {
@@ -273,8 +296,6 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
      * Returns true only if:
      * 1. Every request item has at least one quote item with a price > 0
      * 2. Every supplier that has quoted items has prices > 0 for all their quoted items
-     *
-     * @return bool
      */
     #[Computed]
     public function hasPricesEntered(): bool
@@ -285,7 +306,7 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
         }
 
         // First check: Every request item must have at least one quote item with price > 0
-        foreach ($this->priceMatrix as $requestItemId => $quoteItems) {
+        foreach ($this->priceMatrix as $quoteItems) {
             $hasPriceForItem = false;
 
             foreach ($quoteItems as $quoteItem) {
@@ -308,7 +329,7 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
         foreach ($this->quotes as $quote) {
             foreach ($this->requestItems as $requestItem) {
                 $quoteItem = $this->priceMatrix[$requestItem->getKey()][$quote->getKey()] ?? null;
-                
+
                 // If supplier has quoted this item, it must have a price > 0
                 if ($quoteItem !== null) {
                     $unitPrice = (float) $quoteItem->unit_price_exc_tax;

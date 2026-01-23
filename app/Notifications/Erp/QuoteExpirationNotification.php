@@ -78,8 +78,6 @@ final class QuoteExpirationNotification extends Notification implements ShouldQu
      */
     private function getTitle(): string
     {
-        $buyerName = $this->quote->buyer->name ?? 'Unknown Buyer';
-
         return match ($this->daysUntilExpiry) {
             1 => "Quote {$this->quote->quote_number} expires tomorrow",
             0 => "Quote {$this->quote->quote_number} expires today",

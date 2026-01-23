@@ -7,7 +7,7 @@ namespace App\Filament\Resources\QuotationEvaluationResource\Pages;
 use App\Filament\Resources\QuotationEvaluationResource;
 use App\Filament\Resources\RequestResource;
 use App\Models\QuotationEvaluation;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\Erp\PdfGenerationService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -34,15 +34,20 @@ final class ViewQuotationEvaluation extends ViewRecord
                     /** @var QuotationEvaluation $record */
                     $record = $this->record;
 
-                    $pdf = Pdf::loadView('pdf.quotation-evaluation', [
-                        'qe' => $record,
-                    ])->setPaper('a4', 'landscape');
+                    $service = app(PdfGenerationService::class);
+                    $pdf = $service->generateQuotationEvaluationPdf($record);
+                    $filename = $service->getQuotationEvaluationFilename($record);
 
-                    $filename = 'QE-' . str_replace(['/', '\\'], '-', $record->qe_number) . '.pdf';
+                    $content = $pdf->output();
 
                     return response()->streamDownload(
-                        fn () => print($pdf->output()),
-                        $filename
+                        callback: static function () use ($content): void {
+                            echo $content;
+                        },
+                        name: $filename,
+                        headers: [
+                            'Content-Type' => 'application/pdf',
+                        ],
                     );
                 }),
             ActionGroup::make([
