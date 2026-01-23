@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\CentralPurchasingRole;
 use App\Enums\CreationSource;
 use App\Models\Concerns\HasAiSummary;
 use App\Models\Concerns\HasCreator;
@@ -49,7 +50,9 @@ final class People extends Model implements HasCustomFields
     protected $fillable = [
         'name',
         'creation_source',
-        'is_key_account',
+        'is_key_account', // @deprecated Use is_central_purchasing and central_purchasing_role instead
+        'is_central_purchasing',
+        'central_purchasing_role',
     ];
 
     /**
@@ -68,7 +71,9 @@ final class People extends Model implements HasCustomFields
     {
         return [
             'creation_source' => CreationSource::class,
-            'is_key_account' => 'boolean',
+            'is_key_account' => 'boolean', // @deprecated Use is_central_purchasing and central_purchasing_role instead
+            'is_central_purchasing' => 'boolean',
+            'central_purchasing_role' => CentralPurchasingRole::class,
         ];
     }
 
@@ -85,6 +90,7 @@ final class People extends Model implements HasCustomFields
     public function companies(): BelongsToMany
     {
         return $this->belongsToMany(Company::class)
+            ->using(CompanyPeople::class)
             ->withPivot(['role', 'is_primary'])
             ->withTimestamps();
     }

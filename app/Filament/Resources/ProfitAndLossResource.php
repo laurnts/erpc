@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\Forms\Components\ApprovalPersonnelSchema;
 use App\Filament\Resources\PeopleResource;
 use App\Filament\Resources\ProfitAndLossResource\Pages\EditProfitAndLoss;
 use App\Filament\Resources\ProfitAndLossResource\Pages\ListProfitAndLosses;
@@ -47,7 +48,8 @@ final class ProfitAndLossResource extends Resource
     {
         return People::query()
             ->where('team_id', Filament::getTenant()?->getKey())
-            ->where('is_key_account', true)
+            ->where('is_central_purchasing', true)
+            ->where('central_purchasing_role', \App\Enums\CentralPurchasingRole::KEY_ACCOUNT->value)
             ->orderBy('name')
             ->get()
             ->mapWithKeys(fn (People $person): array => [$person->getKey() => $person->name])
@@ -67,7 +69,8 @@ final class ProfitAndLossResource extends Resource
         /** @var People $person */
         $person = People::create([
             'name' => $data['name'],
-            'is_key_account' => true,
+            'is_central_purchasing' => true,
+            'central_purchasing_role' => \App\Enums\CentralPurchasingRole::KEY_ACCOUNT,
             'team_id' => $team->id,
             'creator_id' => auth()->id(),
         ]);
@@ -87,32 +90,13 @@ final class ProfitAndLossResource extends Resource
                             ->columnSpanFull(),
                     ])
                     ->columnSpanFull(),
-                Section::make('Central Purchasing')
-                    ->description('Approval workflow personnel')
-                    ->schema([
-                        Select::make('prepared_by_id')
-                            ->label('Prepared By')
-                            ->relationship('preparedBy', 'name', modifyQueryUsing: fn ($query) => $query->where('is_key_account', true))
-                            ->searchable()
-                            ->preload()
-                            ->createOptionForm(PeopleResource::getFormSchema())
-                            ->createOptionUsing(function (array $data): int {
-                                $data['is_key_account'] = true;
-
-                                return self::createKeyAccount($data);
-                            }),
-                        TextInput::make('dept_head_sales_name')
-                            ->label('Dept Head of Sales')
-                            ->maxLength(255),
-                        TextInput::make('deputy_director_name')
-                            ->label('Deputy Director')
-                            ->maxLength(255),
-                        TextInput::make('approved_by_name')
-                            ->label('Approved By')
-                            ->maxLength(255),
-                    ])
-                    ->columns(2)
-                    ->columnSpanFull(),
+                ...ApprovalPersonnelSchema::make(
+                    buyerId: fn ($livewire) => isset($livewire->record) && $livewire->record && $livewire->record->request
+                        ? $livewire->record->request->buyer_id
+                        : null,
+                    sectionTitle: 'Central Purchasing',
+                    columns: 2
+                ),
             ])
             ->columns(1);
     }

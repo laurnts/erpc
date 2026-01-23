@@ -37,7 +37,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property int|null $default_currency_id
  * @property string $code
  * @property string $name
- * @property string|null $contact_person
+ * @property string|null $contact_person @deprecated Use company_people pivot with is_primary flag instead. Access via $company->primaryContact()->first()
  * @property string|null $email
  * @property string|null $phone
  * @property string|null $address
@@ -129,7 +129,7 @@ final class Company extends Model implements HasCustomFields, HasMedia
     /**
      * The attributes that should be cast.
      *
-     * @return array<string, string|class-string>
+     * @return array<string, string|class-string|\Illuminate\Contracts\Database\Eloquent\CastsAttributes>
      */
     protected function casts(): array
     {
@@ -144,7 +144,9 @@ final class Company extends Model implements HasCustomFields, HasMedia
             'payment_terms_days' => 'integer',
             'is_active' => 'boolean',
             'creation_source' => CreationSource::class,
-            'delivery_type' => DeliveryType::class,
+            // Use SafeDeliveryTypeCast to handle invalid enum values gracefully (e.g., "Franco")
+            // This prevents errors when loading models with invalid delivery_type values
+            'delivery_type' => \App\Casts\SafeDeliveryTypeCast::class,
         ];
     }
 
@@ -202,6 +204,7 @@ final class Company extends Model implements HasCustomFields, HasMedia
     public function people(): BelongsToMany
     {
         return $this->belongsToMany(People::class)
+            ->using(CompanyPeople::class)
             ->withPivot(['role', 'is_primary'])
             ->withTimestamps();
     }
@@ -232,7 +235,8 @@ final class Company extends Model implements HasCustomFields, HasMedia
     public function keyAccounts(): BelongsToMany
     {
         return $this->belongsToMany(People::class, 'key_account_buyers', 'buyer_id', 'key_account_id')
-            ->where('is_key_account', true)
+            ->where('is_central_purchasing', true)
+            ->where('central_purchasing_role', \App\Enums\CentralPurchasingRole::KEY_ACCOUNT->value)
             ->withTimestamps();
     }
 

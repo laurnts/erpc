@@ -903,7 +903,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     ->label('Prepared By')
                                     ->options(fn (): array => People::query()
                                         ->where('team_id', Filament::getTenant()?->getKey())
-                                        ->where('is_key_account', true)
+                                        ->where('is_central_purchasing', true)
+                                        ->where('central_purchasing_role', \App\Enums\CentralPurchasingRole::KEY_ACCOUNT->value)
                                         ->orderBy('name')
                                         ->get()
                                         ->mapWithKeys(fn (People $person): array => [$person->getKey() => $person->name])
@@ -918,22 +919,74 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         /** @var People $person */
                                         $person = People::create([
                                             'name' => $data['name'],
-                                            'is_key_account' => true,
+                                            'is_central_purchasing' => true,
+                                            'central_purchasing_role' => \App\Enums\CentralPurchasingRole::KEY_ACCOUNT,
                                             'team_id' => $team->id,
                                             'creator_id' => auth()->id(),
                                         ]);
 
                                         return $person->id;
                                     }),
-                                TextInput::make('dept_head_sales_name')
+                                Select::make('dept_head_sales_id')
                                     ->label('Dept Head of Sales')
-                                    ->maxLength(255),
-                                TextInput::make('deputy_director_name')
+                                    ->relationship('deptHeadSales', 'name', modifyQueryUsing: fn ($query) => $query
+                                        ->where('is_central_purchasing', true)
+                                        ->where('central_purchasing_role', \App\Enums\CentralPurchasingRole::DEPT_HEAD_SALES->value))
+                                    ->searchable()
+                                    ->preload()
+                                    ->createOptionForm(PeopleResource::getFormSchema())
+                                    ->createOptionUsing(function (array $data): int {
+                                        /** @var \App\Models\Team $team */
+                                        $team = Filament::getTenant();
+                                        $person = People::create([
+                                            'name' => $data['name'],
+                                            'is_central_purchasing' => true,
+                                            'central_purchasing_role' => \App\Enums\CentralPurchasingRole::DEPT_HEAD_SALES,
+                                            'team_id' => $team->id,
+                                            'creator_id' => auth()->id(),
+                                        ]);
+                                        return $person->id;
+                                    }),
+                                Select::make('deputy_director_id')
                                     ->label('Deputy Director')
-                                    ->maxLength(255),
-                                TextInput::make('approved_by_name')
+                                    ->relationship('deputyDirector', 'name', modifyQueryUsing: fn ($query) => $query
+                                        ->where('is_central_purchasing', true)
+                                        ->where('central_purchasing_role', \App\Enums\CentralPurchasingRole::DEPUTY_DIRECTOR->value))
+                                    ->searchable()
+                                    ->preload()
+                                    ->createOptionForm(PeopleResource::getFormSchema())
+                                    ->createOptionUsing(function (array $data): int {
+                                        /** @var \App\Models\Team $team */
+                                        $team = Filament::getTenant();
+                                        $person = People::create([
+                                            'name' => $data['name'],
+                                            'is_central_purchasing' => true,
+                                            'central_purchasing_role' => \App\Enums\CentralPurchasingRole::DEPUTY_DIRECTOR,
+                                            'team_id' => $team->id,
+                                            'creator_id' => auth()->id(),
+                                        ]);
+                                        return $person->id;
+                                    }),
+                                Select::make('approved_by_id')
                                     ->label('Approved By')
-                                    ->maxLength(255),
+                                    ->relationship('approvedBy', 'name', modifyQueryUsing: fn ($query) => $query
+                                        ->where('is_central_purchasing', true)
+                                        ->where('central_purchasing_role', \App\Enums\CentralPurchasingRole::DIRECTOR->value))
+                                    ->searchable()
+                                    ->preload()
+                                    ->createOptionForm(PeopleResource::getFormSchema())
+                                    ->createOptionUsing(function (array $data): int {
+                                        /** @var \App\Models\Team $team */
+                                        $team = Filament::getTenant();
+                                        $person = People::create([
+                                            'name' => $data['name'],
+                                            'is_central_purchasing' => true,
+                                            'central_purchasing_role' => \App\Enums\CentralPurchasingRole::DIRECTOR,
+                                            'team_id' => $team->id,
+                                            'creator_id' => auth()->id(),
+                                        ]);
+                                        return $person->id;
+                                    }),
                             ])
                             ->columns(2),
                     ])

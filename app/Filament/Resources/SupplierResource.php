@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Enums\CreationSource;
+use App\Enums\DeliveryType;
 use App\Filament\Resources\SupplierResource\Pages\CreateSupplier;
 use App\Filament\Resources\SupplierResource\Pages\ListSuppliers;
 use App\Filament\Resources\SupplierResource\Pages\ViewSupplier;
@@ -185,12 +186,15 @@ final class SupplierResource extends Resource
                         ->suffix('days'),
                     Select::make('delivery_type')
                         ->label('Delivery Type')
-                        ->options([
-                            'Franco' => 'Franco',
-                            'Loco' => 'Loco',
-                        ])
+                        ->options(fn (): array => collect(DeliveryType::cases())
+                            ->mapWithKeys(fn (DeliveryType $type): array => [
+                                $type->value => $type->getLabel().' ('.$type->getFullName().') - '.str($type->getDescription())->after(' - ')->toString(),
+                            ])
+                            ->toArray())
+                        ->searchable()
                         ->live()
-                        ->nullable(),
+                        ->nullable()
+                        ->helperText('Select the delivery term that defines cost and risk responsibilities'),
                     TextInput::make('delivery_type_details')
                         ->label('Delivery Type Details')
                         ->placeholder('Additional delivery type information')

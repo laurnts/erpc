@@ -23,9 +23,12 @@ use Illuminate\Support\Carbon;
  * @property string|null $description
  * @property Carbon $qe_date
  * @property int|null $prepared_by_id
- * @property string|null $dept_head_sales_name
- * @property string|null $deputy_director_name
- * @property string|null $approved_by_name
+ * @property int|null $dept_head_sales_id
+ * @property int|null $deputy_director_id
+ * @property int|null $approved_by_id
+ * @property string|null $dept_head_sales_name @deprecated Use dept_head_sales_id relationship instead
+ * @property string|null $deputy_director_name @deprecated Use deputy_director_id relationship instead
+ * @property string|null $approved_by_name @deprecated Use approved_by_id relationship instead
  * @property array<string, mixed> $data
  * @property int|null $creator_id
  * @property Carbon|null $created_at
@@ -47,9 +50,12 @@ final class QuotationEvaluation extends Model
         'description',
         'qe_date',
         'prepared_by_id',
-        'dept_head_sales_name',
-        'deputy_director_name',
-        'approved_by_name',
+        'dept_head_sales_id',
+        'deputy_director_id',
+        'approved_by_id',
+        'dept_head_sales_name', // @deprecated - kept for backward compatibility
+        'deputy_director_name', // @deprecated - kept for backward compatibility
+        'approved_by_name', // @deprecated - kept for backward compatibility
         'data',
     ];
 
@@ -105,6 +111,36 @@ final class QuotationEvaluation extends Model
     public function preparedBy(): BelongsTo
     {
         return $this->belongsTo(People::class, 'prepared_by_id');
+    }
+
+    /**
+     * The department head of sales who approved the QE.
+     *
+     * @return BelongsTo<People, $this>
+     */
+    public function deptHeadSales(): BelongsTo
+    {
+        return $this->belongsTo(People::class, 'dept_head_sales_id');
+    }
+
+    /**
+     * The deputy director who approved the QE.
+     *
+     * @return BelongsTo<People, $this>
+     */
+    public function deputyDirector(): BelongsTo
+    {
+        return $this->belongsTo(People::class, 'deputy_director_id');
+    }
+
+    /**
+     * The person who approved the QE.
+     *
+     * @return BelongsTo<People, $this>
+     */
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(People::class, 'approved_by_id');
     }
 
     /**

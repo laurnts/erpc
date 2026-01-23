@@ -111,7 +111,7 @@
                             <x-filament::input.wrapper>
                                 <x-filament::input.select wire:model="preparedById">
                                     <option value="">Select key account...</option>
-                                    @foreach(\App\Models\KeyAccount::selectOptions($this->request->buyer_id ?? null) as $id => $name)
+                                    @foreach($this->getKeyAccountOptions() as $id => $name)
                                         <option value="{{ $id }}">{{ $name }}</option>
                                     @endforeach
                                 </x-filament::input.select>
@@ -134,11 +134,12 @@
                                 </span>
                             </label>
                             <x-filament::input.wrapper>
-                                <x-filament::input
-                                    type="text"
-                                    wire:model="deptHeadSalesName"
-                                    placeholder="Enter name"
-                                />
+                                <x-filament::input.select wire:model="deptHeadSalesId">
+                                    <option value="">Select key account...</option>
+                                    @foreach($this->getKeyAccountOptions() as $id => $name)
+                                        <option value="{{ $id }}">{{ $name }}</option>
+                                    @endforeach
+                                </x-filament::input.select>
                             </x-filament::input.wrapper>
                         </div>
 
@@ -150,11 +151,12 @@
                                 </span>
                             </label>
                             <x-filament::input.wrapper>
-                                <x-filament::input
-                                    type="text"
-                                    wire:model="deputyDirectorName"
-                                    placeholder="Enter name"
-                                />
+                                <x-filament::input.select wire:model="deputyDirectorId">
+                                    <option value="">Select key account...</option>
+                                    @foreach($this->getKeyAccountOptions() as $id => $name)
+                                        <option value="{{ $id }}">{{ $name }}</option>
+                                    @endforeach
+                                </x-filament::input.select>
                             </x-filament::input.wrapper>
                         </div>
 
@@ -166,11 +168,12 @@
                                 </span>
                             </label>
                             <x-filament::input.wrapper>
-                                <x-filament::input
-                                    type="text"
-                                    wire:model="approvedByName"
-                                    placeholder="Enter name"
-                                />
+                                <x-filament::input.select wire:model="approvedById">
+                                    <option value="">Select key account...</option>
+                                    @foreach($this->getKeyAccountOptions() as $id => $name)
+                                        <option value="{{ $id }}">{{ $name }}</option>
+                                    @endforeach
+                                </x-filament::input.select>
                             </x-filament::input.wrapper>
                         </div>
                     </div>

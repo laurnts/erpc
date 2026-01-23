@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\Forms\Components\ApprovalPersonnelSchema;
 use App\Filament\Resources\PeopleResource;
 use App\Filament\Resources\QuotationEvaluationResource\Pages\EditQuotationEvaluation;
 use App\Filament\Resources\QuotationEvaluationResource\Pages\ListQuotationEvaluations;
@@ -48,7 +49,8 @@ final class QuotationEvaluationResource extends Resource
     {
         return People::query()
             ->where('team_id', Filament::getTenant()?->getKey())
-            ->where('is_key_account', true)
+            ->where('is_central_purchasing', true)
+            ->where('central_purchasing_role', \App\Enums\CentralPurchasingRole::KEY_ACCOUNT->value)
             ->orderBy('name')
             ->get()
             ->mapWithKeys(fn (People $person): array => [$person->getKey() => $person->name])
@@ -68,7 +70,8 @@ final class QuotationEvaluationResource extends Resource
         /** @var People $person */
         $person = People::create([
             'name' => $data['name'],
-            'is_key_account' => true,
+            'is_central_purchasing' => true,
+            'central_purchasing_role' => \App\Enums\CentralPurchasingRole::KEY_ACCOUNT,
             'team_id' => $team->id,
             'creator_id' => auth()->id(),
         ]);
@@ -88,52 +91,13 @@ final class QuotationEvaluationResource extends Resource
                             ->columnSpanFull(),
                     ])
                     ->columnSpanFull(),
-                Section::make('Central Purchasing')
-                    ->description('Approval workflow personnel')
-                    ->schema([
-                        Select::make('prepared_by_id')
-                            ->label('Prepared By')
-                            ->relationship(
-                                'preparedBy',
-                                'name',
-                                modifyQueryUsing: function ($query, $livewire) {
-                                    $query->where('is_key_account', true);
-
-                                    // Filter to only show key accounts assigned to handle the request's buyer
-                                    if (isset($livewire->record) && $livewire->record && $livewire->record->request) {
-                                        $request = $livewire->record->request;
-                                        if ($request->buyer_id) {
-                                            $query->whereHas('buyers', function ($q) use ($request): void {
-                                                $q->where('companies.id', $request->buyer_id);
-                                            });
-                                        }
-                                    }
-
-                                    return $query;
-                                }
-                            )
-                            ->searchable()
-                            ->preload()
-                            ->createOptionForm(PeopleResource::getFormSchema())
-                            ->createOptionUsing(function (array $data): int {
-                                $data['is_key_account'] = true;
-
-                                return self::createKeyAccount($data);
-                            })
-                            ->editOptionForm(PeopleResource::getFormSchema())
-                            ->editOptionAction(fn ($action) => $action->modalHeading('Edit Key Account')),
-                        TextInput::make('dept_head_sales_name')
-                            ->label('Acknowledged By - Dept Head of Sales')
-                            ->maxLength(255),
-                        TextInput::make('deputy_director_name')
-                            ->label('Acknowledged By - Deputy Director')
-                            ->maxLength(255),
-                        TextInput::make('approved_by_name')
-                            ->label('Approved By')
-                            ->maxLength(255),
-                    ])
-                    ->columns(2)
-                    ->columnSpanFull(),
+                ...ApprovalPersonnelSchema::make(
+                    buyerId: fn ($livewire) => isset($livewire->record) && $livewire->record && $livewire->record->request
+                        ? $livewire->record->request->buyer_id
+                        : null,
+                    sectionTitle: 'Central Purchasing',
+                    columns: 2
+                ),
             ])
             ->columns(1);
     }

@@ -71,8 +71,8 @@ final class ViewPeople extends ViewRecord
             NotesRelationManager::class,
         ];
 
-        // Only show Buyers relation manager for Key Accounts
-        if ($record->is_key_account) {
+        // Only show Buyers relation manager for Key Accounts (Central Purchasing with Key Account role)
+        if ($record->is_central_purchasing && $record->central_purchasing_role === \App\Enums\CentralPurchasingRole::KEY_ACCOUNT) {
             $managers[] = BuyersRelationManager::class;
         }
 

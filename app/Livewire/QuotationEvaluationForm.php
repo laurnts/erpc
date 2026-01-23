@@ -44,11 +44,11 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
 
     public ?int $preparedById = null;
 
-    public ?string $deptHeadSalesName = null;
+    public ?int $deptHeadSalesId = null;
 
-    public ?string $deputyDirectorName = null;
+    public ?int $deputyDirectorId = null;
 
-    public ?string $approvedByName = null;
+    public ?int $approvedById = null;
 
     // Modal state management
     public bool $showKeyAccountForm = false;
@@ -114,7 +114,8 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
     {
         $query = People::query()
             ->where('team_id', Filament::getTenant()?->getKey())
-            ->where('is_key_account', true);
+            ->where('is_central_purchasing', true)
+            ->where('central_purchasing_role', \App\Enums\CentralPurchasingRole::KEY_ACCOUNT->value);
 
         // Filter to only show key accounts assigned to handle this request's buyer
         if ($this->request->buyer_id) {
@@ -269,9 +270,9 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
                 'description' => $description,
                 'qe_date' => $qeDate,
                 'prepared_by_id' => $this->preparedById,
-                'dept_head_sales_name' => $this->deptHeadSalesName,
-                'deputy_director_name' => $this->deputyDirectorName,
-                'approved_by_name' => $this->approvedByName,
+                'dept_head_sales_id' => $this->deptHeadSalesId,
+                'deputy_director_id' => $this->deputyDirectorId,
+                'approved_by_id' => $this->approvedById,
                 'data' => $snapshotData,
                 'creator_id' => auth()->id(),
             ]);

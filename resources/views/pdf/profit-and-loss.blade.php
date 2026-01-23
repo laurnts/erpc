@@ -318,17 +318,17 @@
                 <td>
                     <div class="approval-role">Dept Head of Sales</div>
                     <div class="signature-line"></div>
-                    <div class="approval-name">{{ $pnl->dept_head_sales_name ?? '________________' }}</div>
+                    <div class="approval-name">{{ $pnl->deptHeadSales?->name ?? $pnl->dept_head_sales_name ?? '________________' }}</div>
                 </td>
                 <td>
                     <div class="approval-role">Deputy Director</div>
                     <div class="signature-line"></div>
-                    <div class="approval-name">{{ $pnl->deputy_director_name ?? '________________' }}</div>
+                    <div class="approval-name">{{ $pnl->deputyDirector?->name ?? $pnl->deputy_director_name ?? '________________' }}</div>
                 </td>
                 <td>
                     <div class="approval-role">Approved By</div>
                     <div class="signature-line"></div>
-                    <div class="approval-name">{{ $pnl->approved_by_name ?? '________________' }}</div>
+                    <div class="approval-name">{{ $pnl->approvedBy?->name ?? $pnl->approved_by_name ?? '________________' }}</div>
                 </td>
             </tr>
         </table>

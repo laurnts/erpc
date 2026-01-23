@@ -116,16 +116,32 @@ final class ViewQuotationEvaluation extends ViewRecord
                     ->schema([
                         TextEntry::make('preparedBy.name')
                             ->label('Prepared By')
-                            ->placeholder('—'),
-                        TextEntry::make('dept_head_sales_name')
+                            ->placeholder('—')
+                            ->url(fn (QuotationEvaluation $record): ?string => $record->preparedBy
+                                ? \App\Filament\Resources\PeopleResource::getUrl('view', ['record' => $record->prepared_by_id])
+                                : null)
+                            ->color('primary'),
+                        TextEntry::make('deptHeadSales.name')
                             ->label('Dept Head of Sales')
-                            ->placeholder('—'),
-                        TextEntry::make('deputy_director_name')
+                            ->placeholder('—')
+                            ->url(fn (QuotationEvaluation $record): ?string => $record->deptHeadSales
+                                ? \App\Filament\Resources\PeopleResource::getUrl('view', ['record' => $record->dept_head_sales_id])
+                                : null)
+                            ->color('primary'),
+                        TextEntry::make('deputyDirector.name')
                             ->label('Deputy Director')
-                            ->placeholder('—'),
-                        TextEntry::make('approved_by_name')
+                            ->placeholder('—')
+                            ->url(fn (QuotationEvaluation $record): ?string => $record->deputyDirector
+                                ? \App\Filament\Resources\PeopleResource::getUrl('view', ['record' => $record->deputy_director_id])
+                                : null)
+                            ->color('primary'),
+                        TextEntry::make('approvedBy.name')
                             ->label('Approved By')
-                            ->placeholder('—'),
+                            ->placeholder('—')
+                            ->url(fn (QuotationEvaluation $record): ?string => $record->approvedBy
+                                ? \App\Filament\Resources\PeopleResource::getUrl('view', ['record' => $record->approved_by_id])
+                                : null)
+                            ->color('primary'),
                     ])
                     ->columns(4)
                     ->columnSpan('full'),
