@@ -9,8 +9,10 @@ use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use App\Observers\ProfitAndLossObserver;
 use App\Support\RomanNumerals;
+use Database\Factories\ProfitAndLossFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -29,9 +31,6 @@ use Illuminate\Support\Carbon;
  * @property int|null $dept_head_sales_id
  * @property int|null $deputy_director_id
  * @property int|null $approved_by_id
- * @property string|null $dept_head_sales_name @deprecated Use dept_head_sales_id relationship instead
- * @property string|null $deputy_director_name @deprecated Use deputy_director_id relationship instead
- * @property string|null $approved_by_name @deprecated Use approved_by_id relationship instead
  * @property array<string, mixed>|null $data
  * @property int|null $creator_id
  * @property Carbon|null $created_at
@@ -43,6 +42,10 @@ use Illuminate\Support\Carbon;
 final class ProfitAndLoss extends Model
 {
     use HasCreator;
+
+    /** @use HasFactory<ProfitAndLossFactory> */
+    use HasFactory;
+
     use HasTeam;
 
     /**
@@ -58,9 +61,6 @@ final class ProfitAndLoss extends Model
         'dept_head_sales_id',
         'deputy_director_id',
         'approved_by_id',
-        'dept_head_sales_name', // @deprecated - kept for backward compatibility
-        'deputy_director_name', // @deprecated - kept for backward compatibility
-        'approved_by_name', // @deprecated - kept for backward compatibility
         'data',
     ];
 

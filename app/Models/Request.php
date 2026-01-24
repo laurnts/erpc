@@ -225,6 +225,16 @@ final class Request extends Model implements HasCustomFields, HasMedia
     }
 
     /**
+     * The profit and loss documents for this request.
+     *
+     * @return HasMany<ProfitAndLoss, $this>
+     */
+    public function profitAndLosses(): HasMany
+    {
+        return $this->hasMany(ProfitAndLoss::class);
+    }
+
+    /**
      * The activity log for this request.
      *
      * @return HasMany<RequestActivity, $this>

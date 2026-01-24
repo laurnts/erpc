@@ -148,13 +148,11 @@ final class People extends Model implements HasCustomFields
 
     /**
      * Quotation Evaluations where this person is the approver.
-     * Note: This uses approved_by_name field (string), not a foreign key.
-     * This is a query scope helper, not a true relationship.
      *
-     * @return \Illuminate\Database\Eloquent\Builder<QuotationEvaluation>
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<QuotationEvaluation, $this>
      */
-    public function approvedEvaluations(): \Illuminate\Database\Eloquent\Builder
+    public function approvedEvaluations(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return QuotationEvaluation::query()->where('approved_by_name', $this->name);
+        return $this->hasMany(QuotationEvaluation::class, 'approved_by_id');
     }
 }
