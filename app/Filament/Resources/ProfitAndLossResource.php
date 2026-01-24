@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Forms\Components\ApprovalPersonnelSchema;
-use App\Filament\Resources\PeopleResource;
-use App\Filament\Resources\ProfitAndLossResource\Pages\EditProfitAndLoss;
 use App\Filament\Resources\ProfitAndLossResource\Pages\ListProfitAndLosses;
 use App\Filament\Resources\ProfitAndLossResource\Pages\ViewProfitAndLoss;
 use App\Models\People;
@@ -14,12 +12,12 @@ use App\Models\ProfitAndLoss;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 final class ProfitAndLossResource extends Resource
 {
@@ -31,7 +29,7 @@ final class ProfitAndLossResource extends Resource
 
     protected static ?int $navigationSort = 12;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
+    protected static string|\UnitEnum|null $navigationGroup = 'Finance';
 
     protected static ?string $navigationLabel = 'Profit & Loss';
 
@@ -157,5 +155,18 @@ final class ProfitAndLossResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         return null;
+    }
+
+    /**
+     * Filter records by current tenant's team to prevent cross-tenant data access.
+     *
+     * @return Builder<ProfitAndLoss>
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        $team = Filament::getTenant();
+
+        return parent::getEloquentQuery()
+            ->where('team_id', $team?->getKey());
     }
 }
