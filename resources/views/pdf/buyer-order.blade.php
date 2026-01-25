@@ -86,7 +86,7 @@
             </tr>
         </thead>
         <tbody>
-            @forelse($order->items as $index => $item)
+            @forelse($items ?? $order->items as $index => $item)
                 <tr>
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td>
@@ -98,7 +98,7 @@
                     <td class="text-center">{{ $order->currency?->formatNumber((float)$item->quantity) ?? number_format((float)$item->quantity, 2) }}</td>
                     <td class="text-center">{{ $item->unit }}</td>
                     <td class="text-right">{{ $order->currency?->formatNumber((float)$item->unit_price_exc_tax) ?? number_format((float)$item->unit_price_exc_tax, 2) }}</td>
-                    <td class="text-right">{{ $order->currency?->formatNumber((float)($item->tax_amount * $item->quantity)) ?? number_format((float)($item->tax_amount * $item->quantity), 2) }}</td>
+                    <td class="text-right">{{ $order->currency?->formatNumber((float)($item->line_tax ?? ($item->tax_amount * $item->quantity))) ?? number_format((float)($item->line_tax ?? ($item->tax_amount * $item->quantity)), 2) }}</td>
                     <td class="text-right">{{ $order->currency?->formatNumber((float)$item->line_total) ?? number_format((float)$item->line_total, 2) }}</td>
                 </tr>
             @empty
@@ -114,15 +114,15 @@
         <table class="totals-table">
             <tr>
                 <td>Subtotal:</td>
-                <td>{{ $order->currency?->format((float)$order->subtotal) ?? number_format((float)$order->subtotal, 2) }}</td>
+                <td>{{ $order->currency?->format((float)($processedSubtotal ?? $order->subtotal)) ?? number_format((float)($processedSubtotal ?? $order->subtotal ?? 0), 2) }}</td>
             </tr>
             <tr>
                 <td>Tax:</td>
-                <td>{{ $order->currency?->format((float)$order->tax_total) ?? number_format((float)$order->tax_total, 2) }}</td>
+                <td>{{ $order->currency?->format((float)($processedTaxTotal ?? $order->tax_total)) ?? number_format((float)($processedTaxTotal ?? $order->tax_total ?? 0), 2) }}</td>
             </tr>
             <tr class="grand-total">
                 <td>Grand Total:</td>
-                <td>{{ $order->currency?->format((float)$order->total) ?? number_format((float)$order->total, 2) }}</td>
+                <td>{{ $order->currency?->format((float)($processedTotal ?? $order->total)) ?? number_format((float)($processedTotal ?? $order->total ?? 0), 2) }}</td>
             </tr>
         </table>
     </div>

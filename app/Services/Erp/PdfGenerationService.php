@@ -98,10 +98,76 @@ final readonly class PdfGenerationService
      */
     public function generateBuyerOrderPdf(BuyerOrder $order): string
     {
-        $order->load(['buyer', 'items', 'request', 'team']);
+        $order->load(['buyer', 'items.buyerQuoteItem', 'request', 'team']);
+
+        // Process items: filter hidden items and distribute their prices
+        // Check hide_from_pdf from related buyer quote item
+        $visibleItems = $order->items->filter(function ($item): bool {
+            // If item has a buyer quote item, check its hide_from_pdf flag
+            if ($item->buyerQuoteItem !== null) {
+                return ! $item->buyerQuoteItem->hide_from_pdf;
+            }
+            // If no quote item, show it (backward compatibility)
+            return true;
+        });
+
+        $hiddenItems = $order->items->filter(function ($item): bool {
+            // If item has a buyer quote item, check its hide_from_pdf flag
+            if ($item->buyerQuoteItem !== null) {
+                return $item->buyerQuoteItem->hide_from_pdf;
+            }
+            // If no quote item, don't hide it (backward compatibility)
+            return false;
+        });
+
+        // Calculate total price of hidden items (line_total)
+        $hiddenTotal = $hiddenItems->sum(fn ($item): float => (float) $item->line_total);
+
+        // Distribute hidden item prices evenly among visible items
+        $visibleCount = $visibleItems->count();
+        $distributionPerItem = $visibleCount > 0 ? $hiddenTotal / $visibleCount : 0;
+
+        // Create processed items with distributed prices
+        $processedItems = $visibleItems->map(function ($item) use ($distributionPerItem): object {
+            $quantity = (float) $item->quantity;
+
+            // Add distribution amount directly to unit price (not divided by quantity)
+            $originalUnitPriceExcTax = (float) $item->unit_price_exc_tax;
+            $newUnitPriceExcTax = $originalUnitPriceExcTax + $distributionPerItem;
+
+            // Recalculate line subtotal
+            $newLineSubtotal = $newUnitPriceExcTax * $quantity;
+
+            // Calculate tax from original tax rate
+            $taxRate = (float) $item->tax_rate;
+            $newLineTax = $newLineSubtotal * ($taxRate / 100);
+            $newLineTotal = $newLineSubtotal + $newLineTax;
+
+            // Create a new object with adjusted values
+            $processedItem = clone $item;
+            $processedItem->unit_price_exc_tax = (string) round($newUnitPriceExcTax, 2);
+            $processedItem->line_subtotal = (string) round($newLineSubtotal, 2);
+            $processedItem->line_tax = (string) round($newLineTax, 2);
+            $processedItem->line_total = (string) round($newLineTotal, 2);
+            // Calculate tax_amount per unit
+            $processedItem->tax_amount = $quantity > 0 ? (string) round($newLineTax / $quantity, 2) : '0.00';
+
+            return $processedItem;
+        });
+
+        // Calculate subtotal from processed items
+        $processedSubtotal = $processedItems->sum(fn ($item): float => (float) $item->line_subtotal);
+
+        // Calculate tax total from processed items
+        $processedTaxTotal = $processedItems->sum(fn ($item): float => (float) $item->line_tax);
+        $processedTotal = $processedSubtotal + $processedTaxTotal;
 
         $pdf = Pdf::loadView('pdf.buyer-order', [
             'order' => $order,
+            'items' => $processedItems,
+            'processedSubtotal' => $processedSubtotal,
+            'processedTaxTotal' => $processedTaxTotal,
+            'processedTotal' => $processedTotal,
             'company' => $this->getCompanyDetails($order->team),
         ]);
 
@@ -188,7 +254,7 @@ final readonly class PdfGenerationService
             'company' => $this->getCompanyDetails($qe->team),
         ]);
 
-        $pdf->setPaper('a4', 'portrait');
+        $pdf->setPaper('a4', 'landscape');
 
         return $pdf;
     }
@@ -215,7 +281,7 @@ final readonly class PdfGenerationService
             'company' => $this->getCompanyDetails($pnl->team),
         ]);
 
-        $pdf->setPaper('a4', 'portrait');
+        $pdf->setPaper('a4', 'landscape');
 
         return $pdf;
     }
