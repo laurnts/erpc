@@ -71,4 +71,15 @@ final class CompanyFactory extends Factory
             'is_supplier' => true,
         ]);
     }
+
+    /**
+     * Indicate that the company is on hold.
+     */
+    public function onHold(?string $reason = null): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'is_on_hold' => true,
+            'on_hold_reason' => $reason ?? $this->faker->sentence(),
+        ]);
+    }
 }

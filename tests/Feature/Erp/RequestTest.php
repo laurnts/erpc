@@ -2,10 +2,9 @@
 
 declare(strict_types=1);
 
-use App\Models\Company;
-
 use App\Enums\RequestStage;
 use App\Models\Article;
+use App\Models\Company;
 use App\Models\Project;
 use App\Models\Request;
 use App\Models\RequestItem;
@@ -201,6 +200,16 @@ describe('Request Item Editing', function (): void {
 });
 
 describe('Supplier Quote Auto-Generation', function (): void {
+    beforeEach(function (): void {
+        // Create a default currency for supplier quote generation
+        \App\Models\Currency::factory()->create([
+            'code' => 'USD',
+            'name' => 'US Dollar',
+            'symbol' => '$',
+            'is_default' => true,
+        ]);
+    });
+
     it('generates supplier quotes when transitioning from draft to awaiting_supplier_response', function (): void {
         // Create suppliers with articles
         $supplier1 = Company::factory()->supplier()->recycle($this->team)->create();

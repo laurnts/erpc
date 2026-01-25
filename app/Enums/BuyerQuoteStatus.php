@@ -55,10 +55,11 @@ enum BuyerQuoteStatus: string implements HasColor, HasIcon, HasLabel
 
     /**
      * Check if quote can be edited.
+     * Only draft quotes can be edited - sent quotes require versioning.
      */
     public function canEdit(): bool
     {
-        return in_array($this, [self::DRAFT, self::SENT], true);
+        return $this === self::DRAFT;
     }
 
     /**

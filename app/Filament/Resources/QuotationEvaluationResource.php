@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Forms\Components\ApprovalPersonnelSchema;
-use App\Filament\Resources\PeopleResource;
-use App\Filament\Resources\QuotationEvaluationResource\Pages\EditQuotationEvaluation;
 use App\Filament\Resources\QuotationEvaluationResource\Pages\ListQuotationEvaluations;
 use App\Filament\Resources\QuotationEvaluationResource\Pages\ViewQuotationEvaluation;
 use App\Models\People;
@@ -14,7 +12,6 @@ use App\Models\QuotationEvaluation;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -32,7 +29,7 @@ final class QuotationEvaluationResource extends Resource
 
     protected static ?int $navigationSort = 11;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
+    protected static string|\UnitEnum|null $navigationGroup = 'Finance';
 
     protected static ?string $navigationLabel = 'Quotation Evaluations';
 

@@ -18,8 +18,16 @@ final readonly class CompanyObserver
         if (auth()->check()) {
             /** @var User $user */
             $user = auth()->user();
-            $company->creator_id = $user->getKey();
-            $company->team_id = $user->currentTeam->getKey();
+
+            // Only set creator_id if not already set (e.g., by factory)
+            if ($company->creator_id === null) {
+                $company->creator_id = $user->getKey();
+            }
+
+            // Only set team_id if not already set (e.g., by factory) and user has a current team
+            if ($company->team_id === null && $user->currentTeam !== null) {
+                $company->team_id = $user->currentTeam->getKey();
+            }
         }
 
         // Auto-generate company code if not provided

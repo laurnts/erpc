@@ -218,23 +218,23 @@ final class BuyerQuoteItem extends Model
         $quantity = (float) $this->quantity;
         $unitPrice = (float) $this->unit_price;
         $taxRate = (float) $this->tax_rate;
-        $addTax = $this->is_tax_inclusive; // true = add tax on top of net price
+        $isTaxInclusive = $this->is_tax_inclusive;
 
-        // unit_price is always the NET price (before tax)
-        $this->unit_price_exc_tax = (string) $unitPrice;
-
-        // Line subtotal is quantity * net price
-        $lineSubtotal = $quantity * $unitPrice;
-
-        // Calculate tax and total based on addTax flag
-        if ($addTax) {
+        if ($isTaxInclusive) {
+            // unit_price includes tax - extract the net price
+            $unitPriceExcTax = $unitPrice / (1 + $taxRate / 100);
+            $lineSubtotal = $quantity * $unitPriceExcTax;
+            $lineTotal = $quantity * $unitPrice;
+            $lineTax = $lineTotal - $lineSubtotal;
+        } else {
+            // unit_price is net price - add tax on top
+            $unitPriceExcTax = $unitPrice;
+            $lineSubtotal = $quantity * $unitPrice;
             $lineTax = $lineSubtotal * $taxRate / 100;
             $lineTotal = $lineSubtotal + $lineTax;
-        } else {
-            $lineTax = 0;
-            $lineTotal = $lineSubtotal;
         }
 
+        $this->unit_price_exc_tax = (string) round($unitPriceExcTax, 4);
         $this->line_subtotal = (string) round($lineSubtotal, 4);
         $this->line_tax = (string) round($lineTax, 4);
         $this->line_total = (string) round($lineTotal, 4);
@@ -242,9 +242,9 @@ final class BuyerQuoteItem extends Model
 
         // Calculate margin (based on net prices)
         $costPrice = (float) $this->cost_price;
-        $this->margin_amount = (string) round($unitPrice - $costPrice, 4);
+        $this->margin_amount = (string) round($unitPriceExcTax - $costPrice, 4);
 
-        $this->margin_percent = $costPrice > 0 ? (string) round((($unitPrice - $costPrice) / $costPrice) * 100, 4) : '0.0000';
+        $this->margin_percent = $costPrice > 0 ? (string) round((($unitPriceExcTax - $costPrice) / $costPrice) * 100, 4) : '0.0000';
     }
 
     /**

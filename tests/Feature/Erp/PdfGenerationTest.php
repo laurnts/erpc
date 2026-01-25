@@ -2,8 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Models\Company;
-
+use App\Data\TeamErpSettings;
 use App\Enums\BuyerQuoteStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\OrderStatus;
@@ -13,6 +12,7 @@ use App\Models\BuyerOrder;
 use App\Models\BuyerOrderItem;
 use App\Models\BuyerQuote;
 use App\Models\BuyerQuoteItem;
+use App\Models\Company;
 use App\Models\Currency;
 use App\Models\Request;
 use App\Models\SupplierOrder;
@@ -20,21 +20,25 @@ use App\Models\SupplierOrderItem;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\Erp\PdfGenerationService;
-use App\Settings\ErpSettings;
 
 beforeEach(function (): void {
-    $this->team = Team::factory()->create();
+    $this->team = Team::factory()->create([
+        'erp_settings' => new TeamErpSettings(
+            company_name: 'Test Trading Company',
+            company_address: '789 Company Ave, Business City, 12345',
+            company_phone: '+1122334455',
+            company_email: 'info@testcompany.com',
+        ),
+    ]);
     $this->user = User::factory()->recycle($this->team)->create();
     $this->buyer = Company::factory()->buyer()->recycle($this->team)->create([
         'name' => 'Test Buyer Company',
-        'contact_person' => 'John Doe',
         'address' => '123 Buyer Street, City, Country',
         'phone' => '+1234567890',
         'email' => 'buyer@test.com',
     ]);
     $this->supplier = Company::factory()->supplier()->recycle($this->team)->create([
         'name' => 'Test Supplier Company',
-        'contact_person' => 'Jane Smith',
         'address' => '456 Supplier Road, Town, Country',
         'phone' => '+0987654321',
         'email' => 'supplier@test.com',
@@ -49,14 +53,6 @@ beforeEach(function (): void {
         ->recycle($this->buyer)
         ->create();
     $this->actingAs($this->user);
-
-    // Set up ERP settings
-    $settings = app(ErpSettings::class);
-    $settings->company_name = 'Test Trading Company';
-    $settings->company_address = '789 Company Ave, Business City, 12345';
-    $settings->company_phone = '+1122334455';
-    $settings->company_email = 'info@testcompany.com';
-    $settings->save();
 });
 
 describe('PdfGenerationService', function (): void {
@@ -340,29 +336,24 @@ describe('PdfGenerationService', function (): void {
     });
 
     describe('Company Header', function (): void {
-        it('uses ErpSettings for company details in all PDFs', function (): void {
-            $settings = app(ErpSettings::class);
-            $settings->company_name = 'Custom Company Name';
-            $settings->company_address = 'Custom Address';
-            $settings->company_phone = '+9999999999';
-            $settings->company_email = 'custom@example.com';
-            $settings->save();
+        it('uses team ErpSettings for company details in all PDFs', function (): void {
+            // Update the team's ERP settings
+            $this->team->update([
+                'erp_settings' => new TeamErpSettings(
+                    company_name: 'Custom Company Name',
+                    company_address: 'Custom Address',
+                    company_phone: '+9999999999',
+                    company_email: 'custom@example.com',
+                ),
+            ]);
 
             $pdfService = app(PdfGenerationService::class);
 
-            // Create a quote to test
-            $quote = BuyerQuote::factory()
-                ->recycle($this->team)
-                ->recycle($this->buyer)
-                ->forRequest($this->request)
-                ->withCurrency($this->currency)
-                ->create();
-
-            // The service should use the settings
+            // The service should use the team's settings
             $reflection = new ReflectionClass($pdfService);
             $method = $reflection->getMethod('getCompanyDetails');
             $method->setAccessible(true);
-            $details = $method->invoke($pdfService);
+            $details = $method->invoke($pdfService, $this->team);
 
             expect($details['name'])->toBe('Custom Company Name')
                 ->and($details['address'])->toBe('Custom Address')

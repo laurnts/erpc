@@ -55,7 +55,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property bool $is_taxable
  * @property string|null $delivery_term
  * @property int $payment_terms_days
- * @property string|null $notes
+ * @property string|null $internal_notes
  * @property bool $is_active
  * @property CreationSource $creation_source
  * @property Carbon|null $created_at
@@ -104,7 +104,7 @@ final class Company extends Model implements HasCustomFields, HasMedia
         'is_taxable',
         'delivery_term',
         'payment_terms_days',
-        'notes',
+        'internal_notes',
         'is_active',
         'default_currency_id',
         'creation_source',

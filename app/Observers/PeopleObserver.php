@@ -14,10 +14,18 @@ final readonly class PeopleObserver
         if (auth('web')->check()) {
             /** @var User $user */
             $user = auth('web')->user();
-            /** @var int<0, max> $creatorId */
-            $creatorId = (int) $user->getAuthIdentifier();
-            $people->creator_id = $creatorId;
-            $people->team_id = $user->currentTeam->getKey();
+
+            // Only set creator_id if not already set (e.g., by factory)
+            if ($people->creator_id === null) {
+                /** @var int<0, max> $creatorId */
+                $creatorId = (int) $user->getAuthIdentifier();
+                $people->creator_id = $creatorId;
+            }
+
+            // Only set team_id if not already set (e.g., by factory) and user has a current team
+            if ($people->team_id === null && $user->currentTeam !== null) {
+                $people->team_id = $user->currentTeam->getKey();
+            }
         }
     }
 

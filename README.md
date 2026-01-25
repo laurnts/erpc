@@ -10,8 +10,8 @@ ERPC is designed for trading businesses that source products from multiple suppl
 
 - **PHP 8.4** with strict types
 - **Laravel 12** framework
-- **Filament 4** admin panel
-- **Livewire 3** for reactive components
+- **Filament 5** admin panel
+- **Livewire 4** for reactive components
 - **PostgreSQL 15+** database
 - **Tailwind CSS 4** styling
 

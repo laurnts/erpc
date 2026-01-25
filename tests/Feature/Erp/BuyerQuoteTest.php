@@ -2,12 +2,11 @@
 
 declare(strict_types=1);
 
-use App\Models\Company;
-
 use App\Enums\BuyerQuoteStatus;
 use App\Models\BuyerQuote;
 use App\Models\BuyerQuoteExtension;
 use App\Models\BuyerQuoteItem;
+use App\Models\Company;
 use App\Models\Currency;
 use App\Models\Request;
 use App\Models\RequestItem;
@@ -313,7 +312,18 @@ describe('BuyerQuote Validity Extension', function (): void {
         $originalValidUntil = Carbon::parse('2026-01-15');
         $newValidUntil = Carbon::parse('2026-01-30');
 
+        $quote = BuyerQuote::factory()
+            ->recycle($this->team)
+            ->recycle($this->buyer)
+            ->forRequest($this->request)
+            ->withCurrency($this->currency)
+            ->validUntil($originalValidUntil)
+            ->sent()
+            ->create();
+
         $extension = BuyerQuoteExtension::factory()
+            ->forBuyerQuote($quote)
+            ->extendedBy($this->user)
             ->withDates($originalValidUntil, $newValidUntil)
             ->create();
 

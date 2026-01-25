@@ -179,11 +179,15 @@ final readonly class RecordContextBuilder
     }
 
     /**
-     * @param  Collection<int, Note>  $notes
+     * @param  Collection<int, Note>|null  $notes
      * @return array<string, mixed>
      */
-    private function formatNotes(Collection $notes, int $totalCount): array
+    private function formatNotes(?Collection $notes, int $totalCount): array
     {
+        if ($notes === null) {
+            return $this->withPaginationInfo([], $totalCount);
+        }
+
         $formatted = $notes->map(fn (Note $note): array => [
             'title' => $note->title,
             'content' => $this->stripHtml((string) $this->getCustomFieldValue($note, NoteField::BODY->value)),
@@ -194,11 +198,15 @@ final readonly class RecordContextBuilder
     }
 
     /**
-     * @param  Collection<int, Task>  $tasks
+     * @param  Collection<int, Task>|null  $tasks
      * @return array<string, mixed>
      */
-    private function formatTasks(Collection $tasks, int $totalCount): array
+    private function formatTasks(?Collection $tasks, int $totalCount): array
     {
+        if ($tasks === null) {
+            return $this->withPaginationInfo([], $totalCount);
+        }
+
         $formatted = $tasks->map(fn (Task $task): array => [
             'title' => $task->title,
             'status' => $this->getCustomFieldValue($task, TaskField::STATUS->value),
@@ -210,11 +218,15 @@ final readonly class RecordContextBuilder
     }
 
     /**
-     * @param  Collection<int, Opportunity>  $opportunities
+     * @param  Collection<int, Opportunity>|null  $opportunities
      * @return array<string, mixed>
      */
-    private function formatOpportunities(Collection $opportunities, int $totalCount): array
+    private function formatOpportunities(?Collection $opportunities, int $totalCount): array
     {
+        if ($opportunities === null) {
+            return $this->withPaginationInfo([], $totalCount);
+        }
+
         $formatted = $opportunities->map(function (Opportunity $opportunity): array {
             $amount = $this->getCustomFieldValue($opportunity, OpportunityField::AMOUNT->value);
 

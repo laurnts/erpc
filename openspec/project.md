@@ -4,8 +4,8 @@
 Relaticle is a next-generation open-source CRM (Customer Relationship Management) platform. It's designed for Laravel developers, agencies, and SMBs who need a modern, self-hosted CRM with unlimited customization capabilities. Key features include multi-team workspaces, no-code custom fields, and complete data ownership through self-hosting.
 
 ## Tech Stack
-- **Backend:** PHP 8.4, Laravel 12, Filament 4
-- **Frontend:** Livewire 3, Tailwind CSS 4, Blade, Vite 7
+- **Backend:** PHP 8.4, Laravel 12, Filament 5
+- **Frontend:** Livewire 4, Tailwind CSS 4, Blade, Vite 7
 - **Database:** PostgreSQL 15+
 - **Queue/Cache:** Redis (Laravel Horizon for queue management)
 - **AI Integration:** Prism PHP for AI capabilities

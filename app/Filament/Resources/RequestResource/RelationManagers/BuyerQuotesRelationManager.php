@@ -8,7 +8,6 @@ use App\Enums\BuyerQuoteStatus;
 use App\Enums\PrepaymentType;
 use App\Enums\RequestStage;
 use App\Filament\Actions\DownloadPdfAction;
-use App\Filament\Resources\PeopleResource;
 use App\Filament\Resources\ProfitAndLossResource;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Models\BuyerQuote;
@@ -544,29 +543,29 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->dehydrated(false)
                         ->afterStateUpdated(function ($state, $record, $set) {
                             // Process uploaded files immediately when they're uploaded (for edit mode)
-                            if ($record && $record->exists && $state && is_array($state) && !empty($state)) {
+                            if ($record && $record->exists && $state && is_array($state) && ! empty($state)) {
                                 foreach ($state as $file) {
                                     if (is_string($file)) {
                                         // Filament stores files relative to storage/app, so the path is already correct
-                                        $filePath = storage_path('app/' . ltrim($file, '/'));
-                                        
+                                        $filePath = storage_path('app/'.ltrim($file, '/'));
+
                                         if (file_exists($filePath)) {
                                             try {
                                                 $media = $record->addMedia($filePath)
                                                     ->toMediaCollection('buyer_po');
-                                                
+
                                                 // Refresh the record to load new media
                                                 $record->refresh();
                                             } catch (\Exception $e) {
                                                 // Log error for debugging
-                                                \Illuminate\Support\Facades\Log::error('Failed to add Buyer PO media: ' . $e->getMessage(), [
+                                                \Illuminate\Support\Facades\Log::error('Failed to add Buyer PO media: '.$e->getMessage(), [
                                                     'file' => $file,
                                                     'filePath' => $filePath,
                                                     'exists' => file_exists($filePath),
                                                 ]);
                                             }
                                         } else {
-                                            \Illuminate\Support\Facades\Log::warning('Buyer PO file not found: ' . $filePath);
+                                            \Illuminate\Support\Facades\Log::warning('Buyer PO file not found: '.$filePath);
                                         }
                                     }
                                 }
@@ -779,10 +778,10 @@ final class BuyerQuotesRelationManager extends RelationManager
                         // Process uploaded Buyer PO files for new records (create mode)
                         // For edit mode, files are processed in afterStateUpdated hook
                         // Note: Since dehydrated(false), files won't be in $data, but they're processed immediately on upload
-                        
+
                         // Refresh media relationship to ensure it's loaded
                         $record->load('media');
-                        
+
                         // If items weren't created by the Repeater, create them manually
                         if ($record->items()->count() === 0) {
                             /** @var \App\Models\Team|null $team */
@@ -909,84 +908,40 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->get()
                                         ->mapWithKeys(fn (People $person): array => [$person->getKey() => $person->name])
                                         ->toArray())
-                                    ->searchable()
-                                    ->preload()
-                                    ->createOptionForm(PeopleResource::getFormSchema())
-                                    ->createOptionUsing(function (array $data): int {
-                                        /** @var \App\Models\Team $team */
-                                        $team = Filament::getTenant();
-
-                                        /** @var People $person */
-                                        $person = People::create([
-                                            'name' => $data['name'],
-                                            'is_central_purchasing' => true,
-                                            'central_purchasing_role' => \App\Enums\CentralPurchasingRole::KEY_ACCOUNT,
-                                            'team_id' => $team->id,
-                                            'creator_id' => auth()->id(),
-                                        ]);
-
-                                        return $person->id;
-                                    }),
+                                    ->searchable(),
                                 Select::make('dept_head_sales_id')
                                     ->label('Dept Head of Sales')
-                                    ->relationship('deptHeadSales', 'name', modifyQueryUsing: fn ($query) => $query
+                                    ->options(fn (): array => People::query()
+                                        ->where('team_id', Filament::getTenant()?->getKey())
                                         ->where('is_central_purchasing', true)
-                                        ->where('central_purchasing_role', \App\Enums\CentralPurchasingRole::DEPT_HEAD_SALES->value))
-                                    ->searchable()
-                                    ->preload()
-                                    ->createOptionForm(PeopleResource::getFormSchema())
-                                    ->createOptionUsing(function (array $data): int {
-                                        /** @var \App\Models\Team $team */
-                                        $team = Filament::getTenant();
-                                        $person = People::create([
-                                            'name' => $data['name'],
-                                            'is_central_purchasing' => true,
-                                            'central_purchasing_role' => \App\Enums\CentralPurchasingRole::DEPT_HEAD_SALES,
-                                            'team_id' => $team->id,
-                                            'creator_id' => auth()->id(),
-                                        ]);
-                                        return $person->id;
-                                    }),
+                                        ->where('central_purchasing_role', \App\Enums\CentralPurchasingRole::DEPT_HEAD_SALES->value)
+                                        ->orderBy('name')
+                                        ->get()
+                                        ->mapWithKeys(fn (People $person): array => [$person->getKey() => $person->name])
+                                        ->toArray())
+                                    ->searchable(),
                                 Select::make('deputy_director_id')
                                     ->label('Deputy Director')
-                                    ->relationship('deputyDirector', 'name', modifyQueryUsing: fn ($query) => $query
+                                    ->options(fn (): array => People::query()
+                                        ->where('team_id', Filament::getTenant()?->getKey())
                                         ->where('is_central_purchasing', true)
-                                        ->where('central_purchasing_role', \App\Enums\CentralPurchasingRole::DEPUTY_DIRECTOR->value))
-                                    ->searchable()
-                                    ->preload()
-                                    ->createOptionForm(PeopleResource::getFormSchema())
-                                    ->createOptionUsing(function (array $data): int {
-                                        /** @var \App\Models\Team $team */
-                                        $team = Filament::getTenant();
-                                        $person = People::create([
-                                            'name' => $data['name'],
-                                            'is_central_purchasing' => true,
-                                            'central_purchasing_role' => \App\Enums\CentralPurchasingRole::DEPUTY_DIRECTOR,
-                                            'team_id' => $team->id,
-                                            'creator_id' => auth()->id(),
-                                        ]);
-                                        return $person->id;
-                                    }),
+                                        ->where('central_purchasing_role', \App\Enums\CentralPurchasingRole::DEPUTY_DIRECTOR->value)
+                                        ->orderBy('name')
+                                        ->get()
+                                        ->mapWithKeys(fn (People $person): array => [$person->getKey() => $person->name])
+                                        ->toArray())
+                                    ->searchable(),
                                 Select::make('approved_by_id')
                                     ->label('Approved By')
-                                    ->relationship('approvedBy', 'name', modifyQueryUsing: fn ($query) => $query
+                                    ->options(fn (): array => People::query()
+                                        ->where('team_id', Filament::getTenant()?->getKey())
                                         ->where('is_central_purchasing', true)
-                                        ->where('central_purchasing_role', \App\Enums\CentralPurchasingRole::DIRECTOR->value))
-                                    ->searchable()
-                                    ->preload()
-                                    ->createOptionForm(PeopleResource::getFormSchema())
-                                    ->createOptionUsing(function (array $data): int {
-                                        /** @var \App\Models\Team $team */
-                                        $team = Filament::getTenant();
-                                        $person = People::create([
-                                            'name' => $data['name'],
-                                            'is_central_purchasing' => true,
-                                            'central_purchasing_role' => \App\Enums\CentralPurchasingRole::DIRECTOR,
-                                            'team_id' => $team->id,
-                                            'creator_id' => auth()->id(),
-                                        ]);
-                                        return $person->id;
-                                    }),
+                                        ->where('central_purchasing_role', \App\Enums\CentralPurchasingRole::DIRECTOR->value)
+                                        ->orderBy('name')
+                                        ->get()
+                                        ->mapWithKeys(fn (People $person): array => [$person->getKey() => $person->name])
+                                        ->toArray())
+                                    ->searchable(),
                             ])
                             ->columns(2),
                     ])
@@ -1004,9 +959,9 @@ final class BuyerQuotesRelationManager extends RelationManager
                             'description' => $data['description'] ?? null,
                             'pnl_date' => $data['pnl_date'],
                             'prepared_by_id' => $data['prepared_by_id'] ?? null,
-                            'dept_head_sales_name' => $data['dept_head_sales_name'] ?? null,
-                            'deputy_director_name' => $data['deputy_director_name'] ?? null,
-                            'approved_by_name' => $data['approved_by_name'] ?? null,
+                            'dept_head_sales_id' => $data['dept_head_sales_id'] ?? null,
+                            'deputy_director_id' => $data['deputy_director_id'] ?? null,
+                            'approved_by_id' => $data['approved_by_id'] ?? null,
                         ]);
 
                         Notification::make()

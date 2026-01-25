@@ -230,7 +230,7 @@ final class CompanyResource extends Resource
                 ->visible(fn ($get): bool => (bool) $get('is_supplier'))
                 ->collapsed(),
 
-            Textarea::make('notes')
+            Textarea::make('internal_notes')
                 ->label('Notes')
                 ->rows(3),
 
