@@ -24,6 +24,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Enums\Size;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -116,13 +117,24 @@ final class ShipmentsRelationManager extends RelationManager
                                                         '%s (%s %s)',
                                                         $item->description,
                                                         $item->quantity,
-                                                        $item->unit
+                                                        $item->unit?->value ?? 'N/A'
                                                     ),
                                                 ])
                                                 ->all()
                                         )
                                         ->required()
                                         ->searchable()
+                                        ->live()
+                                        ->afterStateUpdated(function (Set $set, ?int $state) use ($supplierOrder): void {
+                                            if ($state === null) {
+                                                return;
+                                            }
+                                            $orderItem = $supplierOrder->items()->find($state);
+                                            if ($orderItem !== null) {
+                                                // Prefill quantity_shipped with the order item quantity
+                                                $set('quantity_shipped', (string) $orderItem->quantity);
+                                            }
+                                        })
                                         ->columnSpan(6),
                                     TextInput::make('quantity_shipped')
                                         ->label('Qty Shipped')
@@ -138,7 +150,7 @@ final class ShipmentsRelationManager extends RelationManager
                                 ]),
                         ])
                         ->columns(1)
-                        ->defaultItems(1)
+                        ->defaultItems(0)
                         ->addActionLabel('Add Item')
                         ->reorderable(false),
                 ]),
@@ -360,6 +372,23 @@ final class ShipmentsRelationManager extends RelationManager
                     ->modalHeading(fn (SupplierOrder $record): string => "Create Shipment for {$record->supplier->name}")
                     ->modalWidth('4xl')
                     ->form(fn (SupplierOrder $record): array => $this->getShipmentFormSchema($record))
+                    ->fillForm(function (SupplierOrder $record): array {
+                        // Prefill shipment items with all items from the supplier order
+                        $shipmentItems = $record->items()
+                            ->orderBy('sort_order')
+                            ->get()
+                            ->map(fn ($item): array => [
+                                'supplier_order_item_id' => $item->getKey(),
+                                'quantity_shipped' => (string) $item->quantity,
+                                'condition' => ItemCondition::GOOD->value,
+                            ])
+                            ->toArray();
+
+                        return [
+                            'status' => ShipmentStatus::PENDING->value,
+                            'shipment_items' => $shipmentItems,
+                        ];
+                    })
                     ->action(function (SupplierOrder $record, array $data): void {
                         /** @var Request $request */
                         $request = $this->getOwnerRecord();

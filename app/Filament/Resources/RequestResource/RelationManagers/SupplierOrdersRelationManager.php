@@ -72,6 +72,7 @@ final class SupplierOrdersRelationManager extends RelationManager
             ->columns(1)
             ->components([
                 Section::make('Order Details')
+                    ->columnSpanFull()
                     ->schema([
                         Grid::make(3)
                             ->schema([
@@ -208,6 +209,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                     ]),
 
                 Section::make('Line Items')
+                    ->columnSpanFull()
                     ->schema([
                         Repeater::make('items')
                             ->relationship()
@@ -354,6 +356,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                     ]),
 
                 Section::make('Summary')
+                    ->columnSpanFull()
                     ->schema([
                         Grid::make(3)
                             ->schema([
@@ -424,6 +427,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                     ->collapsible(),
 
                 Section::make('Notes')
+                    ->columnSpanFull()
                     ->schema([
                         Textarea::make('notes')
                             ->label('Order Notes')
