@@ -9,6 +9,7 @@ use App\Enums\OrderStatus;
 use App\Enums\RequestStage;
 use App\Enums\ShipmentStatus;
 use App\Enums\ShipmentType;
+use App\Filament\Actions\DownloadPdfAction;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Models\Request;
 use App\Models\Shipment;
@@ -206,12 +207,38 @@ final class ShipmentsRelationManager extends RelationManager
                     Placeholder::make("items_{$shipment->id}")
                         ->label('Items')
                         ->content(new HtmlString($this->formatShipmentItems($shipment))),
+                    Placeholder::make("pdf_button_{$shipment->id}")
+                        ->label('')
+                        ->content(new HtmlString($this->getShipmentPdfButton($shipment)))
+                        ->visible(fn () => $shipment->type === ShipmentType::INBOUND),
                 ])
                 ->collapsible()
                 ->collapsed($shipment->status === ShipmentStatus::DELIVERED);
         }
 
         return $sections;
+    }
+
+    /**
+     * Get PDF download button HTML for a shipment.
+     */
+    private function getShipmentPdfButton(Shipment $shipment): string
+    {
+        if ($shipment->type !== ShipmentType::INBOUND) {
+            return '';
+        }
+
+        $url = route('shipment.pdf', ['shipment' => $shipment->getKey()]);
+
+        return sprintf(
+            '<a href="%s" target="_blank" class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                Download DO PDF
+            </a>',
+            $url
+        );
     }
 
     /**

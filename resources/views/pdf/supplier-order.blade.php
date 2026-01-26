@@ -135,15 +135,6 @@
         </table>
     </div>
 
-    {{-- Delivery Address --}}
-    <div class="payment-info">
-        <div class="payment-info-title">Delivery Address</div>
-        <div class="payment-info-content">
-            {{ $company['name'] }}<br>
-            {{ $company['address'] }}
-        </div>
-    </div>
-
     {{-- Payment Terms --}}
     @if($order->payment_terms_text || $order->payment_terms_days)
         <div class="terms-section">

@@ -10,6 +10,7 @@ use App\Models\BuyerOrder;
 use App\Models\BuyerQuote;
 use App\Models\ProfitAndLoss;
 use App\Models\QuotationEvaluation;
+use App\Models\Shipment;
 use App\Models\SupplierOrder;
 use App\Models\Team;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -240,6 +241,72 @@ final readonly class PdfGenerationService
     public function getSupplierOrderFilename(SupplierOrder $order): string
     {
         return sprintf('PO_%s.pdf', $order->po_number);
+    }
+
+    /**
+     * Generate PDF for a shipment delivery order.
+     */
+    public function generateShipmentDeliveryOrderPdf(Shipment $shipment): string
+    {
+        // Ensure DO number is generated and saved
+        if ($shipment->do_number === null || $shipment->do_number === '') {
+            $shipment->generateDoNumber();
+        }
+
+        // Load all necessary relationships
+        $shipment->load([
+            'supplierOrder.supplier',
+            'supplierOrder.request.buyer',
+            'items.supplierOrderItem.article',
+            'request.buyer',
+            'team',
+        ]);
+
+        // Prepare items data with brand/model from article
+        $items = $shipment->items->map(function ($shipmentItem) {
+            $supplierOrderItem = $shipmentItem->supplierOrderItem;
+            $article = $supplierOrderItem?->article;
+
+            $brand = null;
+            $model = null;
+            if ($article !== null && is_array($article->attributes)) {
+                $brand = $article->attributes['brand'] ?? null;
+                $model = $article->attributes['model'] ?? null;
+            }
+
+            return [
+                'number' => $shipmentItem->sort_order + 1,
+                'item_name' => $supplierOrderItem?->description ?? 'Unknown item',
+                'brand' => $brand,
+                'model' => $model,
+                'qty' => (float) $shipmentItem->quantity_shipped,
+                'remarks' => $shipmentItem->condition_notes ?? $supplierOrderItem?->notes ?? null,
+            ];
+        });
+
+        $pdf = Pdf::loadView('pdf.shipment-delivery-order', [
+            'shipment' => $shipment,
+            'items' => $items,
+            'company' => $this->getCompanyDetails($shipment->team),
+        ]);
+
+        $pdf->setPaper('a4', 'landscape');
+
+        return $pdf->output();
+    }
+
+    /**
+     * Get the filename for a shipment delivery order PDF.
+     */
+    public function getShipmentDeliveryOrderFilename(Shipment $shipment): string
+    {
+        $doNumber = $shipment->do_number ?? $shipment->getDoNumber();
+        // Replace "/" and "\" with "-" for filename safety (these characters are not allowed in filenames)
+        $sanitizedDoNumber = str_replace(['/', '\\'], '-', $doNumber);
+        // Remove any other invalid filename characters
+        $sanitizedDoNumber = preg_replace('/[^A-Za-z0-9\-_]/', '_', $sanitizedDoNumber);
+
+        return sprintf('DO_%s.pdf', $sanitizedDoNumber);
     }
 
     /**

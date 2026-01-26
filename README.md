@@ -25,7 +25,7 @@ ERPC is designed for trading businesses that source products from multiple suppl
 - **Profit & Loss** - Generate PNL documents with items by supplier, cost/sell/margin analysis, and approval workflow
 - **Order Processing** - Manage buyer and supplier purchase orders
 - **Invoicing** - Handle buyer and supplier invoices with payment tracking
-- **Shipment Tracking** - Monitor delivery status and logistics
+- **Shipment Tracking** - Monitor delivery status and logistics with Delivery Order (DO) PDF generation for inbound shipments
 
 ### Core Entities
 - **Companies** - Buyers and suppliers with contacts

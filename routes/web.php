@@ -67,6 +67,10 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/buyer-quotes/{buyerQuote}/po/{media}', BuyerQuotePoDownloadController::class)
         ->name('buyer-quotes.po.download');
     
+    // Shipment PDF download
+    Route::get('/shipments/{shipment}/pdf', \App\Http\Controllers\ShipmentPdfController::class)
+        ->name('shipment.pdf');
+    
     Route::delete('/buyer-quotes/{buyerQuote}/po/{media}', function (BuyerQuote $buyerQuote, Media $media) {
         // Verify ownership
         // Check both morph alias and full class name (Spatie stores it as morph alias)

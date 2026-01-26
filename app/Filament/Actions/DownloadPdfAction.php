@@ -7,6 +7,7 @@ namespace App\Filament\Actions;
 use App\Models\BuyerInvoice;
 use App\Models\BuyerOrder;
 use App\Models\BuyerQuote;
+use App\Models\Shipment;
 use App\Models\SupplierOrder;
 use App\Services\Erp\PdfGenerationService;
 use Filament\Actions\Action;
@@ -40,6 +41,7 @@ final class DownloadPdfAction extends Action
             $record instanceof BuyerOrder => $pdfService->generateBuyerOrderPdf($record),
             $record instanceof BuyerInvoice => $pdfService->generateBuyerInvoicePdf($record),
             $record instanceof SupplierOrder => $pdfService->generateSupplierOrderPdf($record),
+            $record instanceof Shipment => $pdfService->generateShipmentDeliveryOrderPdf($record),
             default => throw new \InvalidArgumentException('Unsupported model type for PDF generation: '.$record::class),
         };
 
@@ -48,6 +50,7 @@ final class DownloadPdfAction extends Action
             $record instanceof BuyerOrder => $pdfService->getBuyerOrderFilename($record),
             $record instanceof BuyerInvoice => $pdfService->getBuyerInvoiceFilename($record),
             $record instanceof SupplierOrder => $pdfService->getSupplierOrderFilename($record),
+            $record instanceof Shipment => $pdfService->getShipmentDeliveryOrderFilename($record),
             default => 'document.pdf',
         };
 

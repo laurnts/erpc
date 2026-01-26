@@ -6,6 +6,7 @@ use App\Data\TeamErpSettings;
 use App\Enums\BuyerQuoteStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\OrderStatus;
+use App\Models\Article;
 use App\Models\BuyerInvoice;
 use App\Models\BuyerInvoiceItem;
 use App\Models\BuyerOrder;
@@ -15,6 +16,8 @@ use App\Models\BuyerQuoteItem;
 use App\Models\Company;
 use App\Models\Currency;
 use App\Models\Request;
+use App\Models\Shipment;
+use App\Models\ShipmentItem;
 use App\Models\SupplierOrder;
 use App\Models\SupplierOrderItem;
 use App\Models\Team;
@@ -332,6 +335,236 @@ describe('PdfGenerationService', function (): void {
 
             expect($view)->toContain('Delivery Address')
                 ->and($view)->toContain('Test Trading Company');
+        });
+    });
+
+    describe('Shipment Delivery Order PDF', function (): void {
+        beforeEach(function (): void {
+            $this->supplierOrder = SupplierOrder::factory()
+                ->recycle($this->team)
+                ->recycle($this->supplier)
+                ->forRequest($this->request)
+                ->withCurrency($this->currency)
+                ->create([
+                    'po_number' => 'PO-2026-0001',
+                    'status' => OrderStatus::CONFIRMED,
+                ]);
+
+            $this->shipment = Shipment::factory()
+                ->recycle($this->team)
+                ->recycle($this->request)
+                ->forSupplierOrder($this->supplierOrder)
+                ->inbound()
+                ->create([
+                    'notes' => 'Test shipment notes',
+                ]);
+
+            $supplierOrderItem = SupplierOrderItem::factory()
+                ->forSupplierOrder($this->supplierOrder)
+                ->create([
+                    'description' => 'Test Product',
+                    'quantity' => '10.0000',
+                    'notes' => 'Item notes',
+                ]);
+
+            $article = Article::factory()
+                ->recycle($this->team)
+                ->create([
+                    'attributes' => [
+                        'brand' => 'Test Brand',
+                        'model' => 'Model XYZ-123',
+                    ],
+                ]);
+
+            $supplierOrderItem->update(['article_id' => $article->getKey()]);
+
+            ShipmentItem::factory()
+                ->recycle($this->shipment)
+                ->forSupplierOrderItem($supplierOrderItem)
+                ->create([
+                    'quantity_shipped' => '10.0000',
+                    'condition_notes' => 'Good condition',
+                ]);
+        });
+
+        it('generates shipment delivery order PDF without errors', function (): void {
+            $pdfService = app(PdfGenerationService::class);
+
+            $content = $pdfService->generateShipmentDeliveryOrderPdf($this->shipment);
+
+            expect($content)->toBeString()
+                ->and($content)->not->toBeEmpty()
+                ->and(str_starts_with($content, '%PDF'))->toBeTrue();
+        });
+
+        it('generates correct filename with sanitized DO number', function (): void {
+            $this->shipment->generateDoNumber();
+            $pdfService = app(PdfGenerationService::class);
+
+            $filename = $pdfService->getShipmentDeliveryOrderFilename($this->shipment);
+
+            // Filename should have "/" replaced with "-"
+            expect($filename)->toMatch('/^DO_\d{4}-CP-DO-[IVX]+-\d{4}\.pdf$/')
+                ->and($filename)->not->toContain('/')
+                ->and($filename)->not->toContain('\\');
+        });
+
+        it('includes DO number in PDF', function (): void {
+            $this->shipment->generateDoNumber();
+            $pdfService = app(PdfGenerationService::class);
+
+            $content = $pdfService->generateShipmentDeliveryOrderPdf($this->shipment);
+
+            // Check PDF content contains DO number (basic check)
+            expect($content)->toBeString()
+                ->and($this->shipment->do_number)->not->toBeNull();
+        });
+
+        it('includes buyer information in PDF', function (): void {
+            $view = view('pdf.shipment-delivery-order', [
+                'shipment' => $this->shipment->load([
+                    'supplierOrder.supplier',
+                    'supplierOrder.request.buyer',
+                    'items.supplierOrderItem.article',
+                    'request.buyer',
+                ]),
+                'items' => $this->shipment->items->map(function ($item) {
+                    $supplierOrderItem = $item->supplierOrderItem;
+                    $article = $supplierOrderItem?->article;
+
+                    return [
+                        'number' => $item->sort_order + 1,
+                        'item_name' => $supplierOrderItem?->description ?? 'Unknown',
+                        'brand' => $article?->attributes['brand'] ?? null,
+                        'model' => $article?->attributes['model'] ?? null,
+                        'qty' => (float) $item->quantity_shipped,
+                        'remarks' => $item->condition_notes ?? $supplierOrderItem?->notes ?? null,
+                    ];
+                }),
+                'company' => [
+                    'name' => 'Test Trading Company',
+                    'address' => '789 Company Ave',
+                    'phone' => '+1122334455',
+                    'email' => 'info@testcompany.com',
+                ],
+            ])->render();
+
+            expect($view)->toContain('DELIVERY ORDER')
+                ->and($view)->toContain('Test Buyer Company');
+        });
+
+        it('includes item table with brand and model', function (): void {
+            $view = view('pdf.shipment-delivery-order', [
+                'shipment' => $this->shipment->load([
+                    'supplierOrder.supplier',
+                    'supplierOrder.request.buyer',
+                    'items.supplierOrderItem.article',
+                    'request.buyer',
+                ]),
+                'items' => $this->shipment->items->map(function ($item) {
+                    $supplierOrderItem = $item->supplierOrderItem;
+                    $article = $supplierOrderItem?->article;
+
+                    return [
+                        'number' => $item->sort_order + 1,
+                        'item_name' => $supplierOrderItem?->description ?? 'Unknown',
+                        'brand' => $article?->attributes['brand'] ?? null,
+                        'model' => $article?->attributes['model'] ?? null,
+                        'qty' => (float) $item->quantity_shipped,
+                        'remarks' => $item->condition_notes ?? $supplierOrderItem?->notes ?? null,
+                    ];
+                }),
+                'company' => [
+                    'name' => 'Test Trading Company',
+                    'address' => '789 Company Ave',
+                    'phone' => '+1122334455',
+                    'email' => 'info@testcompany.com',
+                ],
+            ])->render();
+
+            expect($view)->toContain('Test Product')
+                ->and($view)->toContain('Test Brand')
+                ->and($view)->toContain('Model XYZ-123')
+                ->and($view)->toContain('10.00');
+        });
+
+        it('handles missing article data gracefully', function (): void {
+            // Create shipment item without article
+            $supplierOrderItem2 = SupplierOrderItem::factory()
+                ->forSupplierOrder($this->supplierOrder)
+                ->create([
+                    'description' => 'Product Without Article',
+                    'article_id' => null,
+                ]);
+
+            ShipmentItem::factory()
+                ->recycle($this->shipment)
+                ->forSupplierOrderItem($supplierOrderItem2)
+                ->create([
+                    'quantity_shipped' => '5.0000',
+                ]);
+
+            $pdfService = app(PdfGenerationService::class);
+            $content = $pdfService->generateShipmentDeliveryOrderPdf($this->shipment->load([
+                'items.supplierOrderItem.article',
+            ]));
+
+            expect($content)->toBeString()
+                ->and($content)->not->toBeEmpty()
+                ->and(str_starts_with($content, '%PDF'))->toBeTrue();
+        });
+
+        it('handles missing buyer address gracefully', function (): void {
+            $this->buyer->update(['address' => null]);
+
+            $pdfService = app(PdfGenerationService::class);
+            $content = $pdfService->generateShipmentDeliveryOrderPdf($this->shipment->load([
+                'supplierOrder.supplier',
+                'supplierOrder.request.buyer',
+                'items.supplierOrderItem.article',
+                'request.buyer',
+            ]));
+
+            expect($content)->toBeString()
+                ->and($content)->not->toBeEmpty()
+                ->and(str_starts_with($content, '%PDF'))->toBeTrue();
+        });
+
+        it('includes central purchasing signature section', function (): void {
+            $view = view('pdf.shipment-delivery-order', [
+                'shipment' => $this->shipment->load([
+                    'supplierOrder.supplier',
+                    'supplierOrder.request.buyer',
+                    'items.supplierOrderItem.article',
+                    'request.buyer',
+                ]),
+                'items' => $this->shipment->items->map(function ($item) {
+                    $supplierOrderItem = $item->supplierOrderItem;
+                    $article = $supplierOrderItem?->article;
+
+                    return [
+                        'number' => $item->sort_order + 1,
+                        'item_name' => $supplierOrderItem?->description ?? 'Unknown',
+                        'brand' => $article?->attributes['brand'] ?? null,
+                        'model' => $article?->attributes['model'] ?? null,
+                        'qty' => (float) $item->quantity_shipped,
+                        'remarks' => $item->condition_notes ?? $supplierOrderItem?->notes ?? null,
+                    ];
+                }),
+                'company' => [
+                    'name' => 'Test Trading Company',
+                    'address' => '789 Company Ave',
+                    'phone' => '+1122334455',
+                    'email' => 'info@testcompany.com',
+                ],
+            ])->render();
+
+            expect($view)->toContain('Prepared By')
+                ->and($view)->toContain('Acknowledged By Head Admin')
+                ->and($view)->toContain('Delivered By')
+                ->and($view)->toContain('Accepted By')
+                ->and($view)->toContain('Notes:')
+                ->and($view)->toContain('Test shipment notes');
         });
     });
 

@@ -516,3 +516,104 @@ describe('ItemCondition Enum', function (): void {
             ->and(ItemCondition::REJECTED->requiresNotes())->toBeTrue();
     });
 });
+
+describe('Shipment DO Number Generation', function (): void {
+    it('generates DO number with correct format', function (): void {
+        $shipment = Shipment::factory()
+            ->recycle($this->team)
+            ->recycle($this->request)
+            ->inbound()
+            ->create();
+
+        $doNumber = $shipment->generateDoNumber();
+
+        // Format: {4digit}-CP/DO/{roman_month}/{year}
+        expect($doNumber)->toMatch('/^\d{4}-CP\/DO\/[IVX]+\/\d{4}$/')
+            ->and($shipment->do_number)->toBe($doNumber);
+    });
+
+    it('uses roman numeral for current month', function (): void {
+        $shipment = Shipment::factory()
+            ->recycle($this->team)
+            ->recycle($this->request)
+            ->inbound()
+            ->create();
+
+        $doNumber = $shipment->generateDoNumber();
+        $currentMonth = (int) now()->format('n');
+        $romanMonth = match ($currentMonth) {
+            1 => 'I', 2 => 'II', 3 => 'III', 4 => 'IV', 5 => 'V', 6 => 'VI',
+            7 => 'VII', 8 => 'VIII', 9 => 'IX', 10 => 'X', 11 => 'XI', 12 => 'XII',
+        };
+
+        expect($doNumber)->toContain($romanMonth);
+    });
+
+    it('uses current year in DO number', function (): void {
+        $shipment = Shipment::factory()
+            ->recycle($this->team)
+            ->recycle($this->request)
+            ->inbound()
+            ->create();
+
+        $doNumber = $shipment->generateDoNumber();
+        $currentYear = now()->format('Y');
+
+        expect($doNumber)->toContain($currentYear);
+    });
+
+    it('increments DO numbers sequentially for same team/month/year', function (): void {
+        $shipment1 = Shipment::factory()
+            ->recycle($this->team)
+            ->recycle($this->request)
+            ->inbound()
+            ->create();
+
+        $shipment2 = Shipment::factory()
+            ->recycle($this->team)
+            ->recycle($this->request)
+            ->inbound()
+            ->create();
+
+        $doNumber1 = $shipment1->generateDoNumber();
+        $doNumber2 = $shipment2->generateDoNumber();
+
+        // Extract increment numbers
+        preg_match('/^(\d{4})-CP\/DO\//', $doNumber1, $matches1);
+        preg_match('/^(\d{4})-CP\/DO\//', $doNumber2, $matches2);
+
+        $increment1 = (int) $matches1[1];
+        $increment2 = (int) $matches2[1];
+
+        expect($increment2)->toBe($increment1 + 1);
+    });
+
+    it('returns cached DO number if already generated', function (): void {
+        $shipment = Shipment::factory()
+            ->recycle($this->team)
+            ->recycle($this->request)
+            ->inbound()
+            ->create();
+
+        $doNumber1 = $shipment->generateDoNumber();
+        $doNumber2 = $shipment->getDoNumber();
+
+        expect($doNumber1)->toBe($doNumber2)
+            ->and($shipment->do_number)->toBe($doNumber1);
+    });
+
+    it('auto-generates DO number when accessed if not set', function (): void {
+        $shipment = Shipment::factory()
+            ->recycle($this->team)
+            ->recycle($this->request)
+            ->inbound()
+            ->create([
+                'do_number' => null,
+            ]);
+
+        $doNumber = $shipment->getDoNumber();
+
+        expect($doNumber)->toMatch('/^\d{4}-CP\/DO\/[IVX]+\/\d{4}$/')
+            ->and($shipment->do_number)->toBeNull(); // getDoNumber doesn't save, only generateDoNumber does
+    });
+});

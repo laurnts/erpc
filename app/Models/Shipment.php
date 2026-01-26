@@ -9,6 +9,7 @@ use App\Enums\ShipmentType;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use App\Observers\ShipmentObserver;
+use App\Support\RomanNumerals;
 use Database\Factories\ShipmentFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -31,6 +32,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property int|null $supplier_order_id
  * @property int|null $buyer_order_id
  * @property string $shipment_number
+ * @property string|null $do_number
  * @property string|null $carrier_name
  * @property string|null $tracking_number
  * @property Carbon|null $shipped_at
@@ -72,6 +74,7 @@ final class Shipment extends Model implements HasMedia
         'supplier_order_id',
         'buyer_order_id',
         'shipment_number',
+        'do_number',
         'carrier_name',
         'tracking_number',
         'shipped_at',
@@ -336,5 +339,88 @@ final class Shipment extends Model implements HasMedia
             'difference' => $difference,
             'percentage' => round($percentage, 2),
         ];
+    }
+
+    /**
+     * Generate Delivery Order number.
+     * Format: {4digit_increment}-CP/DO/{roman_month}/{year}
+     *
+     * @return string
+     */
+    public function generateDoNumber(): string
+    {
+        $month = (int) now()->format('n');
+        $year = (int) now()->format('Y');
+        $romanMonth = RomanNumerals::month($month);
+
+        // Query existing DO numbers for same team/month/year
+        $pattern = sprintf('%%-CP/DO/%s/%d', $romanMonth, $year);
+        $existingDoNumbers = self::query()
+            ->withTrashed()
+            ->where('team_id', $this->team_id)
+            ->where('do_number', 'like', $pattern)
+            ->whereNotNull('do_number')
+            ->pluck('do_number')
+            ->toArray();
+
+        $nextIncrement = 1;
+        if (!empty($existingDoNumbers)) {
+            $regex = '/^(\d{4})-CP\/DO\/'.preg_quote($romanMonth, '/').'\/'.$year.'$/';
+            foreach ($existingDoNumbers as $doNumber) {
+                if (preg_match($regex, $doNumber, $matches)) {
+                    $increment = (int) $matches[1];
+                    if ($increment >= $nextIncrement) {
+                        $nextIncrement = $increment + 1;
+                    }
+                }
+            }
+        }
+
+        $doNumber = sprintf('%04d-CP/DO/%s/%d', $nextIncrement, $romanMonth, $year);
+        $this->do_number = $doNumber;
+        $this->save();
+
+        return $doNumber;
+    }
+
+    /**
+     * Get DO number, generating if not set (without saving).
+     *
+     * @return string
+     */
+    public function getDoNumber(): string
+    {
+        if ($this->do_number !== null && $this->do_number !== '') {
+            return $this->do_number;
+        }
+
+        // Generate but don't save yet (will be saved when PDF is generated)
+        $month = (int) now()->format('n');
+        $year = (int) now()->format('Y');
+        $romanMonth = RomanNumerals::month($month);
+
+        $pattern = sprintf('%%-CP/DO/%s/%d', $romanMonth, $year);
+        $existingDoNumbers = self::query()
+            ->withTrashed()
+            ->where('team_id', $this->team_id)
+            ->where('do_number', 'like', $pattern)
+            ->whereNotNull('do_number')
+            ->pluck('do_number')
+            ->toArray();
+
+        $nextIncrement = 1;
+        if (!empty($existingDoNumbers)) {
+            $regex = '/^(\d{4})-CP\/DO\/'.preg_quote($romanMonth, '/').'\/'.$year.'$/';
+            foreach ($existingDoNumbers as $doNumber) {
+                if (preg_match($regex, $doNumber, $matches)) {
+                    $increment = (int) $matches[1];
+                    if ($increment >= $nextIncrement) {
+                        $nextIncrement = $increment + 1;
+                    }
+                }
+            }
+        }
+
+        return sprintf('%04d-CP/DO/%s/%d', $nextIncrement, $romanMonth, $year);
     }
 }
