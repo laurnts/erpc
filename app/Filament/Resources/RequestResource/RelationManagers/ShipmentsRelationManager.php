@@ -118,7 +118,7 @@ final class ShipmentsRelationManager extends RelationManager
                                                         '%s (%s %s)',
                                                         $item->description,
                                                         $item->quantity,
-                                                        $item->unit?->value ?? 'N/A'
+                                                        $item->unit_label ?? ($item->unit instanceof \App\Enums\Unit ? $item->unit->value : ($item->unit ?? 'N/A'))
                                                     ),
                                                 ])
                                                 ->all()

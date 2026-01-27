@@ -113,7 +113,9 @@ final class BuyerOrdersRelationManager extends RelationManager
             Section::make('Line Items')
                 ->schema([
                     Repeater::make('items')
-                        ->relationship()
+                        ->relationship(
+                            modifyQueryUsing: fn ($query) => $query->with('unitOfMeasure')
+                        )
                         ->schema([
                             Grid::make(12)
                                 ->schema([
@@ -123,9 +125,10 @@ final class BuyerOrdersRelationManager extends RelationManager
                                     TextInput::make('quantity')
                                         ->columnSpan(2)
                                         ->disabled(),
-                                    TextInput::make('unit')
-                                        ->columnSpan(1)
-                                        ->disabled(),
+                                    Placeholder::make('unit_display')
+                                        ->label('Unit')
+                                        ->content(fn ($record) => $record?->unit_label ?? '—')
+                                        ->columnSpan(1),
                                     TextInput::make('unit_price')
                                         ->label('Price')
                                         ->columnSpan(2)

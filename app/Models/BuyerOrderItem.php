@@ -54,6 +54,7 @@ final class BuyerOrderItem extends Model
         'description',
         'quantity',
         'unit',
+        'unit_of_measure_id',
         'unit_price',
         'unit_price_exc_tax',
         'tax_amount',
@@ -129,6 +130,16 @@ final class BuyerOrderItem extends Model
     }
 
     /**
+     * The unit of measure for this item.
+     *
+     * @return BelongsTo<UnitOfMeasure, $this>
+     */
+    public function unitOfMeasure(): BelongsTo
+    {
+        return $this->belongsTo(UnitOfMeasure::class);
+    }
+
+    /**
      * The article for this line item.
      *
      * @return BelongsTo<Article, $this>
@@ -160,7 +171,28 @@ final class BuyerOrderItem extends Model
         $item->article_id = $quoteItem->article_id;
         $item->description = $quoteItem->description;
         $item->quantity = $quoteItem->quantity;
-        $item->unit = $quoteItem->unit;
+        $item->unit_of_measure_id = $quoteItem->unit_of_measure_id;
+        
+        // Ensure unit is set from unit_of_measure_id, bypassing SafeUnitCast
+        $unitCode = 'pcs'; // Default fallback
+        if ($item->unit_of_measure_id !== null) {
+            $unitOfMeasure = \App\Models\UnitOfMeasure::find($item->unit_of_measure_id);
+            if ($unitOfMeasure !== null) {
+                $unitCode = $unitOfMeasure->code;
+            } else {
+                // Fallback to quote item's unit if UnitOfMeasure not found
+                $quoteUnit = $quoteItem->unit;
+                $unitCode = $quoteUnit instanceof \App\Enums\Unit ? $quoteUnit->value : ($quoteUnit ?? 'pcs');
+            }
+        } else {
+            // Fallback to quote item's unit
+            $quoteUnit = $quoteItem->unit;
+            $unitCode = $quoteUnit instanceof \App\Enums\Unit ? $quoteUnit->value : ($quoteUnit ?? 'pcs');
+        }
+        
+        // Use setRawAttributes to bypass SafeUnitCast and ensure unit is set
+        $attributes = $item->getAttributes();
+        $item->setRawAttributes(array_merge($attributes, ['unit' => (string) $unitCode]));
 
         // Lock pricing from quote
         $item->unit_price = (string) round((float) $quoteItem->unit_price, 2);
@@ -191,6 +223,23 @@ final class BuyerOrderItem extends Model
         }
 
         return $this->description;
+    }
+
+    /**
+     * Get the unit label (from UnitOfMeasure or fallback to unit code).
+     */
+    public function getUnitLabelAttribute(): string
+    {
+        if ($this->unitOfMeasure !== null) {
+            return $this->unitOfMeasure->label;
+        }
+
+        // Fallback to unit enum value or raw unit string
+        if ($this->unit !== null) {
+            return $this->unit instanceof Unit ? $this->unit->value : (string) $this->unit;
+        }
+
+        return '—';
     }
 
     /**

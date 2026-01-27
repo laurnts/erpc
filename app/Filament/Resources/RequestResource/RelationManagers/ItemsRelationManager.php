@@ -11,6 +11,7 @@ use App\Models\Currency;
 use App\Models\Request;
 use App\Models\RequestItem;
 use App\Models\SupplierQuote;
+use App\Models\UnitOfMeasure;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -69,11 +70,18 @@ final class ItemsRelationManager extends RelationManager
                     ->numeric()
                     ->minValue(0.0001)
                     ->default(1),
-                TextInput::make('unit')
+                Select::make('unit_of_measure_id')
+                    ->label('Unit of Measure')
+                    ->relationship('unitOfMeasure', 'label', fn ($query) => $query->where('team_id', $request->team_id)->where('is_active', true))
+                    ->searchable()
+                    ->preload()
                     ->required()
-                    ->maxLength(50)
-                    ->default('pcs')
-                    ->placeholder('pcs'),
+                    ->default(fn (): ?int => UnitOfMeasure::query()
+                        ->where('team_id', $request->team_id)
+                        ->where('code', 'pcs')
+                        ->where('is_active', true)
+                        ->value('id'))
+                    ->helperText('Select the unit of measure'),
                 Select::make('article_id')
                     ->label('Match to Article')
                     ->columnSpanFull()
@@ -162,7 +170,8 @@ final class ItemsRelationManager extends RelationManager
                 TextColumn::make('quantity')
                     ->numeric(decimalPlaces: 2)
                     ->sortable(),
-                TextColumn::make('unit'),
+                TextColumn::make('unitOfMeasure.label')
+                    ->label('Unit'),
                 IconColumn::make('supplier_quote_items_count')
                     ->label('Sent')
                     ->icon(fn (RequestItem $record): ?string => $record->supplier_quote_items_count > 0
@@ -218,7 +227,7 @@ final class ItemsRelationManager extends RelationManager
                             ->unique()
                             ->count();
 
-                        $itemsList = $matchedItems->take(5)->map(fn (RequestItem $item): string => "• {$item->article?->name} (".number_format((float) $item->quantity, 0)." ".($item->unit?->value ?? 'pcs').")")->implode("\n");
+                        $itemsList = $matchedItems->take(5)->map(fn (RequestItem $item): string => "• {$item->article?->name} (".number_format((float) $item->quantity, 0)." ".($item->unitOfMeasure?->code ?? $item->unit?->value ?? 'pcs').")")->implode("\n");
                         $moreItems = $matchedItems->count() > 5 ? "\n• ... and ".($matchedItems->count() - 5).' more item(s)' : '';
 
                         $prefix = $hasSelection ? 'SELECTED ' : 'ALL ';
@@ -357,7 +366,7 @@ final class ItemsRelationManager extends RelationManager
 
                         $qty = number_format((float) $record->quantity, 0);
 
-                        return "You are about to send a quote request for:\n\n• Item: {$articleName}\n• Quantity: {$qty} ".($record->unit?->value ?? 'pcs')."\n\nThis will be sent to {$supplierCount} supplier(s) linked to this article.";
+                        return "You are about to send a quote request for:\n\n• Item: {$articleName}\n• Quantity: {$qty} ".($record->unitOfMeasure?->code ?? $record->unit?->value ?? 'pcs')."\n\nThis will be sent to {$supplierCount} supplier(s) linked to this article.";
                     })
                     ->action(function (RequestItem $record) use ($request): void {
                         if ($record->article === null) {
@@ -405,7 +414,8 @@ final class ItemsRelationManager extends RelationManager
                                         'article_id' => $record->article_id,
                                         'description' => $record->article?->name ?? $record->description,
                                         'quantity' => $record->quantity,
-                                        'unit' => $record->unit?->value ?? 'pcs',
+                                        'unit_of_measure_id' => $record->unit_of_measure_id,
+                                        'unit' => $record->unitOfMeasure?->code ?? $record->unit?->value ?? 'pcs',
                                         'sort_order' => $existingQuote->items()->count(),
                                     ]);
                                     $itemsAdded++;
@@ -427,7 +437,8 @@ final class ItemsRelationManager extends RelationManager
                                     'article_id' => $record->article_id,
                                     'description' => $record->article?->name ?? $record->description,
                                     'quantity' => $record->quantity,
-                                    'unit' => $record->unit?->value ?? 'pcs',
+                                    'unit_of_measure_id' => $record->unit_of_measure_id,
+                                    'unit' => $record->unitOfMeasure?->code ?? $record->unit?->value ?? 'pcs',
                                     'sort_order' => 0,
                                 ]);
                                 $itemsAdded++;

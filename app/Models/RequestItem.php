@@ -43,6 +43,7 @@ final class RequestItem extends Model
         'description',
         'quantity',
         'unit',
+        'unit_of_measure_id',
         'notes',
         'sort_order',
         'is_matched',
@@ -101,6 +102,16 @@ final class RequestItem extends Model
     public function request(): BelongsTo
     {
         return $this->belongsTo(Request::class);
+    }
+
+    /**
+     * The unit of measure for this item.
+     *
+     * @return BelongsTo<UnitOfMeasure, $this>
+     */
+    public function unitOfMeasure(): BelongsTo
+    {
+        return $this->belongsTo(UnitOfMeasure::class);
     }
 
     /**

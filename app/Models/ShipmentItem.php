@@ -218,8 +218,23 @@ final class ShipmentItem extends Model
     public function getUnit(): string
     {
         $orderItem = $this->getOrderItem();
+        
+        if ($orderItem === null) {
+            return 'pcs';
+        }
 
-        return $orderItem->unit ?? 'pcs';
+        // Use unit_label accessor if available (for BuyerOrderItem, SupplierOrderItem)
+        if (method_exists($orderItem, 'getUnitLabelAttribute')) {
+            return $orderItem->unit_label;
+        }
+
+        // Fallback to unit field
+        $unit = $orderItem->unit;
+        if ($unit instanceof \App\Enums\Unit) {
+            return $unit->value;
+        }
+
+        return $unit ?? 'pcs';
     }
 
     /**

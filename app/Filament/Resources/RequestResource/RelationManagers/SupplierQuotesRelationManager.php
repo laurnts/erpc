@@ -12,6 +12,7 @@ use App\Models\Currency;
 use App\Models\Request;
 use App\Models\SupplierQuote;
 use App\Models\TaxCode;
+use App\Models\UnitOfMeasure;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -265,12 +266,12 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                 if ($state === null) {
                                                     return;
                                                 }
-                                                $requestItem = $request->items()->with('article.defaultTaxCode')->find($state);
+                                                $requestItem = $request->items()->with('article.defaultTaxCode', 'unitOfMeasure')->find($state);
                                                 if ($requestItem !== null) {
                                                     $set('article_id', $requestItem->article_id);
                                                     $set('description', $requestItem->description);
                                                     $set('quantity', $requestItem->quantity);
-                                                    $set('unit', $requestItem->unit);
+                                                    $set('unit_of_measure_id', $requestItem->unit_of_measure_id);
 
                                                     // Prefill tax code from article's default tax code
                                                     if ($requestItem->article?->default_tax_code_id !== null) {
@@ -295,8 +296,16 @@ final class SupplierQuotesRelationManager extends RelationManager
                                             ->columnSpan(2)
                                             ->live(onBlur: true)
                                             ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
-                                        TextInput::make('unit')
-                                            ->default('pcs')
+                                        Select::make('unit_of_measure_id')
+                                            ->label('Unit')
+                                            ->relationship('unitOfMeasure', 'label', fn ($query) => $query->where('team_id', $request->team_id)->where('is_active', true))
+                                            ->searchable()
+                                            ->preload()
+                                            ->default(fn (): ?int => UnitOfMeasure::query()
+                                                ->where('team_id', $request->team_id)
+                                                ->where('code', 'pcs')
+                                                ->where('is_active', true)
+                                                ->value('id'))
                                             ->columnSpan(2),
                                     ]),
                                 Grid::make(12)

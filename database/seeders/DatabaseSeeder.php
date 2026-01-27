@@ -18,6 +18,7 @@ final class DatabaseSeeder extends Seeder
             ErpPermissionSeeder::class,
             CurrencySeeder::class,
             TaxCodeSeeder::class,
+            UnitOfMeasureSeeder::class,
             LocalSeeder::class,
         ]);
     }

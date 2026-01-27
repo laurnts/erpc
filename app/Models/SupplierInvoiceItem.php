@@ -56,6 +56,7 @@ final class SupplierInvoiceItem extends Model
         'description',
         'quantity',
         'unit',
+        'unit_of_measure_id',
         'unit_price',
         'tax_code_id',
         'tax_rate',
@@ -126,6 +127,16 @@ final class SupplierInvoiceItem extends Model
     public function requestItem(): BelongsTo
     {
         return $this->belongsTo(RequestItem::class);
+    }
+
+    /**
+     * The unit of measure for this item.
+     *
+     * @return BelongsTo<UnitOfMeasure, $this>
+     */
+    public function unitOfMeasure(): BelongsTo
+    {
+        return $this->belongsTo(UnitOfMeasure::class);
     }
 
     /**
@@ -257,5 +268,22 @@ final class SupplierInvoiceItem extends Model
         $this->line_subtotal = (string) round($lineSubtotal, 4);
         $this->line_tax = (string) round($lineTax, 4);
         $this->line_total = (string) round($lineTotal, 4);
+    }
+
+    /**
+     * Get the unit label (from UnitOfMeasure or fallback to unit string).
+     */
+    public function getUnitLabelAttribute(): string
+    {
+        if ($this->unitOfMeasure !== null) {
+            return $this->unitOfMeasure->label;
+        }
+
+        // Fallback to unit string
+        if ($this->unit !== null) {
+            return (string) $this->unit;
+        }
+
+        return '—';
     }
 }

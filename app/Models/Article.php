@@ -55,6 +55,7 @@ final class Article extends Model implements HasCustomFields
         'description',
         'sku',
         'unit',
+        'unit_of_measure_id',
         'default_tax_code_id',
         'attributes',
         'notes',
@@ -101,6 +102,16 @@ final class Article extends Model implements HasCustomFields
                 $article->unit = 'pcs';
             }
         });
+    }
+
+    /**
+     * Get the unit of measure for this article.
+     *
+     * @return BelongsTo<UnitOfMeasure, $this>
+     */
+    public function unitOfMeasure(): BelongsTo
+    {
+        return $this->belongsTo(UnitOfMeasure::class);
     }
 
     /**

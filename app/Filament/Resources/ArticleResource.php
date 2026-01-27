@@ -10,6 +10,7 @@ use App\Filament\Resources\ArticleResource\Pages\ViewArticle;
 use App\Models\Article;
 use App\Models\Tag;
 use App\Models\TaxCode;
+use App\Models\UnitOfMeasure;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ForceDeleteBulkAction;
@@ -122,12 +123,18 @@ final class ArticleResource extends Resource
             TextInput::make('sku')
                 ->label('SKU (Optional)')
                 ->maxLength(255),
-            TextInput::make('unit')
+            Select::make('unit_of_measure_id')
                 ->label('Unit of Measure')
+                ->relationship('unitOfMeasure', 'label')
+                ->searchable()
+                ->preload()
                 ->required()
-                ->maxLength(50)
-                ->default('pcs')
-                ->helperText('e.g., pcs, kg, ltr, set, box'),
+                ->default(fn (): ?int => UnitOfMeasure::query()
+                    ->where('team_id', Filament::getTenant()?->id)
+                    ->where('code', 'pcs')
+                    ->where('is_active', true)
+                    ->value('id'))
+                ->helperText('Select the unit of measure for this article'),
             $taxCodeSelect,
             $tagsSelect,
             Textarea::make('description')
@@ -175,7 +182,8 @@ final class ArticleResource extends Resource
                     ->sortable()
                     ->toggleable()
                     ->toggledHiddenByDefault(),
-                TextColumn::make('unit')
+                TextColumn::make('unitOfMeasure.label')
+                    ->label('Unit')
                     ->sortable()
                     ->toggleable(),
                 TextColumn::make('defaultTaxCode.name')

@@ -65,6 +65,7 @@ final class BuyerQuoteItem extends Model
         'description',
         'quantity',
         'unit',
+        'unit_of_measure_id',
         'cost_price',
         'unit_price',
         'unit_price_exc_tax',
@@ -175,6 +176,33 @@ final class BuyerQuoteItem extends Model
     public function supplierQuoteItem(): BelongsTo
     {
         return $this->belongsTo(SupplierQuoteItem::class);
+    }
+
+    /**
+     * The unit of measure for this item.
+     *
+     * @return BelongsTo<UnitOfMeasure, $this>
+     */
+    public function unitOfMeasure(): BelongsTo
+    {
+        return $this->belongsTo(UnitOfMeasure::class);
+    }
+
+    /**
+     * Get the unit label (from UnitOfMeasure or fallback to unit code).
+     */
+    public function getUnitLabelAttribute(): string
+    {
+        if ($this->unitOfMeasure !== null) {
+            return $this->unitOfMeasure->label;
+        }
+
+        // Fallback to unit enum value or raw unit string
+        if ($this->unit !== null) {
+            return $this->unit instanceof Unit ? $this->unit->value : (string) $this->unit;
+        }
+
+        return '—';
     }
 
     /**

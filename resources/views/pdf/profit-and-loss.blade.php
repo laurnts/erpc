@@ -268,7 +268,7 @@
                                     {{ $item->description }}
                                 @endif
                             </td>
-                            <td class="text-center">{{ number_format((float) $item->quantity, 0) }} {{ $item->unit }}</td>
+                            <td class="text-center">{{ number_format((float) $item->quantity, 0) }} {{ $item->unit_label }}</td>
                             <td class="text-right">{{ number_format((float) $item->cost_price, 2) }}</td>
                             <td class="text-right">{{ number_format((float) $item->unit_price_exc_tax, 2) }}</td>
                             <td class="text-right">{{ number_format((float) $item->line_tax, 2) }}</td>

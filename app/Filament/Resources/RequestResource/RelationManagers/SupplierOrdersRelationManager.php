@@ -17,6 +17,7 @@ use App\Models\SupplierOrder;
 use App\Models\SupplierOrderItem;
 use App\Models\SupplierQuote;
 use App\Models\TaxCode;
+use App\Models\UnitOfMeasure;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -231,12 +232,12 @@ final class SupplierOrdersRelationManager extends RelationManager
                                                 if ($state === null) {
                                                     return;
                                                 }
-                                                $requestItem = $request->items()->with('article.defaultTaxCode')->find($state);
+                                                $requestItem = $request->items()->with('article.defaultTaxCode', 'unitOfMeasure')->find($state);
                                                 if ($requestItem !== null) {
                                                     $set('article_id', $requestItem->article_id);
                                                     $set('description', $requestItem->description);
                                                     $set('quantity', $requestItem->quantity);
-                                                    $set('unit', $requestItem->unit);
+                                                    $set('unit_of_measure_id', $requestItem->unit_of_measure_id);
 
                                                     // Prefill tax code from article's default tax code
                                                     if ($requestItem->article?->default_tax_code_id !== null) {
@@ -261,8 +262,16 @@ final class SupplierOrdersRelationManager extends RelationManager
                                             ->columnSpan(2)
                                             ->live(onBlur: true)
                                             ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
-                                        TextInput::make('unit')
-                                            ->default('pcs')
+                                        Select::make('unit_of_measure_id')
+                                            ->label('Unit')
+                                            ->relationship('unitOfMeasure', 'label', fn ($query) => $query->where('team_id', $request->team_id)->where('is_active', true))
+                                            ->searchable()
+                                            ->preload()
+                                            ->default(fn (): ?int => UnitOfMeasure::query()
+                                                ->where('team_id', $request->team_id)
+                                                ->where('code', 'pcs')
+                                                ->where('is_active', true)
+                                                ->value('id'))
                                             ->columnSpan(2),
                                     ]),
                                 Grid::make(12)
@@ -564,7 +573,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                         $buyerOrder = BuyerOrder::query()
                             ->where('request_id', $request->getKey())
                             ->where('status', OrderStatus::CONFIRMED)
-                            ->with(['items.buyerQuoteItem.supplierQuoteItem', 'items.requestItem.supplier'])
+                            ->with(['items.buyerQuoteItem.supplierQuoteItem', 'items.requestItem.supplier', 'items.unitOfMeasure'])
                             ->first();
 
                         if ($buyerOrder === null) {
@@ -609,7 +618,8 @@ final class SupplierOrdersRelationManager extends RelationManager
                             $itemsBySupplier[$supplierId]['items'][] = [
                                 'description' => $buyerOrderItem->description,
                                 'quantity' => $buyerOrderItem->quantity,
-                                'unit' => $buyerOrderItem->unit,
+                                'unit_of_measure_id' => $buyerOrderItem->unit_of_measure_id,
+                                'unit' => $buyerOrderItem->unitOfMeasure?->code ?? $buyerOrderItem->unit?->value ?? 'pcs',
                                 'unit_price' => $costPrice,
                                 'line_total' => $lineTotal,
                             ];
@@ -795,13 +805,30 @@ final class SupplierOrdersRelationManager extends RelationManager
                                     $costPrice = $buyerOrderItem->buyerQuoteItem->cost_price ?? '0.0000';
                                 }
 
-                                SupplierOrderItem::create([
+                                // Ensure unit is set from unit_of_measure_id, bypassing SafeUnitCast
+                                $unitCode = 'pcs'; // Default fallback
+                                if ($buyerOrderItem->unit_of_measure_id !== null) {
+                                    $unitOfMeasure = \App\Models\UnitOfMeasure::find($buyerOrderItem->unit_of_measure_id);
+                                    if ($unitOfMeasure !== null) {
+                                        $unitCode = $unitOfMeasure->code;
+                                    } else {
+                                        // Fallback to buyer order item's unit
+                                        $orderUnit = $buyerOrderItem->unit;
+                                        $unitCode = $orderUnit instanceof \App\Enums\Unit ? $orderUnit->value : ($orderUnit ?? 'pcs');
+                                    }
+                                } else {
+                                    // Fallback to buyer order item's unit
+                                    $orderUnit = $buyerOrderItem->unit;
+                                    $unitCode = $orderUnit instanceof \App\Enums\Unit ? $orderUnit->value : ($orderUnit ?? 'pcs');
+                                }
+                                
+                                $item = SupplierOrderItem::make([
                                     'supplier_order_id' => $supplierOrder->getKey(),
                                     'request_item_id' => $buyerOrderItem->request_item_id,
                                     'article_id' => $buyerOrderItem->article_id,
                                     'description' => $buyerOrderItem->description,
                                     'quantity' => $buyerOrderItem->quantity,
-                                    'unit' => $buyerOrderItem->unit,
+                                    'unit_of_measure_id' => $buyerOrderItem->unit_of_measure_id,
                                     'unit_price' => $costPrice,
                                     'unit_price_exc_tax' => $costPrice,
                                     'tax_amount' => '0.0000',
@@ -810,6 +837,11 @@ final class SupplierOrdersRelationManager extends RelationManager
                                     'sort_order' => $index,
                                     'notes' => $buyerOrderItem->notes,
                                 ]);
+                                
+                                // Use setRawAttributes to bypass SafeUnitCast and ensure unit is set
+                                $attributes = $item->getAttributes();
+                                $item->setRawAttributes(array_merge($attributes, ['unit' => (string) $unitCode]));
+                                $item->save();
                             }
 
                             // Recalculate totals

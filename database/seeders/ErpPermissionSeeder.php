@@ -124,6 +124,12 @@ final class ErpPermissionSeeder extends Seeder
             'update tax codes',
             'delete tax codes',
 
+            // Unit of Measure permissions
+            'view unit of measures',
+            'create unit of measures',
+            'update unit of measures',
+            'delete unit of measures',
+
             // Project permissions
             'view projects',
             'create projects',
@@ -198,6 +204,7 @@ final class ErpPermissionSeeder extends Seeder
             'view currencies', 'create currencies', 'update currencies', 'delete currencies',
             'view exchange rates', 'create exchange rates', 'update exchange rates', 'delete exchange rates',
             'view tax codes', 'create tax codes', 'update tax codes', 'delete tax codes',
+            'view unit of measures', 'create unit of measures', 'update unit of measures', 'delete unit of measures',
             'view projects', 'create projects', 'update projects', 'delete projects',
             'view audit logs',
             'view key accounts', 'create key accounts', 'update key accounts', 'delete key accounts',
@@ -226,6 +233,7 @@ final class ErpPermissionSeeder extends Seeder
             'view tags',
             'view currencies',
             'view tax codes',
+            'view unit of measures',
             'view projects', 'create projects', 'update projects',
             'view key accounts', 'create key accounts',
             'view quotation evaluations', 'create quotation evaluations', 'update quotation evaluations',
@@ -253,6 +261,7 @@ final class ErpPermissionSeeder extends Seeder
             'view currencies',
             'view exchange rates', 'create exchange rates', 'update exchange rates',
             'view tax codes',
+            'view unit of measures',
             'view audit logs',
         ]);
     }
@@ -279,6 +288,7 @@ final class ErpPermissionSeeder extends Seeder
             'view currencies',
             'view exchange rates',
             'view tax codes',
+            'view unit of measures',
             'view projects',
         ]);
     }

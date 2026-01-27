@@ -354,14 +354,31 @@ final class SupplierOrder extends Model
 
         // Copy items from quote
         foreach ($quote->items as $quoteItem) {
-            SupplierOrderItem::create([
+            // Ensure unit is set from unit_of_measure_id, bypassing SafeUnitCast
+            $unitCode = 'pcs'; // Default fallback
+            if ($quoteItem->unit_of_measure_id !== null) {
+                $unitOfMeasure = \App\Models\UnitOfMeasure::find($quoteItem->unit_of_measure_id);
+                if ($unitOfMeasure !== null) {
+                    $unitCode = $unitOfMeasure->code;
+                } else {
+                    // Fallback to quote item's unit if UnitOfMeasure not found
+                    $quoteUnit = $quoteItem->unit;
+                    $unitCode = $quoteUnit instanceof \App\Enums\Unit ? $quoteUnit->value : ($quoteUnit ?? 'pcs');
+                }
+            } else {
+                // Fallback to quote item's unit
+                $quoteUnit = $quoteItem->unit;
+                $unitCode = $quoteUnit instanceof \App\Enums\Unit ? $quoteUnit->value : ($quoteUnit ?? 'pcs');
+            }
+            
+            $item = SupplierOrderItem::make([
                 'supplier_order_id' => $order->getKey(),
                 'supplier_quote_item_id' => $quoteItem->getKey(),
                 'request_item_id' => $quoteItem->request_item_id,
                 'article_id' => $quoteItem->article_id,
                 'description' => $quoteItem->description,
                 'quantity' => $quoteItem->quantity,
-                'unit' => $quoteItem->unit,
+                'unit_of_measure_id' => $quoteItem->unit_of_measure_id,
                 'unit_price' => $quoteItem->unit_price,
                 'unit_price_exc_tax' => $quoteItem->unit_price_exc_tax,
                 'tax_amount' => $quoteItem->tax_amount,
@@ -372,6 +389,11 @@ final class SupplierOrder extends Model
                 'sort_order' => $quoteItem->sort_order,
                 'notes' => $quoteItem->notes,
             ]);
+            
+            // Use setRawAttributes to bypass SafeUnitCast and ensure unit is set
+            $attributes = $item->getAttributes();
+            $item->setRawAttributes(array_merge($attributes, ['unit' => (string) $unitCode]));
+            $item->save();
         }
 
         return $order;

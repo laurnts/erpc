@@ -2,14 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Filament\Resources\ArticleResource\Pages;
+namespace App\Filament\Resources\UnitOfMeasureResource\Pages;
 
-use App\Filament\Resources\ArticleResource;
-use App\Filament\Resources\ArticleResource\RelationManagers\SuppliersRelationManager;
+use App\Filament\Resources\UnitOfMeasureResource;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
-use Filament\Actions\RestoreAction;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Pages\ViewRecord;
@@ -17,16 +15,16 @@ use Filament\Schemas\Components\Flex;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
-final class ViewArticle extends ViewRecord
+final class ViewUnitOfMeasure extends ViewRecord
 {
-    protected static string $resource = ArticleResource::class;
+    /** @var class-string<UnitOfMeasureResource> */
+    protected static string $resource = UnitOfMeasureResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
             ActionGroup::make([
                 EditAction::make(),
-                RestoreAction::make(),
                 DeleteAction::make(),
             ]),
         ];
@@ -37,34 +35,23 @@ final class ViewArticle extends ViewRecord
         return $schema
             ->schema([
                 Flex::make([
-                    Section::make('Article Details')
+                    Section::make('Unit Details')
                         ->schema([
                             TextEntry::make('code')
                                 ->label('Code')
                                 ->weight('bold')
                                 ->copyable(),
-                            TextEntry::make('name')
-                                ->label('Name'),
-                            TextEntry::make('sku')
-                                ->label('SKU')
-                                ->placeholder('—'),
-                            TextEntry::make('unitOfMeasure.label')
-                                ->label('Unit of Measure')
-                                ->placeholder('—'),
-                            TextEntry::make('defaultTaxCode.name')
-                                ->label('Default Tax Code')
-                                ->placeholder('—'),
-                            TextEntry::make('description')
-                                ->label('Description')
-                                ->placeholder('—')
-                                ->columnSpanFull(),
+                            TextEntry::make('label')
+                                ->label('Label'),
+                            TextEntry::make('sort_order')
+                                ->label('Sort Order'),
+                            IconEntry::make('is_active')
+                                ->label('Active')
+                                ->boolean(),
                         ])
                         ->columns(2),
                     Section::make('Status')
                         ->schema([
-                            IconEntry::make('is_active')
-                                ->label('Active')
-                                ->boolean(),
                             TextEntry::make('creator.name')
                                 ->label('Created By'),
                             TextEntry::make('created_at')
@@ -77,12 +64,5 @@ final class ViewArticle extends ViewRecord
                         ->grow(false),
                 ])->columnSpan('full'),
             ]);
-    }
-
-    public function getRelationManagers(): array
-    {
-        return [
-            SuppliersRelationManager::class,
-        ];
     }
 }

@@ -6,6 +6,7 @@ namespace App\Observers;
 
 use App\Models\SupplierQuoteItem;
 use App\Models\TaxCode;
+use App\Models\UnitOfMeasure;
 
 final readonly class SupplierQuoteItemObserver
 {
@@ -16,6 +17,7 @@ final readonly class SupplierQuoteItemObserver
     {
         $this->prefillTaxCodeFromArticle($item);
         $this->syncTaxRateFromCode($item);
+        $this->syncUnitFromUnitOfMeasure($item);
         $item->calculateTotals();
     }
 
@@ -27,6 +29,11 @@ final readonly class SupplierQuoteItemObserver
         // Re-sync tax rate if tax code changed
         if ($item->isDirty('tax_code_id')) {
             $this->syncTaxRateFromCode($item);
+        }
+
+        // Re-sync unit if unit_of_measure_id changed
+        if ($item->isDirty('unit_of_measure_id')) {
+            $this->syncUnitFromUnitOfMeasure($item);
         }
 
         // Recalculate if pricing fields changed
@@ -89,6 +96,25 @@ final readonly class SupplierQuoteItemObserver
                 // Use tax code's default inclusivity if item's inclusivity hasn't been explicitly set
                 if (! $item->isDirty('is_tax_inclusive') && $item->getOriginal('is_tax_inclusive') === null) {
                     $item->is_tax_inclusive = $taxCode->is_inclusive_default;
+                }
+            }
+        }
+    }
+
+    /**
+     * Sync unit field from unit_of_measure_id if unit is not set.
+     */
+    private function syncUnitFromUnitOfMeasure(SupplierQuoteItem $item): void
+    {
+        // If unit is not set but unit_of_measure_id is set, populate unit from UnitOfMeasure
+        if ($item->unit_of_measure_id !== null) {
+            // Check if unit is already set in raw attributes
+            $attributes = $item->getAttributes();
+            if (! isset($attributes['unit']) || $attributes['unit'] === null) {
+                $unitOfMeasure = UnitOfMeasure::find($item->unit_of_measure_id);
+                if ($unitOfMeasure !== null) {
+                    // Set the raw attributes by merging with existing attributes
+                    $item->setRawAttributes(array_merge($item->getAttributes(), ['unit' => $unitOfMeasure->code]));
                 }
             }
         }

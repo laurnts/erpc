@@ -59,6 +59,7 @@ final class SupplierQuoteItem extends Model
         'description',
         'quantity',
         'unit',
+        'unit_of_measure_id',
         'unit_price',
         'unit_price_exc_tax',
         'tax_code_id',
@@ -133,6 +134,16 @@ final class SupplierQuoteItem extends Model
     }
 
     /**
+     * The unit of measure for this item.
+     *
+     * @return BelongsTo<UnitOfMeasure, $this>
+     */
+    public function unitOfMeasure(): BelongsTo
+    {
+        return $this->belongsTo(UnitOfMeasure::class);
+    }
+
+    /**
      * The article for this quote item.
      *
      * @return BelongsTo<Article, $this>
@@ -150,6 +161,23 @@ final class SupplierQuoteItem extends Model
     public function taxCode(): BelongsTo
     {
         return $this->belongsTo(TaxCode::class);
+    }
+
+    /**
+     * Get the unit label (from UnitOfMeasure or fallback to unit code).
+     */
+    public function getUnitLabelAttribute(): string
+    {
+        if ($this->unitOfMeasure !== null) {
+            return $this->unitOfMeasure->label;
+        }
+
+        // Fallback to unit enum value or raw unit string
+        if ($this->unit !== null) {
+            return $this->unit instanceof Unit ? $this->unit->value : (string) $this->unit;
+        }
+
+        return '—';
     }
 
     /**

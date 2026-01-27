@@ -16,6 +16,7 @@ use App\Models\People;
 use App\Models\ProfitAndLoss;
 use App\Models\Request;
 use App\Models\TaxCode;
+use App\Models\UnitOfMeasure;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -198,12 +199,12 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             if ($state === null) {
                                                 return;
                                             }
-                                            $requestItem = $request->items()->with('article.defaultTaxCode')->find($state);
+                                            $requestItem = $request->items()->with('article.defaultTaxCode', 'unitOfMeasure')->find($state);
                                             if ($requestItem !== null) {
                                                 $set('article_id', $requestItem->article_id);
                                                 $set('description', $requestItem->description);
                                                 $set('quantity', $requestItem->quantity);
-                                                $set('unit', $requestItem->unit);
+                                                $set('unit_of_measure_id', $requestItem->unit_of_measure_id);
 
                                                 // Prefill tax code from article's default tax code
                                                 if ($requestItem->article?->default_tax_code_id !== null) {
@@ -228,8 +229,16 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->columnSpan(2)
                                         ->live(onBlur: true)
                                         ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
-                                    TextInput::make('unit')
-                                        ->default('pcs')
+                                    Select::make('unit_of_measure_id')
+                                        ->label('Unit')
+                                        ->relationship('unitOfMeasure', 'label', fn ($query) => $query->where('team_id', $request->team_id)->where('is_active', true))
+                                        ->searchable()
+                                        ->preload()
+                                        ->default(fn (): ?int => UnitOfMeasure::query()
+                                            ->where('team_id', $request->team_id)
+                                            ->where('code', 'pcs')
+                                            ->where('is_active', true)
+                                            ->value('id'))
                                         ->columnSpan(2),
                                 ]),
                             Grid::make(12)
@@ -682,7 +691,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         $selectedSupplierQuoteItems = \App\Models\SupplierQuoteItem::query()
                             ->whereHas('supplierQuote', fn ($q) => $q->where('request_id', $request->getKey()))
                             ->where('is_selected', true)
-                            ->with(['supplierQuote.supplier', 'requestItem.article'])
+                            ->with(['supplierQuote.supplier', 'requestItem.article', 'requestItem.unitOfMeasure'])
                             ->get();
 
                         foreach ($selectedSupplierQuoteItems as $supplierQuoteItem) {
@@ -731,7 +740,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 'from_supplier' => $supplierName,
                                 'description' => $requestItem->article !== null ? $requestItem->article->name : $requestItem->description,
                                 'quantity' => (string) $requestItem->quantity,
-                                'unit' => $requestItem->unit,
+                                'unit_of_measure_id' => $requestItem->unit_of_measure_id,
+                                'unit' => $requestItem->unitOfMeasure?->code ?? $requestItem->unit?->value ?? 'pcs',
                                 'cost_price' => (string) $costPrice,
                                 'unit_price' => (string) $unitPrice,
                                 'unit_price_exc_tax' => (string) round($unitPriceExcTax, 4),
@@ -802,7 +812,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                             $selectedSupplierQuoteItems = \App\Models\SupplierQuoteItem::query()
                                 ->whereHas('supplierQuote', fn ($q) => $q->where('request_id', $request->getKey()))
                                 ->where('is_selected', true)
-                                ->with(['requestItem.article'])
+                                ->with(['requestItem.article', 'requestItem.unitOfMeasure'])
                                 ->get();
 
                             foreach ($selectedSupplierQuoteItems as $supplierQuoteItem) {
@@ -849,7 +859,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     'supplier_quote_item_id' => $supplierQuoteItemId,
                                     'description' => $requestItem->article !== null ? $requestItem->article->name : $requestItem->description,
                                     'quantity' => $requestItem->quantity,
-                                    'unit' => $requestItem->unit,
+                                    'unit_of_measure_id' => $requestItem->unit_of_measure_id,
+                                    'unit' => $requestItem->unitOfMeasure?->code ?? $requestItem->unit?->value ?? 'pcs',
                                     'cost_price' => $costPrice,
                                     'unit_price' => $unitPrice,
                                     'unit_price_exc_tax' => round($unitPriceExcTax, 4),

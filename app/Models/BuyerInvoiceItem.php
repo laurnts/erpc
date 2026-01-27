@@ -54,6 +54,7 @@ final class BuyerInvoiceItem extends Model
         'description',
         'quantity',
         'unit',
+        'unit_of_measure_id',
         'unit_price',
         'tax_code_id',
         'tax_rate',
@@ -123,6 +124,16 @@ final class BuyerInvoiceItem extends Model
     public function requestItem(): BelongsTo
     {
         return $this->belongsTo(RequestItem::class);
+    }
+
+    /**
+     * The unit of measure for this item.
+     *
+     * @return BelongsTo<UnitOfMeasure, $this>
+     */
+    public function unitOfMeasure(): BelongsTo
+    {
+        return $this->belongsTo(UnitOfMeasure::class);
     }
 
     /**
@@ -223,6 +234,23 @@ final class BuyerInvoiceItem extends Model
     }
 
     /**
+     * Get the unit label (from UnitOfMeasure or fallback to unit string).
+     */
+    public function getUnitLabelAttribute(): string
+    {
+        if ($this->unitOfMeasure !== null) {
+            return $this->unitOfMeasure->label;
+        }
+
+        // Fallback to unit string
+        if ($this->unit !== null) {
+            return (string) $this->unit;
+        }
+
+        return '—';
+    }
+
+    /**
      * Create from a buyer order item with locked values.
      */
     public static function createFromOrderItem(BuyerInvoice $buyerInvoice, BuyerOrderItem $orderItem): self
@@ -234,7 +262,23 @@ final class BuyerInvoiceItem extends Model
         $item->article_id = $orderItem->article_id;
         $item->description = $orderItem->description;
         $item->quantity = $orderItem->quantity;
-        $item->unit = $orderItem->unit;
+        $item->unit_of_measure_id = $orderItem->unit_of_measure_id;
+        
+        // Ensure unit is set from unit_of_measure_id or order item's unit
+        if ($orderItem->unit_of_measure_id !== null) {
+            $unitOfMeasure = \App\Models\UnitOfMeasure::find($orderItem->unit_of_measure_id);
+            if ($unitOfMeasure !== null) {
+                $item->unit = $unitOfMeasure->code;
+            } else {
+                // Fallback to order item's unit
+                $orderUnit = $orderItem->unit;
+                $item->unit = $orderUnit instanceof \App\Enums\Unit ? $orderUnit->value : ($orderUnit ?? 'pcs');
+            }
+        } else {
+            // Fallback to order item's unit
+            $orderUnit = $orderItem->unit;
+            $item->unit = $orderUnit instanceof \App\Enums\Unit ? $orderUnit->value : ($orderUnit ?? 'pcs');
+        }
 
         // Lock pricing from order
         $item->unit_price = (string) round((float) $orderItem->unit_price, 4);

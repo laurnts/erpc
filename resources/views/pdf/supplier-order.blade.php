@@ -104,7 +104,7 @@
                         @endif
                     </td>
                     <td class="text-center">{{ number_format((float)$item->quantity, 2) }}</td>
-                    <td class="text-center">{{ $item->unit }}</td>
+                    <td class="text-center">{{ $item->unit_label }}</td>
                     <td class="text-right">{{ number_format((float)$item->unit_price_exc_tax, 2) }}</td>
                     <td class="text-right">{{ number_format((float)($item->tax_amount * $item->quantity), 2) }}</td>
                     <td class="text-right">{{ number_format((float)$item->line_total, 2) }}</td>

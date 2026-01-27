@@ -58,6 +58,7 @@ final class SupplierOrderItem extends Model
         'description',
         'quantity',
         'unit',
+        'unit_of_measure_id',
         'unit_price',
         'unit_price_exc_tax',
         'tax_amount',
@@ -130,6 +131,16 @@ final class SupplierOrderItem extends Model
     public function requestItem(): BelongsTo
     {
         return $this->belongsTo(RequestItem::class);
+    }
+
+    /**
+     * The unit of measure for this item.
+     *
+     * @return BelongsTo<UnitOfMeasure, $this>
+     */
+    public function unitOfMeasure(): BelongsTo
+    {
+        return $this->belongsTo(UnitOfMeasure::class);
     }
 
     /**
@@ -206,6 +217,23 @@ final class SupplierOrderItem extends Model
                 return $this->description;
             },
         );
+    }
+
+    /**
+     * Get the unit label (from UnitOfMeasure or fallback to unit code).
+     */
+    public function getUnitLabelAttribute(): string
+    {
+        if ($this->unitOfMeasure !== null) {
+            return $this->unitOfMeasure->label;
+        }
+
+        // Fallback to unit enum value or raw unit string
+        if ($this->unit !== null) {
+            return $this->unit instanceof Unit ? $this->unit->value : (string) $this->unit;
+        }
+
+        return '—';
     }
 
     /**
