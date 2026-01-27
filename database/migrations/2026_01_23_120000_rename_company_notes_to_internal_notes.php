@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -17,9 +18,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('companies', function (Blueprint $table): void {
-            $table->renameColumn('notes', 'internal_notes');
-        });
+        $driver = DB::getDriverName();
+
+        if ($driver === 'pgsql') {
+            // PostgreSQL requires raw SQL for renaming columns
+            DB::statement('ALTER TABLE companies RENAME COLUMN notes TO internal_notes');
+        } else {
+            // For MySQL/MariaDB, use Schema builder
+            Schema::table('companies', function (Blueprint $table): void {
+                $table->renameColumn('notes', 'internal_notes');
+            });
+        }
     }
 
     /**
@@ -27,8 +36,16 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('companies', function (Blueprint $table): void {
-            $table->renameColumn('internal_notes', 'notes');
-        });
+        $driver = DB::getDriverName();
+
+        if ($driver === 'pgsql') {
+            // PostgreSQL requires raw SQL for renaming columns
+            DB::statement('ALTER TABLE companies RENAME COLUMN internal_notes TO notes');
+        } else {
+            // For MySQL/MariaDB, use Schema builder
+            Schema::table('companies', function (Blueprint $table): void {
+                $table->renameColumn('internal_notes', 'notes');
+            });
+        }
     }
 };

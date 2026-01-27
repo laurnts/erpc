@@ -70,8 +70,10 @@ final class ItemsRelationManager extends RelationManager
                     ->minValue(0.0001)
                     ->default(1),
                 TextInput::make('unit')
+                    ->required()
                     ->maxLength(50)
-                    ->default('pcs'),
+                    ->default('pcs')
+                    ->placeholder('pcs'),
                 Select::make('article_id')
                     ->label('Match to Article')
                     ->columnSpanFull()
@@ -97,7 +99,7 @@ final class ItemsRelationManager extends RelationManager
                         $article = Article::create([
                             'name' => $data['name'],
                             'sku' => $data['sku'] ?? null,
-                            'unit' => $data['unit'] ?? 'pcs',
+                            'unit' => ! empty($data['unit']) ? $data['unit'] : 'pcs',
                             'default_tax_code_id' => $data['default_tax_code_id'] ?? null,
                             'description' => $data['description'] ?? null,
                             'attributes' => $data['attributes'] ?? null,
@@ -216,7 +218,7 @@ final class ItemsRelationManager extends RelationManager
                             ->unique()
                             ->count();
 
-                        $itemsList = $matchedItems->take(5)->map(fn (RequestItem $item): string => "• {$item->article?->name} (".number_format((float) $item->quantity, 0)." {$item->unit})")->implode("\n");
+                        $itemsList = $matchedItems->take(5)->map(fn (RequestItem $item): string => "• {$item->article?->name} (".number_format((float) $item->quantity, 0)." ".($item->unit?->value ?? 'pcs').")")->implode("\n");
                         $moreItems = $matchedItems->count() > 5 ? "\n• ... and ".($matchedItems->count() - 5).' more item(s)' : '';
 
                         $prefix = $hasSelection ? 'SELECTED ' : 'ALL ';
@@ -300,7 +302,7 @@ final class ItemsRelationManager extends RelationManager
                                         'article_id' => $item->article_id,
                                         'description' => $item->article?->name ?? $item->description,
                                         'quantity' => $item->quantity,
-                                        'unit' => $item->unit,
+                                        'unit' => $item->unit?->value ?? 'pcs',
                                         'sort_order' => $existingQuote->items()->count(),
                                     ]);
                                     $itemsAdded++;
@@ -355,7 +357,7 @@ final class ItemsRelationManager extends RelationManager
 
                         $qty = number_format((float) $record->quantity, 0);
 
-                        return "You are about to send a quote request for:\n\n• Item: {$articleName}\n• Quantity: {$qty} {$record->unit}\n\nThis will be sent to {$supplierCount} supplier(s) linked to this article.";
+                        return "You are about to send a quote request for:\n\n• Item: {$articleName}\n• Quantity: {$qty} ".($record->unit?->value ?? 'pcs')."\n\nThis will be sent to {$supplierCount} supplier(s) linked to this article.";
                     })
                     ->action(function (RequestItem $record) use ($request): void {
                         if ($record->article === null) {
@@ -403,7 +405,7 @@ final class ItemsRelationManager extends RelationManager
                                         'article_id' => $record->article_id,
                                         'description' => $record->article?->name ?? $record->description,
                                         'quantity' => $record->quantity,
-                                        'unit' => $record->unit,
+                                        'unit' => $record->unit?->value ?? 'pcs',
                                         'sort_order' => $existingQuote->items()->count(),
                                     ]);
                                     $itemsAdded++;
@@ -425,7 +427,7 @@ final class ItemsRelationManager extends RelationManager
                                     'article_id' => $record->article_id,
                                     'description' => $record->article?->name ?? $record->description,
                                     'quantity' => $record->quantity,
-                                    'unit' => $record->unit,
+                                    'unit' => $record->unit?->value ?? 'pcs',
                                     'sort_order' => 0,
                                 ]);
                                 $itemsAdded++;

@@ -82,6 +82,28 @@ final class Article extends Model implements HasCustomFields
     }
 
     /**
+     * Boot the model.
+     */
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function (Article $article): void {
+            // Ensure unit is never null or empty
+            if (empty($article->unit)) {
+                $article->unit = 'pcs';
+            }
+        });
+
+        static::updating(function (Article $article): void {
+            // Ensure unit is never null or empty
+            if (empty($article->unit)) {
+                $article->unit = 'pcs';
+            }
+        });
+    }
+
+    /**
      * Get the default tax code for this article.
      *
      * @return BelongsTo<TaxCode, $this>

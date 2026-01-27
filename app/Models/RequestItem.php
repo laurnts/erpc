@@ -72,6 +72,28 @@ final class RequestItem extends Model
     }
 
     /**
+     * Boot the model.
+     */
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function (RequestItem $item): void {
+            // Ensure unit is never null or empty
+            if (empty($item->unit)) {
+                $item->unit = 'pcs';
+            }
+        });
+
+        static::updating(function (RequestItem $item): void {
+            // Ensure unit is never null or empty
+            if (empty($item->unit)) {
+                $item->unit = 'pcs';
+            }
+        });
+    }
+
+    /**
      * The request that owns this item.
      *
      * @return BelongsTo<Request, $this>

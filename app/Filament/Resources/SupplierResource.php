@@ -212,7 +212,7 @@ final class SupplierResource extends Resource
                 ->columns(1),
             Section::make('Additional Information')
                 ->schema([
-                    Textarea::make('notes')
+                    Textarea::make('internal_notes')
                         ->label('Notes')
                         ->rows(2),
                     Toggle::make('is_active')
