@@ -137,6 +137,17 @@ final class Article extends Model implements HasCustomFields
     }
 
     /**
+     * Alias for suppliers() method.
+     * Some form fields may reference this relationship as "companies".
+     *
+     * @return BelongsToMany<Company, $this>
+     */
+    public function companies(): BelongsToMany
+    {
+        return $this->suppliers();
+    }
+
+    /**
      * Get the preferred supplier for this article.
      *
      * @return BelongsToMany<Company, $this>
