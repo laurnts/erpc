@@ -97,7 +97,14 @@ final class AddTeamMember extends BaseLivewireComponent
 
         $this->sendNotification(__('teams.notifications.team_invitation_sent.success'));
 
-        $this->redirect(Filament::getTenantProfileUrl());
+        // Reset form after successful addition
+        $this->form->fill(['email' => '', 'role' => null]);
+
+        // Only redirect if not on members page (check URL path)
+        $currentPath = request()->path();
+        if (! str_contains($currentPath, '/members')) {
+            $this->redirect(Filament::getTenantProfileUrl());
+        }
     }
 
     public function render(): \Illuminate\Contracts\View\View

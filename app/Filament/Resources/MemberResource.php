@@ -1,0 +1,109 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Filament\Resources;
+
+use App\Filament\Resources\MemberResource\Pages\ListMembers;
+use App\Models\Membership;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
+use Filament\Facades\Filament;
+use Filament\Resources\Resource;
+use Filament\Tables\Columns\ImageColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+
+final class MemberResource extends Resource
+{
+    protected static ?string $model = Membership::class;
+
+    protected static ?string $recordTitleAttribute = 'user.email';
+
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-users';
+
+    protected static ?int $navigationSort = 1;
+
+    protected static string|\UnitEnum|null $navigationGroup = null;
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Team Members';
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->recordUrl(fn (Membership $record): string => MemberResource::getUrl('view', ['record' => $record]))
+            ->columns([
+                ImageColumn::make('user.profile_photo_path')
+                    ->label('')
+                    ->disk(config('jetstream.profile_photo_disk'))
+                    ->defaultImageUrl(fn (Membership $record): string => Filament::getUserAvatarUrl($record->user))
+                    ->circular()
+                    ->size(32),
+                TextColumn::make('user.name')
+                    ->label('Name')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('medium'),
+                TextColumn::make('user.email')
+                    ->label('Email')
+                    ->searchable()
+                    ->sortable()
+                    ->copyable(),
+                TextColumn::make('role')
+                    ->label('Role')
+                    ->badge()
+                    ->formatStateUsing(fn (Membership $record): string => $record->roleName)
+                    ->color(fn (Membership $record): string => match ($record->role) {
+                        'admin' => 'danger',
+                        'editor' => 'primary',
+                        default => 'gray',
+                    })
+                    ->sortable(),
+                TextColumn::make('created_at')
+                    ->label('Joined')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(),
+            ])
+            ->defaultSort('created_at', 'desc')
+            ->filters([
+                SelectFilter::make('role')
+                    ->label('Role')
+                    ->options([
+                        'admin' => 'Administrator',
+                        'editor' => 'Editor',
+                    ]),
+            ])
+            ->actions([]);
+    }
+
+    /**
+     * @return Builder<Membership>
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        $team = Filament::getTenant();
+        
+        return parent::getEloquentQuery()
+            ->where('team_id', $team->id)
+            ->with('user');
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => ListMembers::route('/'),
+            'view' => \App\Filament\Resources\MemberResource\Pages\ViewMember::route('/{record}'),
+        ];
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['user.name', 'user.email'];
+    }
+}
