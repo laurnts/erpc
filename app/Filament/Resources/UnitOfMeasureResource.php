@@ -19,6 +19,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Validation\Rules\Unique;
 
 final class UnitOfMeasureResource extends Resource
 {
@@ -43,7 +44,11 @@ final class UnitOfMeasureResource extends Resource
             TextInput::make('code')
                 ->required()
                 ->maxLength(50)
-                ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule, $record) => $rule->where('team_id', $record->team_id ?? Filament::getTenant()?->id))
+                ->unique(
+                    table: 'unit_of_measures',
+                    ignoreRecord: true,
+                    modifyRuleUsing: fn (Unique $rule, $record) => $rule->where('team_id', $record?->team_id ?? Filament::getTenant()?->id)
+                )
                 ->helperText('A unique identifier for this unit (e.g., pcs, kg, m)'),
             TextInput::make('label')
                 ->required()

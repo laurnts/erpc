@@ -306,6 +306,18 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                 ->where('code', 'pcs')
                                                 ->where('is_active', true)
                                                 ->value('id'))
+                                            ->afterStateHydrated(function (Set $set, Get $get, ?int $state) use ($request): void {
+                                                // Prefill unit from request item if not already set
+                                                if ($state === null) {
+                                                    $requestItemId = $get('request_item_id');
+                                                    if ($requestItemId !== null) {
+                                                        $requestItem = $request->items()->with('unitOfMeasure')->find($requestItemId);
+                                                        if ($requestItem !== null && $requestItem->unit_of_measure_id !== null) {
+                                                            $set('unit_of_measure_id', $requestItem->unit_of_measure_id);
+                                                        }
+                                                    }
+                                                }
+                                            })
                                             ->columnSpan(2),
                                     ]),
                                 Grid::make(12)

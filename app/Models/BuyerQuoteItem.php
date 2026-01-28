@@ -268,7 +268,7 @@ final class BuyerQuoteItem extends Model
         $this->line_total = (string) round($lineTotal, 4);
         $this->tax_amount = (string) round($lineTax / max($quantity, 0.0001), 4);
 
-        // Calculate margin (based on net prices)
+        // Calculate markup: ((selling_price - cost_price) / cost_price) * 100
         $costPrice = (float) $this->cost_price;
         $this->margin_amount = (string) round($unitPriceExcTax - $costPrice, 4);
 

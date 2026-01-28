@@ -72,7 +72,17 @@ final class ItemsRelationManager extends RelationManager
                     ->default(1),
                 Select::make('unit_of_measure_id')
                     ->label('Unit of Measure')
-                    ->relationship('unitOfMeasure', 'label', fn ($query) => $query->where('team_id', $request->team_id)->where('is_active', true))
+                    ->options(
+                        fn (): array => UnitOfMeasure::query()
+                            ->where('team_id', $request->team_id)
+                            ->where('is_active', true)
+                            ->orderBy('sort_order')
+                            ->orderBy('label')
+                            ->get()
+                            ->mapWithKeys(fn (UnitOfMeasure $unit): array => [
+                                $unit->getKey() => $unit->label,
+                            ])
+                            ->toArray())
                     ->searchable()
                     ->preload()
                     ->required()
@@ -81,7 +91,22 @@ final class ItemsRelationManager extends RelationManager
                         ->where('code', 'pcs')
                         ->where('is_active', true)
                         ->value('id'))
-                    ->helperText('Select the unit of measure'),
+                    ->helperText('Select the unit of measure. Use + to create a new unit.')
+                    ->createOptionForm(\App\Filament\Resources\UnitOfMeasureResource::getFormSchema())
+                    ->createOptionUsing(function (array $data) use ($request): int {
+                        /** @var UnitOfMeasure $unit */
+                        $unit = UnitOfMeasure::create([
+                            'code' => $data['code'],
+                            'label' => $data['label'],
+                            'sort_order' => $data['sort_order'] ?? 0,
+                            'is_active' => $data['is_active'] ?? true,
+                            'team_id' => $request->team_id,
+                            'creator_id' => auth()->id(),
+                        ]);
+
+                        return $unit->getKey();
+                    })
+                    ->createOptionModalHeading('Create New Unit of Measure'),
                 Select::make('article_id')
                     ->label('Match to Article')
                     ->columnSpanFull()
