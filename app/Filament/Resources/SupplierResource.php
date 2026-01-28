@@ -85,7 +85,8 @@ final class SupplierResource extends Resource
                 ]);
 
                 return $tag->id;
-            });
+            })
+            ->dehydrated(false); // Never include tags in form data - it's a relationship
 
         if ($forModal) {
             $tagsSelect->options(fn (): array => Tag::query()
