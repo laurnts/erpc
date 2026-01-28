@@ -7,7 +7,9 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\ArticleResource\Pages\CreateArticle;
 use App\Filament\Resources\ArticleResource\Pages\ListArticles;
 use App\Filament\Resources\ArticleResource\Pages\ViewArticle;
+use App\Filament\Resources\SupplierResource;
 use App\Models\Article;
+use App\Models\Company;
 use App\Models\Tag;
 use App\Models\TaxCode;
 use Filament\Actions\BulkActionGroup;
@@ -114,6 +116,46 @@ final class ArticleResource extends Resource
             $tagsSelect->relationship('tags', 'name');
         }
 
+        $suppliersSelect = Select::make('suppliers')
+            ->label('Suppliers')
+            ->multiple()
+            ->preload()
+            ->searchable()
+            ->createOptionForm(SupplierResource::getFormSchema(excludePeopleField: true, forModal: true))
+            ->createOptionUsing(function (array $data): int {
+                /** @var \App\Models\Team $team */
+                $team = Filament::getTenant();
+
+                /** @var Company $supplier */
+                $supplier = Company::create([
+                    ...$data,
+                    'is_supplier' => true,
+                    'team_id' => $team->id,
+                    'creator_id' => auth()->id(),
+                ]);
+
+                return $supplier->id;
+            });
+
+        if ($forModal) {
+            $suppliersSelect->options(fn (): array => Company::query()
+                ->where('team_id', Filament::getTenant()?->getKey())
+                ->where('is_supplier', true)
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get()
+                ->mapWithKeys(fn (Company $supplier): array => [
+                    $supplier->getKey() => $supplier->name,
+                ])
+                ->toArray());
+        } else {
+            $suppliersSelect->relationship(
+                'suppliers',
+                'name',
+                modifyQueryUsing: fn ($query) => $query->where('is_supplier', true)
+            );
+        }
+
         return [
             TextInput::make('name')
                 ->label('Article Name')
@@ -130,6 +172,7 @@ final class ArticleResource extends Resource
                 ->helperText('e.g., pcs, kg, ltr, set, box'),
             $taxCodeSelect,
             $tagsSelect,
+            $suppliersSelect,
             Textarea::make('description')
                 ->maxLength(2000)
                 ->rows(3),

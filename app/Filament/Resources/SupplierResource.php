@@ -59,10 +59,48 @@ final class SupplierResource extends Resource
      * Used both in main form and inline create modals.
      *
      * @param  bool  $excludePeopleField  Exclude People field to prevent circular references
+     * @param  bool  $forModal  When true, uses options() instead of relationship() to avoid model context issues
      * @return array<int, \Filament\Schemas\Components\Component>
      */
-    public static function getFormSchema(bool $excludePeopleField = false): array
+    public static function getFormSchema(bool $excludePeopleField = false, bool $forModal = false): array
     {
+        $tagsSelect = Select::make('tags')
+            ->label('Categories')
+            ->multiple()
+            ->preload()
+            ->searchable()
+            ->helperText('What products/services they supply')
+            ->createOptionForm(TagResource::getFormSchema())
+            ->createOptionUsing(function (array $data): int {
+                /** @var \App\Models\Team $team */
+                $team = Filament::getTenant();
+
+                /** @var Tag $tag */
+                $tag = Tag::create([
+                    'name' => $data['name'],
+                    'color' => $data['color'],
+                    'description' => $data['description'] ?? null,
+                    'team_id' => $team->id,
+                    'creator_id' => auth()->id(),
+                ]);
+
+                return $tag->id;
+            });
+
+        if ($forModal) {
+            $tagsSelect->options(fn (): array => Tag::query()
+                ->where('team_id', Filament::getTenant()?->getKey())
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get()
+                ->mapWithKeys(fn (Tag $tag): array => [
+                    $tag->getKey() => $tag->name,
+                ])
+                ->toArray());
+        } else {
+            $tagsSelect->relationship('tags', 'name');
+        }
+
         $fields = [
             Hidden::make('is_supplier')->default(true),
 
@@ -83,29 +121,7 @@ final class SupplierResource extends Resource
                 ->maxLength(255)
                 ->placeholder('supplier@example.com'),
 
-            Select::make('tags')
-                ->label('Categories')
-                ->relationship('tags', 'name')
-                ->multiple()
-                ->preload()
-                ->searchable()
-                ->helperText('What products/services they supply')
-                ->createOptionForm(TagResource::getFormSchema())
-                ->createOptionUsing(function (array $data): int {
-                    /** @var \App\Models\Team $team */
-                    $team = Filament::getTenant();
-
-                    /** @var Tag $tag */
-                    $tag = Tag::create([
-                        'name' => $data['name'],
-                        'color' => $data['color'],
-                        'description' => $data['description'] ?? null,
-                        'team_id' => $team->id,
-                        'creator_id' => auth()->id(),
-                    ]);
-
-                    return $tag->id;
-                }),
+            $tagsSelect,
         ];
 
         // Add People field unless excluded (to prevent circular references)
@@ -133,6 +149,44 @@ final class SupplierResource extends Resource
                 });
         }
 
+        $defaultCurrencySelect = Select::make('default_currency_id')
+            ->label('Default Currency')
+            ->default(function (): ?int {
+                /** @var \App\Models\Team|null $team */
+                $team = Filament::getTenant();
+                $defaultCode = $team?->getErpSettings()->default_currency ?? 'USD';
+
+                return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
+            })
+            ->nullable()
+            ->searchable()
+            ->preload()
+            ->createOptionForm(CurrencyResource::getFormSchema(excludeDefaultField: true))
+            ->createOptionUsing(function (array $data): int {
+                /** @var Currency $currency */
+                $currency = Currency::create($data);
+
+                return $currency->id;
+            });
+
+        if ($forModal) {
+            $defaultCurrencySelect->options(fn (): array => Currency::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get()
+                ->mapWithKeys(fn (Currency $currency): array => [
+                    $currency->getKey() => "{$currency->code} - {$currency->name}",
+                ])
+                ->toArray());
+        } else {
+            $defaultCurrencySelect->relationship(
+                'defaultCurrency',
+                'name',
+                modifyQueryUsing: fn ($query) => $query->where('is_active', true)
+            )
+                ->getOptionLabelFromRecordUsing(fn (?Currency $record): string => $record instanceof \App\Models\Currency ? "{$record->code} - {$record->name}" : '');
+        }
+
         return array_merge($fields, [
             Section::make('Location')
                 ->schema([
@@ -147,31 +201,7 @@ final class SupplierResource extends Resource
                 ->columns(1),
             Section::make('Financial Settings')
                 ->schema([
-                    Select::make('default_currency_id')
-                        ->label('Default Currency')
-                        ->relationship(
-                            'defaultCurrency',
-                            'name',
-                            modifyQueryUsing: fn ($query) => $query->where('is_active', true)
-                        )
-                        ->getOptionLabelFromRecordUsing(fn (?Currency $record): string => $record instanceof \App\Models\Currency ? "{$record->code} - {$record->name}" : '')
-                        ->default(function (): ?int {
-                            /** @var \App\Models\Team|null $team */
-                            $team = Filament::getTenant();
-                            $defaultCode = $team?->getErpSettings()->default_currency ?? 'USD';
-
-                            return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
-                        })
-                        ->nullable()
-                        ->searchable()
-                        ->preload()
-                        ->createOptionForm(CurrencyResource::getFormSchema(excludeDefaultField: true))
-                        ->createOptionUsing(function (array $data): int {
-                            /** @var Currency $currency */
-                            $currency = Currency::create($data);
-
-                            return $currency->id;
-                        }),
+                    $defaultCurrencySelect,
                     TextInput::make('payment_terms_days')
                         ->label('Default Payment Terms')
                         ->numeric()
@@ -218,7 +248,8 @@ final class SupplierResource extends Resource
                     Toggle::make('is_active')
                         ->label('Active')
                         ->default(true),
-                    CustomFields::form()->build(),
+                    // Exclude CustomFields in modal context to avoid model context issues
+                    ...($forModal ? [] : [CustomFields::form()->build()]),
                 ])
                 ->columns(1),
         ]);
