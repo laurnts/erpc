@@ -43,8 +43,15 @@ final readonly class BuyerQuoteItemObserver
         }
 
         // Recalculate prices if relevant fields changed
-        $priceFields = ['quantity', 'unit_price', 'cost_price', 'tax_rate', 'is_tax_inclusive', 'tax_code_id'];
+        // Always recalculate to ensure unit_price_exc_tax matches unit_price (both should be net price)
+        $priceFields = ['quantity', 'unit_price', 'unit_price_exc_tax', 'cost_price', 'tax_rate', 'is_tax_inclusive', 'tax_code_id'];
         if ($item->isDirty($priceFields)) {
+            $item->recalculatePrices();
+        }
+        
+        // Also ensure unit_price_exc_tax always matches unit_price (both are net price)
+        // This fixes cases where unit_price_exc_tax might have been saved with old logic
+        if ((float) $item->unit_price !== (float) $item->unit_price_exc_tax && (float) $item->unit_price > 0) {
             $item->recalculatePrices();
         }
     }

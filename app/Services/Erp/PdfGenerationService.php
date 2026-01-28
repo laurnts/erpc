@@ -62,23 +62,35 @@ final readonly class PdfGenerationService
             return $processedItem;
         });
 
-        // Calculate subtotal from processed items
+        // Recalculate tax for processed items based on distributed prices and tax inclusivity
+        // Processed items have distributed prices added, so we need to recalculate tax for each item
+        $processedItems = $processedItems->map(function ($item): object {
+            $lineSubtotal = (float) $item->line_subtotal;
+            $taxRate = (float) $item->tax_rate;
+            $isTaxInclusive = (bool) $item->is_tax_inclusive;
+            
+            if ($isTaxInclusive && $taxRate > 0) {
+                // Tax is added on top of the net price
+                $lineTax = $lineSubtotal * $taxRate / 100;
+                $lineTotal = $lineSubtotal + $lineTax;
+            } else {
+                // No tax added - line total equals line subtotal
+                $lineTax = 0;
+                $lineTotal = $lineSubtotal;
+            }
+            
+            $item->line_tax = (string) round($lineTax, 0);
+            $item->line_total = (string) round($lineTotal, 0);
+            $item->tax_amount = (string) round($lineTax / max((float) $item->quantity, 0.0001), 0);
+            
+            return $item;
+        });
+        
+        // Calculate totals from processed items (matching form calculation)
+        // Use actual line_subtotal, line_tax, and line_total from items to match form summary
         $processedSubtotal = $processedItems->sum(fn ($item): float => (float) $item->line_subtotal);
-
-        // Calculate tax rate from visible items
-        // Use tax rate from first visible item that has tax
-        $taxRate = 0;
-        $itemsWithTax = $visibleItems->filter(fn ($item): bool => (float) $item->tax_rate > 0);
-
-        if ($itemsWithTax->isNotEmpty()) {
-            // Use tax rate from first item with tax (all items should have same tax rate)
-            $firstItemWithTax = $itemsWithTax->first();
-            $taxRate = (float) $firstItemWithTax->tax_rate;
-        }
-
-        // Calculate tax from subtotal
-        $processedTaxTotal = $processedSubtotal * ($taxRate / 100);
-        $processedTotal = $processedSubtotal + $processedTaxTotal;
+        $processedTaxTotal = $processedItems->sum(fn ($item): float => (float) $item->line_tax);
+        $processedTotal = $processedItems->sum(fn ($item): float => (float) $item->line_total);
 
         $pdf = Pdf::loadView('pdf.buyer-quote', [
             'quote' => $quote,

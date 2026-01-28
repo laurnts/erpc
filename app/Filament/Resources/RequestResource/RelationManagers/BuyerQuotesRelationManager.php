@@ -277,20 +277,17 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->afterStateUpdated(function (Set $set, Get $get): void {
                                             $costPrice = (float) ($get('cost_price') ?? 0);
                                             $unitPrice = (float) ($get('unit_price') ?? 0);
-                                            $taxRate = (float) ($get('tax_rate') ?? 0);
-                                            $isTaxInclusive = (bool) ($get('is_tax_inclusive') ?? false);
-
-                                            // Extract net price from unit_price based on tax inclusivity
-                                            if ($isTaxInclusive && $taxRate > 0) {
-                                                $unitPriceExcTax = $unitPrice / (1 + $taxRate / 100);
-                                            } else {
-                                                $unitPriceExcTax = $unitPrice;
-                                            }
+                                            
+                                            // unit_price always represents the net price (Selling Price Net)
+                                            $unitPriceExcTax = round($unitPrice, 0);
+                                            
+                                            // Update unit_price_exc_tax to match
+                                            $set('unit_price_exc_tax', $unitPriceExcTax);
 
                                             if ($costPrice > 0 && $unitPriceExcTax > 0) {
-                                                // Markup formula: ((selling_price - cost_price) / cost_price) * 100
-                                                $marginPercent = (($unitPriceExcTax - $costPrice) / $costPrice) * 100;
-                                                $set('margin_percent_input', (int) ceil($marginPercent));
+                                                // Margin on selling: ((selling_price - cost_price) / selling_price) * 100
+                                                $marginPercent = (($unitPriceExcTax - $costPrice) / $unitPriceExcTax) * 100;
+                                                $set('margin_percent_input', (int) round($marginPercent));
                                             }
 
                                             $this->calculateItemTotals($set, $get);
@@ -300,7 +297,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->numeric()
                                         ->required()
                                         ->default(0)
-                                        ->step(0.0001)
+                                        ->step(1)
                                         ->columnSpan(2)
                                         ->live(onBlur: true)
                                         ->afterStateUpdated(function (Set $set, Get $get): void {
@@ -308,14 +305,14 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             $unitPrice = (float) ($get('unit_price') ?? 0);
 
                                             // unit_price always represents the net price (Selling Price Net)
-                                            $unitPriceExcTax = $unitPrice;
+                                            $unitPriceExcTax = round($unitPrice, 0);
                                             
                                             // Update unit_price_exc_tax to match
                                             $set('unit_price_exc_tax', $unitPriceExcTax);
 
                                             if ($costPrice > 0 && $unitPriceExcTax > 0) {
-                                                // Markup formula: ((selling_price - cost_price) / cost_price) * 100
-                                                $marginPercent = (($unitPriceExcTax - $costPrice) / $costPrice) * 100;
+                                                // Margin on selling: ((selling_price - cost_price) / selling_price) * 100
+                                                $marginPercent = (($unitPriceExcTax - $costPrice) / $unitPriceExcTax) * 100;
                                                 $set('margin_percent_input', (int) ceil($marginPercent));
                                             }
 
@@ -406,51 +403,29 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             $isTaxInclusive = (bool) ($get('is_tax_inclusive') ?? false);
                                             $marginPercentInput = $get('margin_percent_input');
                                             
-                                            // Prefer stored unit_price_exc_tax if it exists and makes sense
-                                            // Otherwise calculate from unit_price
-                                            if ($unitPriceExcTaxStored > 0) {
+                                            // unit_price always represents the net price (Selling Price Net)
+                                            // unit_price_exc_tax should always equal unit_price (they're both net price)
+                                            if ($unitPrice > 0) {
+                                                $unitPriceExcTax = round($unitPrice, 0);
+                                                // Ensure unit_price_exc_tax matches unit_price
+                                                $set('unit_price_exc_tax', $unitPriceExcTax);
+                                            } elseif ($unitPriceExcTaxStored > 0) {
+                                                // Fallback to stored value if unit_price is not set
                                                 $unitPriceExcTax = $unitPriceExcTaxStored;
-                                            } elseif ($costPrice > 0 && $unitPrice > 0) {
-                                                // Recalculate unit_price_exc_tax from unit_price
-                                                if ($isTaxInclusive && $taxRate > 0) {
-                                                    // unit_price includes tax - extract the net price
-                                                    $unitPriceExcTax = $unitPrice / (1 + $taxRate / 100);
-                                                } else {
-                                                    // unit_price is net price
-                                                    $unitPriceExcTax = $unitPrice;
-                                                }
-                                                
-                                                // Update unit_price_exc_tax in form state
-                                                $set('unit_price_exc_tax', round($unitPriceExcTax, 4));
-                                                
-                                                // Also update unit_price to ensure consistency
-                                                if ($isTaxInclusive && $taxRate > 0) {
-                                                    // unit_price should include tax
-                                                    $correctUnitPrice = round($unitPriceExcTax * (1 + $taxRate / 100), 4);
-                                                    if (abs($unitPrice - $correctUnitPrice) > 0.01) {
-                                                        $set('unit_price', $correctUnitPrice);
-                                                    }
-                                                }
                                             } else {
                                                 $unitPriceExcTax = 0;
                                             }
                                             
-                                            // Only calculate margin if margin_percent_input is not already set (for new items, use default)
-                                            // For existing items, calculate from stored values
-                                            if ($marginPercentInput === null || $marginPercentInput === 0) {
-                                                if ($costPrice > 0 && $unitPriceExcTax > 0) {
-                                                    // Calculate markup: ((selling_price - cost_price) / cost_price) * 100
-                                                    $marginPercent = (($unitPriceExcTax - $costPrice) / $costPrice) * 100;
-                                                    $set('margin_percent_input', (int) ceil($marginPercent));
-                                                } else {
-                                                    // Fallback to stored margin_percent if calculation not possible
-                                            $marginPercent = $get('margin_percent');
-                                            if ($marginPercent !== null) {
-                                                        $set('margin_percent_input', (int) ceil((float) $marginPercent));
+                                            // Always recalculate margin from current values to ensure accuracy
+                                            // This ensures correct margin even if database has old incorrect values
+                                            if ($costPrice > 0 && $unitPriceExcTax > 0) {
+                                                // Calculate margin on selling: ((selling_price - cost_price) / selling_price) * 100
+                                                $marginPercent = (($unitPriceExcTax - $costPrice) / $unitPriceExcTax) * 100;
+                                                $set('margin_percent_input', (int) round($marginPercent));
                                             }
-                                                }
-                                            }
-                                            // If margin_percent_input is already set (from fillForm or default), keep it
+                                            
+                                            // Recalculate line totals to ensure they're correct based on current values
+                                            $this->calculateItemTotals($set, $get);
                                         })
                                         ->afterStateUpdated(function (Set $set, Get $get, ?float $state): void {
                                             $marginPercent = $state ?? 0;
@@ -458,9 +433,11 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             $taxRate = (float) ($get('tax_rate') ?? 0);
                                             $isTaxInclusive = (bool) ($get('is_tax_inclusive') ?? false);
 
-                                            if ($costPrice > 0 && $marginPercent >= 0) {
-                                                // Calculate selling price from margin using markup formula: selling = cost × (1 + margin%/100)
-                                                $unitPriceExcTax = round($costPrice * (1 + $marginPercent / 100), 4);
+                                            if ($costPrice > 0 && $marginPercent >= 0 && $marginPercent < 100) {
+                                                // Calculate selling price from margin on selling: selling = cost / (1 - margin%/100)
+                                                // Formula: margin% = (selling - cost) / selling × 100
+                                                // Solving for selling: selling = cost / (1 - margin%/100)
+                                                $unitPriceExcTax = round($costPrice / (1 - $marginPercent / 100), 0);
                                                 
                                                 // unit_price always represents the net price (Selling Price Net)
                                                 // The "+Tax" checkbox only affects whether tax is added to line total
@@ -572,7 +549,14 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         $totalCost += $costPrice * $qty;
                                     }
 
-                                    $marginPercent = $totalCost > 0 ? ($totalMargin / $totalCost) * 100 : 0;
+                                    // Calculate margin on selling: margin% = (total_margin / total_selling) * 100
+                                    $totalSelling = 0.0;
+                                    foreach ($items as $item) {
+                                        $qty = (float) ($item['quantity'] ?? 0);
+                                        $unitPriceExcTax = (float) ($item['unit_price_exc_tax'] ?? 0);
+                                        $totalSelling += $unitPriceExcTax * $qty;
+                                    }
+                                    $marginPercent = $totalSelling > 0 ? ($totalMargin / $totalSelling) * 100 : 0;
 
                                     $currencyId = $get('currency_id');
                                     /** @var Currency|null $currency */
@@ -784,32 +768,32 @@ final class BuyerQuotesRelationManager extends RelationManager
                             $addTax = $defaultTaxCode !== null && $defaultTaxCode->is_inclusive_default;
                             $quantity = (float) $requestItem->quantity;
 
-                            // Calculate selling price with default margin (NET price)
-                            // Using markup formula: selling = cost × (1 + margin%/100)
-                            $unitPriceExcTax = $costPrice > 0
-                                ? round($costPrice * (1 + $defaultMarginPercent / 100), 4)
+                            // Calculate selling price with default margin on selling (NET price)
+                            // Formula: margin% = (selling - cost) / selling × 100
+                            // Solving for selling: selling = cost / (1 - margin%/100)
+                            $unitPriceExcTax = $costPrice > 0 && $defaultMarginPercent < 100
+                                ? round($costPrice / (1 - $defaultMarginPercent / 100), 0)
                                 : 0.0;
 
-                            // If tax is inclusive, unit_price should include tax; otherwise unit_price = net price
-                            if ($addTax && $taxRate > 0) {
-                                $unitPrice = round($unitPriceExcTax * (1 + $taxRate / 100), 4);
-                            } else {
-                                $unitPrice = $unitPriceExcTax;
-                            }
+                            // unit_price always represents the net price (Selling Price Net), regardless of tax inclusivity
+                            // The +Tax checkbox only affects whether tax is added to line_total
+                            $unitPrice = round($unitPriceExcTax, 0);
 
                             // Line subtotal is quantity * net price (amount before tax)
                             $lineSubtotal = $quantity * $unitPriceExcTax;
 
                             // Calculate tax if tax rate > 0 (tax should always be calculated when tax code is selected)
                             if ($taxRate > 0) {
-                                if ($addTax) {
-                                    // Tax is inclusive - line_total includes tax, line_subtotal is extracted
-                                    $lineTotal = $quantity * $unitPrice;
-                                    $lineTax = $lineTotal - $lineSubtotal;
-                                } else {
-                                    // Tax is exclusive - add tax on top
+                                // Calculate tax amount
                                 $lineTax = $lineSubtotal * $taxRate / 100;
-                                $lineTotal = $lineSubtotal + $lineTax;
+                                
+                                if ($addTax) {
+                                    // Tax is added on top of the net price (line_total = subtotal + tax)
+                                    $lineTotal = $lineSubtotal + $lineTax;
+                                } else {
+                                    // Tax is exclusive - line total equals subtotal (no tax added)
+                                    $lineTax = 0;
+                                    $lineTotal = $lineSubtotal;
                                 }
                             } else {
                                 $lineTax = 0;
@@ -831,14 +815,14 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 'unit' => $requestItem->unitOfMeasure?->code ?? $requestItem->unit?->value ?? 'pcs',
                                 'cost_price' => (string) $costPrice,
                                 'unit_price' => (string) $unitPrice,
-                                'unit_price_exc_tax' => (string) round($unitPriceExcTax, 4),
+                                'unit_price_exc_tax' => (string) round($unitPriceExcTax, 0),
                                 'tax_code_id' => $defaultTaxCode?->getKey(),
                                 'tax_rate' => (string) $taxRate,
                                 'tax_amount' => (string) round($lineTax / max($quantity, 0.0001), 4),
                                 'is_tax_inclusive' => $addTax,
                                 'line_subtotal' => (string) round($lineSubtotal, 4),
                                 'line_tax' => (string) round($lineTax, 4),
-                                'line_total' => (string) round($lineTotal, 4),
+                                'line_total' => (string) round($lineTotal, 0),
                                 'margin_amount' => (string) round($marginAmount, 4),
                                 'margin_percent' => (string) round($marginPercent, 4),
                                 'margin_percent_input' => (string) (int) ceil($defaultMarginPercent),
@@ -917,9 +901,11 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 $quantity = (float) $requestItem->quantity;
 
                                 // Calculate selling price with default margin (NET price)
-                                // Using markup formula: selling = cost × (1 + margin%/100)
-                                $unitPriceExcTax = $costPrice > 0
-                                    ? round($costPrice * (1 + $defaultMarginPercent / 100), 4)
+                                // Calculate selling price with default margin on selling (NET price)
+                                // Formula: margin% = (selling - cost) / selling × 100
+                                // Solving for selling: selling = cost / (1 - margin%/100)
+                                $unitPriceExcTax = $costPrice > 0 && $defaultMarginPercent < 100
+                                    ? round($costPrice / (1 - $defaultMarginPercent / 100), 4)
                                     : 0.0;
 
                                 // If tax is inclusive, unit_price should include tax; otherwise unit_price = net price
@@ -962,14 +948,14 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     'unit' => $requestItem->unitOfMeasure?->code ?? $requestItem->unit?->value ?? 'pcs',
                                     'cost_price' => $costPrice,
                                     'unit_price' => $unitPrice,
-                                    'unit_price_exc_tax' => round($unitPriceExcTax, 4),
+                                    'unit_price_exc_tax' => round($unitPriceExcTax, 0),
                                     'tax_code_id' => $defaultTaxCode?->getKey(),
                                     'tax_rate' => $taxRate,
                                     'tax_amount' => round($lineTax / max($quantity, 0.0001), 4),
                                     'is_tax_inclusive' => $addTax,
                                     'line_subtotal' => round($lineSubtotal, 4),
                                     'line_tax' => round($lineTax, 4),
-                                    'line_total' => round($lineTotal, 4),
+                                    'line_total' => round($lineTotal, 0),
                                     'margin_amount' => round($marginAmount, 4),
                                     'margin_percent' => round($marginPercent, 4),
                                     'sort_order' => $sortOrder++,
@@ -1091,7 +1077,30 @@ final class BuyerQuotesRelationManager extends RelationManager
                 EditAction::make()
                     ->visible(fn (BuyerQuote $record): bool => $record->status->canEdit())
                     ->modalWidth('7xl')
-                    ->form(fn (): array => $this->getFormSchema()),
+                    ->form(fn (): array => $this->getFormSchema())
+                    ->mutateFormDataUsing(function (array $data): array {
+                        // Ensure unit_price_exc_tax matches unit_price for all items (both should be net price)
+                        if (isset($data['items']) && is_array($data['items'])) {
+                            foreach ($data['items'] as $key => $item) {
+                                if (isset($item['unit_price']) && (float) $item['unit_price'] > 0) {
+                                    $data['items'][$key]['unit_price_exc_tax'] = round((float) $item['unit_price'], 0);
+                                }
+                            }
+                        }
+                        return $data;
+                    })
+                    ->after(function (BuyerQuote $record): void {
+                        // Ensure all items have correct unit_price_exc_tax after save
+                        $record->load('items');
+                        foreach ($record->items as $item) {
+                            if ((float) $item->unit_price !== (float) $item->unit_price_exc_tax && (float) $item->unit_price > 0) {
+                                $item->recalculatePrices();
+                                $item->saveQuietly();
+                            }
+                        }
+                        // Recalculate quote totals
+                        $record->recalculateTotals();
+                    }),
                 \Filament\Actions\DeleteAction::make()
                     ->visible(fn (BuyerQuote $record): bool => $record->status->canEdit()),
                 DownloadPdfAction::make()
@@ -1206,13 +1215,16 @@ final class BuyerQuotesRelationManager extends RelationManager
         $taxRate = (float) ($get('tax_rate') ?? 0);
         $isTaxInclusive = (bool) ($get('is_tax_inclusive') ?? false);
 
-        // Prefer stored unit_price_exc_tax if available, otherwise use unit_price (which is always net price)
-        if ($unitPriceExcTaxStored > 0) {
-            // Use stored value (set by margin% callback or other calculations)
+        // unit_price always represents the net price (Selling Price Net), regardless of tax checkbox
+        // unit_price_exc_tax should always equal unit_price (they're the same - net price before tax)
+        // Always use unit_price as the source of truth for net price
+        if ($unitPrice > 0) {
+            $unitPriceExcTax = round($unitPrice, 0);
+        } elseif ($unitPriceExcTaxStored > 0) {
+            // Fallback to stored value if unit_price is not set
             $unitPriceExcTax = $unitPriceExcTaxStored;
         } else {
-            // unit_price always represents the net price (Selling Price Net)
-            $unitPriceExcTax = $unitPrice;
+            $unitPriceExcTax = 0;
         }
 
         // Calculate line totals based on tax inclusivity
@@ -1230,14 +1242,14 @@ final class BuyerQuotesRelationManager extends RelationManager
             $lineTotal = $lineSubtotal;
         }
 
-        // Calculate markup: ((selling_price - cost_price) / cost_price) * 100
+        // Calculate margin on selling: ((selling_price - cost_price) / selling_price) * 100
         $marginAmount = $unitPriceExcTax - $costPrice;
-        $marginPercent = $costPrice > 0 ? ($marginAmount / $costPrice) * 100 : 0;
+        $marginPercent = $unitPriceExcTax > 0 ? ($marginAmount / $unitPriceExcTax) * 100 : 0;
 
-        $set('unit_price_exc_tax', round($unitPriceExcTax, 4));
-        $set('line_subtotal', round($lineSubtotal, 4));
-        $set('line_tax', round($lineTax, 4));
-        $set('line_total', round($lineTotal, 4));
+        $set('unit_price_exc_tax', round($unitPriceExcTax, 0));
+        $set('line_subtotal', round($lineSubtotal, 0));
+        $set('line_tax', round($lineTax, 0));
+        $set('line_total', round($lineTotal, 0));
         $set('margin_amount', round($marginAmount, 4));
         $set('margin_percent', round($marginPercent, 4));
     }

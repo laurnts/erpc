@@ -218,7 +218,7 @@ final class BuyerQuoteItem extends Model
     }
 
     /**
-     * Calculate the margin percentage based on cost price.
+     * Calculate the margin percentage based on selling price (margin on selling).
      *
      * @return Attribute<float, never>
      */
@@ -226,14 +226,14 @@ final class BuyerQuoteItem extends Model
     {
         return Attribute::make(
             get: function (): float {
-                $costPrice = (float) $this->cost_price;
-                if ($costPrice <= 0) {
+                $unitPriceExcTax = (float) $this->unit_price_exc_tax;
+                if ($unitPriceExcTax <= 0) {
                     return 0.0;
                 }
 
-                $marginAmount = (float) $this->unit_price_exc_tax - $costPrice;
+                $marginAmount = (float) $this->unit_price_exc_tax - (float) $this->cost_price;
 
-                return round(($marginAmount / $costPrice) * 100, 2);
+                return round(($marginAmount / $unitPriceExcTax) * 100, 2);
             },
         );
     }
@@ -244,35 +244,41 @@ final class BuyerQuoteItem extends Model
     public function recalculatePrices(): void
     {
         $quantity = (float) $this->quantity;
+        // unit_price always represents the net price (Selling Price Net), regardless of tax checkbox
         $unitPrice = (float) $this->unit_price;
         $taxRate = (float) $this->tax_rate;
         $isTaxInclusive = $this->is_tax_inclusive;
 
-        if ($isTaxInclusive) {
-            // unit_price includes tax - extract the net price
-            $unitPriceExcTax = $unitPrice / (1 + $taxRate / 100);
-            $lineSubtotal = $quantity * $unitPriceExcTax;
-            $lineTotal = $quantity * $unitPrice;
-            $lineTax = $lineTotal - $lineSubtotal;
-        } else {
-            // unit_price is net price - add tax on top
-            $unitPriceExcTax = $unitPrice;
-            $lineSubtotal = $quantity * $unitPrice;
-            $lineTax = $lineSubtotal * $taxRate / 100;
+        // unit_price_exc_tax should always equal unit_price (they're both net price before tax)
+        $unitPriceExcTax = $unitPrice;
+        
+        // Line subtotal is always quantity * net price
+        $lineSubtotal = $quantity * $unitPriceExcTax;
+        
+        // Calculate tax amount
+        $lineTax = $lineSubtotal * $taxRate / 100;
+        
+        // Line total depends on whether tax is included
+        if ($isTaxInclusive && $taxRate > 0) {
+            // Tax is added on top of the net price
             $lineTotal = $lineSubtotal + $lineTax;
+        } else {
+            // No tax added - line total equals line subtotal
+            $lineTax = 0;
+            $lineTotal = $lineSubtotal;
         }
 
-        $this->unit_price_exc_tax = (string) round($unitPriceExcTax, 4);
-        $this->line_subtotal = (string) round($lineSubtotal, 4);
-        $this->line_tax = (string) round($lineTax, 4);
-        $this->line_total = (string) round($lineTotal, 4);
-        $this->tax_amount = (string) round($lineTax / max($quantity, 0.0001), 4);
+        $this->unit_price_exc_tax = (string) round($unitPriceExcTax, 0);
+        $this->line_subtotal = (string) round($lineSubtotal, 0);
+        $this->line_tax = (string) round($lineTax, 0);
+        $this->line_total = (string) round($lineTotal, 0);
+        $this->tax_amount = (string) round($lineTax / max($quantity, 0.0001), 0);
 
-        // Calculate markup: ((selling_price - cost_price) / cost_price) * 100
+        // Calculate margin on selling: ((selling_price - cost_price) / selling_price) * 100
         $costPrice = (float) $this->cost_price;
-        $this->margin_amount = (string) round($unitPriceExcTax - $costPrice, 4);
+        $this->margin_amount = (string) round($unitPriceExcTax - $costPrice, 0);
 
-        $this->margin_percent = $costPrice > 0 ? (string) round((($unitPriceExcTax - $costPrice) / $costPrice) * 100, 4) : '0.0000';
+        $this->margin_percent = $unitPriceExcTax > 0 ? (string) round((($unitPriceExcTax - $costPrice) / $unitPriceExcTax) * 100, 4) : '0.0000';
     }
 
     /**
