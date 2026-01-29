@@ -581,8 +581,30 @@ final class BuyerQuotesRelationManager extends RelationManager
                     Textarea::make('terms_and_conditions')
                         ->label('Terms & Conditions')
                         ->rows(3),
+                ])
+                ->collapsed(),
+        ];
+    }
+
+    public function form(Schema $schema): Schema
+    {
+        return $schema
+            ->columns(1)
+            ->components($this->getFormSchema());
+    }
+
+    /**
+     * Get the form schema for Buyer PO upload.
+     *
+     * @return array<int, \Filament\Schemas\Components\Component>
+     */
+    private function getBuyerPoUploadFormSchema(): array
+    {
+        return [
+            Section::make('Buyer PO Files')
+                ->schema([
                     FileUpload::make('buyer_po_files')
-                        ->label('Buyer PO Files')
+                        ->label('Upload Buyer PO Files')
                         ->helperText('Upload purchasing order from buyer as reference (PDF, Excel, Word, Images)')
                         ->hint('Maximum file size: 2MB. Files exceeding this limit will be rejected.')
                         ->hintColor('warning')
@@ -610,7 +632,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ])
                         ->dehydrated(false)
                         ->afterStateUpdated(function ($state, $record, $set) {
-                            // Process uploaded files immediately when they're uploaded (for edit mode)
+                            // Process uploaded files immediately when they're uploaded
                             if ($record && $record->exists && $state && is_array($state) && ! empty($state)) {
                                 foreach ($state as $file) {
                                     if (is_string($file)) {
@@ -645,16 +667,28 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->exists)
                         ->dehydrated(false)
                         ->live(),
-                ])
-                ->collapsed(),
+                ]),
         ];
     }
 
-    public function form(Schema $schema): Schema
+    /**
+     * Get the form schema for viewing Buyer PO files only.
+     *
+     * @return array<int, \Filament\Schemas\Components\Component>
+     */
+    private function getBuyerPoViewFormSchema(): array
     {
-        return $schema
-            ->columns(1)
-            ->components($this->getFormSchema());
+        return [
+            Section::make('Buyer PO Files')
+                ->schema([
+                    ViewField::make('buyer_po_list')
+                        ->label('Uploaded Buyer PO Files')
+                        ->view('filament.forms.components.buyer-po-list')
+                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->exists)
+                        ->dehydrated(false)
+                        ->live(),
+                ]),
+        ];
     }
 
     public function table(Table $table): Table
@@ -1089,6 +1123,43 @@ final class BuyerQuotesRelationManager extends RelationManager
                     ->visible(fn (BuyerQuote $record): bool => $record->status->canEdit()),
                 DownloadPdfAction::make()
                     ->label('PDF'),
+                Action::make('uploadPo')
+                    ->label(function (BuyerQuote $record): string {
+                        // Load media if not already loaded
+                        if (! $record->relationLoaded('media')) {
+                            $record->load('media');
+                        }
+                        return $record->getMedia('buyer_po')->isNotEmpty() ? 'View PO' : 'Upload PO';
+                    })
+                    ->icon(function (BuyerQuote $record): string {
+                        // Load media if not already loaded
+                        if (! $record->relationLoaded('media')) {
+                            $record->load('media');
+                        }
+                        return $record->getMedia('buyer_po')->isNotEmpty() ? 'heroicon-o-eye' : 'heroicon-o-document-arrow-up';
+                    })
+                    ->color('gray')
+                    ->visible(fn (BuyerQuote $record): bool => $record->status === BuyerQuoteStatus::ACCEPTED)
+                    ->slideOver()
+                    ->form(function (BuyerQuote $record): array {
+                        // Load media if not already loaded
+                        if (! $record->relationLoaded('media')) {
+                            $record->load('media');
+                        }
+                        // Show view-only form if files exist, otherwise show upload form
+                        return $record->getMedia('buyer_po')->isNotEmpty() 
+                            ? $this->getBuyerPoViewFormSchema() 
+                            : $this->getBuyerPoUploadFormSchema();
+                    })
+                    ->fillForm(function (BuyerQuote $record): array {
+                        // Ensure media relationship is loaded
+                        $record->load('media');
+                        return [];
+                    })
+                    ->after(function (BuyerQuote $record): void {
+                        // Refresh media relationship after upload
+                        $record->load('media');
+                    }),
                 Action::make('send')
                     ->label('Send')
                     ->icon('heroicon-o-paper-airplane')

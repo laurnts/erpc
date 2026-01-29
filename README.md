@@ -22,6 +22,7 @@ ERPC is designed for trading businesses that source products from multiple suppl
 - **Supplier Quoting** - Collect and compare quotes from multiple suppliers
 - **Quotation Evaluation** - Generate internal QE documents with item comparison, supplier info, and approval workflow
 - **Buyer Quoting** - Generate consolidated quotes with margin analysis
+  - **Buyer PO Upload** - Upload and view buyer purchase order files via action button (available when quote status is Accepted)
 - **Profit & Loss** - Generate PNL documents with items by supplier, cost/sell/margin analysis, and approval workflow
 - **Order Processing** - Manage buyer and supplier purchase orders
 - **Invoicing** - Handle buyer and supplier invoices with payment tracking
