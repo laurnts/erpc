@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Enums\CentralPurchasingRole;
 use App\Enums\CreationSource;
 use App\Models\Concerns\HasAiSummary;
 use App\Models\Concerns\HasCreator;
@@ -50,9 +49,7 @@ final class People extends Model implements HasCustomFields
     protected $fillable = [
         'name',
         'creation_source',
-        'is_key_account', // @deprecated Use is_central_purchasing and central_purchasing_role instead
-        'is_central_purchasing',
-        'central_purchasing_role',
+        'is_key_account', // @deprecated - kept for backward compatibility
     ];
 
     /**
@@ -71,9 +68,7 @@ final class People extends Model implements HasCustomFields
     {
         return [
             'creation_source' => CreationSource::class,
-            'is_key_account' => 'boolean', // @deprecated Use is_central_purchasing and central_purchasing_role instead
-            'is_central_purchasing' => 'boolean',
-            'central_purchasing_role' => CentralPurchasingRole::class,
+            'is_key_account' => 'boolean', // @deprecated - kept for backward compatibility
         ];
     }
 
@@ -136,23 +131,5 @@ final class People extends Model implements HasCustomFields
             ->withTimestamps();
     }
 
-    /**
-     * Quotation Evaluations where this person is the preparer.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<QuotationEvaluation, $this>
-     */
-    public function preparedEvaluations(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(QuotationEvaluation::class, 'prepared_by_id');
-    }
-
-    /**
-     * Quotation Evaluations where this person is the approver.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<QuotationEvaluation, $this>
-     */
-    public function approvedEvaluations(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(QuotationEvaluation::class, 'approved_by_id');
-    }
+    // Note: Central Purchasing relationships removed - these now reference Users (team members) instead
 }

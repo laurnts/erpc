@@ -228,15 +228,17 @@ final class Company extends Model implements HasCustomFields, HasMedia
     }
 
     /**
-     * Key accounts (People with is_key_account = true) assigned to handle this buyer.
+     * Key accounts (team members with Central Purchasing Key Account role) assigned to handle this buyer.
      *
-     * @return BelongsToMany<People, $this>
+     * @return BelongsToMany<User, $this>
      */
     public function keyAccounts(): BelongsToMany
     {
-        return $this->belongsToMany(People::class, 'key_account_buyers', 'buyer_id', 'key_account_id')
-            ->where('is_central_purchasing', true)
-            ->where('central_purchasing_role', \App\Enums\CentralPurchasingRole::KEY_ACCOUNT->value)
+        return $this->belongsToMany(\App\Models\User::class, 'key_account_buyers', 'buyer_id', 'key_account_id')
+            ->whereHas('teams', function ($query) {
+                $query->where('team_user.role', 'central_purchasing')
+                    ->where('team_user.central_purchasing_role', \App\Enums\CentralPurchasingRole::KEY_ACCOUNT->value);
+            })
             ->withTimestamps();
     }
 

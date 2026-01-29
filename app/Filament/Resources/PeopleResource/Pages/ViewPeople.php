@@ -63,19 +63,10 @@ final class ViewPeople extends ViewRecord
 
     public function getRelationManagers(): array
     {
-        /** @var People $record */
-        $record = $this->getRecord();
-
-        $managers = [
+        return [
             TasksRelationManager::class,
             NotesRelationManager::class,
+            // Note: BuyersRelationManager removed - Key Accounts are now managed as team members
         ];
-
-        // Only show Buyers relation manager for Key Accounts (Central Purchasing with Key Account role)
-        if ($record->is_central_purchasing && $record->central_purchasing_role === \App\Enums\CentralPurchasingRole::KEY_ACCOUNT) {
-            $managers[] = BuyersRelationManager::class;
-        }
-
-        return $managers;
     }
 }

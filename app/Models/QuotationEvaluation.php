@@ -104,43 +104,43 @@ final class QuotationEvaluation extends Model
     }
 
     /**
-     * The person who prepared the QE.
+     * The team member who prepared the QE.
      *
-     * @return BelongsTo<People, $this>
+     * @return BelongsTo<User, $this>
      */
     public function preparedBy(): BelongsTo
     {
-        return $this->belongsTo(People::class, 'prepared_by_id');
+        return $this->belongsTo(User::class, 'prepared_by_id');
     }
 
     /**
-     * The department head of sales who approved the QE.
+     * The department head of sales team member who approved the QE.
      *
-     * @return BelongsTo<People, $this>
+     * @return BelongsTo<User, $this>
      */
     public function deptHeadSales(): BelongsTo
     {
-        return $this->belongsTo(People::class, 'dept_head_sales_id');
+        return $this->belongsTo(User::class, 'dept_head_sales_id');
     }
 
     /**
-     * The deputy director who approved the QE.
+     * The deputy director team member who approved the QE.
      *
-     * @return BelongsTo<People, $this>
+     * @return BelongsTo<User, $this>
      */
     public function deputyDirector(): BelongsTo
     {
-        return $this->belongsTo(People::class, 'deputy_director_id');
+        return $this->belongsTo(User::class, 'deputy_director_id');
     }
 
     /**
-     * The person who approved the QE.
+     * The team member who approved the QE.
      *
-     * @return BelongsTo<People, $this>
+     * @return BelongsTo<User, $this>
      */
     public function approvedBy(): BelongsTo
     {
-        return $this->belongsTo(People::class, 'approved_by_id');
+        return $this->belongsTo(User::class, 'approved_by_id');
     }
 
     /**

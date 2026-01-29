@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
-use App\Enums\CentralPurchasingRole;
 use App\Enums\CreationSource;
 use App\Filament\Exports\PeopleExporter;
 use App\Filament\Resources\PeopleResource\Pages\CreatePeople;
@@ -61,22 +60,6 @@ final class PeopleResource extends Resource
             TextInput::make('name')
                 ->required()
                 ->maxLength(255),
-            Toggle::make('is_central_purchasing')
-                ->label('Central Purchasing')
-                ->helperText('Enable this to mark this person as part of Central Purchasing workflow.')
-                ->live()
-                ->afterStateUpdated(fn ($state, $set) => $state ?: $set('central_purchasing_role', null)),
-            Select::make('central_purchasing_role')
-                ->label('Central Purchasing Role')
-                ->options(fn (): array => collect(CentralPurchasingRole::cases())
-                    ->mapWithKeys(fn (CentralPurchasingRole $role): array => [
-                        $role->value => $role->getLabel(),
-                    ])
-                    ->toArray())
-                ->searchable()
-                ->nullable()
-                ->visible(fn ($get): bool => (bool) $get('is_central_purchasing'))
-                ->helperText('Select the role for this person in the Central Purchasing workflow.'),
         ];
 
         // Add Companies field unless excluded (to prevent circular references)

@@ -8,6 +8,11 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * @deprecated This migration is deprecated. Central Purchasing functionality has been moved to team members.
+ * The columns added by this migration are removed by: 2026_01_29_043515_remove_central_purchasing_from_people_table.php
+ * This migration is kept for historical record and migration history integrity.
+ */
 return new class extends Migration
 {
     /**

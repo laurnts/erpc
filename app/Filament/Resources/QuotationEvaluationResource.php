@@ -7,7 +7,6 @@ namespace App\Filament\Resources;
 use App\Filament\Forms\Components\ApprovalPersonnelSchema;
 use App\Filament\Resources\QuotationEvaluationResource\Pages\ListQuotationEvaluations;
 use App\Filament\Resources\QuotationEvaluationResource\Pages\ViewQuotationEvaluation;
-use App\Models\People;
 use App\Models\QuotationEvaluation;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
@@ -38,24 +37,20 @@ final class QuotationEvaluationResource extends Resource
     protected static ?string $modelLabel = 'Quotation Evaluation';
 
     /**
-     * Get the key account (People with is_key_account = true) select options for forms.
+     * Get the key account (team members with Central Purchasing Key Account role) select options for forms.
      *
      * @return array<int, string>
      */
     public static function getKeyAccountOptions(): array
     {
-        return People::query()
-            ->where('team_id', Filament::getTenant()?->getKey())
-            ->where('is_central_purchasing', true)
-            ->where('central_purchasing_role', \App\Enums\CentralPurchasingRole::KEY_ACCOUNT->value)
-            ->orderBy('name')
-            ->get()
-            ->mapWithKeys(fn (People $person): array => [$person->getKey() => $person->name])
-            ->toArray();
+        return \App\Services\TeamMemberService::getTeamMemberOptionsByRole(
+            Filament::getTenant(),
+            \App\Enums\CentralPurchasingRole::KEY_ACCOUNT
+        );
     }
 
     /**
-     * Create a new key account person from form data.
+     * Create a new key account team member from form data.
      *
      * @param  array<string, mixed>  $data
      */
@@ -64,16 +59,20 @@ final class QuotationEvaluationResource extends Resource
         /** @var \App\Models\Team $team */
         $team = Filament::getTenant();
 
-        /** @var People $person */
-        $person = People::create([
+        /** @var \App\Models\User $user */
+        $user = \App\Models\User::create([
             'name' => $data['name'],
-            'is_central_purchasing' => true,
-            'central_purchasing_role' => \App\Enums\CentralPurchasingRole::KEY_ACCOUNT,
-            'team_id' => $team->id,
-            'creator_id' => auth()->id(),
+            'email' => $data['email'] ?? $data['name'] . '@' . $team->name . '.local',
+            'password' => \Illuminate\Support\Facades\Hash::make(\Illuminate\Support\Str::random(32)), // Temporary password
         ]);
 
-        return $person->id;
+        // Add user to team with Central Purchasing Key Account role
+        $team->users()->attach($user->id, [
+            'role' => 'central_purchasing',
+            'central_purchasing_role' => \App\Enums\CentralPurchasingRole::KEY_ACCOUNT->value,
+        ]);
+
+        return $user->id;
     }
 
     public static function form(Schema $schema): Schema

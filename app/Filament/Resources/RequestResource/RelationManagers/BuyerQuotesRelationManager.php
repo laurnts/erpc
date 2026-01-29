@@ -13,7 +13,7 @@ use App\Filament\Resources\ProfitAndLossResource;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Models\BuyerQuote;
 use App\Models\Currency;
-use App\Models\People;
+use App\Services\TeamMemberService;
 use App\Models\ProfitAndLoss;
 use App\Models\Request;
 use App\Models\TaxCode;
@@ -996,47 +996,31 @@ final class BuyerQuotesRelationManager extends RelationManager
                             ->schema([
                                 Select::make('prepared_by_id')
                                     ->label('Prepared By')
-                                    ->options(fn (): array => People::query()
-                                        ->where('team_id', Filament::getTenant()?->getKey())
-                                        ->where('is_central_purchasing', true)
-                                        ->where('central_purchasing_role', \App\Enums\CentralPurchasingRole::KEY_ACCOUNT->value)
-                                        ->orderBy('name')
-                                        ->get()
-                                        ->mapWithKeys(fn (People $person): array => [$person->getKey() => $person->name])
-                                        ->toArray())
+                                    ->options(fn (): array => TeamMemberService::getTeamMemberOptionsByRole(
+                                        Filament::getTenant(),
+                                        \App\Enums\CentralPurchasingRole::KEY_ACCOUNT
+                                    ))
                                     ->searchable(),
                                 Select::make('dept_head_sales_id')
                                     ->label('Dept Head of Sales')
-                                    ->options(fn (): array => People::query()
-                                        ->where('team_id', Filament::getTenant()?->getKey())
-                                        ->where('is_central_purchasing', true)
-                                        ->where('central_purchasing_role', \App\Enums\CentralPurchasingRole::DEPT_HEAD_SALES->value)
-                                        ->orderBy('name')
-                                        ->get()
-                                        ->mapWithKeys(fn (People $person): array => [$person->getKey() => $person->name])
-                                        ->toArray())
+                                    ->options(fn (): array => TeamMemberService::getTeamMemberOptionsByRole(
+                                        Filament::getTenant(),
+                                        \App\Enums\CentralPurchasingRole::DEPT_HEAD_SALES
+                                    ))
                                     ->searchable(),
                                 Select::make('deputy_director_id')
                                     ->label('Deputy Director')
-                                    ->options(fn (): array => People::query()
-                                        ->where('team_id', Filament::getTenant()?->getKey())
-                                        ->where('is_central_purchasing', true)
-                                        ->where('central_purchasing_role', \App\Enums\CentralPurchasingRole::DEPUTY_DIRECTOR->value)
-                                        ->orderBy('name')
-                                        ->get()
-                                        ->mapWithKeys(fn (People $person): array => [$person->getKey() => $person->name])
-                                        ->toArray())
+                                    ->options(fn (): array => TeamMemberService::getTeamMemberOptionsByRole(
+                                        Filament::getTenant(),
+                                        \App\Enums\CentralPurchasingRole::DEPUTY_DIRECTOR
+                                    ))
                                     ->searchable(),
                                 Select::make('approved_by_id')
                                     ->label('Approved By')
-                                    ->options(fn (): array => People::query()
-                                        ->where('team_id', Filament::getTenant()?->getKey())
-                                        ->where('is_central_purchasing', true)
-                                        ->where('central_purchasing_role', \App\Enums\CentralPurchasingRole::DIRECTOR->value)
-                                        ->orderBy('name')
-                                        ->get()
-                                        ->mapWithKeys(fn (People $person): array => [$person->getKey() => $person->name])
-                                        ->toArray())
+                                    ->options(fn (): array => TeamMemberService::getTeamMemberOptionsByRole(
+                                        Filament::getTenant(),
+                                        \App\Enums\CentralPurchasingRole::DIRECTOR
+                                    ))
                                     ->searchable(),
                             ])
                             ->columns(2),

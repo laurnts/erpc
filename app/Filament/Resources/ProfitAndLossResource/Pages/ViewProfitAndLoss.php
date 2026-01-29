@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\ProfitAndLossResource\Pages;
 
+use App\Filament\Resources\MemberResource;
 use App\Filament\Resources\ProfitAndLossResource;
 use App\Filament\Resources\RequestResource;
+use App\Models\Membership;
 use App\Models\ProfitAndLoss;
 use App\Services\Erp\PdfGenerationService;
 use Filament\Actions\Action;
@@ -111,30 +113,54 @@ final class ViewProfitAndLoss extends ViewRecord
                         TextEntry::make('preparedBy.name')
                             ->label('Prepared By')
                             ->placeholder('—')
-                            ->url(fn (\App\Models\ProfitAndLoss $record): ?string => $record->preparedBy
-                                ? \App\Filament\Resources\PeopleResource::getUrl('view', ['record' => $record->prepared_by_id])
-                                : null)
+                            ->url(function (\App\Models\ProfitAndLoss $record): ?string {
+                                if (! $record->prepared_by_id) {
+                                    return null;
+                                }
+                                $membership = Membership::where('team_id', $record->team_id)
+                                    ->where('user_id', $record->prepared_by_id)
+                                    ->first();
+                                return $membership ? MemberResource::getUrl('view', ['record' => $membership]) : null;
+                            })
                             ->color('primary'),
                         TextEntry::make('deptHeadSales.name')
                             ->label('Dept Head of Sales')
                             ->placeholder('—')
-                            ->url(fn (\App\Models\ProfitAndLoss $record): ?string => $record->deptHeadSales
-                                ? \App\Filament\Resources\PeopleResource::getUrl('view', ['record' => $record->dept_head_sales_id])
-                                : null)
+                            ->url(function (\App\Models\ProfitAndLoss $record): ?string {
+                                if (! $record->dept_head_sales_id) {
+                                    return null;
+                                }
+                                $membership = Membership::where('team_id', $record->team_id)
+                                    ->where('user_id', $record->dept_head_sales_id)
+                                    ->first();
+                                return $membership ? MemberResource::getUrl('view', ['record' => $membership]) : null;
+                            })
                             ->color('primary'),
                         TextEntry::make('deputyDirector.name')
                             ->label('Deputy Director')
                             ->placeholder('—')
-                            ->url(fn (\App\Models\ProfitAndLoss $record): ?string => $record->deputyDirector
-                                ? \App\Filament\Resources\PeopleResource::getUrl('view', ['record' => $record->deputy_director_id])
-                                : null)
+                            ->url(function (\App\Models\ProfitAndLoss $record): ?string {
+                                if (! $record->deputy_director_id) {
+                                    return null;
+                                }
+                                $membership = Membership::where('team_id', $record->team_id)
+                                    ->where('user_id', $record->deputy_director_id)
+                                    ->first();
+                                return $membership ? MemberResource::getUrl('view', ['record' => $membership]) : null;
+                            })
                             ->color('primary'),
                         TextEntry::make('approvedBy.name')
                             ->label('Approved By')
                             ->placeholder('—')
-                            ->url(fn (\App\Models\ProfitAndLoss $record): ?string => $record->approvedBy
-                                ? \App\Filament\Resources\PeopleResource::getUrl('view', ['record' => $record->approved_by_id])
-                                : null)
+                            ->url(function (\App\Models\ProfitAndLoss $record): ?string {
+                                if (! $record->approved_by_id) {
+                                    return null;
+                                }
+                                $membership = Membership::where('team_id', $record->team_id)
+                                    ->where('user_id', $record->approved_by_id)
+                                    ->first();
+                                return $membership ? MemberResource::getUrl('view', ['record' => $membership]) : null;
+                            })
                             ->color('primary'),
                     ])
                     ->columns(4)

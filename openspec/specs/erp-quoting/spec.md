@@ -240,59 +240,31 @@ The system SHALL calculate and display margin analysis on buyer quotes.
 - **THEN** each item shows cost_price, unit_price, and margin_percent
 
 ### Requirement: Key Accounts Master Data
-The system SHALL maintain a master data table of Key Accounts for use in approval workflows.
+The system SHALL maintain Central Purchasing personnel for use in approval workflows through team member roles.
 
-#### Scenario: Create key account
-- **WHEN** admin creates a new Key Account
-- **THEN** Name, Email, and Phone Number are stored
-- **AND** the key account is associated with the current team
+#### Scenario: Central Purchasing personnel selection
+- **WHEN** admin selects Central Purchasing personnel for approval workflows
+- **THEN** personnel are selected from team members with Central Purchasing role
+- **AND** team members are filtered by their Central Purchasing sub-role (Key Account, Dept Head of Sales, Deputy Director, Director)
+- **AND** personnel selection queries team members instead of People records
 
-#### Scenario: Key account resource in Master Data
-- **WHEN** navigating to Master Data section
-- **THEN** Key Accounts is listed as a resource
-- **AND** admin can view, create, edit, and delete key accounts
-
-#### Scenario: Inline key account creation
-- **WHEN** user clicks [+] button next to a key account select field
-- **THEN** a modal form opens with Name, Email, Phone fields
-- **AND** upon save, the new key account is created and auto-selected
-
----
+#### Scenario: Inline Central Purchasing personnel creation
+- **WHEN** user clicks [+] button next to a Central Purchasing personnel select field
+- **THEN** a form opens to create a new team member
+- **AND** upon save, the new team member is created with Central Purchasing role and appropriate sub-role
+- **AND** the new team member is auto-selected in the field
 
 ### Requirement: Quotation Evaluation Document
 The system SHALL allow generating internal Quotation Evaluation (QE) documents from the Compare Supplier Quotes view for procurement documentation.
 
-#### Scenario: Create QE button visibility
-- **WHEN** viewing Compare Supplier Quotes with at least one quote
-- **THEN** a "Create QE" button is displayed next to "Select Best Prices"
-- **AND** clicking it opens a slide-over modal from the right
-
-#### Scenario: QE creation form fields
-- **WHEN** the QE creation form modal opens
-- **THEN** QE Number shows placeholder "Auto-generated after save"
-- **AND** Date shows current date (read-only)
-- **AND** Request number is displayed (read-only, from current request)
-- **AND** Description is pre-filled with project name (editable)
-- **AND** Central Purchasing section shows approval personnel fields
-
-#### Scenario: QE number format generation
-- **WHEN** saving a new QE document
-- **THEN** QE number is generated with format `{increment}-DS/QE/{roman_month}/{year}`
-- **AND** increment is sequential per team per year (resets each year)
-- **AND** month is displayed as roman numeral (I-XII)
-
 #### Scenario: Central Purchasing fields
-- **WHEN** viewing the QE creation form
-- **THEN** "Prepared By" field shows Key Account select with [+] button
-- **AND** "Acknowledged By" has two sub-fields: "Dept Head of Sales" and "Deputy Director"
-- **AND** "Approved By" field shows Key Account select with [+] button
-
-#### Scenario: Redirect after QE creation
-- **WHEN** user clicks "Save QE" and save succeeds
-- **THEN** user is redirected to the QE View page in Master Data
-- **AND** success notification is displayed
-
----
+- **WHEN** admin creates or edits a Quotation Evaluation
+- **THEN** "Prepared By" field shows team members with Key Account role
+- **AND** "Dept Head of Sales" field shows team members with Dept Head of Sales role
+- **AND** "Deputy Director" field shows team members with Deputy Director role
+- **AND** "Approved By" field shows team members with Director role
+- **AND** all fields query team members instead of People records
+- **AND** foreign key references store User IDs instead of People IDs
 
 ### Requirement: Quotation Evaluation Master Data Resource
 The system SHALL provide a Master Data resource for viewing and managing Quotation Evaluations.
@@ -350,46 +322,16 @@ The system SHALL provide a Master Data resource for viewing and managing Quotati
 - **AND** PDF contains QE Information, Item Comparison table, Supplier Information, and Central Purchasing approval section with signature lines
 
 ### Requirement: Profit and Loss Document
-The system SHALL allow generating internal Profit and Loss (PNL) documents from the Buyer Quotes view for financial tracking and approval workflows.
-
-#### Scenario: Create PNL button visibility
-- **WHEN** viewing Buyer Quotes section for a request
-- **AND** at least one buyer quote exists
-- **THEN** a "Create PNL" button is displayed in the header actions
-- **AND** clicking it opens a modal form
-
-#### Scenario: PNL creation form fields
-- **WHEN** the PNL creation modal opens
-- **THEN** PNL Number shows placeholder "Auto-generated after save"
-- **AND** Date shows current date (editable)
-- **AND** Request number is displayed (read-only, from current request)
-- **AND** Description field is available (editable)
-- **AND** Central Purchasing section shows approval personnel fields
-
-#### Scenario: PNL number format generation
-- **WHEN** saving a new PNL document
-- **THEN** PNL number is generated with format `{4-digit increment}/EL-PNL/{roman_month}/{year}`
-- **AND** increment is sequential per team per year (resets each year)
-- **AND** month is displayed as roman numeral (I-XII)
+The system SHALL allow generating Profit and Loss (PNL) documents for tracking profitability of buyer quotes.
 
 #### Scenario: Central Purchasing fields
-- **WHEN** viewing the PNL creation form
-- **THEN** "Prepared By" field shows Key Account select with create option (name only, no email)
-- **AND** "Dept Head of Sales" field is a text input
-- **AND** "Deputy Director" field is a text input
-- **AND** "Approved By" field is a text input
-
-#### Scenario: PNL links to buyer quote
-- **WHEN** saving a new PNL document
-- **THEN** PNL is linked to the latest valid buyer quote (excluding rejected/superseded status)
-- **AND** buyer_quote_id is stored for reference
-
-#### Scenario: Redirect after PNL creation
-- **WHEN** user clicks "Create PNL" and save succeeds
-- **THEN** user is redirected to the PNL View page in Master Data
-- **AND** success notification is displayed
-
----
+- **WHEN** admin creates or edits a Profit and Loss document
+- **THEN** "Prepared By" field shows team members with Key Account role
+- **AND** "Dept Head of Sales" field shows team members with Dept Head of Sales role
+- **AND** "Deputy Director" field shows team members with Deputy Director role
+- **AND** "Approved By" field shows team members with Director role
+- **AND** all fields query team members instead of People records
+- **AND** foreign key references store User IDs instead of People IDs
 
 ### Requirement: PNL Status
 The system SHALL compute and display PNL status based on buyer order existence.

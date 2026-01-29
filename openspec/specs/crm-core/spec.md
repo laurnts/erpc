@@ -3,9 +3,7 @@
 ## Purpose
 
 Core CRM functionality for managing Companies, People, Opportunities, Tasks, and Notes with team-based multi-tenancy.
-
 ## Requirements
-
 ### Requirement: Company Management
 The system SHALL provide CRUD operations for Company entities with team-based isolation.
 
@@ -38,37 +36,22 @@ The system SHALL provide CRUD operations for Company entities with team-based is
 - **THEN** the company is soft-deleted and can be restored
 
 ### Requirement: People Management
-The system SHALL provide CRUD operations for People (contacts) entities with many-to-many company relationships.
+The system SHALL allow users to create and manage People records.
 
 #### Scenario: Create Person
-- **WHEN** a user creates a person with valid data
-- **THEN** the person is saved with optional company relationships via pivot table
+- **WHEN** a user creates a person
+- **THEN** the person is created with name and optional company assignments
+- **AND** Central Purchasing role fields are no longer available
 
-#### Scenario: Assign Person to Multiple Companies
-- **WHEN** a user assigns a person to multiple companies
-- **THEN** the associations are stored in the company_people pivot table
-- **AND** each association can have a role and primary flag
-
-#### Scenario: Set Primary Company
-- **WHEN** a user sets a company as the primary company for a person
-- **THEN** the is_primary flag is set to true on the pivot record
-- **AND** previous primary designation is cleared
-
-#### Scenario: Inline Create Company from Person
-- **WHEN** user creates a Person and clicks (+) on Companies field
-- **THEN** inline Company form matches Company → Create Company form
-- **AND** People field is excluded (circular reference)
-- **AND** Code field is excluded (auto-generated in main form only)
-- **AND** created Company is linked to the new Person
+#### Scenario: Edit Person
+- **WHEN** a user edits a person
+- **THEN** they can update name and company assignments
+- **AND** Central Purchasing toggle and role selection are not shown
 
 #### Scenario: View Person
 - **WHEN** a user views a person
-- **THEN** they see person details including custom fields, company affiliations (badges), notes, and tasks
-
-#### Scenario: List People
-- **WHEN** a user lists people
-- **THEN** only people belonging to their current team are shown
-- **AND** their associated companies are displayed as badges
+- **THEN** they see person details and related information
+- **AND** BuyersRelationManager is shown based on team member role (not People Central Purchasing role)
 
 ### Requirement: Opportunity Management
 The system SHALL provide CRUD operations for Opportunities (deals) with pipeline tracking.

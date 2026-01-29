@@ -33,7 +33,7 @@ ERPC is designed for trading businesses that source products from multiple suppl
 - **Projects** - Group related requests for large deals
 - **Currencies & Exchange Rates** - Multi-currency support
 - **Tax Codes** - Configurable tax handling per item
-- **Key Accounts** - Personnel for approval workflows in QE and PNL documents
+- **Team Members** - Central Purchasing personnel for approval workflows in QE and PNL documents (managed as team members with Central Purchasing role)
 
 ### CRM Capabilities
 - **People/Contacts** - Contact management linked to companies
@@ -43,7 +43,14 @@ ERPC is designed for trading businesses that source products from multiple suppl
 
 ### Platform Features
 - **Multi-Team** - Isolated workspaces per team
-- **Team Member Roles** - Three role types: Administrator (full access), Editor (read/create/update), and Central Purchasing (read/create/update with hierarchical sub-roles: Key Account, Dept. Head of Sales, Deputy Director, Director)
+- **Team Member Roles** - Three role types:
+  - **Administrator** - Full access to all features
+  - **Editor** - Read, create, and update permissions
+  - **Central Purchasing** - Read, create, and update permissions with hierarchical sub-roles:
+    - Key Account (prepares QE/PNL documents)
+    - Dept. Head of Sales (approval workflow)
+    - Deputy Director (approval workflow)
+    - Director (final approval)
 - **Custom Fields** - Extend entities without code changes
 - **Role-Based Access** - Granular permissions
 - **Import/Export** - CSV data management

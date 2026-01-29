@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Forms\Components;
 
 use App\Enums\CentralPurchasingRole;
-use App\Filament\Resources\PeopleResource;
-use App\Models\People;
+use App\Models\User;
+use App\Services\TeamMemberService;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 
@@ -38,24 +38,24 @@ final class KeyAccountSelect
         CentralPurchasingRole $role,
         int|callable|null $buyerId = null
     ): Select {
+        /** @var \App\Models\Team $team */
+        $team = Filament::getTenant();
+
         return Select::make($name)
             ->label($label)
             ->relationship(
                 $relationshipName,
                 'name',
-                modifyQueryUsing: function ($query, $livewire) use ($role, $buyerId) {
-                    $query->where('is_central_purchasing', true)
-                        ->where('central_purchasing_role', $role->value);
+                modifyQueryUsing: function ($query) use ($team, $role, $buyerId) {
+                    // Query Users who are team members with the specified Central Purchasing role
+                    $query->whereHas('teams', function ($q) use ($team, $role) {
+                        $q->where('teams.id', $team->id)
+                            ->where('team_user.role', 'central_purchasing')
+                            ->where('team_user.central_purchasing_role', $role->value);
+                    });
 
-                    // Resolve buyer ID if it's a callable
-                    $resolvedBuyerId = is_callable($buyerId) ? $buyerId($livewire) : $buyerId;
-
-                    // Filter to only show key accounts assigned to handle the specified buyer (only for KEY_ACCOUNT role)
-                    if ($resolvedBuyerId && $role === CentralPurchasingRole::KEY_ACCOUNT) {
-                        $query->whereHas('buyers', function ($q) use ($resolvedBuyerId): void {
-                            $q->where('companies.id', $resolvedBuyerId);
-                        });
-                    }
+                    // TODO: Filter by buyer assignment when key_account_buyers table is updated to reference users
+                    // For now, buyer filtering is disabled since the relationship still references people
 
                     return $query;
                 }
@@ -63,23 +63,40 @@ final class KeyAccountSelect
             ->searchable()
             ->preload()
             ->nullable()
-            ->createOptionForm(PeopleResource::getFormSchema())
-            ->createOptionUsing(function (array $data) use ($role): int {
-                /** @var \App\Models\Team $team */
-                $team = Filament::getTenant();
-
-                /** @var People $person */
-                $person = People::create([
+            ->createOptionForm([
+                \Filament\Forms\Components\TextInput::make('name')
+                    ->required()
+                    ->maxLength(255),
+                \Filament\Forms\Components\TextInput::make('email')
+                    ->email()
+                    ->required()
+                    ->unique(User::class),
+            ])
+            ->createOptionUsing(function (array $data) use ($team, $role): int {
+                /** @var User $user */
+                $user = User::create([
                     'name' => $data['name'],
-                    'is_central_purchasing' => true,
-                    'central_purchasing_role' => $role,
-                    'team_id' => $team->id,
-                    'creator_id' => auth()->id(),
+                    'email' => $data['email'],
+                    'password' => \Illuminate\Support\Facades\Hash::make(\Illuminate\Support\Str::random(32)), // Temporary password
                 ]);
 
-                return $person->id;
+                // Add user to team with Central Purchasing role
+                $team->users()->attach($user->id, [
+                    'role' => 'central_purchasing',
+                    'central_purchasing_role' => $role->value,
+                ]);
+
+                return $user->id;
             })
-            ->editOptionForm(PeopleResource::getFormSchema())
+            ->editOptionForm([
+                \Filament\Forms\Components\TextInput::make('name')
+                    ->required()
+                    ->maxLength(255),
+                \Filament\Forms\Components\TextInput::make('email')
+                    ->email()
+                    ->required()
+                    ->unique(User::class, ignorable: fn ($record) => $record),
+            ])
             ->editOptionAction(fn ($action) => $action->modalHeading('Edit Central Purchasing Personnel'));
     }
 }
