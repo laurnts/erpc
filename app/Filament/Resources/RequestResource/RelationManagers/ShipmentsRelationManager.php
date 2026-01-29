@@ -15,6 +15,7 @@ use App\Models\Request;
 use App\Models\Shipment;
 use App\Models\SupplierOrder;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
@@ -391,155 +392,157 @@ final class ShipmentsRelationManager extends RelationManager
             ])
             ->headerActions([])
             ->recordActions([
-                Action::make('create_shipment')
-                    ->label('Create Shipment')
-                    ->icon('heroicon-o-plus')
-                    ->color('primary')
-                    ->size(Size::Small)
-                    ->modalHeading(fn (SupplierOrder $record): string => "Create Shipment for {$record->supplier->name}")
-                    ->modalWidth('4xl')
-                    ->form(fn (SupplierOrder $record): array => $this->getShipmentFormSchema($record))
-                    ->fillForm(function (SupplierOrder $record): array {
-                        // Prefill shipment items with all items from the supplier order
-                        $shipmentItems = $record->items()
-                            ->orderBy('sort_order')
-                            ->get()
-                            ->map(fn ($item): array => [
-                                'supplier_order_item_id' => $item->getKey(),
-                                'quantity_shipped' => (string) $item->quantity,
-                                'condition' => ItemCondition::GOOD->value,
-                            ])
-                            ->toArray();
+                ActionGroup::make([
+                    Action::make('create_shipment')
+                        ->label('Create Shipment')
+                        ->icon('heroicon-o-plus')
+                        ->color('primary')
+                        ->size(Size::Small)
+                        ->modalHeading(fn (SupplierOrder $record): string => "Create Shipment for {$record->supplier->name}")
+                        ->modalWidth('4xl')
+                        ->form(fn (SupplierOrder $record): array => $this->getShipmentFormSchema($record))
+                        ->fillForm(function (SupplierOrder $record): array {
+                            // Prefill shipment items with all items from the supplier order
+                            $shipmentItems = $record->items()
+                                ->orderBy('sort_order')
+                                ->get()
+                                ->map(fn ($item): array => [
+                                    'supplier_order_item_id' => $item->getKey(),
+                                    'quantity_shipped' => (string) $item->quantity,
+                                    'condition' => ItemCondition::GOOD->value,
+                                ])
+                                ->toArray();
 
-                        return [
-                            'status' => ShipmentStatus::PENDING->value,
-                            'shipment_items' => $shipmentItems,
-                        ];
-                    })
-                    ->action(function (SupplierOrder $record, array $data): void {
-                        /** @var Request $request */
-                        $request = $this->getOwnerRecord();
+                            return [
+                                'status' => ShipmentStatus::PENDING->value,
+                                'shipment_items' => $shipmentItems,
+                            ];
+                        })
+                        ->action(function (SupplierOrder $record, array $data): void {
+                            /** @var Request $request */
+                            $request = $this->getOwnerRecord();
 
-                        // Create the shipment
-                        $shipment = new Shipment;
-                        $shipment->team_id = $request->team_id;
-                        $shipment->creator_id = auth()->id() !== null ? (int) auth()->id() : null;
-                        $shipment->request_id = $request->getKey();
-                        $shipment->type = ShipmentType::INBOUND;
-                        $shipment->supplier_order_id = $record->getKey();
-                        $shipment->status = $data['status'];
-                        $shipment->carrier_name = $data['carrier_name'] ?? null;
-                        $shipment->tracking_number = $data['tracking_number'] ?? null;
-                        $shipment->shipped_at = $data['shipped_at'] ?? null;
-                        $shipment->expected_delivery_at = $data['expected_delivery_at'] ?? null;
-                        $shipment->delivered_at = $data['delivered_at'] ?? null;
-                        $shipment->notes = $data['notes'] ?? null;
-                        $shipment->save();
+                            // Create the shipment
+                            $shipment = new Shipment;
+                            $shipment->team_id = $request->team_id;
+                            $shipment->creator_id = auth()->id() !== null ? (int) auth()->id() : null;
+                            $shipment->request_id = $request->getKey();
+                            $shipment->type = ShipmentType::INBOUND;
+                            $shipment->supplier_order_id = $record->getKey();
+                            $shipment->status = $data['status'];
+                            $shipment->carrier_name = $data['carrier_name'] ?? null;
+                            $shipment->tracking_number = $data['tracking_number'] ?? null;
+                            $shipment->shipped_at = $data['shipped_at'] ?? null;
+                            $shipment->expected_delivery_at = $data['expected_delivery_at'] ?? null;
+                            $shipment->delivered_at = $data['delivered_at'] ?? null;
+                            $shipment->notes = $data['notes'] ?? null;
+                            $shipment->save();
 
-                        // Create shipment items
-                        $sortOrder = 0;
-                        foreach ($data['shipment_items'] ?? [] as $itemData) {
-                            if (empty($itemData['supplier_order_item_id'])) {
-                                continue;
+                            // Create shipment items
+                            $sortOrder = 0;
+                            foreach ($data['shipment_items'] ?? [] as $itemData) {
+                                if (empty($itemData['supplier_order_item_id'])) {
+                                    continue;
+                                }
+
+                                $shipment->items()->create([
+                                    'supplier_order_item_id' => $itemData['supplier_order_item_id'],
+                                    'quantity_shipped' => $itemData['quantity_shipped'],
+                                    'condition' => $itemData['condition'],
+                                    'sort_order' => $sortOrder++,
+                                ]);
                             }
 
-                            $shipment->items()->create([
-                                'supplier_order_item_id' => $itemData['supplier_order_item_id'],
-                                'quantity_shipped' => $itemData['quantity_shipped'],
-                                'condition' => $itemData['condition'],
-                                'sort_order' => $sortOrder++,
-                            ]);
-                        }
+                            Notification::make()
+                                ->title('Shipment created')
+                                ->body("Shipment {$shipment->shipment_number} created successfully.")
+                                ->success()
+                                ->send();
+                        }),
+                    Action::make('view_shipments')
+                        ->label('View Shipments')
+                        ->icon('heroicon-o-eye')
+                        ->color('gray')
+                        ->size(Size::Small)
+                        ->visible(fn (SupplierOrder $record): bool => $record->shipments()->exists())
+                        ->modalHeading(fn (SupplierOrder $record): string => "Shipments for {$record->supplier->name} ({$record->po_number})")
+                        ->modalWidth('4xl')
+                        ->modalSubmitAction(false)
+                        ->modalCancelActionLabel('Close')
+                        ->form(fn (SupplierOrder $record): array => $this->getViewShipmentsSchema($record)),
+                    Action::make('mark_in_transit')
+                        ->label('Ship')
+                        ->icon('heroicon-o-truck')
+                        ->color('info')
+                        ->size(Size::Small)
+                        ->visible(fn (SupplierOrder $record): bool => $record->shipments()
+                            ->where('status', ShipmentStatus::PENDING)
+                            ->exists())
+                        ->form([
+                            Select::make('shipment_id')
+                                ->label('Select Shipment')
+                                ->options(fn (SupplierOrder $record): array => $record->shipments()
+                                    ->where('status', ShipmentStatus::PENDING)
+                                    ->get()
+                                    ->mapWithKeys(fn (Shipment $s): array => [
+                                        $s->getKey() => $s->shipment_number,
+                                    ])
+                                    ->all())
+                                ->required(),
+                            TextInput::make('tracking_number')
+                                ->label('Tracking Number'),
+                            DateTimePicker::make('expected_delivery_at')
+                                ->label('Expected Delivery'),
+                        ])
+                        ->action(function (array $data): void {
+                            /** @var Shipment $shipment */
+                            $shipment = Shipment::findOrFail($data['shipment_id']);
+                            $shipment->markAsInTransit(
+                                $data['tracking_number'] ?? null,
+                                $data['expected_delivery_at'] !== null ? \Illuminate\Support\Carbon::parse($data['expected_delivery_at']) : null
+                            );
 
-                        Notification::make()
-                            ->title('Shipment created')
-                            ->body("Shipment {$shipment->shipment_number} created successfully.")
-                            ->success()
-                            ->send();
-                    }),
-                Action::make('view_shipments')
-                    ->label('View Shipments')
-                    ->icon('heroicon-o-eye')
-                    ->color('gray')
-                    ->size(Size::Small)
-                    ->visible(fn (SupplierOrder $record): bool => $record->shipments()->exists())
-                    ->modalHeading(fn (SupplierOrder $record): string => "Shipments for {$record->supplier->name} ({$record->po_number})")
-                    ->modalWidth('4xl')
-                    ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Close')
-                    ->form(fn (SupplierOrder $record): array => $this->getViewShipmentsSchema($record)),
-                Action::make('mark_in_transit')
-                    ->label('Ship')
-                    ->icon('heroicon-o-truck')
-                    ->color('info')
-                    ->size(Size::Small)
-                    ->visible(fn (SupplierOrder $record): bool => $record->shipments()
-                        ->where('status', ShipmentStatus::PENDING)
-                        ->exists())
-                    ->form([
-                        Select::make('shipment_id')
-                            ->label('Select Shipment')
-                            ->options(fn (SupplierOrder $record): array => $record->shipments()
-                                ->where('status', ShipmentStatus::PENDING)
-                                ->get()
-                                ->mapWithKeys(fn (Shipment $s): array => [
-                                    $s->getKey() => $s->shipment_number,
-                                ])
-                                ->all())
-                            ->required(),
-                        TextInput::make('tracking_number')
-                            ->label('Tracking Number'),
-                        DateTimePicker::make('expected_delivery_at')
-                            ->label('Expected Delivery'),
-                    ])
-                    ->action(function (array $data): void {
-                        /** @var Shipment $shipment */
-                        $shipment = Shipment::findOrFail($data['shipment_id']);
-                        $shipment->markAsInTransit(
-                            $data['tracking_number'] ?? null,
-                            $data['expected_delivery_at'] !== null ? \Illuminate\Support\Carbon::parse($data['expected_delivery_at']) : null
-                        );
+                            Notification::make()
+                                ->title('Shipment in transit')
+                                ->success()
+                                ->send();
+                        }),
+                    Action::make('mark_delivered')
+                        ->label('Deliver')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->size(Size::Small)
+                        ->visible(fn (SupplierOrder $record): bool => $record->shipments()
+                            ->whereIn('status', [ShipmentStatus::IN_TRANSIT, ShipmentStatus::PARTIAL])
+                            ->exists())
+                        ->form([
+                            Select::make('shipment_id')
+                                ->label('Select Shipment')
+                                ->options(fn (SupplierOrder $record): array => $record->shipments()
+                                    ->whereIn('status', [ShipmentStatus::IN_TRANSIT, ShipmentStatus::PARTIAL])
+                                    ->get()
+                                    ->mapWithKeys(fn (Shipment $s): array => [
+                                        $s->getKey() => $s->shipment_number,
+                                    ])
+                                    ->all())
+                                ->required(),
+                            DateTimePicker::make('delivered_at')
+                                ->label('Delivered At')
+                                ->default(now()),
+                        ])
+                        ->action(function (array $data): void {
+                            /** @var Shipment $shipment */
+                            $shipment = Shipment::findOrFail($data['shipment_id']);
+                            $shipment->markAsDelivered(
+                                $data['delivered_at'] !== null ? \Illuminate\Support\Carbon::parse($data['delivered_at']) : null
+                            );
 
-                        Notification::make()
-                            ->title('Shipment in transit')
-                            ->success()
-                            ->send();
-                    }),
-                Action::make('mark_delivered')
-                    ->label('Deliver')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->size(Size::Small)
-                    ->visible(fn (SupplierOrder $record): bool => $record->shipments()
-                        ->whereIn('status', [ShipmentStatus::IN_TRANSIT, ShipmentStatus::PARTIAL])
-                        ->exists())
-                    ->form([
-                        Select::make('shipment_id')
-                            ->label('Select Shipment')
-                            ->options(fn (SupplierOrder $record): array => $record->shipments()
-                                ->whereIn('status', [ShipmentStatus::IN_TRANSIT, ShipmentStatus::PARTIAL])
-                                ->get()
-                                ->mapWithKeys(fn (Shipment $s): array => [
-                                    $s->getKey() => $s->shipment_number,
-                                ])
-                                ->all())
-                            ->required(),
-                        DateTimePicker::make('delivered_at')
-                            ->label('Delivered At')
-                            ->default(now()),
-                    ])
-                    ->action(function (array $data): void {
-                        /** @var Shipment $shipment */
-                        $shipment = Shipment::findOrFail($data['shipment_id']);
-                        $shipment->markAsDelivered(
-                            $data['delivered_at'] !== null ? \Illuminate\Support\Carbon::parse($data['delivered_at']) : null
-                        );
-
-                        Notification::make()
-                            ->title('Shipment delivered')
-                            ->success()
-                            ->send();
-                    }),
+                            Notification::make()
+                                ->title('Shipment delivered')
+                                ->success()
+                                ->send();
+                        }),
+                ]),
             ])
             ->emptyStateHeading('No confirmed supplier orders')
             ->emptyStateDescription('Supplier orders will appear here once confirmed. Create shipments to track deliveries.')

@@ -19,6 +19,7 @@ use App\Models\SupplierQuote;
 use App\Models\TaxCode;
 use App\Models\UnitOfMeasure;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -61,7 +62,7 @@ final class SupplierOrdersRelationManager extends RelationManager
 
     protected static function getBaseTabTitle(): string
     {
-        return 'Supplier Orders';
+        return 'Purchases';
     }
 
     public function form(Schema $schema): Schema
@@ -879,56 +880,58 @@ final class SupplierOrdersRelationManager extends RelationManager
                         ->exists()),
             ])
             ->recordActions([
-                ViewAction::make(),
-                EditAction::make()
-                    ->visible(fn (SupplierOrder $record): bool => $record->is_editable),
-                DownloadPdfAction::make()
-                    ->label('PDF'),
-                Action::make('confirm')
-                    ->label('Confirm')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->visible(fn (SupplierOrder $record): bool => $record->status->canConfirm())
-                    ->requiresConfirmation()
-                    ->modalHeading('Confirm this order?')
-                    ->modalDescription('This will confirm the purchase order and lock it for editing.')
-                    ->action(function (SupplierOrder $record): void {
-                        $record->confirm();
-                        Notification::make()
-                            ->title('Order confirmed')
-                            ->success()
-                            ->send();
-                    }),
-                Action::make('markOrdered')
-                    ->label('Mark as Sent')
-                    ->icon('heroicon-o-paper-airplane')
-                    ->color('info')
-                    ->visible(fn (SupplierOrder $record): bool => $record->ordered_at === null && $record->status !== OrderStatus::CANCELLED)
-                    ->requiresConfirmation()
-                    ->modalHeading('Mark order as sent?')
-                    ->modalDescription('This will record that the PO has been sent to the supplier.')
-                    ->action(function (SupplierOrder $record): void {
-                        $record->markAsOrdered();
-                        Notification::make()
-                            ->title('Order marked as sent')
-                            ->success()
-                            ->send();
-                    }),
-                Action::make('cancel')
-                    ->label('Cancel')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->visible(fn (SupplierOrder $record): bool => $record->is_cancellable)
-                    ->requiresConfirmation()
-                    ->modalHeading('Cancel this order?')
-                    ->modalDescription('This action cannot be undone.')
-                    ->action(function (SupplierOrder $record): void {
-                        $record->cancel();
-                        Notification::make()
-                            ->title('Order cancelled')
-                            ->warning()
-                            ->send();
-                    }),
+                ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make()
+                        ->visible(fn (SupplierOrder $record): bool => $record->is_editable),
+                    DownloadPdfAction::make()
+                        ->label('PDF'),
+                    Action::make('confirm')
+                        ->label('Confirm')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->visible(fn (SupplierOrder $record): bool => $record->status->canConfirm())
+                        ->requiresConfirmation()
+                        ->modalHeading('Confirm this order?')
+                        ->modalDescription('This will confirm the purchase order and lock it for editing.')
+                        ->action(function (SupplierOrder $record): void {
+                            $record->confirm();
+                            Notification::make()
+                                ->title('Order confirmed')
+                                ->success()
+                                ->send();
+                        }),
+                    Action::make('markOrdered')
+                        ->label('Mark as Sent')
+                        ->icon('heroicon-o-paper-airplane')
+                        ->color('info')
+                        ->visible(fn (SupplierOrder $record): bool => $record->ordered_at === null && $record->status !== OrderStatus::CANCELLED)
+                        ->requiresConfirmation()
+                        ->modalHeading('Mark order as sent?')
+                        ->modalDescription('This will record that the PO has been sent to the supplier.')
+                        ->action(function (SupplierOrder $record): void {
+                            $record->markAsOrdered();
+                            Notification::make()
+                                ->title('Order marked as sent')
+                                ->success()
+                                ->send();
+                        }),
+                    Action::make('cancel')
+                        ->label('Cancel')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->visible(fn (SupplierOrder $record): bool => $record->is_cancellable)
+                        ->requiresConfirmation()
+                        ->modalHeading('Cancel this order?')
+                        ->modalDescription('This action cannot be undone.')
+                        ->action(function (SupplierOrder $record): void {
+                            $record->cancel();
+                            Notification::make()
+                                ->title('Order cancelled')
+                                ->warning()
+                                ->send();
+                        }),
+                ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

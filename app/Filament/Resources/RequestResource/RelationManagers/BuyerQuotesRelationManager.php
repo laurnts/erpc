@@ -19,6 +19,7 @@ use App\Models\Request;
 use App\Models\TaxCode;
 use App\Models\UnitOfMeasure;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
@@ -1088,165 +1089,167 @@ final class BuyerQuotesRelationManager extends RelationManager
                     }),
             ])
             ->recordActions([
-                ViewAction::make()
-                    ->visible(fn (BuyerQuote $record): bool => ! $record->status->canEdit())
-                    ->modalWidth('7xl')
-                    ->form(fn (): array => $this->getFormSchema()),
-                EditAction::make()
-                    ->visible(fn (BuyerQuote $record): bool => $record->status->canEdit())
-                    ->modalWidth('7xl')
-                    ->form(fn (): array => $this->getFormSchema())
-                    ->mutateFormDataUsing(function (array $data): array {
-                        // Ensure unit_price_exc_tax matches unit_price for all items (both should be net price)
-                        if (isset($data['items']) && is_array($data['items'])) {
-                            foreach ($data['items'] as $key => $item) {
-                                if (isset($item['unit_price']) && (float) $item['unit_price'] > 0) {
-                                    $data['items'][$key]['unit_price_exc_tax'] = round((float) $item['unit_price'], 0);
+                ActionGroup::make([
+                    ViewAction::make()
+                        ->visible(fn (BuyerQuote $record): bool => ! $record->status->canEdit())
+                        ->modalWidth('7xl')
+                        ->form(fn (): array => $this->getFormSchema()),
+                    EditAction::make()
+                        ->visible(fn (BuyerQuote $record): bool => $record->status->canEdit())
+                        ->modalWidth('7xl')
+                        ->form(fn (): array => $this->getFormSchema())
+                        ->mutateFormDataUsing(function (array $data): array {
+                            // Ensure unit_price_exc_tax matches unit_price for all items (both should be net price)
+                            if (isset($data['items']) && is_array($data['items'])) {
+                                foreach ($data['items'] as $key => $item) {
+                                    if (isset($item['unit_price']) && (float) $item['unit_price'] > 0) {
+                                        $data['items'][$key]['unit_price_exc_tax'] = round((float) $item['unit_price'], 0);
+                                    }
                                 }
                             }
-                        }
-                        return $data;
-                    })
-                    ->after(function (BuyerQuote $record): void {
-                        // Ensure all items have correct unit_price_exc_tax after save
-                        $record->load('items');
-                        foreach ($record->items as $item) {
-                            if ((float) $item->unit_price !== (float) $item->unit_price_exc_tax && (float) $item->unit_price > 0) {
-                                $item->recalculatePrices();
-                                $item->saveQuietly();
+                            return $data;
+                        })
+                        ->after(function (BuyerQuote $record): void {
+                            // Ensure all items have correct unit_price_exc_tax after save
+                            $record->load('items');
+                            foreach ($record->items as $item) {
+                                if ((float) $item->unit_price !== (float) $item->unit_price_exc_tax && (float) $item->unit_price > 0) {
+                                    $item->recalculatePrices();
+                                    $item->saveQuietly();
+                                }
                             }
-                        }
-                        // Recalculate quote totals
-                        $record->recalculateTotals();
-                    }),
-                \Filament\Actions\DeleteAction::make()
-                    ->visible(fn (BuyerQuote $record): bool => $record->status->canEdit()),
-                DownloadPdfAction::make()
-                    ->label('PDF'),
-                Action::make('uploadPo')
-                    ->label(function (BuyerQuote $record): string {
-                        // Load media if not already loaded
-                        if (! $record->relationLoaded('media')) {
+                            // Recalculate quote totals
+                            $record->recalculateTotals();
+                        }),
+                    \Filament\Actions\DeleteAction::make()
+                        ->visible(fn (BuyerQuote $record): bool => $record->status->canEdit()),
+                    DownloadPdfAction::make()
+                        ->label('PDF'),
+                    Action::make('uploadPo')
+                        ->label(function (BuyerQuote $record): string {
+                            // Load media if not already loaded
+                            if (! $record->relationLoaded('media')) {
+                                $record->load('media');
+                            }
+                            return $record->getMedia('buyer_po')->isNotEmpty() ? 'View PO' : 'Upload PO';
+                        })
+                        ->icon(function (BuyerQuote $record): string {
+                            // Load media if not already loaded
+                            if (! $record->relationLoaded('media')) {
+                                $record->load('media');
+                            }
+                            return $record->getMedia('buyer_po')->isNotEmpty() ? 'heroicon-o-eye' : 'heroicon-o-document-arrow-up';
+                        })
+                        ->color('gray')
+                        ->visible(fn (BuyerQuote $record): bool => $record->status === BuyerQuoteStatus::ACCEPTED)
+                        ->slideOver()
+                        ->form(function (BuyerQuote $record): array {
+                            // Load media if not already loaded
+                            if (! $record->relationLoaded('media')) {
+                                $record->load('media');
+                            }
+                            // Show view-only form if files exist, otherwise show upload form
+                            return $record->getMedia('buyer_po')->isNotEmpty() 
+                                ? $this->getBuyerPoViewFormSchema() 
+                                : $this->getBuyerPoUploadFormSchema();
+                        })
+                        ->fillForm(function (BuyerQuote $record): array {
+                            // Ensure media relationship is loaded
                             $record->load('media');
-                        }
-                        return $record->getMedia('buyer_po')->isNotEmpty() ? 'View PO' : 'Upload PO';
-                    })
-                    ->icon(function (BuyerQuote $record): string {
-                        // Load media if not already loaded
-                        if (! $record->relationLoaded('media')) {
+                            return [];
+                        })
+                        ->after(function (BuyerQuote $record): void {
+                            // Refresh media relationship after upload
                             $record->load('media');
-                        }
-                        return $record->getMedia('buyer_po')->isNotEmpty() ? 'heroicon-o-eye' : 'heroicon-o-document-arrow-up';
-                    })
-                    ->color('gray')
-                    ->visible(fn (BuyerQuote $record): bool => $record->status === BuyerQuoteStatus::ACCEPTED)
-                    ->slideOver()
-                    ->form(function (BuyerQuote $record): array {
-                        // Load media if not already loaded
-                        if (! $record->relationLoaded('media')) {
-                            $record->load('media');
-                        }
-                        // Show view-only form if files exist, otherwise show upload form
-                        return $record->getMedia('buyer_po')->isNotEmpty() 
-                            ? $this->getBuyerPoViewFormSchema() 
-                            : $this->getBuyerPoUploadFormSchema();
-                    })
-                    ->fillForm(function (BuyerQuote $record): array {
-                        // Ensure media relationship is loaded
-                        $record->load('media');
-                        return [];
-                    })
-                    ->after(function (BuyerQuote $record): void {
-                        // Refresh media relationship after upload
-                        $record->load('media');
-                    }),
-                Action::make('send')
-                    ->label('Send')
-                    ->icon('heroicon-o-paper-airplane')
-                    ->color('info')
-                    ->visible(fn (BuyerQuote $record): bool => $record->status->canSend())
-                    ->requiresConfirmation()
-                    ->modalHeading('Send this quote?')
-                    ->modalDescription('This will mark the quote as sent and set the issue date to today.')
-                    ->action(function (BuyerQuote $record): void {
-                        $record->markAsSent();
-                        Notification::make()
-                            ->title('Quote sent')
-                            ->success()
-                            ->send();
-                    }),
-                Action::make('accept')
-                    ->label('Accept')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->visible(fn (BuyerQuote $record): bool => $record->status === BuyerQuoteStatus::SENT)
-                    ->requiresConfirmation()
-                    ->modalHeading('Accept this quote?')
-                    ->modalDescription('This will mark the quote as accepted by the buyer.')
-                    ->action(function (BuyerQuote $record): void {
-                        $record->markAsAccepted();
-                        Notification::make()
-                            ->title('Quote accepted')
-                            ->success()
-                            ->send();
-                    }),
-                Action::make('reject')
-                    ->label('Reject')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->visible(fn (BuyerQuote $record): bool => $record->status === BuyerQuoteStatus::SENT)
-                    ->requiresConfirmation()
-                    ->modalHeading('Reject this quote?')
-                    ->modalDescription('This will mark the quote as rejected by the buyer.')
-                    ->action(function (BuyerQuote $record): void {
-                        $record->markAsRejected();
-                        Notification::make()
-                            ->title('Quote rejected')
-                            ->warning()
-                            ->send();
-                    }),
-                Action::make('newVersion')
-                    ->label('New Version')
-                    ->icon('heroicon-o-document-duplicate')
-                    ->color('primary')
-                    ->visible(fn (BuyerQuote $record): bool => ! $record->status->canEdit())
-                    ->requiresConfirmation()
-                    ->modalHeading('Create new version?')
-                    ->modalDescription('This will create a new draft version of this quote and mark the current one as superseded.')
-                    ->action(function (BuyerQuote $record): void {
-                        $newQuote = $record->createNewVersion();
-                        Notification::make()
-                            ->title('New version created')
-                            ->body("Version {$newQuote->version} has been created as a draft.")
-                            ->success()
-                            ->send();
-                    }),
-                Action::make('extend')
-                    ->label('Extend')
-                    ->icon('heroicon-o-clock')
-                    ->color('warning')
-                    ->visible(fn (BuyerQuote $record): bool => $record->status->isActive())
-                    ->form([
-                        DatePicker::make('new_valid_until')
-                            ->label('New Valid Until Date')
-                            ->required()
-                            ->minDate(fn (BuyerQuote $record) => $record->valid_until ?? now())
-                            ->default(fn (BuyerQuote $record) => $record->valid_until?->addDays(14)),
-                        Textarea::make('reason')
-                            ->label('Reason for Extension')
-                            ->rows(2)
-                            ->placeholder('Optional: Explain why the validity is being extended'),
-                    ])
-                    ->action(function (BuyerQuote $record, array $data): void {
-                        $record->extendValidity(
-                            \Illuminate\Support\Carbon::parse($data['new_valid_until']),
-                            $data['reason'] ?? null
-                        );
-                        Notification::make()
-                            ->title('Quote validity extended')
-                            ->success()
-                            ->send();
-                    }),
+                        }),
+                    Action::make('send')
+                        ->label('Send')
+                        ->icon('heroicon-o-paper-airplane')
+                        ->color('info')
+                        ->visible(fn (BuyerQuote $record): bool => $record->status->canSend())
+                        ->requiresConfirmation()
+                        ->modalHeading('Send this quote?')
+                        ->modalDescription('This will mark the quote as sent and set the issue date to today.')
+                        ->action(function (BuyerQuote $record): void {
+                            $record->markAsSent();
+                            Notification::make()
+                                ->title('Quote sent')
+                                ->success()
+                                ->send();
+                        }),
+                    Action::make('accept')
+                        ->label('Accept')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->visible(fn (BuyerQuote $record): bool => $record->status === BuyerQuoteStatus::SENT)
+                        ->requiresConfirmation()
+                        ->modalHeading('Accept this quote?')
+                        ->modalDescription('This will mark the quote as accepted by the buyer.')
+                        ->action(function (BuyerQuote $record): void {
+                            $record->markAsAccepted();
+                            Notification::make()
+                                ->title('Quote accepted')
+                                ->success()
+                                ->send();
+                        }),
+                    Action::make('reject')
+                        ->label('Reject')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->visible(fn (BuyerQuote $record): bool => $record->status === BuyerQuoteStatus::SENT)
+                        ->requiresConfirmation()
+                        ->modalHeading('Reject this quote?')
+                        ->modalDescription('This will mark the quote as rejected by the buyer.')
+                        ->action(function (BuyerQuote $record): void {
+                            $record->markAsRejected();
+                            Notification::make()
+                                ->title('Quote rejected')
+                                ->warning()
+                                ->send();
+                        }),
+                    Action::make('newVersion')
+                        ->label('New Version')
+                        ->icon('heroicon-o-document-duplicate')
+                        ->color('primary')
+                        ->visible(fn (BuyerQuote $record): bool => ! $record->status->canEdit())
+                        ->requiresConfirmation()
+                        ->modalHeading('Create new version?')
+                        ->modalDescription('This will create a new draft version of this quote and mark the current one as superseded.')
+                        ->action(function (BuyerQuote $record): void {
+                            $newQuote = $record->createNewVersion();
+                            Notification::make()
+                                ->title('New version created')
+                                ->body("Version {$newQuote->version} has been created as a draft.")
+                                ->success()
+                                ->send();
+                        }),
+                    Action::make('extend')
+                        ->label('Extend')
+                        ->icon('heroicon-o-clock')
+                        ->color('warning')
+                        ->visible(fn (BuyerQuote $record): bool => $record->status->isActive())
+                        ->form([
+                            DatePicker::make('new_valid_until')
+                                ->label('New Valid Until Date')
+                                ->required()
+                                ->minDate(fn (BuyerQuote $record) => $record->valid_until ?? now())
+                                ->default(fn (BuyerQuote $record) => $record->valid_until?->addDays(14)),
+                            Textarea::make('reason')
+                                ->label('Reason for Extension')
+                                ->rows(2)
+                                ->placeholder('Optional: Explain why the validity is being extended'),
+                        ])
+                        ->action(function (BuyerQuote $record, array $data): void {
+                            $record->extendValidity(
+                                \Illuminate\Support\Carbon::parse($data['new_valid_until']),
+                                $data['reason'] ?? null
+                            );
+                            Notification::make()
+                                ->title('Quote validity extended')
+                                ->success()
+                                ->send();
+                        }),
+                ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

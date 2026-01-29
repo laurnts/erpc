@@ -13,6 +13,7 @@ use App\Models\BuyerOrder;
 use App\Models\BuyerQuote;
 use App\Models\Request;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
@@ -39,7 +40,7 @@ final class BuyerOrdersRelationManager extends RelationManager
 
     protected static ?string $title = 'Buyer Orders';
 
-    protected static string|\BackedEnum|null $icon = 'heroicon-o-shopping-cart';
+    protected static string|\BackedEnum|null $icon = 'heroicon-o-document-currency-dollar';
 
     protected static function getAssociatedStage(): RequestStage
     {
@@ -48,7 +49,7 @@ final class BuyerOrdersRelationManager extends RelationManager
 
     protected static function getBaseTabTitle(): string
     {
-        return 'Buyer Orders';
+        return 'Invoices';
     }
 
     /**
@@ -332,49 +333,51 @@ final class BuyerOrdersRelationManager extends RelationManager
                             ->exists()),
             ])
             ->recordActions([
-                ViewAction::make()
-                    ->modalWidth('7xl')
-                    ->form(fn (): array => $this->getFormSchema()),
-                DownloadPdfAction::make()
-                    ->label('PDF'),
-                Action::make('confirm')
-                    ->label('Confirm')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->visible(fn (BuyerOrder $record): bool => $record->status->canConfirm())
-                    ->requiresConfirmation()
-                    ->modalHeading('Confirm this order?')
-                    ->modalDescription(function (BuyerOrder $record): string {
-                        $warning = $record->getCreditLimitWarning();
-                        $message = 'This will mark the order as confirmed.';
-                        if ($warning !== null) {
-                            $message .= "\n\n".$warning;
-                        }
+                ActionGroup::make([
+                    ViewAction::make()
+                        ->modalWidth('7xl')
+                        ->form(fn (): array => $this->getFormSchema()),
+                    DownloadPdfAction::make()
+                        ->label('PDF'),
+                    Action::make('confirm')
+                        ->label('Confirm')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->visible(fn (BuyerOrder $record): bool => $record->status->canConfirm())
+                        ->requiresConfirmation()
+                        ->modalHeading('Confirm this order?')
+                        ->modalDescription(function (BuyerOrder $record): string {
+                            $warning = $record->getCreditLimitWarning();
+                            $message = 'This will mark the order as confirmed.';
+                            if ($warning !== null) {
+                                $message .= "\n\n".$warning;
+                            }
 
-                        return $message;
-                    })
-                    ->action(function (BuyerOrder $record): void {
-                        $record->confirm();
-                        Notification::make()
-                            ->title('Order confirmed')
-                            ->success()
-                            ->send();
-                    }),
-                Action::make('cancel')
-                    ->label('Cancel')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->visible(fn (BuyerOrder $record): bool => $record->status->canCancel())
-                    ->requiresConfirmation()
-                    ->modalHeading('Cancel this order?')
-                    ->modalDescription('This will mark the order as cancelled. This action cannot be undone.')
-                    ->action(function (BuyerOrder $record): void {
-                        $record->cancel();
-                        Notification::make()
-                            ->title('Order cancelled')
-                            ->warning()
-                            ->send();
-                    }),
+                            return $message;
+                        })
+                        ->action(function (BuyerOrder $record): void {
+                            $record->confirm();
+                            Notification::make()
+                                ->title('Order confirmed')
+                                ->success()
+                                ->send();
+                        }),
+                    Action::make('cancel')
+                        ->label('Cancel')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->visible(fn (BuyerOrder $record): bool => $record->status->canCancel())
+                        ->requiresConfirmation()
+                        ->modalHeading('Cancel this order?')
+                        ->modalDescription('This will mark the order as cancelled. This action cannot be undone.')
+                        ->action(function (BuyerOrder $record): void {
+                            $record->cancel();
+                            Notification::make()
+                                ->title('Order cancelled')
+                                ->warning()
+                                ->send();
+                        }),
+                ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
