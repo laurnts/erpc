@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\CentralPurchasingRole;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Laravel\Jetstream\Jetstream;
 use Laravel\Jetstream\Membership as JetstreamMembership;
@@ -16,6 +17,18 @@ final class Membership extends JetstreamMembership
      * @var bool
      */
     public $incrementing = true;
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @return array<string, string|class-string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'central_purchasing_role' => CentralPurchasingRole::class,
+        ];
+    }
 
     /**
      * @return BelongsTo<User, $this>
@@ -36,6 +49,13 @@ final class Membership extends JetstreamMembership
     public function getRoleNameAttribute(): string
     {
         // @phpstan-ignore-next-line nullCoalesce.expr
-        return Jetstream::findRole($this->role)?->name ?? 'Unknown';
+        $roleName = Jetstream::findRole($this->role)?->name ?? 'Unknown';
+        
+        // Append sub-role for Central Purchasing role
+        if ($this->role === 'central_purchasing' && $this->central_purchasing_role) {
+            $roleName .= ' - ' . $this->central_purchasing_role->getLabel();
+        }
+        
+        return $roleName;
     }
 }

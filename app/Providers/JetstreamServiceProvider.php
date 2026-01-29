@@ -78,5 +78,11 @@ final class JetstreamServiceProvider extends ServiceProvider
             'create',
             'update',
         ])->description('Editor users have the ability to read, create, and update.');
+
+        Jetstream::role('central_purchasing', 'Central Purchasing', [
+            'read',
+            'create',
+            'update',
+        ])->description('Central Purchasing users have the ability to read, create, and update.');
     }
 }

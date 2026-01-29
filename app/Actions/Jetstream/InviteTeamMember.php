@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Jetstream;
 
+use App\Enums\CentralPurchasingRole;
 use App\Models\Team;
 use App\Models\User;
 use Closure;
@@ -25,17 +26,18 @@ final readonly class InviteTeamMember implements InvitesTeamMembers
     /**
      * Invite a new team member to the given team.
      */
-    public function invite(User $user, Team $team, string $email, ?string $role = null): void
+    public function invite(User $user, Team $team, string $email, ?string $role = null, ?string $centralPurchasingRole = null): void
     {
         Gate::forUser($user)->authorize('addTeamMember', $team);
 
-        $this->validate($team, $email, $role);
+        $this->validate($team, $email, $role, $centralPurchasingRole);
 
         InvitingTeamMember::dispatch($team, $email, $role);
 
         $invitation = $team->teamInvitations()->create([
             'email' => $email,
             'role' => $role,
+            'central_purchasing_role' => $centralPurchasingRole,
         ]);
 
         /** @var TeamInvitationModel $invitation */
@@ -45,13 +47,15 @@ final readonly class InviteTeamMember implements InvitesTeamMembers
     /**
      * Validate the invite member operation.
      */
-    private function validate(Team $team, string $email, ?string $role): void
+    private function validate(Team $team, string $email, ?string $role, ?string $centralPurchasingRole): void
     {
         Validator::make([
             'email' => $email,
             'role' => $role,
-        ], $this->rules($team), [
+            'central_purchasing_role' => $centralPurchasingRole,
+        ], $this->rules($team, $role), [
             'email.unique' => __('This user has already been invited to the team.'),
+            'central_purchasing_role.required' => __('The Central Purchasing role is required when role is Central Purchasing.'),
         ])->after(
             $this->ensureUserIsNotAlreadyOnTeam($team, $email)
         )->validateWithBag('addTeamMember');
@@ -62,9 +66,9 @@ final readonly class InviteTeamMember implements InvitesTeamMembers
      *
      * @return array<string, list<Unique|Role|string>>
      */
-    private function rules(Team $team): array
+    private function rules(Team $team, ?string $role): array
     {
-        return [
+        $rules = [
             'email' => [
                 'required', 'email',
                 Rule::unique(Jetstream::teamInvitationModel())->where(function (Builder $query) use ($team): void {
@@ -73,6 +77,19 @@ final readonly class InviteTeamMember implements InvitesTeamMembers
             ],
             'role' => ['required', 'string', new Role],
         ];
+
+        // Require central_purchasing_role when role is central_purchasing
+        if ($role === 'central_purchasing') {
+            $rules['central_purchasing_role'] = [
+                'required',
+                'string',
+                Rule::in(array_column(CentralPurchasingRole::cases(), 'value')),
+            ];
+        } else {
+            $rules['central_purchasing_role'] = ['nullable'];
+        }
+
+        return $rules;
     }
 
     /**

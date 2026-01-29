@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\MemberResource\Pages;
 
+use App\Enums\CentralPurchasingRole;
 use App\Filament\Resources\MemberResource;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -59,13 +61,26 @@ final class ViewMember extends ViewRecord
                             ->options([
                                 'admin' => 'Administrator',
                                 'editor' => 'Editor',
+                                'central_purchasing' => 'Central Purchasing',
                             ])
                             ->descriptions([
                                 'admin' => 'Administrator users can perform any action.',
                                 'editor' => 'Editor users have the ability to read, create, and update.',
+                                'central_purchasing' => 'Central Purchasing users have the ability to read, create, and update.',
                             ])
                             ->required()
-                            ->default(fn (): string => $membership->role),
+                            ->default(fn (): string => $membership->role)
+                            ->live(),
+                        Select::make('central_purchasing_role')
+                            ->label('Central Purchasing Role')
+                            ->options(fn (): array => collect(CentralPurchasingRole::cases())
+                                ->mapWithKeys(fn (CentralPurchasingRole $role): array => [
+                                    $role->value => $role->getLabel(),
+                                ])
+                                ->toArray())
+                            ->required(fn ($get) => $get('role') === 'central_purchasing')
+                            ->visible(fn ($get) => $get('role') === 'central_purchasing')
+                            ->helperText('Select the specific role for this Central Purchasing team member.'),
                     ])
                     ->fillForm(function () use ($membership): array {
                         return [
@@ -73,6 +88,7 @@ final class ViewMember extends ViewRecord
                             'email' => $membership->user->email,
                             'profile_photo_path' => $membership->user->profile_photo_path,
                             'role' => $membership->role,
+                            'central_purchasing_role' => $membership->central_purchasing_role?->value,
                         ];
                     })
                     ->action(function (array $data) use ($membership, $team): void {
@@ -93,10 +109,30 @@ final class ViewMember extends ViewRecord
                             'email' => $data['email'],
                         ])->save();
                         
-                        // Update role if changed
-                        if (isset($data['role']) && $data['role'] !== $membership->role) {
-                            $team->users()->updateExistingPivot($membership->user_id, ['role' => $data['role']]);
-                            \Laravel\Jetstream\Events\TeamMemberUpdated::dispatch($team->fresh(), $membership);
+                        // Update role and central_purchasing_role
+                        $pivotData = [];
+                        
+                        // Always update role if provided
+                        if (isset($data['role'])) {
+                            $pivotData['role'] = $data['role'];
+                        }
+                        
+                        // Handle central_purchasing_role based on the role
+                        if ($data['role'] === 'central_purchasing') {
+                            $pivotData['central_purchasing_role'] = $data['central_purchasing_role'] ?? null;
+                        } else {
+                            // Clear central_purchasing_role if role is not central_purchasing
+                            $pivotData['central_purchasing_role'] = null;
+                        }
+                        
+                        // Always update pivot data if role is provided
+                        if (isset($data['role'])) {
+                            $team->users()->updateExistingPivot($membership->user_id, $pivotData);
+                            \Laravel\Jetstream\Events\TeamMemberUpdated::dispatch($team->fresh(), $membership->fresh());
+                            
+                            // Refresh the membership record to reflect pivot changes
+                            $membership->refresh();
+                            $membership->load('user', 'team');
                         }
                         
                         \Filament\Notifications\Notification::make()
@@ -163,8 +199,14 @@ final class ViewMember extends ViewRecord
                                 ->color(fn (): string => match ($this->getRecord()->role) {
                                     'admin' => 'danger',
                                     'editor' => 'primary',
+                                    'central_purchasing' => 'success',
                                     default => 'gray',
                                 }),
+                            // TextEntry::make('central_purchasing_role')
+                            //     ->label('Central Purchasing Role')
+                            //     ->badge()
+                            //     ->formatStateUsing(fn (): ?string => $this->getRecord()->central_purchasing_role?->getLabel())
+                            //     ->visible(fn (): bool => $this->getRecord()->role === 'central_purchasing' && $this->getRecord()->central_purchasing_role !== null),
                         ])
                         ->columns(1),
                     Section::make('Team Details')

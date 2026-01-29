@@ -61,6 +61,7 @@ final class MemberResource extends Resource
                     ->color(fn (Membership $record): string => match ($record->role) {
                         'admin' => 'danger',
                         'editor' => 'primary',
+                        'central_purchasing' => 'success',
                         default => 'gray',
                     })
                     ->sortable(),
@@ -77,6 +78,7 @@ final class MemberResource extends Resource
                     ->options([
                         'admin' => 'Administrator',
                         'editor' => 'Editor',
+                        'central_purchasing' => 'Central Purchasing',
                     ]),
             ])
             ->actions([]);

@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\MemberResource\Pages;
 
+use App\Enums\CentralPurchasingRole;
 use App\Filament\Resources\MemberResource;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\Select;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Support\Enums\Size;
 use Override;
@@ -37,18 +40,31 @@ final class ListMembers extends ListRecords
                         ->email()
                         ->required()
                         ->helperText('Please provide the email address of the person you would like to add to this team.'),
-                    \Filament\Forms\Components\Radio::make('role')
+                    Radio::make('role')
                         ->label('Role')
                         ->options([
                             'admin' => 'Administrator',
                             'editor' => 'Editor',
+                            'central_purchasing' => 'Central Purchasing',
                         ])
                         ->descriptions([
                             'admin' => 'Administrator users can perform any action.',
                             'editor' => 'Editor users have the ability to read, create, and update.',
+                            'central_purchasing' => 'Central Purchasing users have the ability to read, create, and update.',
                         ])
                         ->required()
-                        ->default('editor'),
+                        ->default('editor')
+                        ->live(),
+                    Select::make('central_purchasing_role')
+                        ->label('Central Purchasing Role')
+                        ->options(fn (): array => collect(CentralPurchasingRole::cases())
+                            ->mapWithKeys(fn (CentralPurchasingRole $role): array => [
+                                $role->value => $role->getLabel(),
+                            ])
+                            ->toArray())
+                        ->required(fn ($get) => $get('role') === 'central_purchasing')
+                        ->visible(fn ($get) => $get('role') === 'central_purchasing')
+                        ->helperText('Select the specific role for this Central Purchasing team member.'),
                 ])
                 ->action(function (array $data): void {
                     $team = Filament::getTenant();
@@ -56,7 +72,8 @@ final class ListMembers extends ListRecords
                         auth()->user(),
                         $team,
                         $data['email'],
-                        $data['role']
+                        $data['role'],
+                        $data['central_purchasing_role'] ?? null
                     );
                     
                     \Filament\Notifications\Notification::make()

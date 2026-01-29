@@ -43,6 +43,7 @@ ERPC is designed for trading businesses that source products from multiple suppl
 
 ### Platform Features
 - **Multi-Team** - Isolated workspaces per team
+- **Team Member Roles** - Three role types: Administrator (full access), Editor (read/create/update), and Central Purchasing (read/create/update with hierarchical sub-roles: Key Account, Dept. Head of Sales, Deputy Director, Director)
 - **Custom Fields** - Extend entities without code changes
 - **Role-Based Access** - Granular permissions
 - **Import/Export** - CSV data management

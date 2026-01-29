@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Livewire\App\Teams;
 
 use App\Actions\Jetstream\InviteTeamMember;
+use App\Enums\CentralPurchasingRole;
 use App\Livewire\BaseLivewireComponent;
 use App\Models\Team;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Actions;
@@ -62,7 +64,18 @@ final class AddTeamMember extends BaseLivewireComponent
                                         ->required()
                                         ->in($roles->pluck('key'))
                                         ->options($roles->pluck('name', 'key'))
-                                        ->descriptions($roles->pluck('description', 'key')),
+                                        ->descriptions($roles->pluck('description', 'key'))
+                                        ->live(),
+                                    Select::make('central_purchasing_role')
+                                        ->label('Central Purchasing Role')
+                                        ->options(fn (): array => collect(CentralPurchasingRole::cases())
+                                            ->mapWithKeys(fn (CentralPurchasingRole $role): array => [
+                                                $role->value => $role->getLabel(),
+                                            ])
+                                            ->toArray())
+                                        ->required(fn ($get) => $get('role') === 'central_purchasing')
+                                        ->visible(fn ($get) => $get('role') === 'central_purchasing')
+                                        ->helperText('Select the specific role for this Central Purchasing team member.'),
                                 ];
                             }),
                         Actions::make([
@@ -92,13 +105,14 @@ final class AddTeamMember extends BaseLivewireComponent
             $this->authUser(),
             $team,
             $data['email'],
-            $data['role'] ?? null
+            $data['role'] ?? null,
+            $data['central_purchasing_role'] ?? null
         );
 
         $this->sendNotification(__('teams.notifications.team_invitation_sent.success'));
 
         // Reset form after successful addition
-        $this->form->fill(['email' => '', 'role' => null]);
+        $this->form->fill(['email' => '', 'role' => null, 'central_purchasing_role' => null]);
 
         // Only redirect if not on members page (check URL path)
         $currentPath = request()->path();
