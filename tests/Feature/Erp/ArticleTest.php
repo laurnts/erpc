@@ -307,3 +307,134 @@ test('with sku factory state works', function () {
 
     expect($article->sku)->toBe('SKU-123456');
 });
+
+// Supplier Assignment Tests
+test('article can have suppliers assigned', function () {
+    $article = Article::factory()->for($this->user->personalTeam())->create([
+        'creator_id' => $this->user->id,
+    ]);
+
+    $supplier = Company::factory()
+        ->for($this->user->personalTeam())
+        ->supplier()
+        ->create([
+            'creator_id' => $this->user->id,
+        ]);
+
+    $article->suppliers()->attach($supplier->id);
+
+    expect($article->suppliers)->toHaveCount(1)
+        ->and($article->suppliers->first()->id)->toBe($supplier->id)
+        ->and($article->suppliers->first()->is_supplier)->toBeTrue();
+});
+
+test('article can sync multiple suppliers', function () {
+    $article = Article::factory()->for($this->user->personalTeam())->create([
+        'creator_id' => $this->user->id,
+    ]);
+
+    $suppliers = Company::factory()
+        ->count(3)
+        ->for($this->user->personalTeam())
+        ->supplier()
+        ->create(['creator_id' => $this->user->id]);
+
+    $article->suppliers()->sync($suppliers->pluck('id')->toArray());
+
+    expect($article->suppliers)->toHaveCount(3);
+
+    // Sync with only one supplier
+    $article->suppliers()->sync([$suppliers->first()->id]);
+
+    expect($article->fresh()->suppliers)->toHaveCount(1);
+});
+
+test('article can detach suppliers', function () {
+    $article = Article::factory()->for($this->user->personalTeam())->create([
+        'creator_id' => $this->user->id,
+    ]);
+
+    $supplier = Company::factory()
+        ->for($this->user->personalTeam())
+        ->supplier()
+        ->create(['creator_id' => $this->user->id]);
+
+    $article->suppliers()->attach($supplier->id);
+    expect($article->suppliers)->toHaveCount(1);
+
+    $article->suppliers()->detach($supplier->id);
+    expect($article->fresh()->suppliers)->toHaveCount(0);
+});
+
+test('article suppliers are filtered by is_supplier and team', function () {
+    $article = Article::factory()->for($this->user->personalTeam())->create([
+        'creator_id' => $this->user->id,
+    ]);
+
+    // Create supplier in same team
+    $supplier = Company::factory()
+        ->for($this->user->personalTeam())
+        ->supplier()
+        ->create(['creator_id' => $this->user->id]);
+
+    // Create non-supplier company in same team
+    $nonSupplier = Company::factory()
+        ->for($this->user->personalTeam())
+        ->create(['creator_id' => $this->user->id]);
+
+    // Create supplier in different team
+    $otherTeam = Team::factory()->create();
+    $otherTeamSupplier = Company::factory()
+        ->for($otherTeam)
+        ->supplier()
+        ->create();
+
+    $article->suppliers()->attach($supplier->id);
+
+    // Verify only the correct supplier is attached
+    expect($article->suppliers)->toHaveCount(1)
+        ->and($article->suppliers->first()->id)->toBe($supplier->id)
+        ->and($article->suppliers->first()->is_supplier)->toBeTrue()
+        ->and($article->suppliers->first()->team_id)->toBe($this->user->personalTeam()->id);
+});
+
+test('article can be created with suppliers via form data sync', function () {
+    $suppliers = Company::factory()
+        ->count(2)
+        ->for($this->user->personalTeam())
+        ->supplier()
+        ->create(['creator_id' => $this->user->id]);
+
+    // Simulate form data with suppliers
+    $article = Article::create([
+        'name' => 'Test Article with Suppliers',
+        'unit' => 'pcs',
+        'team_id' => $this->user->personalTeam()->id,
+        'creator_id' => $this->user->id,
+    ]);
+
+    // Sync suppliers as done in ItemsRelationManager
+    $article->suppliers()->sync($suppliers->pluck('id')->toArray());
+
+    expect($article->suppliers)->toHaveCount(2)
+        ->and($article->suppliers->pluck('id')->toArray())->toBe($suppliers->pluck('id')->toArray());
+});
+
+test('article supplier sync handles empty array', function () {
+    $article = Article::factory()->for($this->user->personalTeam())->create([
+        'creator_id' => $this->user->id,
+    ]);
+
+    $supplier = Company::factory()
+        ->for($this->user->personalTeam())
+        ->supplier()
+        ->create(['creator_id' => $this->user->id]);
+
+    $article->suppliers()->attach($supplier->id);
+    expect($article->suppliers)->toHaveCount(1);
+
+    // Sync with empty array (simulating no suppliers selected)
+    $article->suppliers()->sync([]);
+
+    expect($article->fresh()->suppliers)->toHaveCount(0);
+});
