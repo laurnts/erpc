@@ -13,6 +13,7 @@ enum CentralPurchasingRole: string implements HasLabel, HasDescription
     case DEPT_HEAD_SALES = 'dept_head_sales';
     case DEPUTY_DIRECTOR = 'deputy_director';
     case DIRECTOR = 'director';
+    case FINANCE = 'finance';
 
     public function getLabel(): string
     {
@@ -21,6 +22,7 @@ enum CentralPurchasingRole: string implements HasLabel, HasDescription
             self::DEPT_HEAD_SALES => 'Dept Head of Sales',
             self::DEPUTY_DIRECTOR => 'Deputy Director',
             self::DIRECTOR => 'Director',
+            self::FINANCE => 'Finance',
         };
     }
 
@@ -31,6 +33,7 @@ enum CentralPurchasingRole: string implements HasLabel, HasDescription
             self::DEPT_HEAD_SALES => 'Department Head of Sales - Acknowledges QE/PNL documents',
             self::DEPUTY_DIRECTOR => 'Deputy Director - Acknowledges QE/PNL documents',
             self::DIRECTOR => 'Director - Approves QE/PNL documents',
+            self::FINANCE => 'Finance',
         };
     }
 }
