@@ -145,6 +145,11 @@ final class ItemsRelationManager extends RelationManager
                             $article->tags()->sync($data['tags']);
                         }
 
+                        // Sync suppliers if provided
+                        if (! empty($data['suppliers'])) {
+                            $article->suppliers()->sync($data['suppliers']);
+                        }
+
                         return $article->getKey();
                     })
                     ->createOptionModalHeading('Create New Article')
