@@ -315,7 +315,21 @@ final class SupplierOrder extends Model
     }
 
     /**
-     * Mark the order as sent/ordered.
+     * Mark the order as sent (email sent to supplier).
+     */
+    public function markAsSent(): void
+    {
+        if (! $this->status->canSend()) {
+            throw new \InvalidArgumentException('Only draft orders can be sent.');
+        }
+
+        $this->status = OrderStatus::SENT;
+        $this->ordered_at = now();
+        $this->save();
+    }
+
+    /**
+     * Mark the order as sent/ordered (legacy method for backward compatibility).
      */
     public function markAsOrdered(): void
     {

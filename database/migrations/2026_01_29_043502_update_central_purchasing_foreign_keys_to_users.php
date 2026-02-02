@@ -16,6 +16,10 @@ return new class extends Migration
     {
         // Note: Data migration should run first to update People IDs to User IDs
         
+        // Clean up orphaned foreign key references before adding constraints
+        $this->cleanupOrphanedReferences('quotation_evaluations');
+        $this->cleanupOrphanedReferences('profit_and_losses');
+        
         // Update quotation_evaluations table - drop old foreign key constraints
         Schema::table('quotation_evaluations', function (Blueprint $table) {
             // Drop foreign keys if they exist
@@ -134,6 +138,25 @@ return new class extends Migration
                 $table->foreign('approved_by_id')->references('id')->on('users')->nullOnDelete();
             }
         });
+    }
+
+    /**
+     * Clean up orphaned foreign key references that don't exist in users table.
+     */
+    private function cleanupOrphanedReferences(string $table): void
+    {
+        $validUserIds = DB::table('users')->pluck('id')->toArray();
+        $fields = ['prepared_by_id', 'dept_head_sales_id', 'deputy_director_id', 'approved_by_id'];
+        
+        foreach ($fields as $field) {
+            if (Schema::hasColumn($table, $field)) {
+                // Set orphaned references to NULL
+                DB::table($table)
+                    ->whereNotNull($field)
+                    ->whereNotIn($field, $validUserIds)
+                    ->update([$field => null]);
+            }
+        }
     }
 
     /**

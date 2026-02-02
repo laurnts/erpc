@@ -22,6 +22,14 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Check if columns still exist (they may have been removed by a later migration)
+        if (! Schema::hasColumn('people', 'is_central_purchasing') || 
+            ! Schema::hasColumn('people', 'central_purchasing_role')) {
+            // Columns have already been removed, migration likely already ran or data was migrated
+            \Log::info('Central Purchasing columns already removed from people table. Skipping migration.');
+            return;
+        }
+
         // Get all Central Purchasing People records
         $centralPurchasingPeople = DB::table('people')
             ->where('is_central_purchasing', true)

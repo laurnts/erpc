@@ -11,6 +11,7 @@ use Filament\Support\Contracts\HasLabel;
 enum OrderStatus: string implements HasColor, HasIcon, HasLabel
 {
     case DRAFT = 'draft';
+    case SENT = 'sent';
     case CONFIRMED = 'confirmed';
     case PROCESSING = 'processing';
     case SHIPPED = 'shipped';
@@ -23,6 +24,7 @@ enum OrderStatus: string implements HasColor, HasIcon, HasLabel
     {
         return match ($this) {
             self::DRAFT => 'Draft',
+            self::SENT => 'Sent',
             self::CONFIRMED => 'Confirmed',
             self::PROCESSING => 'Processing',
             self::SHIPPED => 'Shipped',
@@ -37,6 +39,7 @@ enum OrderStatus: string implements HasColor, HasIcon, HasLabel
     {
         return match ($this) {
             self::DRAFT => 'gray',
+            self::SENT => 'info',
             self::CONFIRMED => 'info',
             self::PROCESSING => 'warning',
             self::SHIPPED => 'primary',
@@ -51,6 +54,7 @@ enum OrderStatus: string implements HasColor, HasIcon, HasLabel
     {
         return match ($this) {
             self::DRAFT => 'heroicon-o-pencil',
+            self::SENT => 'heroicon-o-paper-airplane',
             self::CONFIRMED => 'heroicon-o-check-circle',
             self::PROCESSING => 'heroicon-o-cog-6-tooth',
             self::SHIPPED => 'heroicon-o-truck',
@@ -70,11 +74,19 @@ enum OrderStatus: string implements HasColor, HasIcon, HasLabel
     }
 
     /**
+     * Check if order can be sent.
+     */
+    public function canSend(): bool
+    {
+        return $this === self::DRAFT;
+    }
+
+    /**
      * Check if order can be confirmed.
      */
     public function canConfirm(): bool
     {
-        return $this === self::DRAFT;
+        return in_array($this, [self::DRAFT, self::SENT], true);
     }
 
     /**
@@ -82,7 +94,7 @@ enum OrderStatus: string implements HasColor, HasIcon, HasLabel
      */
     public function canCancel(): bool
     {
-        return in_array($this, [self::DRAFT, self::CONFIRMED], true);
+        return in_array($this, [self::DRAFT, self::SENT, self::CONFIRMED], true);
     }
 
     /**
@@ -115,7 +127,8 @@ enum OrderStatus: string implements HasColor, HasIcon, HasLabel
     public function getNextStatus(): ?self
     {
         return match ($this) {
-            self::DRAFT => self::CONFIRMED,
+            self::DRAFT => self::SENT,
+            self::SENT => self::CONFIRMED,
             self::CONFIRMED => self::PROCESSING,
             self::PROCESSING => self::SHIPPED,
             self::SHIPPED => self::DELIVERED,

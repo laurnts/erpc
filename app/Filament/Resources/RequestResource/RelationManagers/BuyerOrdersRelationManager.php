@@ -9,14 +9,17 @@ use App\Enums\OrderStatus;
 use App\Enums\RequestStage;
 use App\Filament\Actions\DownloadPdfAction;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
+use App\Mail\Erp\BuyerOrderToBuyerMail;
 use App\Models\BuyerOrder;
 use App\Models\BuyerQuote;
 use App\Models\Request;
+use App\Services\Email\EmailTemplateService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
+use Illuminate\Support\Facades\Log;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
@@ -339,6 +342,137 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->form(fn (): array => $this->getFormSchema()),
                     DownloadPdfAction::make()
                         ->label('PDF'),
+                    Action::make('send')
+                        ->label('Send')
+                        ->icon('heroicon-o-paper-airplane')
+                        ->color('primary')
+                        ->visible(fn (?BuyerOrder $record): bool => $record !== null && $record->status->canSend())
+                        ->requiresConfirmation()
+                        ->modalHeading('Send order email to buyer?')
+                        ->modalDescription(function (BuyerOrder $record): string {
+                            $buyerEmail = $record->buyer->email ?? null;
+                            $buyerName = $record->buyer->name ?? 'Unknown';
+                            $description = 'This will mark the order as sent and send the order email to the buyer.';
+                            
+                            if (empty($buyerEmail)) {
+                                $description .= "\n\n⚠️ **Warning:** The buyer ({$buyerName}) does not have an email address configured. The order will be marked as sent, but no email will be sent.";
+                            } else {
+                                $description .= "\n\n📧 Email will be sent to: {$buyerEmail}";
+                            }
+                            
+                            return $description;
+                        })
+                        ->action(function (BuyerOrder $record): void {
+                            // Send email to buyer
+                            $buyerEmail = $record->buyer->email ?? null;
+                            $buyerName = $record->buyer->name ?? 'Buyer';
+                            
+                            // Mark as sent first
+                            $record->markAsSent();
+                            
+                            if (empty($buyerEmail)) {
+                                Notification::make()
+                                    ->title('Order marked as sent')
+                                    ->body("Order has been marked as sent, but no email was sent because the buyer ({$buyerName}) does not have an email address configured.")
+                                    ->warning()
+                                    ->send();
+                                return;
+                            }
+
+                            try {
+                                $emailService = app(EmailTemplateService::class);
+                                $settings = $record->team->getErpSettings();
+                                $emailService->sendWithTeamSettings(
+                                    $record->team,
+                                    new BuyerOrderToBuyerMail($record),
+                                    $buyerEmail,
+                                    $settings->email_template_buyer_order
+                                );
+
+                                Notification::make()
+                                    ->title('Order sent')
+                                    ->body("Order has been sent successfully to {$buyerEmail}.")
+                                    ->success()
+                                    ->send();
+                            } catch (\Exception $e) {
+                                Log::error('Failed to send buyer order email', [
+                                    'order_id' => $record->id,
+                                    'buyer_email' => $buyerEmail,
+                                    'error' => $e->getMessage(),
+                                    'trace' => $e->getTraceAsString(),
+                                ]);
+
+                                Notification::make()
+                                    ->title('Failed to send email')
+                                    ->body("Order has been marked as sent, but the email could not be sent to {$buyerEmail}. Error: ".$e->getMessage())
+                                    ->danger()
+                                    ->send();
+                            }
+                        }),
+                    Action::make('resend')
+                        ->label('Resend')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('info')
+                        ->visible(fn (?BuyerOrder $record): bool => $record !== null && $record->status === OrderStatus::SENT)
+                        ->requiresConfirmation()
+                        ->modalHeading('Resend order email?')
+                        ->modalDescription(function (BuyerOrder $record): string {
+                            $buyerEmail = $record->buyer->email ?? null;
+                            $buyerName = $record->buyer->name ?? 'Unknown';
+                            $description = 'This will resend the order email to the buyer without changing the order status.';
+                            
+                            if (empty($buyerEmail)) {
+                                $description .= "\n\n⚠️ **Warning:** The buyer ({$buyerName}) does not have an email address configured. No email will be sent.";
+                            } else {
+                                $description .= "\n\n📧 Email will be sent to: {$buyerEmail}";
+                            }
+                            
+                            return $description;
+                        })
+                        ->action(function (BuyerOrder $record): void {
+                            // Resend email to buyer (without changing status)
+                            $buyerEmail = $record->buyer->email ?? null;
+                            $buyerName = $record->buyer->name ?? 'Buyer';
+                            
+                            if (empty($buyerEmail)) {
+                                Notification::make()
+                                    ->title('Cannot resend email')
+                                    ->body("The buyer ({$buyerName}) does not have an email address configured.")
+                                    ->warning()
+                                    ->send();
+                                return;
+                            }
+
+                            try {
+                                $emailService = app(EmailTemplateService::class);
+                                $settings = $record->team->getErpSettings();
+                                $emailService->sendWithTeamSettings(
+                                    $record->team,
+                                    new BuyerOrderToBuyerMail($record),
+                                    $buyerEmail,
+                                    $settings->email_template_buyer_order
+                                );
+
+                                Notification::make()
+                                    ->title('Email resent')
+                                    ->body("Order email has been resent successfully to {$buyerEmail}.")
+                                    ->success()
+                                    ->send();
+                            } catch (\Exception $e) {
+                                Log::error('Failed to resend buyer order email', [
+                                    'order_id' => $record->id,
+                                    'buyer_email' => $buyerEmail,
+                                    'error' => $e->getMessage(),
+                                    'trace' => $e->getTraceAsString(),
+                                ]);
+
+                                Notification::make()
+                                    ->title('Failed to resend email')
+                                    ->body("The email could not be sent to {$buyerEmail}. Error: ".$e->getMessage())
+                                    ->danger()
+                                    ->send();
+                            }
+                        }),
                     Action::make('confirm')
                         ->label('Confirm')
                         ->icon('heroicon-o-check-circle')

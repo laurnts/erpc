@@ -39,6 +39,11 @@ final class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Register mail view namespace
+        if (is_dir(resource_path('views/vendor/mail'))) {
+            Facades\View::addNamespace('mail', resource_path('views/vendor/mail'));
+        }
+        
         $this->configurePolicies();
         $this->configureModels();
         $this->configureFilament();

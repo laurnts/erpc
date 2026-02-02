@@ -38,6 +38,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property Carbon|null $shipped_at
  * @property Carbon|null $expected_delivery_at
  * @property Carbon|null $delivered_at
+ * @property Carbon|null $do_sent_at
  * @property string|null $notes
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -80,6 +81,7 @@ final class Shipment extends Model implements HasMedia
         'shipped_at',
         'expected_delivery_at',
         'delivered_at',
+        'do_sent_at',
         'notes',
     ];
 
@@ -102,6 +104,7 @@ final class Shipment extends Model implements HasMedia
             'shipped_at' => 'datetime',
             'expected_delivery_at' => 'datetime',
             'delivered_at' => 'datetime',
+            'do_sent_at' => 'datetime',
         ];
     }
 

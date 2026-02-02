@@ -1091,11 +1091,11 @@ final class BuyerQuotesRelationManager extends RelationManager
             ->recordActions([
                 ActionGroup::make([
                     ViewAction::make()
-                        ->visible(fn (BuyerQuote $record): bool => ! $record->status->canEdit())
+                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && ! $record->status->canEdit())
                         ->modalWidth('7xl')
                         ->form(fn (): array => $this->getFormSchema()),
                     EditAction::make()
-                        ->visible(fn (BuyerQuote $record): bool => $record->status->canEdit())
+                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->status->canEdit())
                         ->modalWidth('7xl')
                         ->form(fn (): array => $this->getFormSchema())
                         ->mutateFormDataUsing(function (array $data): array {
@@ -1122,7 +1122,16 @@ final class BuyerQuotesRelationManager extends RelationManager
                             $record->recalculateTotals();
                         }),
                     \Filament\Actions\DeleteAction::make()
-                        ->visible(fn (BuyerQuote $record): bool => $record->status->canEdit()),
+                        ->hidden(function (?BuyerQuote $record): bool {
+                            if ($record === null) {
+                                return true;
+                            }
+                            // Override default trashed check to also check status
+                            if (method_exists($record, 'trashed') && $record->trashed()) {
+                                return true;
+                            }
+                            return ! $record->status->canEdit();
+                        }),
                     DownloadPdfAction::make()
                         ->label('PDF'),
                     Action::make('uploadPo')
@@ -1141,7 +1150,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                             return $record->getMedia('buyer_po')->isNotEmpty() ? 'heroicon-o-eye' : 'heroicon-o-document-arrow-up';
                         })
                         ->color('gray')
-                        ->visible(fn (BuyerQuote $record): bool => $record->status === BuyerQuoteStatus::ACCEPTED)
+                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->status === BuyerQuoteStatus::ACCEPTED)
                         ->slideOver()
                         ->form(function (BuyerQuote $record): array {
                             // Load media if not already loaded
@@ -1166,22 +1175,137 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->label('Send')
                         ->icon('heroicon-o-paper-airplane')
                         ->color('info')
-                        ->visible(fn (BuyerQuote $record): bool => $record->status->canSend())
+                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->status->canSend())
                         ->requiresConfirmation()
                         ->modalHeading('Send this quote?')
-                        ->modalDescription('This will mark the quote as sent and set the issue date to today.')
+                        ->modalDescription(function (BuyerQuote $record): string {
+                            $buyerEmail = $record->buyer->email ?? null;
+                            $buyerName = $record->buyer->name ?? 'Unknown';
+                            $description = 'This will mark the quote as sent and set the issue date to today.';
+                            
+                            if (empty($buyerEmail)) {
+                                $description .= "\n\n⚠️ **Warning:** The buyer ({$buyerName}) does not have an email address configured. The quote will be marked as sent, but no email will be sent.";
+                            } else {
+                                $description .= "\n\n📧 Email will be sent to: {$buyerEmail}";
+                            }
+                            
+                            return $description;
+                        })
                         ->action(function (BuyerQuote $record): void {
                             $record->markAsSent();
+
+                            // Send email to buyer
+                            $buyerEmail = $record->buyer->email ?? null;
+                            $buyerName = $record->buyer->name ?? 'Buyer';
+                            
+                            if (empty($buyerEmail)) {
+                                Notification::make()
+                                    ->title('Quote marked as sent')
+                                    ->body("Quote has been marked as sent, but no email was sent because the buyer ({$buyerName}) does not have an email address configured.")
+                                    ->warning()
+                                    ->send();
+                                return;
+                            }
+
+                            try {
+                                $emailService = app(\App\Services\Email\EmailTemplateService::class);
+                                $settings = $record->team->getErpSettings();
+                                $emailService->sendWithTeamSettings(
+                                    $record->team,
+                                    new \App\Mail\Erp\QuoteToBuyerMail($record),
+                                    $buyerEmail,
+                                    $settings->email_template_buyer_quote
+                                );
+
                             Notification::make()
                                 ->title('Quote sent')
+                                    ->body("Quote has been sent successfully to {$buyerEmail}.")
                                 ->success()
                                 ->send();
+                            } catch (\Exception $e) {
+                                \Illuminate\Support\Facades\Log::error('Failed to send buyer quote email', [
+                                    'quote_id' => $record->id,
+                                    'buyer_email' => $buyerEmail,
+                                    'error' => $e->getMessage(),
+                                    'trace' => $e->getTraceAsString(),
+                                ]);
+
+                                Notification::make()
+                                    ->title('Failed to send email')
+                                    ->body("Quote has been marked as sent, but the email could not be sent to {$buyerEmail}. Error: ".$e->getMessage())
+                                    ->danger()
+                                    ->send();
+                            }
+                        }),
+                    Action::make('resend')
+                        ->label('Resend')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('info')
+                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->status === BuyerQuoteStatus::SENT)
+                        ->requiresConfirmation()
+                        ->modalHeading('Resend quote email?')
+                        ->modalDescription(function (BuyerQuote $record): string {
+                            $buyerEmail = $record->buyer->email ?? null;
+                            $buyerName = $record->buyer->name ?? 'Unknown';
+                            $description = 'This will resend the quote email to the buyer without changing the quote status.';
+                            
+                            if (empty($buyerEmail)) {
+                                $description .= "\n\n⚠️ **Warning:** The buyer ({$buyerName}) does not have an email address configured. No email will be sent.";
+                            } else {
+                                $description .= "\n\n📧 Email will be sent to: {$buyerEmail}";
+                            }
+                            
+                            return $description;
+                        })
+                        ->action(function (BuyerQuote $record): void {
+                            // Resend email to buyer (without changing status)
+                            $buyerEmail = $record->buyer->email ?? null;
+                            $buyerName = $record->buyer->name ?? 'Buyer';
+                            
+                            if (empty($buyerEmail)) {
+                                Notification::make()
+                                    ->title('Cannot resend email')
+                                    ->body("The buyer ({$buyerName}) does not have an email address configured.")
+                                    ->warning()
+                                    ->send();
+                                return;
+                            }
+
+                            try {
+                                $emailService = app(\App\Services\Email\EmailTemplateService::class);
+                                $settings = $record->team->getErpSettings();
+                                $emailService->sendWithTeamSettings(
+                                    $record->team,
+                                    new \App\Mail\Erp\QuoteToBuyerMail($record),
+                                    $buyerEmail,
+                                    $settings->email_template_buyer_quote
+                                );
+
+                                Notification::make()
+                                    ->title('Email resent')
+                                    ->body("Quote email has been resent successfully to {$buyerEmail}.")
+                                    ->success()
+                                    ->send();
+                            } catch (\Exception $e) {
+                                \Illuminate\Support\Facades\Log::error('Failed to resend buyer quote email', [
+                                    'quote_id' => $record->id,
+                                    'buyer_email' => $buyerEmail,
+                                    'error' => $e->getMessage(),
+                                    'trace' => $e->getTraceAsString(),
+                                ]);
+
+                                Notification::make()
+                                    ->title('Failed to resend email')
+                                    ->body("The email could not be sent to {$buyerEmail}. Error: ".$e->getMessage())
+                                    ->danger()
+                                    ->send();
+                            }
                         }),
                     Action::make('accept')
                         ->label('Accept')
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
-                        ->visible(fn (BuyerQuote $record): bool => $record->status === BuyerQuoteStatus::SENT)
+                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->status === BuyerQuoteStatus::SENT)
                         ->requiresConfirmation()
                         ->modalHeading('Accept this quote?')
                         ->modalDescription('This will mark the quote as accepted by the buyer.')
@@ -1196,7 +1320,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->label('Reject')
                         ->icon('heroicon-o-x-circle')
                         ->color('danger')
-                        ->visible(fn (BuyerQuote $record): bool => $record->status === BuyerQuoteStatus::SENT)
+                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->status === BuyerQuoteStatus::SENT)
                         ->requiresConfirmation()
                         ->modalHeading('Reject this quote?')
                         ->modalDescription('This will mark the quote as rejected by the buyer.')
@@ -1211,7 +1335,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->label('New Version')
                         ->icon('heroicon-o-document-duplicate')
                         ->color('primary')
-                        ->visible(fn (BuyerQuote $record): bool => ! $record->status->canEdit())
+                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && ! $record->status->canEdit())
                         ->requiresConfirmation()
                         ->modalHeading('Create new version?')
                         ->modalDescription('This will create a new draft version of this quote and mark the current one as superseded.')
@@ -1227,7 +1351,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->label('Extend')
                         ->icon('heroicon-o-clock')
                         ->color('warning')
-                        ->visible(fn (BuyerQuote $record): bool => $record->status->isActive())
+                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->status->isActive())
                         ->form([
                             DatePicker::make('new_valid_until')
                                 ->label('New Valid Until Date')

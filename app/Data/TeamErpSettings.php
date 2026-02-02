@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Data;
 
+use Spatie\LaravelData\Attributes\Validation\Email;
 use Spatie\LaravelData\Attributes\Validation\Max;
 use Spatie\LaravelData\Attributes\Validation\Min;
 use Spatie\LaravelData\Data;
@@ -55,5 +56,36 @@ final class TeamErpSettings extends Data
         public string $buyer_payment_number_prefix = 'PAY',
         #[Max(10)]
         public string $supplier_payment_number_prefix = 'SP',
+
+        // Email Configuration
+        #[Email, Max(255)]
+        public string $email_from_address = '',
+        #[Max(255)]
+        public string $email_from_name = '',
+        public ?string $email_logo_media_id = null,
+        public string $email_signature = '',
+        #[Email, Max(255)]
+        public string $test_email_address = '',
+
+        // SMTP Configuration
+        #[Max(255)]
+        public ?string $smtp_host = null,
+        #[Min(1), Max(65535)]
+        public ?int $smtp_port = null,
+        #[Max(255)]
+        public ?string $smtp_username = null,
+        public ?string $smtp_password = null, // Encrypted
+        #[Max(10)]
+        public ?string $smtp_encryption = null, // 'tls', 'ssl', or null
+
+        // Email Templates (stored as arrays with content, sender_email, cc_emails, bcc_emails)
+        /** @var array{content: string, sender_email?: string|null, cc_emails?: string[], bcc_emails?: string[]}|null */
+        public ?array $email_template_buyer_quote = null,
+        /** @var array{content: string, sender_email?: string|null, cc_emails?: string[], bcc_emails?: string[]}|null */
+        public ?array $email_template_buyer_order = null,
+        /** @var array{content: string, sender_email?: string|null, cc_emails?: string[], bcc_emails?: string[]}|null */
+        public ?array $email_template_supplier_order = null,
+        /** @var array{content: string, sender_email?: string|null, cc_emails?: string[], bcc_emails?: string[]}|null */
+        public ?array $email_template_delivery_order = null,
     ) {}
 }

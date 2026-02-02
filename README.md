@@ -52,6 +52,13 @@ ERPC is designed for trading businesses that source products from multiple suppl
     - Dept. Head of Sales (approval workflow)
     - Deputy Director (approval workflow)
     - Director (final approval)
+- **Email Settings** - Comprehensive email configuration:
+  - Custom email templates for quotes, orders, invoices, and shipments
+  - Team-specific SMTP configuration with encrypted passwords
+  - Email branding with logo upload and signature
+  - Per-template sender, CC, and BCC configuration
+  - Template variable system for dynamic content
+  - Test email functionality
 - **Custom Fields** - Extend entities without code changes
 - **Role-Based Access** - Granular permissions
 - **Import/Export** - CSV data management
@@ -102,13 +109,18 @@ composer test:coverage # Code coverage (min 80%)
 ```
 app/
 ├── Actions/           # Single-purpose action classes
+├── Data/              # Data transfer objects (Spatie Laravel Data)
 ├── Enums/             # PHP enums
 ├── Filament/          # Admin panel resources
+│   └── Pages/         # Custom Filament pages (e.g., EmailSettings)
 ├── Jobs/              # Background jobs
+├── Mail/              # Laravel Mailables
+│   └── Erp/           # ERP-specific email templates
 ├── Models/            # Eloquent models
 ├── Observers/         # Model observers
 ├── Policies/          # Authorization policies
 └── Services/          # Service classes
+    └── Email/         # Email template and SMTP services
 
 app-modules/           # Isolated modules
 ├── Documentation/

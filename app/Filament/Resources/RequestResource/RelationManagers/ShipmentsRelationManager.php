@@ -11,11 +11,14 @@ use App\Enums\ShipmentStatus;
 use App\Enums\ShipmentType;
 use App\Filament\Actions\DownloadPdfAction;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
+use App\Mail\Erp\ShipmentToBuyerMail;
 use App\Models\Request;
 use App\Models\Shipment;
 use App\Models\SupplierOrder;
+use App\Services\Email\EmailTemplateService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
+use Illuminate\Support\Facades\Log;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
@@ -173,7 +176,9 @@ final class ShipmentsRelationManager extends RelationManager
      */
     private function getViewShipmentsSchema(SupplierOrder $supplierOrder): array
     {
-        $shipments = $supplierOrder->shipments()->with('items')->get();
+        $shipments = $supplierOrder->shipments()
+            ->with(['items', 'request.buyer'])
+            ->get();
 
         if ($shipments->isEmpty()) {
             return [
@@ -185,6 +190,11 @@ final class ShipmentsRelationManager extends RelationManager
 
         $sections = [];
         foreach ($shipments as $shipment) {
+            // Capture shipment ID and status for use in closures
+            $shipmentId = $shipment->id;
+            $shipmentType = $shipment->type;
+            $shipmentStatus = $shipment->status;
+            
             $sections[] = Section::make($shipment->shipment_number)
                 ->description(sprintf('%s • %s', $shipment->status->getLabel(), $shipment->carrier_name ?? 'No carrier'))
                 ->icon($this->getShipmentStatusIcon($shipment->status))
@@ -208,38 +218,116 @@ final class ShipmentsRelationManager extends RelationManager
                     Placeholder::make("items_{$shipment->id}")
                         ->label('Items')
                         ->content(new HtmlString($this->formatShipmentItems($shipment))),
-                    Placeholder::make("pdf_button_{$shipment->id}")
+                    Placeholder::make("actions_{$shipment->id}")
                         ->label('')
-                        ->content(new HtmlString($this->getShipmentPdfButton($shipment)))
-                        ->visible(fn () => $shipment->type === ShipmentType::INBOUND),
+                        ->content(view('filament.components.shipment-actions', ['shipment' => $shipment]))
+                        ->visible(fn () => $shipmentType === ShipmentType::INBOUND),
                 ])
                 ->collapsible()
-                ->collapsed($shipment->status === ShipmentStatus::DELIVERED);
+                ->collapsed($shipmentStatus === ShipmentStatus::DELIVERED);
         }
 
         return $sections;
     }
 
+
     /**
-     * Get PDF download button HTML for a shipment.
+     * Send or resend delivery order email to buyer.
      */
-    private function getShipmentPdfButton(Shipment $shipment): string
+    public function sendDeliveryOrder(int $shipmentId): void
     {
-        if ($shipment->type !== ShipmentType::INBOUND) {
-            return '';
+        $shipment = Shipment::find($shipmentId);
+        
+        if (!$shipment) {
+            Notification::make()
+                ->title('Shipment not found')
+                ->danger()
+                ->send();
+            return;
         }
 
-        $url = route('shipment.pdf', ['shipment' => $shipment->getKey()]);
+        // Verify shipment belongs to current team
+        /** @var \App\Models\Team $team */
+        $team = \Filament\Facades\Filament::getTenant();
+        if ($shipment->team_id !== $team->id) {
+            Notification::make()
+                ->title('Unauthorized')
+                ->body('You do not have access to this shipment.')
+                ->danger()
+                ->send();
+            return;
+        }
 
-        return sprintf(
-            '<a href="%s" target="_blank" class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-                Download DO PDF
-            </a>',
-            $url
-        );
+        // Verify shipment is inbound and in transit
+        if ($shipment->type !== ShipmentType::INBOUND) {
+            Notification::make()
+                ->title('Invalid shipment type')
+                ->body('Only inbound shipments can send delivery orders.')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        if ($shipment->status !== ShipmentStatus::IN_TRANSIT) {
+            Notification::make()
+                ->title('Invalid shipment status')
+                ->body('Delivery order can only be sent for shipments in transit.')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        // Get buyer email - for inbound shipments, buyer is accessed via request->buyer
+        $buyer = $shipment->request?->buyer ?? null;
+        $buyerEmail = $buyer?->email ?? null;
+        $buyerName = $buyer?->name ?? 'Buyer';
+
+        if (empty($buyerEmail)) {
+            Notification::make()
+                ->title('Email not sent')
+                ->body("Delivery order email was not sent because the buyer ({$buyerName}) does not have an email address configured.")
+                ->warning()
+                ->send();
+            return;
+        }
+
+        $isResend = $shipment->do_sent_at !== null;
+
+        try {
+            $emailService = app(EmailTemplateService::class);
+            $settings = $shipment->team->getErpSettings();
+            $emailService->sendWithTeamSettings(
+                $shipment->team,
+                new ShipmentToBuyerMail($shipment),
+                $buyerEmail,
+                $settings->email_template_delivery_order
+            );
+
+            // Update do_sent_at timestamp
+            $shipment->do_sent_at = now();
+            $shipment->save();
+
+            $actionText = $isResend ? 'resent' : 'sent';
+            Notification::make()
+                ->title('Delivery order '.$actionText)
+                ->body("Delivery order email has been {$actionText} successfully to {$buyerEmail}.")
+                ->success()
+                ->send();
+        } catch (\Exception $e) {
+            Log::error('Failed to send delivery order email', [
+                'shipment_id' => $shipment->id,
+                'buyer_email' => $buyerEmail,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            $actionText = $isResend ? 'resent' : 'sent';
+            Notification::make()
+                ->title('Failed to '.$actionText.' email')
+                ->body("The email could not be {$actionText} to {$buyerEmail}. Error: ".$e->getMessage())
+                ->danger()
+                ->send();
+        }
     }
 
     /**

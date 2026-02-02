@@ -197,6 +197,19 @@ final class BuyerOrder extends Model implements HasCustomFields
     }
 
     /**
+     * Mark the order as sent (email sent to buyer).
+     */
+    public function markAsSent(): void
+    {
+        if (! $this->status->canSend()) {
+            throw new \InvalidArgumentException('Only draft orders can be sent.');
+        }
+
+        $this->status = OrderStatus::SENT;
+        $this->save();
+    }
+
+    /**
      * Cancel the order.
      */
     public function cancel(): void

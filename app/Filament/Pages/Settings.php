@@ -220,6 +220,19 @@ final class Settings extends Page implements HasForms
             supplier_invoice_number_prefix: $currentSettings->supplier_invoice_number_prefix,
             buyer_payment_number_prefix: $currentSettings->buyer_payment_number_prefix,
             supplier_payment_number_prefix: $currentSettings->supplier_payment_number_prefix,
+            email_from_address: $currentSettings->email_from_address,
+            email_from_name: $currentSettings->email_from_name,
+            email_logo_media_id: $currentSettings->email_logo_media_id,
+            email_signature: $currentSettings->email_signature,
+            smtp_host: $currentSettings->smtp_host,
+            smtp_port: $currentSettings->smtp_port,
+            smtp_username: $currentSettings->smtp_username,
+            smtp_password: $currentSettings->smtp_password,
+            smtp_encryption: $currentSettings->smtp_encryption,
+            email_template_buyer_quote: $currentSettings->email_template_buyer_quote,
+            email_template_buyer_order: $currentSettings->email_template_buyer_order,
+            email_template_supplier_order: $currentSettings->email_template_supplier_order,
+            email_template_delivery_order: $currentSettings->email_template_delivery_order,
         );
 
         $team->erp_settings = $settings;
@@ -266,6 +279,19 @@ final class Settings extends Page implements HasForms
             supplier_invoice_number_prefix: $prefixData['supplier_invoice_number_prefix'] ?? 'SI',
             buyer_payment_number_prefix: $prefixData['buyer_payment_number_prefix'] ?? 'PAY',
             supplier_payment_number_prefix: $prefixData['supplier_payment_number_prefix'] ?? 'SP',
+            email_from_address: $currentSettings->email_from_address,
+            email_from_name: $currentSettings->email_from_name,
+            email_logo_media_id: $currentSettings->email_logo_media_id,
+            email_signature: $currentSettings->email_signature,
+            smtp_host: $currentSettings->smtp_host,
+            smtp_port: $currentSettings->smtp_port,
+            smtp_username: $currentSettings->smtp_username,
+            smtp_password: $currentSettings->smtp_password,
+            smtp_encryption: $currentSettings->smtp_encryption,
+            email_template_buyer_quote: $currentSettings->email_template_buyer_quote,
+            email_template_buyer_order: $currentSettings->email_template_buyer_order,
+            email_template_supplier_order: $currentSettings->email_template_supplier_order,
+            email_template_delivery_order: $currentSettings->email_template_delivery_order,
         );
 
         $team->erp_settings = $settings;

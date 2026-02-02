@@ -14,15 +14,18 @@ use Laravel\Jetstream\Events\TeamCreated;
 use Laravel\Jetstream\Events\TeamDeleted;
 use Laravel\Jetstream\Events\TeamUpdated;
 use Laravel\Jetstream\Team as JetstreamTeam;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
 /**
  * @property string $name
  * @property TeamErpSettings|null $erp_settings
  */
-final class Team extends JetstreamTeam implements HasAvatar
+final class Team extends JetstreamTeam implements HasAvatar, HasMedia
 {
     /** @use HasFactory<TeamFactory> */
     use HasFactory;
+    use InteractsWithMedia;
 
     /**
      * The attributes that are mass assignable.
@@ -151,5 +154,22 @@ final class Team extends JetstreamTeam implements HasAvatar
         }
 
         return $currency->format($amount);
+    }
+
+    /**
+     * Get the email logo URL if configured.
+     */
+    public function getEmailLogoUrl(): ?string
+    {
+        $settings = $this->getErpSettings();
+
+        if (! $settings->email_logo_media_id) {
+            return null;
+        }
+
+        $media = $this->getMedia('email_logo')
+            ->firstWhere('id', $settings->email_logo_media_id);
+
+        return $media?->getUrl();
     }
 }

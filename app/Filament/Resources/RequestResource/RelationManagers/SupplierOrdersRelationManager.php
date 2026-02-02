@@ -9,6 +9,7 @@ use App\Enums\RequestStage;
 use App\Enums\SupplierQuoteStatus;
 use App\Filament\Actions\DownloadPdfAction;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
+use App\Mail\Erp\PurchaseOrderToSupplierMail;
 use App\Models\BuyerOrder;
 use App\Models\Company;
 use App\Models\Currency;
@@ -18,12 +19,14 @@ use App\Models\SupplierOrderItem;
 use App\Models\SupplierQuote;
 use App\Models\TaxCode;
 use App\Models\UnitOfMeasure;
+use App\Services\Email\EmailTemplateService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Illuminate\Support\Facades\Log;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
@@ -852,7 +855,27 @@ final class SupplierOrdersRelationManager extends RelationManager
                             if ($data['confirm_and_send'] ?? false) {
                                 $supplierOrder->confirm();
                                 $supplierOrder->markAsOrdered();
-                                // TODO: Send email to supplier
+
+                                // Send email to supplier
+                                $supplierEmail = $supplierOrder->supplier->email;
+                                if ($supplierEmail) {
+                                    try {
+                                        $emailService = app(EmailTemplateService::class);
+                                        $settings = $supplierOrder->team->getErpSettings();
+                                        $emailService->sendWithTeamSettings(
+                                            $supplierOrder->team,
+                                            new PurchaseOrderToSupplierMail($supplierOrder),
+                                            $supplierEmail,
+                                            $settings->email_template_supplier_order
+                                        );
+                                    } catch (\Exception $e) {
+                                        // Log error but don't fail the operation
+                                        \Illuminate\Support\Facades\Log::error('Failed to send purchase order email', [
+                                            'order_id' => $supplierOrder->id,
+                                            'error' => $e->getMessage(),
+                                        ]);
+                                    }
+                                }
                             }
 
                             $ordersCreated++;
@@ -901,20 +924,136 @@ final class SupplierOrdersRelationManager extends RelationManager
                                 ->success()
                                 ->send();
                         }),
-                    Action::make('markOrdered')
-                        ->label('Mark as Sent')
+                    Action::make('send')
+                        ->label('Send')
                         ->icon('heroicon-o-paper-airplane')
-                        ->color('info')
-                        ->visible(fn (SupplierOrder $record): bool => $record->ordered_at === null && $record->status !== OrderStatus::CANCELLED)
+                        ->color('primary')
+                        ->visible(fn (?SupplierOrder $record): bool => $record !== null && $record->status->canSend())
                         ->requiresConfirmation()
-                        ->modalHeading('Mark order as sent?')
-                        ->modalDescription('This will record that the PO has been sent to the supplier.')
+                        ->modalHeading('Send purchase order email to supplier?')
+                        ->modalDescription(function (SupplierOrder $record): string {
+                            $supplierEmail = $record->supplier->email ?? null;
+                            $supplierName = $record->supplier->name ?? 'Unknown';
+                            $description = 'This will mark the order as sent and send the purchase order email to the supplier.';
+                            
+                            if (empty($supplierEmail)) {
+                                $description .= "\n\n⚠️ **Warning:** The supplier ({$supplierName}) does not have an email address configured. The order will be marked as sent, but no email will be sent.";
+                            } else {
+                                $description .= "\n\n📧 Email will be sent to: {$supplierEmail}";
+                            }
+                            
+                            return $description;
+                        })
                         ->action(function (SupplierOrder $record): void {
-                            $record->markAsOrdered();
+                            // Mark as sent first
+                            $record->markAsSent();
+
+                            // Send email to supplier
+                            $supplierEmail = $record->supplier->email ?? null;
+                            $supplierName = $record->supplier->name ?? 'Supplier';
+                            
+                            if (empty($supplierEmail)) {
                             Notification::make()
                                 ->title('Order marked as sent')
+                                    ->body("Order has been marked as sent, but no email was sent because the supplier ({$supplierName}) does not have an email address configured.")
+                                    ->warning()
+                                    ->send();
+                                return;
+                            }
+
+                            try {
+                                $emailService = app(EmailTemplateService::class);
+                                $settings = $record->team->getErpSettings();
+                                $emailService->sendWithTeamSettings(
+                                    $record->team,
+                                    new PurchaseOrderToSupplierMail($record),
+                                    $supplierEmail,
+                                    $settings->email_template_supplier_order
+                                );
+
+                                Notification::make()
+                                    ->title('Order sent')
+                                    ->body("Purchase order has been sent successfully to {$supplierEmail}.")
                                 ->success()
                                 ->send();
+                            } catch (\Exception $e) {
+                                Log::error('Failed to send purchase order email', [
+                                    'order_id' => $record->id,
+                                    'supplier_email' => $supplierEmail,
+                                    'error' => $e->getMessage(),
+                                    'trace' => $e->getTraceAsString(),
+                                ]);
+
+                                Notification::make()
+                                    ->title('Failed to send email')
+                                    ->body("Order has been marked as sent, but the email could not be sent to {$supplierEmail}. Error: ".$e->getMessage())
+                                    ->danger()
+                                    ->send();
+                            }
+                        }),
+                    Action::make('resend')
+                        ->label('Resend')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('info')
+                        ->visible(fn (?SupplierOrder $record): bool => $record !== null && $record->status === OrderStatus::SENT)
+                        ->requiresConfirmation()
+                        ->modalHeading('Resend purchase order email?')
+                        ->modalDescription(function (SupplierOrder $record): string {
+                            $supplierEmail = $record->supplier->email ?? null;
+                            $supplierName = $record->supplier->name ?? 'Unknown';
+                            $description = 'This will resend the purchase order email to the supplier without changing the order status.';
+                            
+                            if (empty($supplierEmail)) {
+                                $description .= "\n\n⚠️ **Warning:** The supplier ({$supplierName}) does not have an email address configured. No email will be sent.";
+                            } else {
+                                $description .= "\n\n📧 Email will be sent to: {$supplierEmail}";
+                            }
+                            
+                            return $description;
+                        })
+                        ->action(function (SupplierOrder $record): void {
+                            // Resend email to supplier (without changing status)
+                            $supplierEmail = $record->supplier->email ?? null;
+                            $supplierName = $record->supplier->name ?? 'Supplier';
+                            
+                            if (empty($supplierEmail)) {
+                                Notification::make()
+                                    ->title('Cannot resend email')
+                                    ->body("The supplier ({$supplierName}) does not have an email address configured.")
+                                    ->warning()
+                                    ->send();
+                                return;
+                            }
+
+                            try {
+                                $emailService = app(EmailTemplateService::class);
+                                $settings = $record->team->getErpSettings();
+                                $emailService->sendWithTeamSettings(
+                                    $record->team,
+                                    new PurchaseOrderToSupplierMail($record),
+                                    $supplierEmail,
+                                    $settings->email_template_supplier_order
+                                );
+
+                                Notification::make()
+                                    ->title('Email resent')
+                                    ->body("Purchase order email has been resent successfully to {$supplierEmail}.")
+                                    ->success()
+                                    ->send();
+                            } catch (\Exception $e) {
+                                Log::error('Failed to resend purchase order email', [
+                                    'order_id' => $record->id,
+                                    'supplier_email' => $supplierEmail,
+                                    'error' => $e->getMessage(),
+                                    'trace' => $e->getTraceAsString(),
+                                ]);
+
+                                Notification::make()
+                                    ->title('Failed to resend email')
+                                    ->body("The email could not be sent to {$supplierEmail}. Error: ".$e->getMessage())
+                                    ->danger()
+                                    ->send();
+                            }
                         }),
                     Action::make('cancel')
                         ->label('Cancel')
