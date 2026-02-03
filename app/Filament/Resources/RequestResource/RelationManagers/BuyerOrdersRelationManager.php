@@ -481,8 +481,26 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->requiresConfirmation()
                         ->modalHeading('Confirm this order?')
                         ->modalDescription(function (BuyerOrder $record): string {
-                            $warning = $record->getCreditLimitWarning();
+                            $buyer = $record->buyer;
+                            $orderTotal = (float) $record->total;
+                            $availableCredit = $buyer ? (float) $buyer->available_credit : 0;
+                            
                             $message = 'This will mark the order as confirmed.';
+                            
+                            // Add credit information
+                            if ($buyer) {
+                                $message .= "\n\n";
+                                $message .= "Order Total: ".number_format($orderTotal, 2)."\n";
+                                $message .= "Available Credit: ".number_format($availableCredit, 2);
+                                
+                                if ($availableCredit < $orderTotal) {
+                                    $message .= "\n\n⚠️ **Warning:** Insufficient credit available. Confirmation will fail.";
+                                } elseif ($availableCredit - $orderTotal < ($orderTotal * 0.1)) {
+                                    $message .= "\n\n⚠️ **Warning:** Low credit remaining after confirmation.";
+                                }
+                            }
+                            
+                            $warning = $record->getCreditLimitWarning();
                             if ($warning !== null) {
                                 $message .= "\n\n".$warning;
                             }
@@ -490,11 +508,26 @@ final class BuyerOrdersRelationManager extends RelationManager
                             return $message;
                         })
                         ->action(function (BuyerOrder $record): void {
-                            $record->confirm();
-                            Notification::make()
-                                ->title('Order confirmed')
-                                ->success()
-                                ->send();
+                            try {
+                                $record->confirm();
+                                Notification::make()
+                                    ->title('Order confirmed')
+                                    ->body('Order has been confirmed and credit has been reduced.')
+                                    ->success()
+                                    ->send();
+                            } catch (\InvalidArgumentException $e) {
+                                Notification::make()
+                                    ->title('Confirmation failed')
+                                    ->body($e->getMessage())
+                                    ->danger()
+                                    ->send();
+                            } catch (\Exception $e) {
+                                Notification::make()
+                                    ->title('Error')
+                                    ->body('An error occurred while confirming the order: '.$e->getMessage())
+                                    ->danger()
+                                    ->send();
+                            }
                         }),
                     Action::make('cancel')
                         ->label('Cancel')
@@ -503,12 +536,26 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->visible(fn (BuyerOrder $record): bool => $record->status->canCancel())
                         ->requiresConfirmation()
                         ->modalHeading('Cancel this order?')
-                        ->modalDescription('This will mark the order as cancelled. This action cannot be undone.')
+                        ->modalDescription(function (BuyerOrder $record): string {
+                            $message = 'This will mark the order as cancelled. This action cannot be undone.';
+                            if ($record->status === OrderStatus::CONFIRMED) {
+                                $message .= "\n\nCredit will be restored when the order is cancelled.";
+                            }
+                            return $message;
+                        })
                         ->action(function (BuyerOrder $record): void {
+                            $wasConfirmed = $record->status === OrderStatus::CONFIRMED;
                             $record->cancel();
+                            
+                            $message = 'Order has been cancelled.';
+                            if ($wasConfirmed) {
+                                $message .= ' Credit has been restored.';
+                            }
+                            
                             Notification::make()
                                 ->title('Order cancelled')
-                                ->warning()
+                                ->body($message)
+                                ->success()
                                 ->send();
                         }),
                 ]),
