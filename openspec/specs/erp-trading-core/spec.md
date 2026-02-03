@@ -84,20 +84,72 @@ The system SHALL manage buyer companies (using Company model with is_buyer=true)
 #### Scenario: Set credit limit
 - **WHEN** an admin sets credit limit to $50,000 for a buyer
 - **THEN** the credit limit is stored on the buyer record
+- **AND** the available_credit is also set to $50,000
 
 #### Scenario: Calculate available credit
-- **WHEN** a buyer has $50,000 credit limit and $30,000 unpaid invoices
+- **WHEN** a buyer has $50,000 active credit limit and $30,000 unpaid invoices
 - **THEN** available credit is calculated as $20,000
+- **AND** the calculation uses available_credit, not credit_limit
 
 #### Scenario: Place buyer on credit hold
 - **WHEN** an admin sets is_on_hold to true
 - **THEN** the system warns when creating new credit orders for this buyer
 
+#### Scenario: Request credit limit increase
+- **WHEN** a user requests credit limit increase from $50,000 to $75,000
+- **THEN** a BuyerCreditLimitRequest record is created with status PENDING
+- **AND** the requested_credit_limit field is set to $75,000 on the buyer
+- **AND** the available_credit remains $50,000 until approved
+- **AND** all finance approvers (finance role users with is_approver=true) are notified via email
+
+#### Scenario: Approve credit limit increase (first approval)
+- **WHEN** a finance approver (finance role user with is_approver=true) approves a credit limit increase request
+- **THEN** an approval record is created linking the user to the request
+- **AND** the request status remains PENDING (requires 2 approvals)
+- **AND** the available_credit remains unchanged
+
+#### Scenario: Approve credit limit increase (second approval)
+- **WHEN** a second finance approver approves a credit limit increase request
+- **THEN** an approval record is created linking the user to the request
+- **AND** the request status changes to APPROVED
+- **AND** the buyer's credit_limit and available_credit are updated to the requested value
+- **AND** the requested_credit_limit field is cleared
+
+#### Scenario: Reject credit limit increase
+- **WHEN** a finance approver rejects a credit limit increase request with reason "Insufficient justification"
+- **THEN** the request status changes to REJECTED
+- **AND** the rejected_by_id, rejected_at, and rejected_reason are recorded
+- **AND** the requested_credit_limit field is cleared on the buyer
+- **AND** the available_credit remains unchanged
+
+#### Scenario: View credit limit requests
+- **WHEN** a finance role user views the Credit Limit Requests page
+- **THEN** all pending, approved, and rejected requests are displayed
+- **AND** requests show buyer name, current limit, requested limit, status, and approval count
+
+#### Scenario: View all buyers credit limits
+- **WHEN** a finance role user views the Buyer Credit Limits Overview page
+- **THEN** all buyers are listed with their active credit limit, credit used, available credit
+- **AND** buyers with pending requests show the requested credit limit
+
+#### Scenario: Prevent duplicate approvals
+- **WHEN** a finance role user attempts to approve the same request twice
+- **THEN** the system prevents the duplicate approval
+- **AND** an error message is displayed
+
+#### Scenario: Prevent non-finance approval
+- **WHEN** a user without finance role attempts to approve a credit limit request
+- **THEN** the approval action is not available
+- **AND** the user cannot approve the request
+
+#### Scenario: Prevent non-approver finance user from approving
+- **WHEN** a finance role user without is_approver=true attempts to approve a credit limit request
+- **THEN** the approval action is not available
+- **AND** the user cannot approve the request
+
 #### Scenario: Custom fields on buyer
 - **WHEN** team has custom fields configured for buyers
 - **THEN** the buyer form includes those custom fields
-
----
 
 ### Requirement: Suppliers Entity
 The system SHALL manage supplier companies (using Company model with is_supplier=true) with categories, currency preferences, default terms, and associated people (contacts).
@@ -192,10 +244,32 @@ The system SHALL manage articles (products/services) with flexible attributes st
 ### Requirement: Article-Supplier Relationship
 The system SHALL manage a many-to-many relationship between Articles and Suppliers via the supplier_articles pivot table.
 
-#### Scenario: Assign suppliers to article
-- **WHEN** an admin assigns suppliers to an article via the Suppliers field
+#### Scenario: Assign suppliers to article via Article form
+- **WHEN** an admin creates or edits an article and selects suppliers from the Suppliers field in the Article form
+- **THEN** the associations are stored in the supplier_articles pivot table
+- **AND** the Suppliers field appears in the Article form after the Categories field
+- **AND** the field supports multiple supplier selection
+- **AND** the field is searchable and preloads options
+- **AND** only active suppliers from the current team are shown (filtered by is_supplier=true)
+
+#### Scenario: Create supplier inline from Article form
+- **WHEN** an admin clicks the (+) button on the Suppliers field in the Article form
+- **THEN** an inline supplier creation form appears
+- **AND** the form uses `SupplierResource::getFormSchema(excludePeopleField: true)` for consistency
+- **AND** the created supplier is automatically selected and linked to the article
+- **AND** the supplier is created with is_supplier=true and scoped to the current team
+
+#### Scenario: Assign suppliers to article via relation manager
+- **WHEN** an admin assigns suppliers to an article via the Suppliers relation manager tab
 - **THEN** the associations are stored in the supplier_articles pivot table
 - **AND** pivot data includes supplier_sku, last_quoted_price, lead_time_days, is_preferred
+- **NOTE:** This method remains available for detailed supplier-article relationship management
+
+#### Scenario: Assign suppliers when creating article inline from Request Item
+- **WHEN** an admin creates an article inline from the Request Item form and selects suppliers
+- **THEN** the article is created with the selected suppliers assigned
+- **AND** suppliers are synced via `$article->suppliers()->sync($data['suppliers'])`
+- **AND** the Suppliers field works correctly in the modal context
 
 #### Scenario: Assign articles to supplier
 - **WHEN** an admin assigns articles to a supplier via the Articles field
@@ -211,8 +285,6 @@ The system SHALL manage a many-to-many relationship between Articles and Supplie
 - **WHEN** a supplier quote includes an article
 - **THEN** last_quoted_price, last_quoted_currency_id, and last_quoted_at are updated
 - **AND** previous pricing is preserved in quote history
-
----
 
 ### Requirement: Projects Entity
 The system SHALL allow grouping of multiple related Requests under a single Project for large deals.
@@ -328,4 +400,23 @@ The system SHALL provide role-based permissions using Spatie Laravel Permission 
 #### Scenario: Permission naming convention
 - **WHEN** defining ERP permissions
 - **THEN** names follow pattern `erp.{resource}.{action}` (e.g., `erp.requests.create`)
+
+### Requirement: Finance Approver Designation
+The system SHALL allow designation of specific finance role users as approvers who can approve credit limit increase requests.
+
+#### Scenario: Designate finance user as approver
+- **WHEN** an admin edits a team member with finance role
+- **THEN** an "Is Approver" toggle field is visible
+- **AND** the toggle can be enabled to mark the user as an approver
+- **AND** only users with is_approver=true can approve credit limit requests
+
+#### Scenario: Approver field visibility
+- **WHEN** editing a team member
+- **THEN** the "Is Approver" field is visible only when role is "central_purchasing" AND central_purchasing_role is "finance"
+- **AND** the field is hidden for all other roles
+
+#### Scenario: Clear approver flag on role change
+- **WHEN** a finance approver's role is changed away from finance or central_purchasing
+- **THEN** the is_approver flag is automatically cleared (set to false)
+- **AND** the user can no longer approve credit limit requests
 
