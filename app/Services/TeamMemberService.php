@@ -33,6 +33,25 @@ final readonly class TeamMemberService
     }
 
     /**
+     * Get finance role users who are marked as approvers.
+     *
+     * @param  Team  $team  The team to query
+     * @return Collection<int, User>
+     */
+    public static function getFinanceApprovers(Team $team): Collection
+    {
+        return User::query()
+            ->whereHas('teams', function ($query) use ($team) {
+                $query->where('teams.id', $team->id)
+                    ->where('team_user.role', 'central_purchasing')
+                    ->where('team_user.central_purchasing_role', CentralPurchasingRole::FINANCE->value)
+                    ->where('team_user.is_approver', true);
+            })
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
      * Get team members (Users) with Central Purchasing role, optionally filtered by sub-role.
      *
      * @param  Team  $team  The team to query

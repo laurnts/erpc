@@ -12,6 +12,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Pages\ViewRecord;
@@ -80,7 +81,13 @@ final class ViewMember extends ViewRecord
                                 ->toArray())
                             ->required(fn ($get) => $get('role') === 'central_purchasing')
                             ->visible(fn ($get) => $get('role') === 'central_purchasing')
-                            ->helperText('Select the specific role for this Central Purchasing team member.'),
+                            ->helperText('Select the specific role for this Central Purchasing team member.')
+                            ->live(),
+                        Toggle::make('is_approver')
+                            ->label('Is Approver')
+                            ->visible(fn ($get) => $get('role') === 'central_purchasing' && $get('central_purchasing_role') === CentralPurchasingRole::FINANCE->value)
+                            ->helperText('Only finance users marked as approvers can approve credit limit increase requests.')
+                            ->default(false),
                     ])
                     ->fillForm(function () use ($membership): array {
                         return [
@@ -89,6 +96,7 @@ final class ViewMember extends ViewRecord
                             'profile_photo_path' => $membership->user->profile_photo_path,
                             'role' => $membership->role,
                             'central_purchasing_role' => $membership->central_purchasing_role?->value,
+                            'is_approver' => $membership->is_approver ?? false,
                         ];
                     })
                     ->action(function (array $data) use ($membership, $team): void {
@@ -120,9 +128,18 @@ final class ViewMember extends ViewRecord
                         // Handle central_purchasing_role based on the role
                         if ($data['role'] === 'central_purchasing') {
                             $pivotData['central_purchasing_role'] = $data['central_purchasing_role'] ?? null;
+                            
+                            // Handle is_approver: only set when role is central_purchasing AND central_purchasing_role is finance
+                            if ($pivotData['central_purchasing_role'] === CentralPurchasingRole::FINANCE->value) {
+                                $pivotData['is_approver'] = $data['is_approver'] ?? false;
+                            } else {
+                                // Clear is_approver if central_purchasing_role is not finance
+                                $pivotData['is_approver'] = false;
+                            }
                         } else {
-                            // Clear central_purchasing_role if role is not central_purchasing
+                            // Clear central_purchasing_role and is_approver if role is not central_purchasing
                             $pivotData['central_purchasing_role'] = null;
+                            $pivotData['is_approver'] = false;
                         }
                         
                         // Always update pivot data if role is provided

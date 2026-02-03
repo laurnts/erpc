@@ -174,10 +174,10 @@ final class BuyerOrder extends Model implements HasCustomFields
                     return false;
                 }
 
-                $availableCredit = (float) $buyer->available_credit;
+                $creditLimit = (float) $buyer->credit_limit;
                 $orderTotal = (float) $this->total;
 
-                return $orderTotal > $availableCredit && $availableCredit > 0;
+                return $orderTotal > $creditLimit && $creditLimit > 0;
             },
         );
     }
@@ -188,12 +188,68 @@ final class BuyerOrder extends Model implements HasCustomFields
     public function confirm(): void
     {
         if (! $this->status->canConfirm()) {
-            throw new \InvalidArgumentException('Only draft orders can be confirmed.');
+            throw new \InvalidArgumentException('Only draft or sent orders can be confirmed.');
         }
 
-        $this->status = OrderStatus::CONFIRMED;
-        $this->confirmed_at = now();
-        $this->save();
+        $buyer = $this->buyer;
+        if ($buyer === null) {
+            throw new \InvalidArgumentException('Buyer not found.');
+        }
+
+        $orderTotal = (float) $this->total;
+
+        // Skip credit check for zero or negative totals
+        if ($orderTotal <= 0) {
+            $this->status = OrderStatus::CONFIRMED;
+            $this->confirmed_at = now();
+            $this->save();
+            return;
+        }
+
+        $availableCredit = (float) $buyer->available_credit;
+
+        // Check if sufficient credit available
+        if ($availableCredit < $orderTotal) {
+            throw new \InvalidArgumentException(
+                sprintf(
+                    'Insufficient credit. Available: %s, Required: %s',
+                    number_format($availableCredit, 2),
+                    number_format($orderTotal, 2)
+                )
+            );
+        }
+
+        // Use transaction to ensure atomicity
+        \Illuminate\Support\Facades\DB::transaction(function () use ($orderTotal, $buyer): void {
+            // Lock the buyer record to prevent concurrent updates
+            $buyer->lockForUpdate();
+
+            // Refresh buyer to get latest available_credit
+            $buyer->refresh();
+            $currentAvailableCredit = (float) $buyer->available_credit;
+            $currentCreditUsed = (float) $buyer->credit_used;
+
+            // Double-check credit availability after lock
+            if ($currentAvailableCredit < $orderTotal) {
+                throw new \InvalidArgumentException(
+                    sprintf(
+                        'Insufficient credit. Available: %s, Required: %s',
+                        number_format($currentAvailableCredit, 2),
+                        number_format($orderTotal, 2)
+                    )
+                );
+            }
+
+            // Update order status
+            $this->status = OrderStatus::CONFIRMED;
+            $this->confirmed_at = now();
+            $this->save();
+
+            // Reduce available credit and increase credit used
+            $buyer->available_credit = max(0, $currentAvailableCredit - $orderTotal);
+            $buyer->credit_used = $currentCreditUsed + $orderTotal;
+            $buyer->save();
+        });
     }
 
     /**
@@ -218,8 +274,16 @@ final class BuyerOrder extends Model implements HasCustomFields
             throw new \InvalidArgumentException('This order cannot be cancelled.');
         }
 
+        $wasConfirmed = $this->status === OrderStatus::CONFIRMED;
+        $orderTotal = $wasConfirmed ? (float) $this->total : 0;
+
         $this->status = OrderStatus::CANCELLED;
         $this->save();
+
+        // If order was confirmed, restore credit
+        if ($wasConfirmed) {
+            $this->restoreCredit();
+        }
     }
 
     /**
@@ -233,13 +297,51 @@ final class BuyerOrder extends Model implements HasCustomFields
             throw new \InvalidArgumentException('Order is already in a terminal state.');
         }
 
-        $this->status = $nextStatus;
+        $wasConfirmed = $this->status === OrderStatus::CONFIRMED;
 
         if ($nextStatus === OrderStatus::CONFIRMED) {
-            $this->confirmed_at = now();
+            // Use confirm() method to handle credit check and reduction
+            // confirm() will save the order, so we don't need to save again
+            $this->confirm();
+            return;
         }
 
+        // Update status
+        $this->status = $nextStatus;
         $this->save();
+
+        // If moving away from CONFIRMED status, restore credit
+        if ($wasConfirmed) {
+            $this->restoreCredit();
+        }
+    }
+
+    /**
+     * Restore credit when order status changes from CONFIRMED.
+     */
+    public function restoreCredit(): void
+    {
+        $buyer = $this->buyer;
+        if ($buyer === null) {
+            return;
+        }
+
+        $orderTotal = (float) $this->total;
+
+        // Use transaction to ensure atomicity
+        \Illuminate\Support\Facades\DB::transaction(function () use ($orderTotal, $buyer): void {
+            // Lock the buyer record
+            $buyer->lockForUpdate();
+            $buyer->refresh();
+
+            // Restore available credit and reduce credit used
+            $currentAvailableCredit = (float) $buyer->available_credit;
+            $currentCreditUsed = (float) $buyer->credit_used;
+
+            $buyer->available_credit = $currentAvailableCredit + $orderTotal;
+            $buyer->credit_used = max(0, $currentCreditUsed - $orderTotal);
+            $buyer->save();
+        });
     }
 
     /**
@@ -377,7 +479,6 @@ final class BuyerOrder extends Model implements HasCustomFields
             return null;
         }
 
-        $availableCredit = (float) $buyer->available_credit;
         $creditLimit = (float) $buyer->credit_limit;
         $orderTotal = (float) $this->total;
 
@@ -386,12 +487,12 @@ final class BuyerOrder extends Model implements HasCustomFields
             return null;
         }
 
-        // Check if order exceeds available credit
-        if ($orderTotal > $availableCredit) {
+        // Check if order exceeds credit limit
+        if ($orderTotal > $creditLimit) {
             return sprintf(
-                'Warning: Order total (%s) exceeds available credit (%s). Credit limit: %s, Used: %s.',
+                'Warning: Order total (%s) exceeds credit limit (%s). Credit limit: %s, Used: %s.',
                 number_format($orderTotal, 2),
-                number_format($availableCredit, 2),
+                number_format($creditLimit, 2),
                 number_format($creditLimit, 2),
                 number_format((float) $buyer->credit_used, 2)
             );

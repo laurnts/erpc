@@ -188,9 +188,11 @@ final class BuyerResource extends Resource
             Section::make('Credit Settings')
                 ->schema([
                     TextInput::make('credit_limit')
-                        ->label('Credit Limit')
+                        ->label('Active Credit Limit')
                         ->numeric()
                         ->default(0)
+                        ->disabled()
+                        ->dehydrated(false)
                         ->prefix(function (): string {
                             /** @var Team|null $team */
                             $team = Filament::getTenant();
@@ -204,6 +206,64 @@ final class BuyerResource extends Resource
                             $currency = $team?->getBaseCurrency();
 
                             return $currency?->symbol_position === 'after' ? ($currency->symbol ?? '') : '';
+                        })
+                        ->helperText('This is the approved credit limit. It only changes when a credit limit increase is approved.'),
+                    TextInput::make('available_credit')
+                        ->label('Available Credit')
+                        ->numeric()
+                        ->default(0)
+                        ->disabled()
+                        ->dehydrated(false)
+                        ->prefix(function (): string {
+                            /** @var Team|null $team */
+                            $team = Filament::getTenant();
+                            $currency = $team?->getBaseCurrency();
+
+                            return $currency?->symbol_position === 'before' ? ($currency->symbol ?? '$') : '';
+                        })
+                        ->suffix(function (): string {
+                            /** @var Team|null $team */
+                            $team = Filament::getTenant();
+                            $currency = $team?->getBaseCurrency();
+
+                            return $currency?->symbol_position === 'after' ? ($currency->symbol ?? '') : '';
+                        }),
+                    TextInput::make('requested_credit_limit')
+                        ->label('Requested Credit Limit')
+                        ->numeric()
+                        ->nullable()
+                        ->minValue(function ($record): float {
+                            return $record ? (float) $record->credit_limit + 0.01 : 0.01;
+                        })
+                        ->visible(function ($record): bool {
+                            // Hide if there's already a pending request
+                            if ($record === null) {
+                                return true;
+                            }
+                            return $record->pendingCreditLimitRequest() === null;
+                        })
+                        ->prefix(function (): string {
+                            /** @var Team|null $team */
+                            $team = Filament::getTenant();
+                            $currency = $team?->getBaseCurrency();
+
+                            return $currency?->symbol_position === 'before' ? ($currency->symbol ?? '$') : '';
+                        })
+                        ->suffix(function (): string {
+                            /** @var Team|null $team */
+                            $team = Filament::getTenant();
+                            $currency = $team?->getBaseCurrency();
+
+                            return $currency?->symbol_position === 'after' ? ($currency->symbol ?? '') : '';
+                        })
+                        ->helperText(function ($record): string {
+                            if ($record && $record->pendingCreditLimitRequest() !== null) {
+                                return 'A pending credit limit increase request already exists.';
+                            }
+                            if ($record) {
+                                return 'Enter the new credit limit you want to request (must be greater than ' . number_format((float) $record->credit_limit, 2) . '). This requires approval from 2 finance team members.';
+                            }
+                            return 'Enter the new credit limit you want to request. This requires approval from 2 finance team members.';
                         }),
                     Toggle::make('is_on_hold')
                         ->label('On Hold')
@@ -265,11 +325,11 @@ final class BuyerResource extends Resource
                     ->sortable()
                     ->toggleable(),
                 TextColumn::make('credit_limit')
-                    ->label('Credit Limit')
+                    ->label('Active Credit Limit')
                     ->money(fn (): string => Filament::getTenant() instanceof Team ? Filament::getTenant()->getBaseCurrencyCode() : 'USD')
                     ->sortable()
                     ->toggleable(),
-                TextColumn::make('availableCredit')
+                TextColumn::make('available_credit')
                     ->label('Available Credit')
                     ->money(fn (): string => Filament::getTenant() instanceof Team ? Filament::getTenant()->getBaseCurrencyCode() : 'USD')
                     ->sortable()

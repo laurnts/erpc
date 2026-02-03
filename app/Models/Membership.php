@@ -27,6 +27,7 @@ final class Membership extends JetstreamMembership
     {
         return [
             'central_purchasing_role' => CentralPurchasingRole::class,
+            'is_approver' => 'boolean',
         ];
     }
 
