@@ -14,6 +14,7 @@ use App\Models\Currency;
 use App\Models\QuotationEvaluation;
 use App\Models\Request;
 use App\Models\SupplierQuote;
+use App\Models\SupplierQuoteItem;
 use App\Models\TaxCode;
 use App\Support\Media\DocumentPathGenerator;
 use App\Models\UnitOfMeasure;
@@ -272,13 +273,22 @@ final class SupplierQuotesRelationManager extends RelationManager
                 Section::make('Line Items')
                     ->schema([
                         Repeater::make('items')
-                            ->relationship()
+                            ->relationship('items', function ($query) use ($request) {
+                                // Only load main items, not child items (child items will be nested within main items)
+                                if ($request->isServiceRequest()) {
+                                    return $query->whereHas('requestItem', function ($q) {
+                                        $q->whereNull('parent_id');
+                                    });
+                                }
+                                return $query;
+                            })
                             ->schema([
                                 Grid::make(12)
                                     ->schema([
                                         Select::make('request_item_id')
                                             ->label('Request Item')
                                             ->options(fn (): array => $request->items()
+                                                ->whereNull('parent_id') // Only show main items, not child items
                                                 ->get()
                                                 ->mapWithKeys(fn ($item): array => [
                                                     $item->getKey() => $item->display_text,
@@ -288,11 +298,11 @@ final class SupplierQuotesRelationManager extends RelationManager
                                             ->selectablePlaceholder(false)
                                             ->columnSpan(4)
                                             ->live()
-                                            ->afterStateUpdated(function (Set $set, ?int $state) use ($request): void {
+                                            ->afterStateUpdated(function (Set $set, Get $get, ?int $state) use ($request): void {
                                                 if ($state === null) {
                                                     return;
                                                 }
-                                                $requestItem = $request->items()->with('article.defaultTaxCode', 'unitOfMeasure')->find($state);
+                                                $requestItem = $request->items()->with('article.defaultTaxCode', 'unitOfMeasure', 'children')->find($state);
                                                 if ($requestItem !== null) {
                                                     $set('article_id', $requestItem->article_id);
                                                     $set('description', $requestItem->description);
@@ -306,6 +316,64 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                         if ($taxCode !== null) {
                                                             $set('tax_rate', $taxCode->rate);
                                                             $set('is_tax_inclusive', $taxCode->is_inclusive_default);
+                                                        }
+                                                    }
+
+                                                    // For Service requests, automatically add child items as separate line items
+                                                    if ($request->isServiceRequest() && $requestItem->isMainItem() && $requestItem->children()->count() > 0) {
+                                                        // Get child items
+                                                        $childItems = $requestItem->children()->orderBy('sort_order')->get();
+                                                        
+                                                        // Get the form's livewire component to manipulate repeater state
+                                                        $livewire = $this->getLivewire();
+                                                        if (method_exists($livewire, 'form')) {
+                                                            $formState = $livewire->form->getState();
+                                                            $currentItems = $formState['items'] ?? [];
+                                                            
+                                                            // Find the index of the current item (the one we're editing)
+                                                            $currentItemIndex = null;
+                                                            foreach ($currentItems as $idx => $item) {
+                                                                if (isset($item['request_item_id']) && $item['request_item_id'] === $state) {
+                                                                    $currentItemIndex = $idx;
+                                                                    break;
+                                                                }
+                                                            }
+                                                            
+                                                            // If not found, it's the last item (being added)
+                                                            if ($currentItemIndex === null && !empty($currentItems)) {
+                                                                $currentItemIndex = count($currentItems) - 1;
+                                                            }
+                                                            
+                                                            // Build new items array with child items inserted after main item
+                                                            if ($currentItemIndex !== null) {
+                                                                $newItems = [];
+                                                                foreach ($currentItems as $idx => $item) {
+                                                                    $newItems[] = $item;
+                                                                    
+                                                                    // After inserting the main item, add its children
+                                                                    if ($idx === $currentItemIndex && $childItems->isNotEmpty()) {
+                                                                        foreach ($childItems as $childItem) {
+                                                                            $newItems[] = [
+                                                                                'request_item_id' => $childItem->id,
+                                                                                'article_id' => null,
+                                                                                'description' => $childItem->description,
+                                                                                'quantity' => $childItem->quantity,
+                                                                                'unit_of_measure_id' => $childItem->unit_of_measure_id,
+                                                                                'unit_price' => 0,
+                                                                                'tax_code_id' => $requestItem->article?->default_tax_code_id,
+                                                                                'tax_rate' => $requestItem->article?->defaultTaxCode?->rate ?? 0,
+                                                                                'is_tax_inclusive' => $requestItem->article?->defaultTaxCode?->is_inclusive_default ?? false,
+                                                                                'line_subtotal' => 0,
+                                                                                'line_tax' => 0,
+                                                                                'line_total' => 0,
+                                                                            ];
+                                                                        }
+                                                                    }
+                                                                }
+                                                                
+                                                                // Update the form state
+                                                                $livewire->form->fill(['items' => $newItems]);
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -436,6 +504,133 @@ final class SupplierQuotesRelationManager extends RelationManager
                                 Textarea::make('notes')
                                     ->rows(1)
                                     ->columnSpanFull(),
+                                // Child items nested within main item for Service requests
+                                Section::make('Child Items')
+                                    ->schema([
+                                        Repeater::make('child_items')
+                                            ->label('')
+                                            ->schema([
+                                                Hidden::make('request_item_id'),
+                                                Grid::make(12)
+                                                    ->schema([
+                                                        TextInput::make('description')
+                                                            ->required()
+                                                            ->columnSpan(4),
+                                                        TextInput::make('quantity')
+                                                            ->numeric()
+                                                            ->required()
+                                                            ->default(1)
+                                                            ->step(0.0001)
+                                                            ->columnSpan(2)
+                                                            ->live(onBlur: true)
+                                                            ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
+                                                        Select::make('unit_of_measure_id')
+                                                            ->label('Unit')
+                                                            ->relationship('unitOfMeasure', 'label', fn ($query) => $query->where('team_id', $request->team_id)->where('is_active', true))
+                                                            ->searchable()
+                                                            ->preload()
+                                                            ->columnSpan(2),
+                                                        TextInput::make('unit_price')
+                                                            ->label('Unit Price')
+                                                            ->numeric()
+                                                            ->required()
+                                                            ->default(0)
+                                                            ->step(0.0001)
+                                                            ->columnSpan(2)
+                                                            ->live(onBlur: true)
+                                                            ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
+                                                        TextInput::make('line_total')
+                                                            ->label('Line Total')
+                                                            ->numeric()
+                                                            ->disabled()
+                                                            ->dehydrated()
+                                                            ->columnSpan(2),
+                                                    ]),
+                                            ])
+                                            ->columns(1)
+                                            ->defaultItems(0)
+                                            ->collapsible()
+                                            ->itemLabel(fn (array $state): ?string => $state['description'] ?? null)
+                                            ->dehydrated(false), // We'll handle saving manually
+                                    ])
+                                    ->collapsible()
+                                    ->collapsed()
+                                    ->visible(function (Get $get, $record) use ($request): bool {
+                                        if (!$request->isServiceRequest()) {
+                                            return false;
+                                        }
+                                        $requestItemId = $get('request_item_id');
+                                        if ($requestItemId === null && $record !== null) {
+                                            $requestItemId = $record->request_item_id;
+                                        }
+                                        if ($requestItemId === null) {
+                                            return false;
+                                        }
+                                        $requestItem = $request->items()->find($requestItemId);
+                                        return $requestItem !== null && $requestItem->isMainItem();
+                                    })
+                                    ->afterStateHydrated(function (Set $set, Get $get, $state, $record) use ($request): void {
+                                        // Load child items from database when form loads
+                                        if ($record === null || !$request->isServiceRequest()) {
+                                            return;
+                                        }
+                                        
+                                        $requestItemId = $get('request_item_id');
+                                        if ($requestItemId === null) {
+                                            return;
+                                        }
+                                        
+                                        $requestItem = $request->items()->find($requestItemId);
+                                        if ($requestItem === null || !$requestItem->isMainItem()) {
+                                            return;
+                                        }
+                                        
+                                        // Get child items from the quote that belong to this main item's children
+                                        $childRequestItems = $requestItem->children()->orderBy('sort_order')->get();
+                                        $childQuoteItems = [];
+                                        
+                                        foreach ($childRequestItems as $childRequestItem) {
+                                            // Find existing quote item for this child request item
+                                            $existingQuoteItem = $record->supplierQuote->items()
+                                                ->where('request_item_id', $childRequestItem->id)
+                                                ->first();
+                                            
+                                            if ($existingQuoteItem !== null) {
+                                                $childQuoteItems[] = [
+                                                    'id' => $existingQuoteItem->id,
+                                                    'request_item_id' => $existingQuoteItem->request_item_id,
+                                                    'description' => $existingQuoteItem->description,
+                                                    'quantity' => $existingQuoteItem->quantity,
+                                                    'unit_of_measure_id' => $existingQuoteItem->unit_of_measure_id,
+                                                    'unit_price' => $existingQuoteItem->unit_price,
+                                                    'tax_code_id' => $existingQuoteItem->tax_code_id,
+                                                    'tax_rate' => $existingQuoteItem->tax_rate,
+                                                    'is_tax_inclusive' => $existingQuoteItem->is_tax_inclusive,
+                                                    'line_subtotal' => $existingQuoteItem->line_subtotal,
+                                                    'line_tax' => $existingQuoteItem->line_tax,
+                                                    'line_total' => $existingQuoteItem->line_total,
+                                                ];
+                                            } else {
+                                                // Create new child item data
+                                                $taxCode = $requestItem->article?->defaultTaxCode;
+                                                $childQuoteItems[] = [
+                                                    'request_item_id' => $childRequestItem->id,
+                                                    'description' => $childRequestItem->description,
+                                                    'quantity' => $childRequestItem->quantity,
+                                                    'unit_of_measure_id' => $childRequestItem->unit_of_measure_id,
+                                                    'unit_price' => 0,
+                                                    'tax_code_id' => $taxCode?->id,
+                                                    'tax_rate' => $taxCode?->rate ?? 0,
+                                                    'is_tax_inclusive' => $taxCode?->is_inclusive_default ?? false,
+                                                    'line_subtotal' => 0,
+                                                    'line_tax' => 0,
+                                                    'line_total' => 0,
+                                                ];
+                                            }
+                                        }
+                                        
+                                        $set('child_items', $childQuoteItems);
+                                    }),
                             ])
                             ->columns(1)
                             ->defaultItems(0)
@@ -443,7 +638,24 @@ final class SupplierQuotesRelationManager extends RelationManager
                             ->reorderable()
                             ->orderColumn('sort_order')
                             ->collapsible()
-                            ->itemLabel(fn (array $state): ?string => $state['description'] ?? null),
+                            ->itemLabel(function (array $state, Get $get) use ($request): ?string {
+                                $description = $state['description'] ?? null;
+                                if ($description === null) {
+                                    return null;
+                                }
+                                
+                                // Check if this is a child item and indent it visually
+                                $requestItemId = $state['request_item_id'] ?? null;
+                                if ($requestItemId !== null) {
+                                    $requestItem = $request->items()->find($requestItemId);
+                                    if ($requestItem !== null && $requestItem->isChildItem()) {
+                                        // Indent child items to show they're nested within main item
+                                        return '  └─ '.$description;
+                                    }
+                                }
+                                
+                                return $description;
+                            }),
                     ]),
 
                 Section::make('Summary')
@@ -725,7 +937,7 @@ final class SupplierQuotesRelationManager extends RelationManager
 
                             return $data;
                         })
-                        ->after(function (SupplierQuote $record): void {
+                        ->after(function (SupplierQuote $record, array $data): void {
                             $record->refresh();
                             $hasPrices = $record->items()->where('unit_price', '>', 0)->exists();
                             $total = (float) $record->total;
@@ -733,6 +945,133 @@ final class SupplierQuotesRelationManager extends RelationManager
                                 $record->status = SupplierQuoteStatus::RECEIVED;
                                 $record->save();
                             }
+
+                            $request = $record->request;
+                            if ($request === null) {
+                                return;
+                            }
+                            if (! $request->isServiceRequest() || ! isset($data['items'])) {
+                                return;
+                            }
+
+                            foreach ($data['items'] as $itemData) {
+                                if (! isset($itemData['child_items']) || empty($itemData['child_items'])) {
+                                    continue;
+                                }
+
+                                $mainItemId = $itemData['id'] ?? null;
+                                if ($mainItemId === null) {
+                                    continue;
+                                }
+
+                                $mainQuoteItem = $record->items()->find($mainItemId);
+                                if ($mainQuoteItem === null) {
+                                    continue;
+                                }
+
+                                $requestItemId = $mainQuoteItem->request_item_id;
+                                if ($requestItemId === null) {
+                                    continue;
+                                }
+
+                                $requestItem = $request->items()->find($requestItemId);
+                                if ($requestItem === null || ! $requestItem->isMainItem()) {
+                                    continue;
+                                }
+
+                                $childRequestItems = $requestItem->children()->orderBy('sort_order')->get();
+                                $childRequestItemIds = $childRequestItems->pluck('id')->toArray();
+
+                                foreach ($itemData['child_items'] as $childItemData) {
+                                    $childRequestItemId = $childItemData['request_item_id'] ?? null;
+                                    if ($childRequestItemId === null || ! in_array($childRequestItemId, $childRequestItemIds)) {
+                                        continue;
+                                    }
+
+                                    $childQuoteItem = $record->items()
+                                        ->where('request_item_id', $childRequestItemId)
+                                        ->first();
+
+                                    if ($childQuoteItem === null) {
+                                        $taxCode = $requestItem->article?->defaultTaxCode;
+                                        SupplierQuoteItem::create([
+                                            'supplier_quote_id' => $record->id,
+                                            'request_item_id' => $childRequestItemId,
+                                            'article_id' => null,
+                                            'description' => $childItemData['description'] ?? '',
+                                            'quantity' => $childItemData['quantity'] ?? 1,
+                                            'unit_of_measure_id' => $childItemData['unit_of_measure_id'] ?? null,
+                                            'unit_price' => $childItemData['unit_price'] ?? 0,
+                                            'tax_code_id' => $taxCode?->id,
+                                            'tax_rate' => $taxCode?->rate ?? 0,
+                                            'is_tax_inclusive' => $taxCode?->is_inclusive_default ?? false,
+                                            'line_subtotal' => $childItemData['line_subtotal'] ?? 0,
+                                            'line_tax' => $childItemData['line_tax'] ?? 0,
+                                            'line_total' => $childItemData['line_total'] ?? 0,
+                                            'sort_order' => $mainQuoteItem->sort_order + 1,
+                                        ]);
+                                    } else {
+                                        $childQuoteItem->update([
+                                            'description' => $childItemData['description'] ?? $childQuoteItem->description,
+                                            'quantity' => $childItemData['quantity'] ?? $childQuoteItem->quantity,
+                                            'unit_of_measure_id' => $childItemData['unit_of_measure_id'] ?? $childQuoteItem->unit_of_measure_id,
+                                            'unit_price' => $childItemData['unit_price'] ?? $childQuoteItem->unit_price,
+                                            'line_subtotal' => $childItemData['line_subtotal'] ?? $childQuoteItem->line_subtotal,
+                                            'line_tax' => $childItemData['line_tax'] ?? $childQuoteItem->line_tax,
+                                            'line_total' => $childItemData['line_total'] ?? $childQuoteItem->line_total,
+                                        ]);
+                                    }
+                                }
+                            }
+                        })
+                        ->fillForm(function (SupplierQuote $record): array {
+                            $data = $record->toArray();
+
+                            $request = $record->request;
+                            if ($request === null) {
+                                return $data;
+                            }
+
+                            if ($request->isServiceRequest() && isset($data['items'])) {
+                                $items = $data['items'];
+                                $newItems = [];
+
+                                foreach ($items as $item) {
+                                    $newItems[] = $item;
+
+                                    if (isset($item['request_item_id'])) {
+                                        $requestItem = $request->items()->with('children')->find($item['request_item_id']);
+                                        if ($requestItem !== null && $requestItem->isMainItem() && $requestItem->children()->count() > 0) {
+                                            $existingChildIds = collect($items)->pluck('request_item_id')->toArray();
+
+                                            $childItems = $requestItem->children()->orderBy('sort_order')->get();
+                                            foreach ($childItems as $childItem) {
+                                                if (! in_array($childItem->id, $existingChildIds)) {
+                                                    $taxCode = $requestItem->article?->defaultTaxCode;
+                                                    $newItems[] = [
+                                                        'request_item_id' => $childItem->id,
+                                                        'article_id' => null,
+                                                        'description' => $childItem->description,
+                                                        'quantity' => $childItem->quantity,
+                                                        'unit_of_measure_id' => $childItem->unit_of_measure_id,
+                                                        'unit_price' => 0,
+                                                        'tax_code_id' => $taxCode?->id,
+                                                        'tax_rate' => $taxCode?->rate ?? 0,
+                                                        'is_tax_inclusive' => $taxCode?->is_inclusive_default ?? false,
+                                                        'line_subtotal' => 0,
+                                                        'line_tax' => 0,
+                                                        'line_total' => 0,
+                                                    ];
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                $data['items'] = $newItems;
+                            }
+
+                            return $data;
                         }),
                     Action::make('quotation')
                         ->label(function (SupplierQuote $record): string {

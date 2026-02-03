@@ -65,6 +65,19 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
         // Verify request belongs to current team
         $this->ensureTeamOwnership($request);
 
+        // Prevent creating Quotation Evaluation for Service requests
+        if ($request->isServiceRequest()) {
+            Notification::make()
+                ->title('Quotation Evaluation not available')
+                ->body('Quotation Evaluation documents are only available for Goods requests. Service requests use Acceptance Reports instead.')
+                ->warning()
+                ->send();
+
+            $this->redirect(route('filament.admin.resources.requests.view', ['record' => $request]));
+
+            return;
+        }
+
         $this->request = $request;
         $this->description = $request->title;
         $this->qeDate = now()->format('Y-m-d');
@@ -307,6 +320,17 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
             // Use form data if available, otherwise fall back to properties
             $description = $formData['description'] ?? $this->description ?? $this->request->title;
             $qeDate = $formData['qeDate'] ?? $this->qeDate ?? now()->format('Y-m-d');
+
+            // Double-check: Prevent creating QE for Service requests
+            if (! $this->request->canCreateQuotationEvaluation()) {
+                Notification::make()
+                    ->title('Cannot create Quotation Evaluation')
+                    ->body('Quotation Evaluation documents are only available for Goods requests.')
+                    ->warning()
+                    ->send();
+
+                return;
+            }
 
             // Generate QE number
             $qeNumber = QuotationEvaluation::generateQeNumber($team->id);

@@ -22,9 +22,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $sort_order
  * @property bool $is_matched
  * @property int $request_id
+ * @property int|null $parent_id
  * @property int|null $article_id
  * @property int|null $supplier_id
  * @property-read Request $request
+ * @property-read RequestItem|null $parent
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, RequestItem> $children
  * @property-read Article|null $article
  * @property-read Company|null $supplier
  * @property-read \Illuminate\Database\Eloquent\Collection<int, SupplierQuoteItem> $supplierQuoteItems
@@ -41,6 +44,7 @@ final class RequestItem extends Model
      */
     protected $fillable = [
         'request_id',
+        'parent_id',
         'article_id',
         'supplier_id',
         'description',
@@ -105,6 +109,26 @@ final class RequestItem extends Model
     public function request(): BelongsTo
     {
         return $this->belongsTo(Request::class);
+    }
+
+    /**
+     * The parent item (for child items in Service requests).
+     *
+     * @return BelongsTo<RequestItem, $this>
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(RequestItem::class, 'parent_id');
+    }
+
+    /**
+     * The child items (for main items in Service requests).
+     *
+     * @return HasMany<RequestItem, $this>
+     */
+    public function children(): HasMany
+    {
+        return $this->hasMany(RequestItem::class, 'parent_id')->orderBy('sort_order');
     }
 
     /**
@@ -179,5 +203,33 @@ final class RequestItem extends Model
         }
 
         return $this->description;
+    }
+
+    /**
+     * Check if this is a main item (has no parent).
+     */
+    public function isMainItem(): bool
+    {
+        return $this->parent_id === null;
+    }
+
+    /**
+     * Check if this is a child item (has a parent).
+     */
+    public function isChildItem(): bool
+    {
+        return $this->parent_id !== null;
+    }
+
+    /**
+     * Get the main item (self if main item, parent if child item).
+     */
+    public function getMainItem(): self
+    {
+        if ($this->isMainItem()) {
+            return $this;
+        }
+
+        return $this->parent;
     }
 }

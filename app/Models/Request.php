@@ -8,6 +8,7 @@ use App\Enums\BuyerQuoteStatus;
 use App\Enums\OrderStatus;
 use App\Enums\RequestPriority;
 use App\Enums\RequestStage;
+use App\Enums\RequestType;
 use App\Enums\SupplierQuoteStatus;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasNotes;
@@ -35,6 +36,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string|null $description
  * @property RequestStage $stage
  * @property RequestPriority $priority
+ * @property RequestType $request_type
  * @property Carbon|null $requested_at
  * @property Carbon|null $required_by
  * @property string|null $internal_notes
@@ -85,6 +87,7 @@ final class Request extends Model implements HasCustomFields, HasMedia
         'description',
         'stage',
         'priority',
+        'request_type',
         'requested_at',
         'required_by',
         'internal_notes',
@@ -99,6 +102,7 @@ final class Request extends Model implements HasCustomFields, HasMedia
     protected $attributes = [
         'stage' => RequestStage::DRAFT,
         'priority' => RequestPriority::NORMAL,
+        'request_type' => RequestType::GOODS,
         'is_active' => true,
     ];
 
@@ -110,6 +114,7 @@ final class Request extends Model implements HasCustomFields, HasMedia
         return [
             'stage' => RequestStage::class,
             'priority' => RequestPriority::class,
+            'request_type' => RequestType::class,
             'requested_at' => 'date',
             'required_by' => 'date',
             'is_active' => 'boolean',
@@ -240,6 +245,16 @@ final class Request extends Model implements HasCustomFields, HasMedia
     }
 
     /**
+     * The acceptance reports for this request (Service requests only).
+     *
+     * @return HasMany<AcceptanceReport, $this>
+     */
+    public function acceptanceReports(): HasMany
+    {
+        return $this->hasMany(AcceptanceReport::class);
+    }
+
+    /**
      * The profit and loss documents for this request.
      *
      * @return HasMany<ProfitAndLoss, $this>
@@ -353,10 +368,24 @@ final class Request extends Model implements HasCustomFields, HasMedia
         }
 
         // Validate that all items are matched when required
-        if ($newStage->requiresMatchedItems() && ! $this->all_items_matched) {
-            throw new \InvalidArgumentException(
-                'All request items must be matched to articles before transitioning to '.$newStage->getLabel()
-            );
+        if ($newStage->requiresMatchedItems()) {
+            // For Service requests, only main items need to be matched (not child items)
+            if ($this->isServiceRequest()) {
+                $mainItems = $this->items()->whereNull('parent_id')->get();
+                $unmatchedMainItems = $mainItems->filter(fn ($item) => ! $item->is_matched);
+                if ($unmatchedMainItems->isNotEmpty()) {
+                    throw new \InvalidArgumentException(
+                        'All main items must be matched to articles before transitioning to '.$newStage->getLabel()
+                    );
+                }
+            } else {
+                // For Goods requests, all items must be matched
+                if (! $this->all_items_matched) {
+                    throw new \InvalidArgumentException(
+                        'All request items must be matched to articles before transitioning to '.$newStage->getLabel()
+                    );
+                }
+            }
         }
 
         $this->stage = $newStage;
@@ -611,5 +640,29 @@ final class Request extends Model implements HasCustomFields, HasMedia
                 return 'none';
             },
         );
+    }
+
+    /**
+     * Check if this is a Service request.
+     */
+    public function isServiceRequest(): bool
+    {
+        return $this->request_type === RequestType::SERVICE;
+    }
+
+    /**
+     * Check if this is a Goods request.
+     */
+    public function isGoodsRequest(): bool
+    {
+        return $this->request_type === RequestType::GOODS;
+    }
+
+    /**
+     * Check if quotation evaluation can be created for this request.
+     */
+    public function canCreateQuotationEvaluation(): bool
+    {
+        return $this->isGoodsRequest();
     }
 }

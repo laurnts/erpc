@@ -13,6 +13,7 @@ use App\Filament\Resources\ProfitAndLossResource;
 use App\Filament\Resources\ProjectResource;
 use App\Filament\Resources\QuotationEvaluationResource;
 use App\Filament\Resources\RequestResource;
+use App\Filament\Resources\RequestResource\RelationManagers\AcceptanceReportsRelationManager;
 use App\Filament\Resources\SupplierOrderResource;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerOrdersRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerQuotesRelationManager;
@@ -347,6 +348,7 @@ final class ViewRequest extends ViewRecord
             BuyerOrdersRelationManager::class,
             ShipmentsRelationManager::class,
             CompletionReportsRelationManager::class,
+            AcceptanceReportsRelationManager::class,
         ];
     }
 

@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Enums\RequestPriority;
 use App\Enums\RequestStage;
+use App\Enums\RequestType;
 use App\Filament\Resources\RequestResource\Pages\CreateRequest;
 use App\Filament\Resources\RequestResource\Pages\ListRequests;
 use App\Filament\Resources\RequestResource\Pages\ViewRequest;
@@ -114,6 +115,13 @@ final class RequestResource extends Resource
                 ->selectablePlaceholder(false)
                 ->native(false);
         }
+        $requestDetailsSchema[] = Select::make('request_type')
+            ->label('Request Type')
+            ->options(RequestType::class)
+            ->default(RequestType::GOODS)
+            ->required()
+            ->native(false)
+            ->live();
         $requestDetailsSchema[] = Select::make('priority')
             ->options(RequestPriority::class)
             ->default(RequestPriority::NORMAL)
@@ -303,6 +311,7 @@ final class RequestResource extends Resource
             BuyerOrdersRelationManager::class,
             SupplierOrdersRelationManager::class,
             ShipmentsRelationManager::class,
+            AcceptanceReportsRelationManager::class,
             TasksRelationManager::class,
             NotesRelationManager::class,
         ];

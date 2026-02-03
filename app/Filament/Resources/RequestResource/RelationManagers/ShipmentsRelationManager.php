@@ -62,6 +62,13 @@ final class ShipmentsRelationManager extends RelationManager
         return 'Inbound Shipments';
     }
 
+    public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
+    {
+        /** @var Request $ownerRecord */
+        // Only show inbound shipments for Goods requests
+        return $ownerRecord->isGoodsRequest();
+    }
+
     public function mount(): void
     {
         parent::mount();
