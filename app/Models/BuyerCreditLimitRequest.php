@@ -197,8 +197,22 @@ final class BuyerCreditLimitRequest extends Model
             if ($this->approvalCount() >= 2) {
                 // Update buyer's credit limit
                 $buyer = $this->buyer;
+                
+                // Calculate increase amount and update available credit
+                $currentLimit = (float) $buyer->credit_limit;
+                $requestedLimit = (float) $this->requested_limit;
+                $increaseAmount = $requestedLimit - $currentLimit;
+                $currentAvailableCredit = (float) $buyer->available_credit;
+                
+                // Update credit_limit to requested_limit
                 $buyer->credit_limit = $this->requested_limit;
-                $buyer->available_credit = $this->requested_limit;
+                
+                // Increase available_credit by the increase amount (preserve existing available credit)
+                $buyer->available_credit = $currentAvailableCredit + $increaseAmount;
+                
+                // Ensure available_credit doesn't exceed credit_limit (safety check)
+                $buyer->available_credit = min((float) $buyer->available_credit, $requestedLimit);
+                
                 $buyer->requested_credit_limit = null;
                 $buyer->save();
 

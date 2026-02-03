@@ -166,6 +166,22 @@ final class BuyerCreditLimitRequestResource extends Resource
                                 ->send();
                         }
                     }),
+                Action::make('view_approval_notes')
+                    ->label('Approval Notes')
+                    ->icon('heroicon-o-document-text')
+                    ->color('info')
+                    ->visible(fn (BuyerCreditLimitRequest $record): bool => $record->approvalCount() > 0)
+                    ->modalHeading('Approval Notes')
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close')
+                    ->modalContent(function (BuyerCreditLimitRequest $record): \Illuminate\Contracts\View\View {
+                        $approvals = $record->approvals()->with('user')->orderBy('approved_at', 'desc')->get();
+                        
+                        return view('filament.resources.buyer-credit-limit-request-resource.approval-notes-modal', [
+                            'approvals' => $approvals,
+                        ]);
+                    })
+                    ->modalWidth('lg'),
             ])
             ->defaultSort('created_at', 'desc');
     }
@@ -191,6 +207,6 @@ final class BuyerCreditLimitRequestResource extends Resource
 
         return parent::getEloquentQuery()
             ->where('team_id', $team?->getKey())
-            ->with(['buyer', 'requestedBy', 'approvers']);
+            ->with(['buyer', 'requestedBy', 'approvers', 'approvals.user']);
     }
 }
