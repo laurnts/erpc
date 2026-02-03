@@ -1416,8 +1416,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                     ->send();
                             }
                         }),
-                ]),
-            ])
+                ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

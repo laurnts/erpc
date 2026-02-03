@@ -188,7 +188,9 @@ final class ItemsRelationManager extends RelationManager
                             ->helperText('Detail description of the child item'),
                         TextInput::make('quantity')
                             ->required()
-                            ->numeric(),
+                            ->numeric()
+                            ->minValue(0.0001)
+                            ->default(1),
                         Select::make('unit_of_measure_id')
                             ->label('Unit of Measure')
                             ->options(
@@ -202,6 +204,7 @@ final class ItemsRelationManager extends RelationManager
                                         $unit->getKey() => $unit->label,
                                     ])
                                     ->toArray())
+                            ->searchable()
                             ->preload()
                             ->required()
                             ->default(fn (): ?int => UnitOfMeasure::query()
