@@ -35,7 +35,7 @@ final readonly class CreditLimitWarningService
     {
         $creditLimit = (float) $buyer->credit_limit;
         $creditUsed = (float) $buyer->credit_used;
-        $availableCredit = (float) $buyer->available_credit;
+        $availableCredit = $creditLimit;
 
         // If no credit limit is set (0 or negative), there's no limit to enforce
         $hasCreditLimit = $creditLimit > 0;
@@ -109,7 +109,7 @@ final readonly class CreditLimitWarningService
     {
         $creditLimit = (float) $buyer->credit_limit;
         $creditUsed = (float) $buyer->credit_used;
-        $availableCredit = (float) $buyer->available_credit;
+        $availableCredit = $creditLimit;
 
         if ($creditLimit <= 0) {
             return [
@@ -233,7 +233,7 @@ final readonly class CreditLimitWarningService
     {
         $creditLimit = (float) $buyer->credit_limit;
         $creditUsed = (float) $buyer->credit_used;
-        $availableCredit = (float) $buyer->available_credit;
+        $availableCredit = $creditLimit;
         $usagePercent = $creditLimit > 0 ? ($creditUsed / $creditLimit) * 100 : 0;
 
         $status = $this->determineStatus($buyer, $usagePercent);

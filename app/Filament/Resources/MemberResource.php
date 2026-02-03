@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Enums\CentralPurchasingRole;
 use App\Filament\Resources\MemberResource\Pages\ListMembers;
 use App\Models\Membership;
 use Filament\Actions\Action;
@@ -65,6 +66,17 @@ final class MemberResource extends Resource
                         default => 'gray',
                     })
                     ->sortable(),
+                TextColumn::make('is_approver')
+                    ->label('Approver')
+                    ->badge()
+                    ->getStateUsing(fn (Membership $record): ?string => 
+                        ($record->role === 'central_purchasing' && 
+                         $record->central_purchasing_role === CentralPurchasingRole::FINANCE &&
+                         $record->is_approver) ? 'Approver' : null
+                    )
+                    ->color('success')
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('created_at')
                     ->label('Joined')
                     ->dateTime()

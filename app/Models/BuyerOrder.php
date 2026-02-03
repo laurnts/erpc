@@ -174,10 +174,10 @@ final class BuyerOrder extends Model implements HasCustomFields
                     return false;
                 }
 
-                $availableCredit = (float) $buyer->available_credit;
+                $creditLimit = (float) $buyer->credit_limit;
                 $orderTotal = (float) $this->total;
 
-                return $orderTotal > $availableCredit && $availableCredit > 0;
+                return $orderTotal > $creditLimit && $creditLimit > 0;
             },
         );
     }
@@ -377,7 +377,6 @@ final class BuyerOrder extends Model implements HasCustomFields
             return null;
         }
 
-        $availableCredit = (float) $buyer->available_credit;
         $creditLimit = (float) $buyer->credit_limit;
         $orderTotal = (float) $this->total;
 
@@ -386,12 +385,12 @@ final class BuyerOrder extends Model implements HasCustomFields
             return null;
         }
 
-        // Check if order exceeds available credit
-        if ($orderTotal > $availableCredit) {
+        // Check if order exceeds credit limit
+        if ($orderTotal > $creditLimit) {
             return sprintf(
-                'Warning: Order total (%s) exceeds available credit (%s). Credit limit: %s, Used: %s.',
+                'Warning: Order total (%s) exceeds credit limit (%s). Credit limit: %s, Used: %s.',
                 number_format($orderTotal, 2),
-                number_format($availableCredit, 2),
+                number_format($creditLimit, 2),
                 number_format($creditLimit, 2),
                 number_format((float) $buyer->credit_used, 2)
             );

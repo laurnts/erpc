@@ -46,6 +46,8 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property bool $is_buyer
  * @property bool $is_supplier
  * @property string $credit_limit
+ * @property string $available_credit
+ * @property string|null $requested_credit_limit
  * @property string $credit_used
  * @property bool $is_on_hold
  * @property string|null $on_hold_reason
@@ -62,7 +64,6 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
  * @property-read string $created_by
- * @property-read string $available_credit
  */
 #[ObservedBy(CompanyObserver::class)]
 final class Company extends Model implements HasCustomFields, HasMedia
@@ -95,6 +96,8 @@ final class Company extends Model implements HasCustomFields, HasMedia
         'is_buyer',
         'is_supplier',
         'credit_limit',
+        'available_credit',
+        'requested_credit_limit',
         'credit_used',
         'is_on_hold',
         'on_hold_reason',
@@ -117,6 +120,7 @@ final class Company extends Model implements HasCustomFields, HasMedia
         'is_buyer' => false,
         'is_supplier' => false,
         'credit_limit' => 0,
+        'available_credit' => 0,
         'credit_used' => 0,
         'is_on_hold' => false,
         'lead_time_days' => 0,
@@ -137,6 +141,8 @@ final class Company extends Model implements HasCustomFields, HasMedia
             'is_buyer' => 'boolean',
             'is_supplier' => 'boolean',
             'credit_limit' => 'decimal:2',
+            'available_credit' => 'decimal:2',
+            'requested_credit_limit' => 'decimal:2',
             'credit_used' => 'decimal:2',
             'is_on_hold' => 'boolean',
             'lead_time_days' => 'integer',
@@ -157,24 +163,6 @@ final class Company extends Model implements HasCustomFields, HasMedia
         return $logo === '' || $logo === '0' ? app(AvatarService::class)->generateAuto(name: $this->name) : $logo;
     }
 
-    /**
-     * Get the available credit for the company (when acting as buyer).
-     *
-     * @return Attribute<string, never>
-     */
-    protected function availableCredit(): Attribute
-    {
-        return Attribute::make(
-            get: function (): string {
-                /** @var numeric-string $creditLimit */
-                $creditLimit = (string) $this->credit_limit;
-                /** @var numeric-string $creditUsed */
-                $creditUsed = (string) $this->credit_used;
-
-                return bcsub($creditLimit, $creditUsed, 2);
-            },
-        );
-    }
 
     /**
      * Team member responsible for managing the company account.
@@ -269,6 +257,29 @@ final class Company extends Model implements HasCustomFields, HasMedia
                 'is_active',
             ])
             ->withTimestamps();
+    }
+
+    /**
+     * Get all credit limit requests for this buyer.
+     *
+     * @return HasMany<BuyerCreditLimitRequest, $this>
+     */
+    public function creditLimitRequests(): HasMany
+    {
+        return $this->hasMany(BuyerCreditLimitRequest::class, 'buyer_id');
+    }
+
+    /**
+     * Get the current pending credit limit request for this buyer.
+     *
+     * @return BuyerCreditLimitRequest|null
+     */
+    public function pendingCreditLimitRequest(): ?BuyerCreditLimitRequest
+    {
+        return $this->creditLimitRequests()
+            ->where('status', \App\Enums\CreditLimitRequestStatus::PENDING)
+            ->latest()
+            ->first();
     }
 
     /**
