@@ -118,7 +118,7 @@ final class BuyerOrdersRelationManager extends RelationManager
                 ->schema([
                     Repeater::make('items')
                         ->relationship(
-                            modifyQueryUsing: fn ($query) => $query->with('unitOfMeasure')
+                            modifyQueryUsing: fn ($query) => $query->with(['unitOfMeasure', 'requestItem.supplier', 'buyerQuoteItem.supplierQuoteItem.supplierQuote.supplier'])
                         )
                         ->schema([
                             Grid::make(12)
@@ -136,7 +136,22 @@ final class BuyerOrdersRelationManager extends RelationManager
                                     TextInput::make('unit_price')
                                         ->label('Price')
                                         ->columnSpan(2)
-                                        ->disabled(),
+                                        ->disabled()
+                                        ->helperText(function ($record): ?string {
+                                            if ($record === null) {
+                                                return null;
+                                            }
+                                            
+                                            // Try to get supplier from request item first
+                                            $supplier = $record->requestItem?->supplier;
+                                            
+                                            // Fallback to supplier from quote chain
+                                            if ($supplier === null && $record->buyerQuoteItem?->supplierQuoteItem?->supplierQuote?->supplier !== null) {
+                                                $supplier = $record->buyerQuoteItem->supplierQuoteItem->supplierQuote->supplier;
+                                            }
+                                            
+                                            return $supplier !== null ? "From: {$supplier->name}" : null;
+                                        }),
                                     TextInput::make('line_total')
                                         ->label('Total')
                                         ->columnSpan(2)

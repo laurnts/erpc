@@ -133,7 +133,6 @@
                                                 <td style="padding: 10px 8px; text-align: center; font-size: 13px; color: #1f2937; border-right: 1px solid #e5e7eb;">{{ $item->quantity }}</td>
                                                 <td style="padding: 10px 8px; text-align: center; font-size: 13px; color: #1f2937; border-right: 1px solid #e5e7eb;">{{ $item->unit_label }}</td>
                                                 <td style="padding: 10px 8px; text-align: right; font-size: 13px; color: #1f2937; border-right: 1px solid #e5e7eb;">{{ $currency ? $currency->formatNumber((float)$item->unit_price_exc_tax) : number_format((float)$item->unit_price_exc_tax, 2) }}</td>
-                                                <td style="padding: 10px 8px; text-align: right; font-size: 13px; color: #1f2937; border-right: 1px solid #e5e7eb;">{{ $currency ? $currency->formatNumber($lineTax) : number_format($lineTax, 2) }}</td>
                                                 <td style="padding: 10px 8px; text-align: right; font-size: 13px; color: #1f2937; font-weight: bold;">{{ $currency ? $currency->formatNumber((float)$item->line_total) : number_format((float)$item->line_total, 2) }}</td>
                                             </tr>
                                         @endforeach
