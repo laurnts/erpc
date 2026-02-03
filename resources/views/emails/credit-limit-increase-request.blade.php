@@ -47,7 +47,7 @@
         </p>
         
         <div style="margin-top: 30px; text-align: center;">
-            <a href="{{ url('/buyer-credit-limit-requests/' . $request->id) }}" 
+            <a href="{{ \App\Filament\Resources\BuyerCreditLimitRequestResource::getUrl('index', ['tenant' => $team->getKey()]) }}" 
                style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
                 Review Request
             </a>
