@@ -1214,7 +1214,9 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     $record->team,
                                     new \App\Mail\Erp\QuoteToBuyerMail($record),
                                     $buyerEmail,
-                                    $settings->email_template_buyer_quote
+                                    $settings->email_template_buyer_quote, // Old system fallback
+                                    $settings->email_template_buyer_quote_id ?? null, // New system
+                                    \App\Models\EmailTemplate::TYPE_BUYER_QUOTE
                                 );
 
                             Notification::make()
@@ -1278,7 +1280,9 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     $record->team,
                                     new \App\Mail\Erp\QuoteToBuyerMail($record),
                                     $buyerEmail,
-                                    $settings->email_template_buyer_quote
+                                    $settings->email_template_buyer_quote, // Old system fallback
+                                    $settings->email_template_buyer_quote_id ?? null, // New system
+                                    \App\Models\EmailTemplate::TYPE_BUYER_QUOTE
                                 );
 
                                 Notification::make()

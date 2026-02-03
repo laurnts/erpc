@@ -866,7 +866,9 @@ final class SupplierOrdersRelationManager extends RelationManager
                                             $supplierOrder->team,
                                             new PurchaseOrderToSupplierMail($supplierOrder),
                                             $supplierEmail,
-                                            $settings->email_template_supplier_order
+                                            $settings->email_template_supplier_order, // Old system fallback
+                                            $settings->email_template_supplier_order_id ?? null, // New system
+                                            \App\Models\EmailTemplate::TYPE_SUPPLIER_ORDER
                                         );
                                     } catch (\Exception $e) {
                                         // Log error but don't fail the operation

@@ -300,7 +300,9 @@ final class ShipmentsRelationManager extends RelationManager
                 $shipment->team,
                 new ShipmentToBuyerMail($shipment),
                 $buyerEmail,
-                $settings->email_template_delivery_order
+                $settings->email_template_delivery_order, // Old system fallback
+                $settings->email_template_delivery_order_id ?? null, // New system
+                \App\Models\EmailTemplate::TYPE_DELIVERY_ORDER
             );
 
             // Update do_sent_at timestamp

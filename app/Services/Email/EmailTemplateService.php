@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Email;
 
 use App\Data\TeamErpSettings;
+use App\Models\EmailTemplate;
 use App\Models\Team;
 use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\Crypt;
@@ -18,6 +19,130 @@ final class EmailTemplateService
     public function getTeamEmailSettings(Team $team): TeamErpSettings
     {
         return $team->getErpSettings();
+    }
+
+    /**
+     * Get template by ID with fallback to default.
+     */
+    public function getTemplate(?int $templateId, string $type, ?Team $team = null): ?EmailTemplate
+    {
+        if ($templateId) {
+            $template = EmailTemplate::find($templateId);
+            if ($template && $template->type === $type) {
+                // Check if template is accessible to team (belongs to team or is default)
+                if ($team && !$template->is_default) {
+                    // For non-default templates, must belong to the team
+                    if ($template->team_id !== $team->id) {
+                        \Log::warning('Template does not belong to team, falling back to default', [
+                            'template_id' => $templateId,
+                            'template_team_id' => $template->team_id,
+                            'requested_team_id' => $team->id,
+                            'type' => $type,
+                        ]);
+                        return $this->getDefaultTemplate($type);
+                    }
+                }
+                return $template;
+            }
+        }
+
+        return $this->getDefaultTemplate($type);
+    }
+
+    /**
+     * Get default template for a type.
+     */
+    public function getDefaultTemplate(string $type): ?EmailTemplate
+    {
+        return EmailTemplate::defaults()
+            ->forType($type)
+            ->first();
+    }
+
+    /**
+     * Get template for sending (with fallback to default).
+     */
+    public function getTemplateForSending(?int $templateId, string $type, ?Team $team = null): ?EmailTemplate
+    {
+        $template = $this->getTemplate($templateId, $type, $team);
+        
+        // If template was deleted but ID still exists, fallback to default
+        if ($templateId && !$template) {
+            \Log::warning('Selected template not found, falling back to default', [
+                'template_id' => $templateId,
+                'type' => $type,
+            ]);
+            return $this->getDefaultTemplate($type);
+        }
+
+        return $template;
+    }
+
+    /**
+     * Render email template content with variable replacement.
+     *
+     * @param  array<string, string>  $variables
+     * @return array{content: string, is_full_html: bool}
+     */
+    public function renderTemplateContent(?EmailTemplate $template, array $variables): array
+    {
+        if (!$template || empty($template->content) || trim($template->content) === '') {
+            return ['content' => '', 'is_full_html' => false];
+        }
+
+        $content = trim($template->content);
+
+        // Check if this is a full HTML email template (contains DOCTYPE or html/body tags)
+        $isFullHtml = preg_match('/<!DOCTYPE\s+html|<html|<body/i', $content) === 1;
+
+        // Replace variables in the template
+        foreach ($variables as $key => $value) {
+            // Support both {{{variable}}} and {{variable}} syntax
+            $content = str_replace("{{{$key}}}", (string) $value, $content);
+            $content = str_replace("{{$key}}", (string) $value, $content);
+        }
+
+        return ['content' => $content, 'is_full_html' => $isFullHtml];
+    }
+
+    /**
+     * Get template-specific sender email from EmailTemplate or fallback to global.
+     */
+    public function getSenderEmailFromTemplate(?EmailTemplate $template, TeamErpSettings $settings): ?string
+    {
+        if ($template && !empty($template->sender_email)) {
+            return $template->sender_email;
+        }
+
+        return !empty($settings->email_from_address) ? $settings->email_from_address : config('mail.from.address');
+    }
+
+    /**
+     * Get template-specific CC emails from EmailTemplate.
+     *
+     * @return array<string>
+     */
+    public function getCcEmailsFromTemplate(?EmailTemplate $template): array
+    {
+        if (!$template || empty($template->cc_emails)) {
+            return [];
+        }
+
+        return is_array($template->cc_emails) ? $template->cc_emails : [];
+    }
+
+    /**
+     * Get template-specific BCC emails from EmailTemplate.
+     *
+     * @return array<string>
+     */
+    public function getBccEmailsFromTemplate(?EmailTemplate $template): array
+    {
+        if (!$template || empty($template->bcc_emails)) {
+            return [];
+        }
+
+        return is_array($template->bcc_emails) ? $template->bcc_emails : [];
     }
 
     /**
@@ -186,12 +311,16 @@ final class EmailTemplateService
      *
      * @param  array{content: string, sender_email?: string|null, cc_emails?: string[], bcc_emails?: string[]}|null  $templateConfig
      * @param  string|array<string>  $to
+     * @param  int|null  $templateId  Template ID (new system)
+     * @param  string|null  $templateType  Template type (new system)
      */
     public function sendWithTeamSettings(
         Team $team,
         Mailable $mailable,
         string|array $to,
-        ?array $templateConfig = null
+        ?array $templateConfig = null,
+        ?int $templateId = null,
+        ?string $templateType = null
     ): void {
         $settings = $team->getErpSettings();
 
@@ -201,9 +330,21 @@ final class EmailTemplateService
         // Build the mail pending instance
         $pendingMail = $mailer ? Mail::mailer($mailer)->to($to) : Mail::to($to);
 
-        // Apply CC/BCC from template config
-        $ccEmails = $this->getCcEmails($templateConfig);
-        $bccEmails = $this->getBccEmails($templateConfig);
+        // Get CC/BCC from new template system if available, otherwise use old system
+        $ccEmails = [];
+        $bccEmails = [];
+        
+        if ($templateId && $templateType) {
+            $template = $this->getTemplateForSending($templateId, $templateType, $team);
+            if ($template) {
+                $ccEmails = $this->getCcEmailsFromTemplate($template);
+                $bccEmails = $this->getBccEmailsFromTemplate($template);
+            }
+        } else {
+            // Fallback to old system
+            $ccEmails = $this->getCcEmails($templateConfig);
+            $bccEmails = $this->getBccEmails($templateConfig);
+        }
 
         if (! empty($ccEmails)) {
             $pendingMail->cc($ccEmails);
@@ -211,6 +352,7 @@ final class EmailTemplateService
                 'to' => is_array($to) ? $to : [$to],
                 'cc' => $ccEmails,
                 'mailable' => get_class($mailable),
+                'template_id' => $templateId,
             ]);
         }
 
@@ -220,6 +362,7 @@ final class EmailTemplateService
                 'to' => is_array($to) ? $to : [$to],
                 'bcc' => $bccEmails,
                 'mailable' => get_class($mailable),
+                'template_id' => $templateId,
             ]);
         }
 
@@ -230,6 +373,7 @@ final class EmailTemplateService
             'bcc' => $bccEmails,
             'mailer' => $mailer ?? 'default',
             'mailable' => get_class($mailable),
+            'template_id' => $templateId,
         ]);
 
         // Send the email

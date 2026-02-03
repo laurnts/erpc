@@ -386,7 +386,9 @@ final class BuyerOrdersRelationManager extends RelationManager
                                     $record->team,
                                     new BuyerOrderToBuyerMail($record),
                                     $buyerEmail,
-                                    $settings->email_template_buyer_order
+                                    $settings->email_template_buyer_order, // Old system fallback
+                                    $settings->email_template_buyer_order_id ?? null, // New system
+                                    \App\Models\EmailTemplate::TYPE_BUYER_ORDER
                                 );
 
                                 Notification::make()
@@ -450,7 +452,9 @@ final class BuyerOrdersRelationManager extends RelationManager
                                     $record->team,
                                     new BuyerOrderToBuyerMail($record),
                                     $buyerEmail,
-                                    $settings->email_template_buyer_order
+                                    $settings->email_template_buyer_order, // Old system fallback
+                                    $settings->email_template_buyer_order_id ?? null, // New system
+                                    \App\Models\EmailTemplate::TYPE_BUYER_ORDER
                                 );
 
                                 Notification::make()
