@@ -48,7 +48,7 @@ final class TasksRelationManager extends RelationManager
             ->recordTitleAttribute('title')
             ->columns([
                 TextColumn::make('title')
-                    ->searchable(),
+                    ,
                 TextColumn::make('due_at')
                     ->dateTime()
                     ->sortable(),

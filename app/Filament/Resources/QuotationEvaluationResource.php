@@ -104,16 +104,16 @@ final class QuotationEvaluationResource extends Resource
             ->columns([
                 TextColumn::make('qe_number')
                     ->label('QE Number')
-                    ->searchable()
+                    
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('request.request_number')
                     ->label('Request')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('description')
                     ->limit(40)
-                    ->searchable()
+                    
                     ->toggleable(),
                 TextColumn::make('qe_date')
                     ->label('Date')

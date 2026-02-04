@@ -236,11 +236,11 @@ final class BuyerOrdersRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('order_number')
                     ->label('Order #')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('buyer.name')
                     ->label('Buyer')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('buyerQuote.quote_number')
                     ->label('Source Quote')
@@ -302,9 +302,10 @@ final class BuyerOrdersRelationManager extends RelationManager
                                         number_format((float) $quote->total, 2)
                                     ),
                                 ])
+                            ->selectablePlaceholder(false)
                                 ->all())
                             ->required()
-                            ->searchable()
+                            
                             ->helperText('Only accepted quotes can be converted to orders.'),
                     ])
                     ->action(function (array $data) use ($request): void {

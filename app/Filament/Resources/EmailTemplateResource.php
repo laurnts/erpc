@@ -72,6 +72,7 @@ final class EmailTemplateResource extends Resource
         $components = [
             Select::make('type')
                 ->label('Template Type')
+                ->selectablePlaceholder(false)
                 ->options([
                     EmailTemplate::TYPE_BUYER_QUOTE => 'Buyer Quote',
                     EmailTemplate::TYPE_BUYER_ORDER => 'Buyer Order',
@@ -204,7 +205,7 @@ final class EmailTemplateResource extends Resource
             ->columns([
                 TextColumn::make('name')
                     ->label('Template Name')
-                    ->searchable()
+                    
                     ->sortable()
                     ->wrap(),
 

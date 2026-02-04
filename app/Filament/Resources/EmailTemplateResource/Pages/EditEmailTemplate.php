@@ -90,8 +90,6 @@ final class EditEmailTemplate extends EditRecord
                 }),
         ];
     }
-
-
     protected function getRedirectUrl(): string
     {
         return EmailTemplateResource::getUrl('index');

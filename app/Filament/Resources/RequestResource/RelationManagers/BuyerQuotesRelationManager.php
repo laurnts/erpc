@@ -94,6 +94,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 ->options(BuyerQuoteStatus::class)
                                 ->default(BuyerQuoteStatus::DRAFT)
                                 ->required()
+                                ->selectablePlaceholder(false)
                                 ->disabled(fn (?BuyerQuote $record): bool => $record instanceof \App\Models\BuyerQuote && ! $record->status->canEdit()),
                         ]),
                     Grid::make(2)
@@ -116,8 +117,9 @@ final class BuyerQuotesRelationManager extends RelationManager
 
                                     return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
                                 })
-                                ->searchable()
-                                ->required(),
+                                
+                                ->required()
+                                ->selectablePlaceholder(false),
                             DatePicker::make('valid_until')
                                 ->label('Valid Until')
                                 ->default(function (): \Illuminate\Support\Carbon {
@@ -139,6 +141,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 ->label('Prepayment Type')
                                 ->options(PrepaymentType::class)
                                 ->default(PrepaymentType::PERCENT)
+                                ->selectablePlaceholder(false)
                                 ->live()
                                 ->afterStateUpdated(fn (Set $set): mixed => $set('prepayment_amount', 0)),
                             TextInput::make('prepayment_amount')
@@ -194,7 +197,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                 $item->getKey() => $item->display_text,
                                             ])
                                             ->all())
-                                        ->searchable()
+                                        
+                                        ->selectablePlaceholder(false)
                                         ->columnSpan(4)
                                         ->live()
                                         ->afterStateUpdated(function (Set $set, ?int $state) use ($request): void {
@@ -234,8 +238,9 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     Select::make('unit_of_measure_id')
                                         ->label('Unit')
                                         ->relationship('unitOfMeasure', 'label', fn ($query) => $query->where('team_id', $request->team_id)->where('is_active', true))
-                                        ->searchable()
+                                        
                                         ->preload()
+                                        ->selectablePlaceholder(false)
                                         ->default(fn (): ?int => UnitOfMeasure::query()
                                             ->where('team_id', $request->team_id)
                                             ->where('code', 'pcs')
@@ -335,7 +340,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             ->where('is_default', true)
                                             ->where('is_active', true)
                                             ->value('id'))
-                                        ->searchable()
+                                        
+                                        ->selectablePlaceholder(false)
                                         ->columnSpan(2)
                                         ->live()
                                         ->afterStateHydrated(function (Set $set, Get $get, ?int $state): void {
@@ -703,12 +709,12 @@ final class BuyerQuotesRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('quote_number')
                     ->label('Quote #')
-                    ->searchable()
+                    
                     ->sortable()
                     ->description(fn (BuyerQuote $record): string => 'v'.$record->version),
                 TextColumn::make('buyer.name')
                     ->label('Buyer')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('status')
                     ->badge()
@@ -1035,28 +1041,32 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         Filament::getTenant(),
                                         \App\Enums\CentralPurchasingRole::KEY_ACCOUNT
                                     ))
-                                    ->searchable(),
+                                    
+                                    ->selectablePlaceholder(false),
                                 Select::make('dept_head_sales_id')
                                     ->label('Dept Head of Sales')
                                     ->options(fn (): array => TeamMemberService::getTeamMemberOptionsByRole(
                                         Filament::getTenant(),
                                         \App\Enums\CentralPurchasingRole::DEPT_HEAD_SALES
                                     ))
-                                    ->searchable(),
+                                    
+                                    ->selectablePlaceholder(false),
                                 Select::make('deputy_director_id')
                                     ->label('Deputy Director')
                                     ->options(fn (): array => TeamMemberService::getTeamMemberOptionsByRole(
                                         Filament::getTenant(),
                                         \App\Enums\CentralPurchasingRole::DEPUTY_DIRECTOR
                                     ))
-                                    ->searchable(),
+                                    
+                                    ->selectablePlaceholder(false),
                                 Select::make('approved_by_id')
                                     ->label('Approved By')
                                     ->options(fn (): array => TeamMemberService::getTeamMemberOptionsByRole(
                                         Filament::getTenant(),
                                         \App\Enums\CentralPurchasingRole::DIRECTOR
                                     ))
-                                    ->searchable(),
+                                    
+                                    ->selectablePlaceholder(false),
                             ])
                             ->columns(2),
                     ])

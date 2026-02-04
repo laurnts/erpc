@@ -60,8 +60,9 @@ final class KeyAccountSelect
                     return $query;
                 }
             )
-            ->searchable()
+            
             ->preload()
+            ->selectablePlaceholder(false)
             ->nullable()
             ->createOptionForm([
                 \Filament\Forms\Components\TextInput::make('name')

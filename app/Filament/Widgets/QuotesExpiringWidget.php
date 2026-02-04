@@ -29,19 +29,19 @@ final class QuotesExpiringWidget extends BaseWidget
             ->columns([
                 TextColumn::make('quote_number')
                     ->label('Quote #')
-                    ->searchable()
+                    
                     ->sortable()
                     ->weight('bold'),
 
                 TextColumn::make('request.title')
                     ->label('Request')
                     ->limit(30)
-                    ->searchable()
+                    
                     ->sortable(),
 
                 TextColumn::make('buyer.name')
                     ->label('Buyer')
-                    ->searchable()
+                    
                     ->sortable(),
 
                 TextColumn::make('total')

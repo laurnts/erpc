@@ -36,12 +36,12 @@ final class BuyerCreditLimitOverviewResource extends Resource
             ->columns([
                 TextColumn::make('name')
                     ->label('Buyer')
-                    ->searchable()
+                    
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('code')
                     ->label('Code')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('credit_limit')
                     ->label('Active Credit Limit')

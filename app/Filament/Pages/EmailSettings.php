@@ -405,7 +405,7 @@ final class EmailSettings extends Page implements HasForms
 
                         return $options;
                     })
-                    ->searchable()
+                    
                     ->helperText($helperText . ' Select a template or use + to create a new one.')
                     ->createOptionForm(
                         EmailTemplateResource::getTemplateFormComponents(

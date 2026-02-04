@@ -57,6 +57,11 @@ final class ViewMember extends ViewRecord
                             ->email()
                             ->required()
                             ->unique(\App\Models\User::class, ignorable: $membership->user),
+                        TextInput::make('password')
+                            ->label('Password')
+                            ->password()
+                            ->helperText('Leave blank to keep the current password.')
+                            ->maxLength(255),
                         Radio::make('role')
                             ->label('Role')
                             ->options([
@@ -112,10 +117,17 @@ final class ViewMember extends ViewRecord
                         }
                         
                         // Update user information
-                        $user->forceFill([
+                        $userData = [
                             'name' => $data['name'],
                             'email' => $data['email'],
-                        ])->save();
+                        ];
+                        
+                        // Update password if provided
+                        if (! empty($data['password'])) {
+                            $userData['password'] = bcrypt($data['password']);
+                        }
+                        
+                        $user->forceFill($userData)->save();
                         
                         // Update role and central_purchasing_role
                         $pivotData = [];

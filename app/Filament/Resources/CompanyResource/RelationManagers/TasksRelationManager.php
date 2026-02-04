@@ -40,12 +40,12 @@ final class TasksRelationManager extends RelationManager
                     ->label('Assignee')
                     ->badge()
                     ->color('primary')
-                    ->searchable(),
+                    ,
                 TextColumn::make('people.name')
                     ->label('People')
                     ->badge()
                     ->color('primary')
-                    ->searchable(),
+                    ,
                 TextColumn::make('created_at')
                     ->label('Created At')
                     ->dateTime()

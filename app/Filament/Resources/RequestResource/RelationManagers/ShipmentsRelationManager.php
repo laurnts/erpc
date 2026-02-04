@@ -77,7 +77,8 @@ final class ShipmentsRelationManager extends RelationManager
                             Select::make('status')
                                 ->options(ShipmentStatus::class)
                                 ->default(ShipmentStatus::PENDING)
-                                ->required(),
+                                ->required()
+                                ->selectablePlaceholder(false),
                         ]),
                 ]),
 
@@ -128,7 +129,8 @@ final class ShipmentsRelationManager extends RelationManager
                                                 ->all()
                                         )
                                         ->required()
-                                        ->searchable()
+                                        
+                                        ->selectablePlaceholder(false)
                                         ->live()
                                         ->afterStateUpdated(function (Set $set, ?int $state) use ($supplierOrder): void {
                                             if ($state === null) {
@@ -151,6 +153,7 @@ final class ShipmentsRelationManager extends RelationManager
                                         ->options(ItemCondition::class)
                                         ->default(ItemCondition::GOOD)
                                         ->required()
+                                        ->selectablePlaceholder(false)
                                         ->columnSpan(3),
                                 ]),
                         ])
@@ -229,8 +232,6 @@ final class ShipmentsRelationManager extends RelationManager
 
         return $sections;
     }
-
-
     /**
      * Send or resend delivery order email to buyer.
      */
@@ -451,11 +452,11 @@ final class ShipmentsRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('supplier.name')
                     ->label('Supplier')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('po_number')
                     ->label('PO #')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('items_count')
                     ->label('Items')
@@ -578,7 +579,8 @@ final class ShipmentsRelationManager extends RelationManager
                                         $s->getKey() => $s->shipment_number,
                                     ])
                                     ->all())
-                                ->required(),
+                                ->required()
+                                ->selectablePlaceholder(false),
                             TextInput::make('tracking_number')
                                 ->label('Tracking Number'),
                             DateTimePicker::make('expected_delivery_at')
@@ -615,7 +617,8 @@ final class ShipmentsRelationManager extends RelationManager
                                         $s->getKey() => $s->shipment_number,
                                     ])
                                     ->all())
-                                ->required(),
+                                ->required()
+                                ->selectablePlaceholder(false),
                             DateTimePicker::make('delivered_at')
                                 ->label('Delivered At')
                                 ->default(now()),

@@ -44,21 +44,21 @@ final class SupplierQuoteResource extends Resource
             ->columns([
                 TextColumn::make('quote_number')
                     ->label('Quote #')
-                    ->searchable()
+                    
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('request.request_number')
                     ->label('Request')
-                    ->searchable()
+                    
                     ->sortable()
                     ->url(fn (SupplierQuote $record): string => RequestResource::getUrl('view', ['record' => $record->request_id])),
                 TextColumn::make('supplier.name')
                     ->label('Supplier')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('supplier_reference')
                     ->label('Supplier Ref')
-                    ->searchable()
+                    
                     ->toggleable(),
                 TextColumn::make('status')
                     ->badge()
@@ -113,12 +113,12 @@ final class SupplierQuoteResource extends Resource
                     ->relationship('supplier', 'name', fn ($query) => $query->where('is_supplier', true))
                     ->label('Supplier')
                     ->preload()
-                    ->searchable(),
+                    ,
                 SelectFilter::make('request_id')
                     ->relationship('request', 'request_number')
                     ->label('Request')
                     ->preload()
-                    ->searchable(),
+                    ,
                 TrashedFilter::make(),
             ])
             ->recordUrl(fn (SupplierQuote $record): string => RequestResource::getUrl('view', ['record' => $record->request_id]))

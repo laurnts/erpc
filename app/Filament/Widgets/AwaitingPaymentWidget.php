@@ -29,19 +29,19 @@ final class AwaitingPaymentWidget extends BaseWidget
             ->columns([
                 TextColumn::make('invoice_number')
                     ->label('Invoice #')
-                    ->searchable()
+                    
                     ->sortable()
                     ->weight('bold'),
 
                 TextColumn::make('request.title')
                     ->label('Request')
                     ->limit(25)
-                    ->searchable()
+                    
                     ->sortable(),
 
                 TextColumn::make('request.buyer.name')
                     ->label('Buyer')
-                    ->searchable()
+                    
                     ->sortable(),
 
                 TextColumn::make('status')

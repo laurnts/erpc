@@ -94,8 +94,9 @@ final class SupplierOrdersRelationManager extends RelationManager
                                                 $supplier->getKey() => "[{$supplier->code}] {$supplier->name}",
                                             ])
                                     )
-                                    ->searchable()
+                                    
                                     ->required()
+                                    ->selectablePlaceholder(false)
                                     ->live()
                                     ->afterStateUpdated(function (Set $set, Get $get): void {
                                         // Check if supplier is taxable
@@ -146,7 +147,8 @@ final class SupplierOrdersRelationManager extends RelationManager
                                             $quote->getKey() => "[{$quote->quote_number}] {$quote->supplier->name}",
                                         ])
                                         ->all())
-                                    ->searchable()
+                                    
+                                    ->selectablePlaceholder(false)
                                     ->live()
                                     ->afterStateUpdated(function (Set $set, ?int $state): void {
                                         if ($state === null) {
@@ -164,7 +166,8 @@ final class SupplierOrdersRelationManager extends RelationManager
                                 Select::make('status')
                                     ->options(OrderStatus::class)
                                     ->default(OrderStatus::DRAFT)
-                                    ->required(),
+                                    ->required()
+                                    ->selectablePlaceholder(false),
                             ]),
                         Grid::make(3)
                             ->schema([
@@ -186,8 +189,9 @@ final class SupplierOrdersRelationManager extends RelationManager
 
                                         return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
                                     })
-                                    ->searchable()
-                                    ->required(),
+                                    
+                                    ->required()
+                                    ->selectablePlaceholder(false),
                                 TextInput::make('exchange_rate')
                                     ->label('Exchange Rate')
                                     ->numeric()
@@ -229,7 +233,8 @@ final class SupplierOrdersRelationManager extends RelationManager
                                                     $item->getKey() => $item->display_text,
                                                 ])
                                                 ->all())
-                                            ->searchable()
+                                            
+                                            ->selectablePlaceholder(false)
                                             ->columnSpan(4)
                                             ->live()
                                             ->afterStateUpdated(function (Set $set, ?int $state) use ($request): void {
@@ -269,8 +274,9 @@ final class SupplierOrdersRelationManager extends RelationManager
                                         Select::make('unit_of_measure_id')
                                             ->label('Unit')
                                             ->relationship('unitOfMeasure', 'label', fn ($query) => $query->where('team_id', $request->team_id)->where('is_active', true))
-                                            ->searchable()
+                                            
                                             ->preload()
+                                            ->selectablePlaceholder(false)
                                             ->default(fn (): ?int => UnitOfMeasure::query()
                                                 ->where('team_id', $request->team_id)
                                                 ->where('code', 'pcs')
@@ -305,7 +311,8 @@ final class SupplierOrdersRelationManager extends RelationManager
                                                 ->where('is_default', true)
                                                 ->where('is_active', true)
                                                 ->value('id'))
-                                            ->searchable()
+                                            
+                                            ->selectablePlaceholder(false)
                                             ->columnSpan(3)
                                             ->live()
                                             ->visible(fn (Get $get): bool => $this->isSupplierTaxable($get))
@@ -462,11 +469,11 @@ final class SupplierOrdersRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('po_number')
                     ->label('PO #')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('supplier.name')
                     ->label('Supplier')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('supplierQuote.quote_number')
                     ->label('From Quote')

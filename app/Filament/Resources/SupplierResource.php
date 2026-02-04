@@ -68,7 +68,7 @@ final class SupplierResource extends Resource
             ->label('Categories')
             ->multiple()
             ->preload()
-            ->searchable()
+            
             ->helperText('What products/services they supply')
             ->createOptionForm(TagResource::getFormSchema())
             ->createOptionUsing(function (array $data): int {
@@ -132,7 +132,7 @@ final class SupplierResource extends Resource
                 ->relationship('people', 'name')
                 ->multiple()
                 ->preload()
-                ->searchable()
+                
                 ->helperText('Add people associated with this supplier')
                 ->createOptionForm(PeopleResource::getFormSchema(excludeCompaniesField: true))
                 ->createOptionUsing(function (array $data): int {
@@ -160,7 +160,7 @@ final class SupplierResource extends Resource
                 return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
             })
             ->nullable()
-            ->searchable()
+            
             ->preload()
             ->createOptionForm(CurrencyResource::getFormSchema(excludeDefaultField: true))
             ->createOptionUsing(function (array $data): int {
@@ -194,7 +194,7 @@ final class SupplierResource extends Resource
                     Select::make('country')
                         ->options(self::getCountryOptions())
                         ->default('Indonesia')
-                        ->searchable(),
+                        ,
                     Textarea::make('address')
                         ->label('Address')
                         ->rows(2),
@@ -222,7 +222,7 @@ final class SupplierResource extends Resource
                                 $type->value => $type->getLabel().' ('.$type->getFullName().') - '.str($type->getDescription())->after(' - ')->toString(),
                             ])
                             ->toArray())
-                        ->searchable()
+                        
                         ->live()
                         ->nullable()
                         ->helperText('Select the delivery term that defines cost and risk responsibilities'),
@@ -278,10 +278,10 @@ final class SupplierResource extends Resource
                 ImageColumn::make('logo')->label('')->imageSize(28)->square(),
                 TextColumn::make('code')
                     ->label('Code')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('name')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('people_count')
                     ->label('Contacts')
@@ -289,7 +289,7 @@ final class SupplierResource extends Resource
                     ->sortable()
                     ->toggleable(),
                 TextColumn::make('country')
-                    ->searchable()
+                    
                     ->sortable()
                     ->toggleable(),
                 TextColumn::make('tags.name')
@@ -332,10 +332,10 @@ final class SupplierResource extends Resource
                     ->relationship('tags', 'name')
                     ->multiple()
                     ->preload()
-                    ->searchable(),
+                    ,
                 SelectFilter::make('country')
                     ->label('Country')
-                    ->searchable()
+                    
                     ->preload()
                     ->options(fn () => Company::query()
                         ->where('is_supplier', true)
