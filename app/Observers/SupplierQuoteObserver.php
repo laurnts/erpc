@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Observers;
 
 use App\Data\TeamErpSettings;
+use App\Enums\SupplierQuoteStatus;
 use App\Models\SupplierQuote;
 use App\Models\Team;
 use App\Models\User;
@@ -42,6 +43,53 @@ final readonly class SupplierQuoteObserver
             $team = $supplierQuote->team ?? ($supplierQuote->team_id !== null ? Team::find($supplierQuote->team_id) : null);
             $settings = $team?->getErpSettings() ?? new TeamErpSettings;
             $supplierQuote->valid_until = $supplierQuote->quoted_at->addDays($settings->quote_validity_days);
+        }
+    }
+
+    /**
+     * Handle the SupplierQuote "updating" event.
+     */
+    public function updating(SupplierQuote $supplierQuote): void
+    {
+        // Auto-change status from PENDING to RECEIVED when prices are inputted
+        if ($supplierQuote->status === SupplierQuoteStatus::PENDING) {
+            // Check current total from database if quote exists
+            if ($supplierQuote->exists) {
+                $originalTotal = (float) $supplierQuote->getOriginal('total', 0);
+                $newTotal = (float) $supplierQuote->total;
+                
+                // Use the higher of the two (in case items were just saved)
+                $total = max($originalTotal, $newTotal);
+            } else {
+                $total = (float) $supplierQuote->total;
+            }
+            
+            // Check if total is greater than 0 (meaning prices have been inputted)
+            if ($total > 0) {
+                $supplierQuote->status = SupplierQuoteStatus::RECEIVED;
+            }
+        }
+    }
+
+    /**
+     * Handle the SupplierQuote "updated" event.
+     */
+    public function updated(SupplierQuote $supplierQuote): void
+    {
+        // After update, check if status needs to be changed based on items
+        // This handles cases where items were saved after the quote was saved
+        if ($supplierQuote->status === SupplierQuoteStatus::PENDING) {
+            // Reload to get fresh items and totals
+            $supplierQuote->refresh();
+            
+            // Check if items have prices
+            $hasPrices = $supplierQuote->items()->where('unit_price', '>', 0)->exists();
+            $total = (float) $supplierQuote->total;
+            
+            if ($hasPrices || $total > 0) {
+                $supplierQuote->status = SupplierQuoteStatus::RECEIVED;
+                $supplierQuote->saveQuietly();
+            }
         }
     }
 

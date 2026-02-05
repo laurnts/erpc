@@ -78,6 +78,7 @@ final class RequestResource extends Resource
                 
                 ->selectablePlaceholder(false)
                 ->live()
+                ->searchable()
                 ->afterStateUpdated(fn ($set) => $set('project_id', null))
                 ->createOptionForm(BuyerResource::getFormSchema(excludePeopleField: true))
                 ->createOptionAction(fn (Action $action): \Filament\Actions\Action => $action->slideOver())

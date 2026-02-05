@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Observers;
 
+use App\Enums\SupplierQuoteStatus;
 use App\Models\SupplierQuoteItem;
 use App\Models\TaxCode;
 use App\Models\UnitOfMeasure;
@@ -128,6 +129,14 @@ final readonly class SupplierQuoteItemObserver
         $quote = $item->supplierQuote;
         if ($quote !== null) {
             $quote->recalculateTotals();
+            
+            // After recalculating totals, check if status needs to be updated
+            // Reload to get fresh totals
+            $quote->refresh();
+            if ($quote->status === SupplierQuoteStatus::PENDING && (float) $quote->total > 0) {
+                $quote->status = SupplierQuoteStatus::RECEIVED;
+                $quote->saveQuietly();
+            }
         }
     }
 }

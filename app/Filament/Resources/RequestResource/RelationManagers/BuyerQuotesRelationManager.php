@@ -1097,6 +1097,114 @@ final class BuyerQuotesRelationManager extends RelationManager
 
                         redirect(ProfitAndLossResource::getUrl('view', ['record' => $pnl]));
                     }),
+                Action::make('send')
+                    ->label('Send')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->size(Size::Small)
+                    ->color('info')
+                    ->visible(fn () => $request->buyerQuotes()->exists())
+                    ->disabled(function () use ($request): bool {
+                        // Disable if PNL is not created
+                        return ! $request->profitAndLosses()->exists();
+                    })
+                    ->requiresConfirmation()
+                    ->modalHeading('Send this quote?')
+                    ->modalDescription(function () use ($request): string {
+                        // Find the latest valid buyer quote (not rejected/superseded)
+                        $buyerQuote = $request->buyerQuotes()
+                            ->whereNotIn('status', [BuyerQuoteStatus::REJECTED, BuyerQuoteStatus::SUPERSEDED])
+                            ->latest()
+                            ->first();
+                        
+                        if ($buyerQuote === null) {
+                            return 'No valid buyer quote found.';
+                        }
+                        
+                        $buyerEmail = $buyerQuote->buyer->email ?? null;
+                        $buyerName = $buyerQuote->buyer->name ?? 'Unknown';
+                        $description = 'This will mark the quote as sent and set the issue date to today.';
+                        
+                        if (empty($buyerEmail)) {
+                            $description .= "\n\n⚠️ **Warning:** The buyer ({$buyerName}) does not have an email address configured. The quote will be marked as sent, but no email will be sent.";
+                        } else {
+                            $description .= "\n\n📧 Email will be sent to: {$buyerEmail}";
+                        }
+                        
+                        return $description;
+                    })
+                    ->action(function () use ($request): void {
+                        // Find the latest valid buyer quote (not rejected/superseded)
+                        $buyerQuote = $request->buyerQuotes()
+                            ->whereNotIn('status', [BuyerQuoteStatus::REJECTED, BuyerQuoteStatus::SUPERSEDED])
+                            ->latest()
+                            ->first();
+                        
+                        if ($buyerQuote === null) {
+                            Notification::make()
+                                ->title('No quote found')
+                                ->body('No valid buyer quote found to send.')
+                                ->warning()
+                                ->send();
+                            return;
+                        }
+                        
+                        // Check if quote can be sent
+                        if (! $buyerQuote->status->canSend()) {
+                            Notification::make()
+                                ->title('Cannot send quote')
+                                ->body('This quote cannot be sent in its current status.')
+                                ->warning()
+                                ->send();
+                            return;
+                        }
+                        
+                        $buyerQuote->markAsSent();
+
+                        // Send email to buyer
+                        $buyerEmail = $buyerQuote->buyer->email ?? null;
+                        $buyerName = $buyerQuote->buyer->name ?? 'Buyer';
+                        
+                        if (empty($buyerEmail)) {
+                            Notification::make()
+                                ->title('Quote marked as sent')
+                                ->body("Quote has been marked as sent, but no email was sent because the buyer ({$buyerName}) does not have an email address configured.")
+                                ->warning()
+                                ->send();
+                            return;
+                        }
+
+                        try {
+                            $emailService = app(\App\Services\Email\EmailTemplateService::class);
+                            $settings = $buyerQuote->team->getErpSettings();
+                            $emailService->sendWithTeamSettings(
+                                $buyerQuote->team,
+                                new \App\Mail\Erp\QuoteToBuyerMail($buyerQuote),
+                                $buyerEmail,
+                                $settings->email_template_buyer_quote, // Old system fallback
+                                $settings->email_template_buyer_quote_id ?? null, // New system
+                                \App\Models\EmailTemplate::TYPE_BUYER_QUOTE
+                            );
+
+                            Notification::make()
+                                ->title('Quote sent')
+                                ->body("Quote has been sent successfully to {$buyerEmail}.")
+                                ->success()
+                                ->send();
+                        } catch (\Exception $e) {
+                            \Illuminate\Support\Facades\Log::error('Failed to send buyer quote email', [
+                                'quote_id' => $buyerQuote->id,
+                                'buyer_email' => $buyerEmail,
+                                'error' => $e->getMessage(),
+                                'trace' => $e->getTraceAsString(),
+                            ]);
+
+                            Notification::make()
+                                ->title('Failed to send email')
+                                ->body("Quote has been marked as sent, but the email could not be sent to {$buyerEmail}. Error: ".$e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
             ])
             ->recordActions([
                 ActionGroup::make([
@@ -1160,7 +1268,13 @@ final class BuyerQuotesRelationManager extends RelationManager
                             return $record->getMedia('buyer_po')->isNotEmpty() ? 'heroicon-o-eye' : 'heroicon-o-document-arrow-up';
                         })
                         ->color('gray')
-                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->status === BuyerQuoteStatus::ACCEPTED)
+                        ->visible(function (?BuyerQuote $record): bool {
+                            if ($record === null) {
+                                return false;
+                            }
+                            // Show when status is SENT (for upload) or ACCEPTED (for view)
+                            return $record->status === BuyerQuoteStatus::SENT || $record->status === BuyerQuoteStatus::ACCEPTED;
+                        })
                         ->slideOver()
                         ->form(function (BuyerQuote $record): array {
                             // Load media if not already loaded
@@ -1175,78 +1289,67 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->fillForm(function (BuyerQuote $record): array {
                             // Ensure media relationship is loaded
                             $record->load('media');
+                            
+                            // Check if PO files already exist and status is SENT - auto-update status
+                            // This handles cases where files were uploaded but status wasn't updated
+                            if ($record->status === BuyerQuoteStatus::SENT && $record->getMedia('buyer_po')->isNotEmpty()) {
+                                try {
+                                    $record->markAsAccepted();
+                                    $record->refresh();
+                                } catch (\Exception $e) {
+                                    \Illuminate\Support\Facades\Log::error('Failed to auto-update quote status when PO files exist', [
+                                        'quote_id' => $record->id,
+                                        'status' => $record->status->value,
+                                        'has_files' => $record->getMedia('buyer_po')->isNotEmpty(),
+                                        'error' => $e->getMessage(),
+                                    ]);
+                                }
+                            }
+                            
                             return [];
                         })
                         ->after(function (BuyerQuote $record): void {
-                            // Refresh media relationship after upload
+                            // Store original status before refresh
+                            $originalStatus = $record->status;
+                            
+                            // Refresh media relationship after upload to get latest files
+                            // Use fresh() to ensure we get the latest data from database
+                            $record = $record->fresh(['media']);
                             $record->load('media');
-                        }),
-                    Action::make('send')
-                        ->label('Send')
-                        ->icon('heroicon-o-paper-airplane')
-                        ->color('info')
-                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->status->canSend())
-                        ->requiresConfirmation()
-                        ->modalHeading('Send this quote?')
-                        ->modalDescription(function (BuyerQuote $record): string {
-                            $buyerEmail = $record->buyer->email ?? null;
-                            $buyerName = $record->buyer->name ?? 'Unknown';
-                            $description = 'This will mark the quote as sent and set the issue date to today.';
                             
-                            if (empty($buyerEmail)) {
-                                $description .= "\n\n⚠️ **Warning:** The buyer ({$buyerName}) does not have an email address configured. The quote will be marked as sent, but no email will be sent.";
-                            } else {
-                                $description .= "\n\n📧 Email will be sent to: {$buyerEmail}";
-                            }
+                            // Check if files exist in media collection
+                            $hasFiles = $record->getMedia('buyer_po')->isNotEmpty();
                             
-                            return $description;
-                        })
-                        ->action(function (BuyerQuote $record): void {
-                            $record->markAsSent();
-
-                            // Send email to buyer
-                            $buyerEmail = $record->buyer->email ?? null;
-                            $buyerName = $record->buyer->name ?? 'Buyer';
-                            
-                            if (empty($buyerEmail)) {
-                                Notification::make()
-                                    ->title('Quote marked as sent')
-                                    ->body("Quote has been marked as sent, but no email was sent because the buyer ({$buyerName}) does not have an email address configured.")
-                                    ->warning()
-                                    ->send();
-                                return;
-                            }
-
-                            try {
-                                $emailService = app(\App\Services\Email\EmailTemplateService::class);
-                                $settings = $record->team->getErpSettings();
-                                $emailService->sendWithTeamSettings(
-                                    $record->team,
-                                    new \App\Mail\Erp\QuoteToBuyerMail($record),
-                                    $buyerEmail,
-                                    $settings->email_template_buyer_quote, // Old system fallback
-                                    $settings->email_template_buyer_quote_id ?? null, // New system
-                                    \App\Models\EmailTemplate::TYPE_BUYER_QUOTE
-                                );
-
-                            Notification::make()
-                                ->title('Quote sent')
-                                    ->body("Quote has been sent successfully to {$buyerEmail}.")
-                                ->success()
-                                ->send();
-                            } catch (\Exception $e) {
-                                \Illuminate\Support\Facades\Log::error('Failed to send buyer quote email', [
-                                    'quote_id' => $record->id,
-                                    'buyer_email' => $buyerEmail,
-                                    'error' => $e->getMessage(),
-                                    'trace' => $e->getTraceAsString(),
-                                ]);
-
-                                Notification::make()
-                                    ->title('Failed to send email')
-                                    ->body("Quote has been marked as sent, but the email could not be sent to {$buyerEmail}. Error: ".$e->getMessage())
-                                    ->danger()
-                                    ->send();
+                            // If status is SENT and files exist, change status to ACCEPTED
+                            // Files are added to media collection by afterStateUpdated callback when selected
+                            if ($originalStatus === BuyerQuoteStatus::SENT && $hasFiles) {
+                                try {
+                                    // Use fresh instance to ensure we're working with latest data
+                                    $freshRecord = BuyerQuote::find($record->id);
+                                    if ($freshRecord && $freshRecord->status === BuyerQuoteStatus::SENT) {
+                                        $freshRecord->markAsAccepted();
+                                        
+                                        Notification::make()
+                                            ->title('PO uploaded')
+                                            ->body('Purchase order has been uploaded and quote status changed to Accepted.')
+                                            ->success()
+                                            ->send();
+                                    }
+                                } catch (\Exception $e) {
+                                    \Illuminate\Support\Facades\Log::error('Failed to mark quote as accepted after PO upload', [
+                                        'quote_id' => $record->id,
+                                        'status' => $record->status->value,
+                                        'has_files' => $hasFiles,
+                                        'error' => $e->getMessage(),
+                                        'trace' => $e->getTraceAsString(),
+                                    ]);
+                                    
+                                    Notification::make()
+                                        ->title('PO uploaded')
+                                        ->body('Purchase order has been uploaded, but failed to update quote status. Please try again.')
+                                        ->warning()
+                                        ->send();
+                                }
                             }
                         }),
                     Action::make('resend')
@@ -1319,7 +1422,12 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->label('Accept')
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
-                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->status === BuyerQuoteStatus::SENT)
+                        ->visible(function (?BuyerQuote $record): bool {
+                            // Hide Accept button when status is SENT (Upload PO replaces it)
+                            // Accept button is only available for SENT status, but we're replacing it with Upload PO
+                            // So we hide it completely since Upload PO handles the acceptance
+                            return false;
+                        })
                         ->requiresConfirmation()
                         ->modalHeading('Accept this quote?')
                         ->modalDescription('This will mark the quote as accepted by the buyer.')

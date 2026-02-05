@@ -244,6 +244,11 @@ final class SupplierQuote extends Model
         $this->tax_total_base = (string) round($taxTotal * $exchangeRate, 4);
         $this->total_base = (string) round($total * $exchangeRate, 4);
 
+        // Auto-change status from PENDING to RECEIVED when prices are inputted
+        if ($this->status === SupplierQuoteStatus::PENDING && $total > 0) {
+            $this->status = SupplierQuoteStatus::RECEIVED;
+        }
+
         $this->saveQuietly();
     }
 

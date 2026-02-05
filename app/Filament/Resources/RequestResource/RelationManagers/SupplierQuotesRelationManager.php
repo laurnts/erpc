@@ -237,7 +237,22 @@ final class SupplierQuotesRelationManager extends RelationManager
                                     ->required(),
                                 Select::make('status')
                                     ->options(SupplierQuoteStatus::class)
-                                    ->default(SupplierQuoteStatus::PENDING)
+                                    ->default(function (?SupplierQuote $record): SupplierQuoteStatus {
+                                        // If editing existing quote, check if it has prices and auto-update status
+                                        if ($record instanceof \App\Models\SupplierQuote) {
+                                            $hasPrices = $record->items()->where('unit_price', '>', 0)->exists();
+                                            $total = (float) $record->total;
+                                            
+                                            // Auto-update status from PENDING to RECEIVED if prices exist
+                                            if ($record->status === SupplierQuoteStatus::PENDING && ($hasPrices || $total > 0)) {
+                                                return SupplierQuoteStatus::RECEIVED;
+                                            }
+                                            
+                                            return $record->status;
+                                        }
+                                        
+                                        return SupplierQuoteStatus::PENDING;
+                                    })
                                     ->required()
                                     ->selectablePlaceholder(false),
                             ]),
@@ -415,7 +430,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                             ])
                             ->columns(1)
                             ->defaultItems(0)
-                            ->addActionLabel('Add Line Item')
+                            ->addable(false)
                             ->reorderable()
                             ->orderColumn('sort_order')
                             ->collapsible()
@@ -593,16 +608,56 @@ final class SupplierQuotesRelationManager extends RelationManager
                         $request = $this->getOwnerRecord();
 
                         return $request->supplierQuotes()
-                            ->whereIn('status', [SupplierQuoteStatus::PENDING, SupplierQuoteStatus::SELECTED])
+                            ->whereIn('status', [SupplierQuoteStatus::PENDING, SupplierQuoteStatus::RECEIVED, SupplierQuoteStatus::SELECTED])
                             ->count() >= 2;
                     }),
             ])
             ->recordAction('edit')
             ->recordActions([
                 EditAction::make()
-                    ->label('Input Supplier Response')
+                    ->label('Input Supplier Price')
                     ->icon('heroicon-o-pencil-square')
-                    ->size(Size::Small),
+                    ->size(Size::Small)
+                    ->mutateFormDataUsing(function (array $data, SupplierQuote $record): array {
+                        // Check if items in form data have prices
+                        $hasPrices = false;
+                        if (isset($data['items']) && is_array($data['items'])) {
+                            foreach ($data['items'] as $item) {
+                                $unitPrice = (float) ($item['unit_price'] ?? 0);
+                                if ($unitPrice > 0) {
+                                    $hasPrices = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Also check existing items if form items don't have prices yet
+                        if (! $hasPrices) {
+                            $hasPrices = $record->items()->where('unit_price', '>', 0)->exists();
+                        }
+                        
+                        // Update status from PENDING to RECEIVED if prices exist
+                        if ($hasPrices && ($data['status'] ?? null) === SupplierQuoteStatus::PENDING->value) {
+                            $data['status'] = SupplierQuoteStatus::RECEIVED->value;
+                        }
+                        
+                        return $data;
+                    })
+                    ->after(function (SupplierQuote $record): void {
+                        // After save, check if status needs to be updated
+                        // Reload to get fresh data including items
+                        $record->refresh();
+                        
+                        // Check if items have prices
+                        $hasPrices = $record->items()->where('unit_price', '>', 0)->exists();
+                        $total = (float) $record->total;
+                        
+                        // Update status from PENDING to RECEIVED if prices exist
+                        if ($record->status === SupplierQuoteStatus::PENDING && ($hasPrices || $total > 0)) {
+                            $record->status = SupplierQuoteStatus::RECEIVED;
+                            $record->save();
+                        }
+                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

@@ -41,7 +41,7 @@ final class BuyerOrdersRelationManager extends RelationManager
 
     protected static string $relationship = 'buyerOrders';
 
-    protected static ?string $title = 'Buyer Orders';
+    protected static ?string $title = 'Invoices';
 
     protected static string|\BackedEnum|null $icon = 'heroicon-o-document-currency-dollar';
 
