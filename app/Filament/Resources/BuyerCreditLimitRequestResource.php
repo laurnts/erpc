@@ -27,7 +27,7 @@ final class BuyerCreditLimitRequestResource extends Resource
 
     protected static ?int $navigationSort = 20;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Finance';
+    protected static string|\UnitEnum|null $navigationGroup = 'Approval';
 
     protected static ?string $navigationLabel = 'Credit Limit Requests';
 

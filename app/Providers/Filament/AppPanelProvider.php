@@ -136,6 +136,9 @@ final class AppPanelProvider extends PanelProvider
                     ->label('Master Data')
                     ->icon('heroicon-o-circle-stack'),
                 NavigationGroup::make()
+                    ->label('Approval')
+                    ->icon('heroicon-o-clipboard-document-check'),
+                NavigationGroup::make()
                     ->label('Finance')
                     ->icon('heroicon-o-banknotes'),
                 NavigationGroup::make()

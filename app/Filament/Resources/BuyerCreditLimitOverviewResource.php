@@ -24,11 +24,11 @@ final class BuyerCreditLimitOverviewResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Finance';
 
-    protected static ?string $navigationLabel = 'Buyer Credit Limits';
+    protected static ?string $navigationLabel = 'Credit Limits';
 
-    protected static ?string $pluralModelLabel = 'Buyer Credit Limits';
+    protected static ?string $pluralModelLabel = 'Credit Limits';
 
-    protected static ?string $modelLabel = 'Buyer Credit Limit';
+    protected static ?string $modelLabel = 'Credit Limit';
 
     public static function table(Table $table): Table
     {

@@ -228,43 +228,6 @@ final class BuyerResource extends Resource
 
                             return $currency?->symbol_position === 'after' ? ($currency->symbol ?? '') : '';
                         }),
-                    TextInput::make('requested_credit_limit')
-                        ->label('Requested Credit Limit')
-                        ->numeric()
-                        ->nullable()
-                        ->minValue(function ($record): float {
-                            return $record ? (float) $record->credit_limit + 0.01 : 0.01;
-                        })
-                        ->visible(function ($record): bool {
-                            // Hide if there's already a pending request
-                            if ($record === null) {
-                                return true;
-                            }
-                            return $record->pendingCreditLimitRequest() === null;
-                        })
-                        ->prefix(function (): string {
-                            /** @var Team|null $team */
-                            $team = Filament::getTenant();
-                            $currency = $team?->getBaseCurrency();
-
-                            return $currency?->symbol_position === 'before' ? ($currency->symbol ?? '$') : '';
-                        })
-                        ->suffix(function (): string {
-                            /** @var Team|null $team */
-                            $team = Filament::getTenant();
-                            $currency = $team?->getBaseCurrency();
-
-                            return $currency?->symbol_position === 'after' ? ($currency->symbol ?? '') : '';
-                        })
-                        ->helperText(function ($record): string {
-                            if ($record && $record->pendingCreditLimitRequest() !== null) {
-                                return 'A pending credit limit increase request already exists.';
-                            }
-                            if ($record) {
-                                return 'Enter the new credit limit you want to request (must be greater than ' . number_format((float) $record->credit_limit, 2) . '). This requires approval from 2 finance team members.';
-                            }
-                            return 'Enter the new credit limit you want to request. This requires approval from 2 finance team members.';
-                        }),
                     Toggle::make('is_on_hold')
                         ->label('On Hold')
                         ->helperText('Prevent new orders for this buyer'),
