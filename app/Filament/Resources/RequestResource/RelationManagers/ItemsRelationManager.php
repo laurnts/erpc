@@ -204,7 +204,6 @@ final class ItemsRelationManager extends RelationManager
                                         $unit->getKey() => $unit->label,
                                     ])
                                     ->toArray())
-                            ->searchable()
                             ->preload()
                             ->required()
                             ->default(fn (): ?int => UnitOfMeasure::query()
