@@ -54,6 +54,8 @@ final class SupplierQuotesRelationManager extends RelationManager
 
     protected static string $relationship = 'supplierQuotes';
 
+    protected ?array $storedChildItemsData = null;
+
     protected static ?string $title = 'Supplier Quotes';
 
     protected static string|\BackedEnum|null $icon = 'heroicon-o-document-currency-dollar';
@@ -272,15 +274,145 @@ final class SupplierQuotesRelationManager extends RelationManager
 
                 Section::make('Line Items')
                     ->schema([
-                        Repeater::make('items')
-                            ->relationship('items', function ($query) use ($request) {
-                                // Only load main items, not child items (child items will be nested within main items)
-                                if ($request->isServiceRequest()) {
-                                    return $query->whereHas('requestItem', function ($q) {
-                                        $q->whereNull('parent_id');
-                                    });
+                        (function () use ($request) {
+                            $relationManager = $this; // Capture RelationManager instance
+                            return Repeater::make('items')
+                                ->relationship('items', function ($query) use ($request) {
+                                    // Only load main items, not child items (child items will be nested within main items)
+                                    if ($request->isServiceRequest()) {
+                                        return $query->whereHas('requestItem', function ($q) {
+                                            $q->whereNull('parent_id');
+                                        });
+                                    }
+                                    return $query;
+                                })
+                                ->mutateRelationshipDataBeforeCreateUsing(function (array $data) use ($relationManager): array {
+                                    // Intercept the create process to remove child_items before Filament tries to save it
+                                    // Also capture child_items for later processing
+                                    if (isset($data['child_items']) && is_array($data['child_items'])) {
+                                        $itemId = $data['id'] ?? null;
+                                        if ($itemId !== null) {
+                                            if (!isset($relationManager->storedChildItemsData)) {
+                                                $relationManager->storedChildItemsData = [];
+                                            }
+                                            $relationManager->storedChildItemsData[$itemId] = $data['child_items'];
+                                            \Log::info('Captured child_items in mutateRelationshipDataBeforeCreateUsing', [
+                                                'item_id' => $itemId,
+                                                'child_items_count' => count($data['child_items']),
+                                            ]);
+                                        }
+                                        // Remove child_items from data so Filament doesn't try to save it
+                                        unset($data['child_items']);
+                                    }
+                                    return $data;
+                                })
+                                ->mutateRelationshipDataBeforeSaveUsing(function (array $data, SupplierQuoteItem $record) use ($relationManager): array {
+                                    // Intercept the save process to remove child_items before Filament tries to save it
+                                    // Also capture child_items for later processing
+                                    if (isset($data['child_items']) && is_array($data['child_items'])) {
+                                        $itemId = $record->id ?? ($data['id'] ?? null);
+                                        if ($itemId !== null) {
+                                            if (!isset($relationManager->storedChildItemsData)) {
+                                                $relationManager->storedChildItemsData = [];
+                                            }
+                                            $relationManager->storedChildItemsData[$itemId] = $data['child_items'];
+                                            \Log::info('Captured child_items in mutateRelationshipDataBeforeSaveUsing', [
+                                                'item_id' => $itemId,
+                                                'child_items_count' => count($data['child_items']),
+                                            ]);
+                                        }
+                                        // Remove child_items from data so Filament doesn't try to save it
+                                        unset($data['child_items']);
+                                    }
+                                    return $data;
+                                });
+                        })()
+                            ->afterStateHydrated(function (Set $set, Get $get, $state, $record) use ($request): void {
+                                // Populate child_items for each main item after items are loaded from relationship
+                                if (!$request->isServiceRequest() || !is_array($state) || empty($state)) {
+                                    return;
                                 }
-                                return $query;
+                                
+                                // Get the SupplierQuote record
+                                // In a relationship repeater, $record is the individual item, so we need to get the quote differently
+                                $supplierQuote = null;
+                                try {
+                                    // Try to get from the form's owner record
+                                    $relationManager = $this;
+                                    if (method_exists($relationManager, 'getMountedTableActionRecord')) {
+                                        $supplierQuote = $relationManager->getMountedTableActionRecord();
+                                    }
+                                    if ($supplierQuote === null && method_exists($relationManager, 'getRecord')) {
+                                        $supplierQuote = $relationManager->getRecord();
+                                    }
+                                    
+                                    if (!($supplierQuote instanceof SupplierQuote)) {
+                                        return;
+                                    }
+                                } catch (\Exception $e) {
+                                    return;
+                                }
+                                
+                                // Process each item and populate child_items
+                                foreach ($state as $index => $item) {
+                                    if (!isset($item['request_item_id']) || !isset($item['id'])) {
+                                        continue;
+                                    }
+                                    
+                                    $requestItem = $request->items()->find($item['request_item_id']);
+                                    if ($requestItem === null || !$requestItem->isMainItem()) {
+                                        continue;
+                                    }
+                                    
+                                    $childRequestItems = $requestItem->children()->orderBy('sort_order')->get();
+                                    if ($childRequestItems->isEmpty()) {
+                                        continue;
+                                    }
+                                    
+                                    // Get child quote items for this main item
+                                    $childQuoteItems = [];
+                                    foreach ($childRequestItems as $childRequestItem) {
+                                        $existingQuoteItem = $supplierQuote->items()
+                                            ->where('request_item_id', $childRequestItem->id)
+                                            ->first();
+                                        
+                                        if ($existingQuoteItem !== null) {
+                                            $childQuoteItems[] = [
+                                                'id' => $existingQuoteItem->id,
+                                                'request_item_id' => $existingQuoteItem->request_item_id,
+                                                'description' => $existingQuoteItem->description,
+                                                'quantity' => (string) $existingQuoteItem->quantity,
+                                                'unit_of_measure_id' => $existingQuoteItem->unit_of_measure_id,
+                                                'unit_price' => (string) $existingQuoteItem->unit_price,
+                                                'tax_code_id' => $existingQuoteItem->tax_code_id,
+                                                'tax_rate' => (string) $existingQuoteItem->tax_rate,
+                                                'is_tax_inclusive' => $existingQuoteItem->is_tax_inclusive,
+                                                'line_subtotal' => (string) $existingQuoteItem->line_subtotal,
+                                                'line_tax' => (string) $existingQuoteItem->line_tax,
+                                                'line_total' => (string) $existingQuoteItem->line_total,
+                                            ];
+                                        } else {
+                                            $taxCode = $requestItem->article?->defaultTaxCode;
+                                            $childQuoteItems[] = [
+                                                'request_item_id' => $childRequestItem->id,
+                                                'description' => $childRequestItem->description,
+                                                'quantity' => (string) $childRequestItem->quantity,
+                                                'unit_of_measure_id' => $childRequestItem->unit_of_measure_id,
+                                                'unit_price' => '0',
+                                                'tax_code_id' => $taxCode?->id,
+                                                'tax_rate' => (string) ($taxCode?->rate ?? 0),
+                                                'is_tax_inclusive' => $taxCode?->is_inclusive_default ?? false,
+                                                'line_subtotal' => '0',
+                                                'line_tax' => '0',
+                                                'line_total' => '0',
+                                            ];
+                                        }
+                                    }
+                                    
+                                    if (!empty($childQuoteItems)) {
+                                        $set("items.{$index}.child_items", $childQuoteItems);
+                                    }
+                                }
                             })
                             ->schema([
                                 Grid::make(12)
@@ -484,7 +616,15 @@ final class SupplierQuotesRelationManager extends RelationManager
                                             ->columnSpan(2)
                                             ->live()
                                             ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get))
-                                            ->visible(fn (Get $get): bool => $this->isSupplierTaxable($get)),
+                                                            ->visible(function (Get $get): bool {
+                                                                // For nested child_items, we need to go up more levels to get supplier_id
+                                                                $supplierId = $get('../../supplier_id') ?? $get('../../../supplier_id');
+                                                                if ($supplierId === null) {
+                                                                    return false;
+                                                                }
+                                                                $supplier = Company::find($supplierId);
+                                                                return $supplier !== null && $supplier->is_taxable;
+                                                            }),
                                         TextInput::make('tax_rate')
                                             ->label('Tax %')
                                             ->numeric()
@@ -505,10 +645,10 @@ final class SupplierQuotesRelationManager extends RelationManager
                                     ->rows(1)
                                     ->columnSpanFull(),
                                 // Child items nested within main item for Service requests
-                                Section::make('Child Items')
+                                Section::make('Detail Items')
                                     ->schema([
                                         Repeater::make('child_items')
-                                            ->label('')
+                                            ->label('Detail Items')
                                             ->schema([
                                                 Hidden::make('request_item_id'),
                                                 Grid::make(12)
@@ -520,13 +660,20 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                             ->numeric()
                                                             ->required()
                                                             ->default(1)
-                                                            ->step(0.0001)
                                                             ->columnSpan(2)
                                                             ->live(onBlur: true)
                                                             ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
                                                         Select::make('unit_of_measure_id')
                                                             ->label('Unit')
-                                                            ->relationship('unitOfMeasure', 'label', fn ($query) => $query->where('team_id', $request->team_id)->where('is_active', true))
+                                                            ->options(fn (): array => UnitOfMeasure::query()
+                                                                ->where('team_id', $request->team_id)
+                                                                ->where('is_active', true)
+                                                                ->orderBy('label')
+                                                                ->get()
+                                                                ->mapWithKeys(fn (UnitOfMeasure $unit): array => [
+                                                                    $unit->getKey() => $unit->label,
+                                                                ])
+                                                                ->all())
                                                             ->searchable()
                                                             ->preload()
                                                             ->columnSpan(2),
@@ -535,23 +682,167 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                             ->numeric()
                                                             ->required()
                                                             ->default(0)
-                                                            ->step(0.0001)
-                                                            ->columnSpan(2)
+                                                            ->step(1) // No decimals for child items
+                                                            ->columnSpan(4)
                                                             ->live(onBlur: true)
                                                             ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
+                                                    ]),
+                                                Grid::make(12)
+                                                    ->schema([
+                                                        Select::make('tax_code_id')
+                                                            ->label('Tax Code')
+                                                            ->options(fn (): array => TaxCode::query()
+                                                                ->where('team_id', $request->team_id)
+                                                                ->where('is_active', true)
+                                                                ->orderBy('sort_order')
+                                                                ->get()
+                                                                ->mapWithKeys(fn (TaxCode $taxCode): array => [
+                                                                    $taxCode->getKey() => $taxCode->display_name,
+                                                                ])
+                                                                ->all())
+                                                            ->default(fn (): ?int => TaxCode::query()
+                                                                ->where('team_id', $request->team_id)
+                                                                ->where('is_default', true)
+                                                                ->where('is_active', true)
+                                                                ->value('id'))
+                                                            ->columnSpan(4)
+                                                            ->live()
+                                                            ->visible(fn (Get $get): bool => $this->isSupplierTaxable($get))
+                                                            ->afterStateUpdated(function (Set $set, Get $get, ?int $state): void {
+                                                                if ($state === null) {
+                                                                    $set('tax_rate', 0);
+                                                                } else {
+                                                                    $taxCode = TaxCode::find($state);
+                                                                    if ($taxCode !== null) {
+                                                                        $set('tax_rate', $taxCode->rate);
+                                                                        $set('is_tax_inclusive', $taxCode->is_inclusive_default);
+                                                                    }
+                                                                }
+                                                                $this->calculateItemTotals($set, $get);
+                                                            }),
+                                                        Checkbox::make('is_tax_inclusive')
+                                                            ->label('Tax Inclusive')
+                                                            ->inline(false)
+                                                            ->columnSpan(2)
+                                                            ->live()
+                                                            ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get))
+                                                            ->visible(function (Get $get): bool {
+                                                                // For nested child_items, we need to go up more levels to get supplier_id
+                                                                $supplierId = $get('../../supplier_id') ?? $get('../../../supplier_id');
+                                                                if ($supplierId === null) {
+                                                                    return false;
+                                                                }
+                                                                $supplier = Company::find($supplierId);
+                                                                return $supplier !== null && $supplier->is_taxable;
+                                                            }),
                                                         TextInput::make('line_total')
                                                             ->label('Line Total')
                                                             ->numeric()
+                                                            ->step(1) // No decimals for child items
                                                             ->disabled()
                                                             ->dehydrated()
-                                                            ->columnSpan(2),
+                                                            ->columnSpan(6),
                                                     ]),
                                             ])
                                             ->columns(1)
                                             ->defaultItems(0)
                                             ->collapsible()
                                             ->itemLabel(fn (array $state): ?string => $state['description'] ?? null)
-                                            ->dehydrated(false), // We'll handle saving manually
+                                            ->dehydrated(true) // Include in form state so we can access it in callbacks
+                                            ->afterStateHydrated(function (Set $set, Get $get, $state, $record) use ($request): void {
+                                                // Load child_items from parent item's data when repeater hydrates
+                                                // Get request_item_id from parent item context
+                                                $requestItemId = $get('../../request_item_id');
+                                                if ($requestItemId === null || !$request->isServiceRequest()) {
+                                                    return;
+                                                }
+                                                
+                                                // Try to get from parent item's child_items first (set by fillForm)
+                                                $parentItemData = $get('../../');
+                                                if (isset($parentItemData['child_items']) && is_array($parentItemData['child_items']) && !empty($parentItemData['child_items'])) {
+                                                    $set('child_items', $parentItemData['child_items']);
+                                                    return;
+                                                }
+                                                
+                                                // If state is already populated, use it
+                                                if (is_array($state) && !empty($state)) {
+                                                    return; // Already has data
+                                                }
+                                                
+                                                // Fallback: load from request items and existing quote items
+                                                $requestItem = $request->items()->find($requestItemId);
+                                                if ($requestItem === null || !$requestItem->isMainItem()) {
+                                                    return;
+                                                }
+                                                
+                                                $childRequestItems = $requestItem->children()->orderBy('sort_order')->get();
+                                                if ($childRequestItems->isEmpty()) {
+                                                    return;
+                                                }
+                                                
+                                                // Try to get the SupplierQuote record to load existing child quote items
+                                                $supplierQuote = null;
+                                                try {
+                                                    // Try to get from form context
+                                                    $relationManager = $this;
+                                                    if (method_exists($relationManager, 'getMountedTableActionRecord')) {
+                                                        $supplierQuote = $relationManager->getMountedTableActionRecord();
+                                                    }
+                                                    if ($supplierQuote === null && method_exists($relationManager, 'getRecord')) {
+                                                        $supplierQuote = $relationManager->getRecord();
+                                                    }
+                                                } catch (\Exception $e) {
+                                                    // Can't get supplier quote, continue with defaults
+                                                }
+                                                
+                                                $taxCode = $requestItem->article?->defaultTaxCode;
+                                                $childQuoteItems = [];
+                                                foreach ($childRequestItems as $childRequestItem) {
+                                                    // Try to find existing quote item for this child request item
+                                                    $existingQuoteItem = null;
+                                                    if ($supplierQuote instanceof SupplierQuote) {
+                                                        $existingQuoteItem = $supplierQuote->items()
+                                                            ->where('request_item_id', $childRequestItem->id)
+                                                            ->first();
+                                                    }
+                                                    
+                                                    if ($existingQuoteItem !== null) {
+                                                        $childQuoteItems[] = [
+                                                            'id' => $existingQuoteItem->id,
+                                                            'request_item_id' => $existingQuoteItem->request_item_id,
+                                                            'description' => $existingQuoteItem->description,
+                                                            'quantity' => (string) $existingQuoteItem->quantity,
+                                                            'unit_of_measure_id' => $existingQuoteItem->unit_of_measure_id,
+                                                            'unit_price' => (string) $existingQuoteItem->unit_price,
+                                                            'tax_code_id' => $existingQuoteItem->tax_code_id,
+                                                            'tax_rate' => (string) $existingQuoteItem->tax_rate,
+                                                            'is_tax_inclusive' => $existingQuoteItem->is_tax_inclusive,
+                                                            'line_subtotal' => (string) $existingQuoteItem->line_subtotal,
+                                                            'line_tax' => (string) $existingQuoteItem->line_tax,
+                                                            'line_total' => (string) $existingQuoteItem->line_total,
+                                                        ];
+                                                    } else {
+                                                        // Create new child item data
+                                                        $childQuoteItems[] = [
+                                                            'request_item_id' => $childRequestItem->id,
+                                                            'description' => $childRequestItem->description,
+                                                            'quantity' => (string) $childRequestItem->quantity,
+                                                            'unit_of_measure_id' => $childRequestItem->unit_of_measure_id,
+                                                            'unit_price' => '0',
+                                                            'tax_code_id' => $taxCode?->id,
+                                                            'tax_rate' => (string) ($taxCode?->rate ?? 0),
+                                                            'is_tax_inclusive' => $taxCode?->is_inclusive_default ?? false,
+                                                            'line_subtotal' => '0',
+                                                            'line_tax' => '0',
+                                                            'line_total' => '0',
+                                                        ];
+                                                    }
+                                                }
+                                                
+                                                if (!empty($childQuoteItems)) {
+                                                    $set('child_items', $childQuoteItems);
+                                                }
+                                            }),
                                     ])
                                     ->collapsible()
                                     ->collapsed()
@@ -569,68 +860,6 @@ final class SupplierQuotesRelationManager extends RelationManager
                                         $requestItem = $request->items()->find($requestItemId);
                                         return $requestItem !== null && $requestItem->isMainItem();
                                     })
-                                    ->afterStateHydrated(function (Set $set, Get $get, $state, $record) use ($request): void {
-                                        // Load child items from database when form loads
-                                        if ($record === null || !$request->isServiceRequest()) {
-                                            return;
-                                        }
-                                        
-                                        $requestItemId = $get('request_item_id');
-                                        if ($requestItemId === null) {
-                                            return;
-                                        }
-                                        
-                                        $requestItem = $request->items()->find($requestItemId);
-                                        if ($requestItem === null || !$requestItem->isMainItem()) {
-                                            return;
-                                        }
-                                        
-                                        // Get child items from the quote that belong to this main item's children
-                                        $childRequestItems = $requestItem->children()->orderBy('sort_order')->get();
-                                        $childQuoteItems = [];
-                                        
-                                        foreach ($childRequestItems as $childRequestItem) {
-                                            // Find existing quote item for this child request item
-                                            $existingQuoteItem = $record->supplierQuote->items()
-                                                ->where('request_item_id', $childRequestItem->id)
-                                                ->first();
-                                            
-                                            if ($existingQuoteItem !== null) {
-                                                $childQuoteItems[] = [
-                                                    'id' => $existingQuoteItem->id,
-                                                    'request_item_id' => $existingQuoteItem->request_item_id,
-                                                    'description' => $existingQuoteItem->description,
-                                                    'quantity' => $existingQuoteItem->quantity,
-                                                    'unit_of_measure_id' => $existingQuoteItem->unit_of_measure_id,
-                                                    'unit_price' => $existingQuoteItem->unit_price,
-                                                    'tax_code_id' => $existingQuoteItem->tax_code_id,
-                                                    'tax_rate' => $existingQuoteItem->tax_rate,
-                                                    'is_tax_inclusive' => $existingQuoteItem->is_tax_inclusive,
-                                                    'line_subtotal' => $existingQuoteItem->line_subtotal,
-                                                    'line_tax' => $existingQuoteItem->line_tax,
-                                                    'line_total' => $existingQuoteItem->line_total,
-                                                ];
-                                            } else {
-                                                // Create new child item data
-                                                $taxCode = $requestItem->article?->defaultTaxCode;
-                                                $childQuoteItems[] = [
-                                                    'request_item_id' => $childRequestItem->id,
-                                                    'description' => $childRequestItem->description,
-                                                    'quantity' => $childRequestItem->quantity,
-                                                    'unit_of_measure_id' => $childRequestItem->unit_of_measure_id,
-                                                    'unit_price' => 0,
-                                                    'tax_code_id' => $taxCode?->id,
-                                                    'tax_rate' => $taxCode?->rate ?? 0,
-                                                    'is_tax_inclusive' => $taxCode?->is_inclusive_default ?? false,
-                                                    'line_subtotal' => 0,
-                                                    'line_tax' => 0,
-                                                    'line_total' => 0,
-                                                ];
-                                            }
-                                        }
-                                        
-                                        $set('child_items', $childQuoteItems);
-                                    }),
                             ])
                             ->columns(1)
                             ->defaultItems(0)

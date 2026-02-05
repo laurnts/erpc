@@ -140,6 +140,7 @@ final class ItemsRelationManager extends RelationManager
                     ->searchable()
                     ->selectablePlaceholder(false)
                     ->placeholder('Select article...')
+                    ->searchable()
                     ->helperText('Quotes will be sent to all suppliers of this article. Use + to create a new article.')
                     ->createOptionForm(\App\Filament\Resources\ArticleResource::getFormSchema(forModal: true))
                     ->createOptionUsing(function (array $data) use ($request): int {
@@ -178,7 +179,7 @@ final class ItemsRelationManager extends RelationManager
                     ->default(null),
                 // Child items section for Service requests
                 Repeater::make('children')
-                    ->label('Child Items')
+                    ->label('Detail Items')
                     ->schema([
                         TextInput::make('description')
                             ->required()
@@ -203,7 +204,6 @@ final class ItemsRelationManager extends RelationManager
                                         $unit->getKey() => $unit->label,
                                     ])
                                     ->toArray())
-                            ->searchable()
                             ->preload()
                             ->required()
                             ->default(fn (): ?int => UnitOfMeasure::query()
@@ -232,7 +232,12 @@ final class ItemsRelationManager extends RelationManager
         $canEdit = $request->canEditItems();
 
         // Only count main items, not child items
-        $matchedCount = $request->items()->whereNull('parent_id')->where('is_matched', true)->count();
+        // A matched item must have both is_matched = true AND article_id is not null
+        $matchedCount = $request->items()
+            ->whereNull('parent_id')
+            ->where('is_matched', true)
+            ->whereNotNull('article_id')
+            ->count();
         $totalCount = $request->items()->whereNull('parent_id')->count();
         $allMatched = $matchedCount === $totalCount && $totalCount > 0;
 
@@ -352,6 +357,9 @@ final class ItemsRelationManager extends RelationManager
                         $childrenData = $data['children'] ?? [];
                         unset($data['children']);
 
+                        // Ensure request_id is set
+                        $data['request_id'] = $request->id;
+
                         // Create the main item
                         $record = RequestItem::create($data);
 
@@ -360,7 +368,7 @@ final class ItemsRelationManager extends RelationManager
                             $sortOrder = 0;
                             foreach ($childrenData as $childData) {
                                 RequestItem::create([
-                                    'request_id' => $record->request_id,
+                                    'request_id' => $request->id,
                                     'parent_id' => $record->id,
                                     'description' => $childData['description'],
                                     'quantity' => $childData['quantity'],
@@ -756,7 +764,7 @@ final class ItemsRelationManager extends RelationManager
                                     // Validate child data structure
                                     if (is_array($childData) && isset($childData['description']) && ! empty($childData['description'])) {
                                         RequestItem::create([
-                                            'request_id' => $record->request_id,
+                                            'request_id' => $request->id,
                                             'parent_id' => $record->id,
                                             'description' => $childData['description'],
                                             'quantity' => $childData['quantity'] ?? 1,

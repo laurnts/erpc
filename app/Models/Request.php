@@ -296,13 +296,17 @@ final class Request extends Model implements HasCustomFields, HasMedia
 
     /**
      * Check if all items in this request have been matched to articles.
+     * Only counts main items, not child items (for Service requests).
      *
      * @return Attribute<bool, never>
      */
     protected function allItemsMatched(): Attribute
     {
         return Attribute::make(
-            get: fn (): bool => $this->items()->where('is_matched', false)->doesntExist(),
+            get: fn (): bool => $this->items()
+                ->whereNull('parent_id') // Only main items
+                ->where('is_matched', false)
+                ->doesntExist(),
         );
     }
 
@@ -320,25 +324,37 @@ final class Request extends Model implements HasCustomFields, HasMedia
 
     /**
      * Get matched items count.
+     * Only counts main items, not child items (for Service requests).
      *
      * @return Attribute<int, never>
      */
     protected function matchedItemsCount(): Attribute
     {
         return Attribute::make(
-            get: fn (): int => $this->items()->where('is_matched', true)->count(),
+            get: fn (): int => $this->items()
+                ->whereNull('parent_id') // Only main items
+                ->where('is_matched', true)
+                ->whereNotNull('article_id') // Must have article_id to be considered matched
+                ->count(),
         );
     }
 
     /**
      * Get unmatched items count.
+     * Only counts main items, not child items (for Service requests).
      *
      * @return Attribute<int, never>
      */
     protected function unmatchedItemsCount(): Attribute
     {
         return Attribute::make(
-            get: fn (): int => $this->items()->where('is_matched', false)->count(),
+            get: fn (): int => $this->items()
+                ->whereNull('parent_id') // Only main items
+                ->where(function ($query) {
+                    $query->where('is_matched', false)
+                        ->orWhereNull('article_id'); // Also count items without article_id as unmatched
+                })
+                ->count(),
         );
     }
 
