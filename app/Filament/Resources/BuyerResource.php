@@ -228,6 +228,10 @@ final class BuyerResource extends Resource
 
                             return $currency?->symbol_position === 'after' ? ($currency->symbol ?? '') : '';
                         }),
+                    Toggle::make('credit_status')
+                        ->label('Credit Status')
+                        ->default(true)
+                        ->helperText('When enabled, available credit decreases when orders are confirmed. When disabled, credit remains unaffected.'),
                     Toggle::make('is_on_hold')
                         ->label('On Hold')
                         ->helperText('Prevent new orders for this buyer'),

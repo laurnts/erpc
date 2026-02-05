@@ -483,12 +483,12 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->modalDescription(function (BuyerOrder $record): string {
                             $buyer = $record->buyer;
                             $orderTotal = (float) $record->total;
-                            $availableCredit = $buyer ? (float) $buyer->available_credit : 0;
                             
                             $message = 'This will mark the order as confirmed.';
                             
-                            // Add credit information
-                            if ($buyer) {
+                            // Add credit information only if credit_status is enabled
+                            if ($buyer && $buyer->credit_status) {
+                                $availableCredit = (float) $buyer->available_credit;
                                 $message .= "\n\n";
                                 $message .= "Order Total: ".number_format($orderTotal, 2)."\n";
                                 $message .= "Available Credit: ".number_format($availableCredit, 2);

@@ -206,6 +206,14 @@ final class BuyerOrder extends Model implements HasCustomFields
             return;
         }
 
+        // Skip credit checks if credit_status is disabled
+        if (!$buyer->credit_status) {
+            $this->status = OrderStatus::CONFIRMED;
+            $this->confirmed_at = now();
+            $this->save();
+            return;
+        }
+
         $availableCredit = (float) $buyer->available_credit;
 
         // Check if sufficient credit available

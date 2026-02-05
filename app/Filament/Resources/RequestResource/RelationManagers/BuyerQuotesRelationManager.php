@@ -151,6 +151,12 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ]),
                     Repeater::make('paymentTerms')
                         ->relationship()
+                        ->visible(function (): bool {
+                            /** @var Request $request */
+                            $request = $this->getOwnerRecord();
+                            $buyer = $request->buyer;
+                            return $buyer?->credit_status ?? true;
+                        })
                         ->schema([
                             Grid::make(2)
                                 ->schema([
