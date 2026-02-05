@@ -302,8 +302,16 @@ final class BuyerOrdersRelationManager extends RelationManager
                                         number_format((float) $quote->total, 2)
                                     ),
                                 ])
-                            ->selectablePlaceholder(false)
                                 ->all())
+                            ->default(function () use ($request): ?int {
+                                $acceptedQuote = BuyerQuote::query()
+                                    ->where('request_id', $request->getKey())
+                                    ->where('status', BuyerQuoteStatus::ACCEPTED)
+                                    ->first();
+                                
+                                return $acceptedQuote?->getKey();
+                            })
+                            ->selectablePlaceholder(false)
                             ->required()
                             
                             ->helperText('Only accepted quotes can be converted to orders.'),

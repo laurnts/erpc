@@ -65,7 +65,7 @@ final class BuyerOrderResource extends Resource
                     ->sortable(),
                 TextColumn::make('total')
                     ->label('Total')
-                    ->formatStateUsing(fn (BuyerOrder $record): string => $record->currency?->format($record->total) ?? number_format($record->total, 2))
+                    ->formatStateUsing(fn (BuyerOrder $record): string => $record->currency?->format($record->total) ?? number_format((float) $record->total, 2))
                     ->sortable(),
                 TextColumn::make('payment_terms_days')
                     ->label('Terms')
