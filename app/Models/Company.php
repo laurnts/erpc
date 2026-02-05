@@ -274,6 +274,16 @@ final class Company extends Model implements HasCustomFields, HasMedia
     }
 
     /**
+     * Get all credit usage history records for this buyer.
+     *
+     * @return HasMany<BuyerCreditUsageHistory, $this>
+     */
+    public function creditUsageHistory(): HasMany
+    {
+        return $this->hasMany(BuyerCreditUsageHistory::class, 'buyer_id');
+    }
+
+    /**
      * Get the current pending credit limit request for this buyer.
      *
      * @return BuyerCreditLimitRequest|null

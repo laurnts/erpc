@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\BuyerCreditLimitOverviewResource\Pages\ListBuyerCreditLimits;
+use App\Filament\Resources\BuyerCreditLimitOverviewResource\Pages\ViewBuyerCreditLimit;
 use App\Models\Company;
 use Filament\Facades\Filament;
 use Filament\Resources\Resource;
@@ -33,6 +34,7 @@ final class BuyerCreditLimitOverviewResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->recordUrl(fn (Company $record): string => BuyerCreditLimitOverviewResource::getUrl('view', ['record' => $record]))
             ->columns([
                 TextColumn::make('name')
                     ->label('Buyer')
@@ -104,6 +106,7 @@ final class BuyerCreditLimitOverviewResource extends Resource
     {
         return [
             'index' => ListBuyerCreditLimits::route('/'),
+            'view' => ViewBuyerCreditLimit::route('/{record}'),
         ];
     }
 
@@ -122,6 +125,6 @@ final class BuyerCreditLimitOverviewResource extends Resource
         return parent::getEloquentQuery()
             ->where('team_id', $team?->getKey())
             ->where('is_buyer', true)
-            ->with('creditLimitRequests');
+            ->with(['creditLimitRequests', 'creditUsageHistory']);
     }
 }
