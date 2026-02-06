@@ -608,7 +608,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                         $request = $this->getOwnerRecord();
 
                         return $request->supplierQuotes()
-                            ->whereIn('status', [SupplierQuoteStatus::PENDING, SupplierQuoteStatus::RECEIVED, SupplierQuoteStatus::SELECTED])
+                            ->whereIn('status', [SupplierQuoteStatus::RECEIVED, SupplierQuoteStatus::SELECTED])
                             ->count() >= 2;
                     }),
             ])

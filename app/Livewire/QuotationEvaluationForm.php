@@ -25,6 +25,7 @@ use Filament\Schemas\Schema;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -119,11 +120,13 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
         );
 
         // Filter to only show key accounts assigned to handle this request's buyer
-        // Note: This requires key_account_buyers table to reference users instead of people
         if ($this->request->buyer_id) {
             $users = $users->filter(function ($user) {
-                // TODO: Implement buyer filtering when key_account_buyers table is updated
-                return true; // Temporary - allow all for now
+                // Check if this key account is assigned to handle the request's buyer via key_account_buyers table
+                return \Illuminate\Support\Facades\DB::table('key_account_buyers')
+                    ->where('key_account_id', $user->id)
+                    ->where('buyer_id', $this->request->buyer_id)
+                    ->exists();
             });
         }
 
@@ -305,7 +308,7 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
     {
         // Get all active quotes
         $quotes = $this->request->supplierQuotes()
-            ->whereIn('status', [SupplierQuoteStatus::PENDING, SupplierQuoteStatus::SELECTED])
+            ->whereIn('status', [SupplierQuoteStatus::RECEIVED, SupplierQuoteStatus::SELECTED])
             ->with(['supplier', 'currency', 'items.requestItem'])
             ->orderBy('total_base')
             ->get();

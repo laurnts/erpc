@@ -231,7 +231,7 @@
                 <x-heroicon-o-document-text class="mx-auto h-12 w-12 text-gray-400" />
                 <h3 class="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">No quotes to compare</h3>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    There are no pending or selected supplier quotes for this request.
+                    There are no received or selected supplier quotes for this request.
                 </p>
             </div>
         </x-filament::section>
