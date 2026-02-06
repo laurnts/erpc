@@ -15,6 +15,25 @@ final class EditProfitAndLoss extends EditRecord
     /** @var class-string<ProfitAndLossResource> */
     protected static string $resource = ProfitAndLossResource::class;
 
+    public function mount(int | string $record): void
+    {
+        parent::mount($record);
+        
+        \Log::info("[EditProfitAndLoss] mount called", [
+            'record_id' => $this->record->id,
+            'request_loaded' => $this->record->relationLoaded('request'),
+            'request_id' => $this->record->request_id ?? null,
+        ]);
+        
+        // Ensure request relationship is loaded so buyer filtering works
+        $this->record->load('request');
+        
+        \Log::info("[EditProfitAndLoss] Request relationship loaded in mount", [
+            'request_loaded' => $this->record->relationLoaded('request'),
+            'request_buyer_id' => $this->record->request?->buyer_id ?? null,
+        ]);
+    }
+
     protected function getHeaderActions(): array
     {
         return [

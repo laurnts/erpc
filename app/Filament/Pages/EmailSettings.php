@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Data\TeamErpSettings;
+use App\Filament\Resources\EmailTemplateResource;
 use App\Mail\TestEmailMail;
+use App\Models\EmailTemplate;
 use App\Models\Team;
 use App\Services\Email\EmailTemplateService;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
@@ -36,11 +38,15 @@ final class EmailSettings extends Page implements HasForms
     use InteractsWithForms;
     use WithRateLimiting;
 
+    public ?string $createTemplateType = null;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-envelope';
 
     protected static ?int $navigationSort = 16;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Settings';
+
+    protected static ?string $navigationLabel = 'Email Settings';
 
     protected static ?string $slug = 'emails';
 
@@ -77,23 +83,79 @@ final class EmailSettings extends Page implements HasForms
             'smtp_password' => $smtpPassword,
             'smtp_encryption' => $settings->smtp_encryption,
             'email_signature' => $settings->email_signature,
-            'email_template_buyer_quote_content' => $settings->email_template_buyer_quote['content'] ?? null,
-            'email_template_buyer_quote_sender' => $settings->email_template_buyer_quote['sender_email'] ?? '',
-            'email_template_buyer_quote_cc' => isset($settings->email_template_buyer_quote['cc_emails']) ? implode(', ', $settings->email_template_buyer_quote['cc_emails']) : '',
-            'email_template_buyer_quote_bcc' => isset($settings->email_template_buyer_quote['bcc_emails']) ? implode(', ', $settings->email_template_buyer_quote['bcc_emails']) : '',
-            'email_template_buyer_order_content' => $settings->email_template_buyer_order['content'] ?? null,
-            'email_template_buyer_order_sender' => $settings->email_template_buyer_order['sender_email'] ?? '',
-            'email_template_buyer_order_cc' => isset($settings->email_template_buyer_order['cc_emails']) ? implode(', ', $settings->email_template_buyer_order['cc_emails']) : '',
-            'email_template_buyer_order_bcc' => isset($settings->email_template_buyer_order['bcc_emails']) ? implode(', ', $settings->email_template_buyer_order['bcc_emails']) : '',
-            'email_template_supplier_order_content' => $settings->email_template_supplier_order['content'] ?? null,
-            'email_template_supplier_order_sender' => $settings->email_template_supplier_order['sender_email'] ?? '',
-            'email_template_supplier_order_cc' => isset($settings->email_template_supplier_order['cc_emails']) ? implode(', ', $settings->email_template_supplier_order['cc_emails']) : '',
-            'email_template_supplier_order_bcc' => isset($settings->email_template_supplier_order['bcc_emails']) ? implode(', ', $settings->email_template_supplier_order['bcc_emails']) : '',
-            'email_template_delivery_order_content' => $settings->email_template_delivery_order['content'] ?? null,
-            'email_template_delivery_order_sender' => $settings->email_template_delivery_order['sender_email'] ?? '',
-            'email_template_delivery_order_cc' => isset($settings->email_template_delivery_order['cc_emails']) ? implode(', ', $settings->email_template_delivery_order['cc_emails']) : '',
-            'email_template_delivery_order_bcc' => isset($settings->email_template_delivery_order['bcc_emails']) ? implode(', ', $settings->email_template_delivery_order['bcc_emails']) : '',
+            // Template IDs (new system) - will be null initially, populated after migration
+            'email_template_buyer_quote_id' => $settings->email_template_buyer_quote_id ?? null,
+            'email_template_buyer_order_id' => $settings->email_template_buyer_order_id ?? null,
+            'email_template_supplier_order_id' => $settings->email_template_supplier_order_id ?? null,
+            'email_template_delivery_order_id' => $settings->email_template_delivery_order_id ?? null,
+            // Template settings (loaded from selected template or old format for backward compatibility)
+            'email_template_buyer_quote_sender' => $this->getTemplateSender($settings, 'buyer_quote'),
+            'email_template_buyer_quote_cc' => $this->getTemplateCc($settings, 'buyer_quote'),
+            'email_template_buyer_quote_bcc' => $this->getTemplateBcc($settings, 'buyer_quote'),
+            'email_template_buyer_order_sender' => $this->getTemplateSender($settings, 'buyer_order'),
+            'email_template_buyer_order_cc' => $this->getTemplateCc($settings, 'buyer_order'),
+            'email_template_buyer_order_bcc' => $this->getTemplateBcc($settings, 'buyer_order'),
+            'email_template_supplier_order_sender' => $this->getTemplateSender($settings, 'supplier_order'),
+            'email_template_supplier_order_cc' => $this->getTemplateCc($settings, 'supplier_order'),
+            'email_template_supplier_order_bcc' => $this->getTemplateBcc($settings, 'supplier_order'),
+            'email_template_delivery_order_sender' => $this->getTemplateSender($settings, 'delivery_order'),
+            'email_template_delivery_order_cc' => $this->getTemplateCc($settings, 'delivery_order'),
+            'email_template_delivery_order_bcc' => $this->getTemplateBcc($settings, 'delivery_order'),
         ]);
+    }
+
+    /**
+     * Get template sender email from selected template or old format.
+     */
+    private function getTemplateSender(TeamErpSettings $settings, string $type): string
+    {
+        $templateIdField = "email_template_{$type}_id";
+        if (isset($settings->{$templateIdField}) && $settings->{$templateIdField}) {
+            $template = EmailTemplate::find($settings->{$templateIdField});
+            if ($template && $template->sender_email) {
+                return $template->sender_email;
+            }
+        }
+
+        // Fallback to old format
+        $oldField = "email_template_{$type}";
+        return $settings->{$oldField}['sender_email'] ?? '';
+    }
+
+    /**
+     * Get template CC emails from selected template or old format.
+     */
+    private function getTemplateCc(TeamErpSettings $settings, string $type): string
+    {
+        $templateIdField = "email_template_{$type}_id";
+        if (isset($settings->{$templateIdField}) && $settings->{$templateIdField}) {
+            $template = EmailTemplate::find($settings->{$templateIdField});
+            if ($template && $template->cc_emails) {
+                return implode(', ', $template->cc_emails);
+            }
+        }
+
+        // Fallback to old format
+        $oldField = "email_template_{$type}";
+        return isset($settings->{$oldField}['cc_emails']) ? implode(', ', $settings->{$oldField}['cc_emails']) : '';
+    }
+
+    /**
+     * Get template BCC emails from selected template or old format.
+     */
+    private function getTemplateBcc(TeamErpSettings $settings, string $type): string
+    {
+        $templateIdField = "email_template_{$type}_id";
+        if (isset($settings->{$templateIdField}) && $settings->{$templateIdField}) {
+            $template = EmailTemplate::find($settings->{$templateIdField});
+            if ($template && $template->bcc_emails) {
+                return implode(', ', $template->bcc_emails);
+            }
+        }
+
+        // Fallback to old format
+        $oldField = "email_template_{$type}";
+        return isset($settings->{$oldField}['bcc_emails']) ? implode(', ', $settings->{$oldField}['bcc_emails']) : '';
     }
 
     /**
@@ -271,7 +333,36 @@ final class EmailSettings extends Page implements HasForms
                         $this->buildTemplateSection('supplier_order', 'Supplier Order', 'Email template when sending supplier order (purchase order) PDF'),
                         $this->buildTemplateSection('delivery_order', 'Delivery Order', 'Email template when sending delivery order (shipment) PDF'),
                     ])
-                    ->columns(1),
+                    ->collapsed(),
+
+                Section::make('Template Management')
+                    ->schema([
+                        Placeholder::make('template_management_info')
+                            ->label('Manage Your Templates')
+                            ->content('View, edit, or delete your custom email templates. Default templates cannot be deleted.'),
+                        
+                        ViewField::make('template_list')
+                            ->view('filament.components.email-template-list')
+                            ->viewData(function () {
+                                /** @var Team $team */
+                                $team = Filament::getTenant();
+                                return [
+                                    'templates' => EmailTemplate::forTeam($team)
+                                        ->orderBy('type')
+                                        ->orderBy('is_default', 'desc')
+                                        ->orderBy('name')
+                                        ->get()
+                                        ->groupBy('type'),
+                                    'types' => [
+                                        EmailTemplate::TYPE_BUYER_QUOTE => 'Buyer Quote',
+                                        EmailTemplate::TYPE_BUYER_ORDER => 'Buyer Order',
+                                        EmailTemplate::TYPE_SUPPLIER_ORDER => 'Supplier Order',
+                                        EmailTemplate::TYPE_DELIVERY_ORDER => 'Delivery Order',
+                                    ],
+                                ];
+                            }),
+                    ])
+                    ->collapsed(),
 
                 Section::make('Test Email')
                     ->schema([
@@ -285,17 +376,92 @@ final class EmailSettings extends Page implements HasForms
     }
 
     /**
-     * Build a template section with content, sender, CC, and BCC fields.
+     * Build a template section with select dropdown and plus icon to create new template.
      */
     private function buildTemplateSection(string $key, string $label, string $helperText): Section
     {
+        /** @var Team $team */
+        $team = Filament::getTenant();
+
         return Section::make($label)
             ->schema([
-                Textarea::make("email_template_{$key}_content")
-                    ->label('Template Content')
-                    ->rows(5)
-                    ->helperText($helperText . ' Leave empty to use the default template from the system.')
-                    ->placeholder('Leave empty to use the default template with items table...'),
+                Select::make("email_template_{$key}_id")
+                    ->label('Email Template')
+                    ->options(function () use ($key, $team): array {
+                        $templates = EmailTemplate::forTeam($team)
+                            ->forType($key)
+                            ->orderBy('is_default', 'desc')
+                            ->orderBy('name')
+                            ->get();
+
+                        $options = [null => 'Default Template'];
+                        foreach ($templates as $template) {
+                            $name = $template->name;
+                            if ($template->is_default) {
+                                $name .= ' (Default)';
+                            }
+                            $options[$template->id] = $name;
+                        }
+
+                        return $options;
+                    })
+                    
+                    ->helperText($helperText . ' Select a template or use + to create a new one.')
+                    ->createOptionForm(
+                        EmailTemplateResource::getTemplateFormComponents(
+                            defaultType: $key,
+                            showLoadButton: true,
+                            loadButtonMethod: 'loadDefaultTemplateForCreate',
+                            useAlpineJs: true,
+                            loadButtonParam: $key
+                        )
+                    )
+                    ->createOptionUsing(function (array $data, $get) use ($key, $team): int {
+                        // Get sender/CC/BCC from the existing template section fields (if set)
+                        $emailService = app(EmailTemplateService::class);
+                        
+                        // Get values from form state - these come from the template section fields below
+                        $senderEmail = $get("email_template_{$key}_sender") ? trim($get("email_template_{$key}_sender")) : null;
+                        $ccEmails = $get("email_template_{$key}_cc") ? trim($get("email_template_{$key}_cc")) : null;
+                        $bccEmails = $get("email_template_{$key}_bcc") ? trim($get("email_template_{$key}_bcc")) : null;
+
+                        $template = EmailTemplate::create([
+                            'team_id' => $team->id,
+                            'type' => $key,
+                            'name' => $data['name'],
+                            'content' => $data['content'],
+                            'sender_email' => !empty($senderEmail) ? $senderEmail : null,
+                            'cc_emails' => !empty($ccEmails) ? $emailService->parseEmailList($ccEmails) : null,
+                            'bcc_emails' => !empty($bccEmails) ? $emailService->parseEmailList($bccEmails) : null,
+                            'is_default' => false,
+                        ]);
+
+                        Notification::make()
+                            ->title('Template Created')
+                            ->body("Template '{$template->name}' has been created successfully.")
+                            ->success()
+                            ->send();
+
+                        return $template->id;
+                    })
+                    ->createOptionAction(fn (Action $action): Action => $action->modalWidth('2xl'))
+                    ->live()
+                    ->afterStateUpdated(function ($state, $set) use ($key): void {
+                        // When template is selected, load its sender/CC/BCC if available
+                        if ($state) {
+                            $template = EmailTemplate::find($state);
+                            if ($template) {
+                                $set("email_template_{$key}_sender", $template->sender_email ?? '');
+                                $set("email_template_{$key}_cc", $template->cc_emails ? implode(', ', $template->cc_emails) : '');
+                                $set("email_template_{$key}_bcc", $template->bcc_emails ? implode(', ', $template->bcc_emails) : '');
+                            }
+                        } else {
+                            // Reset to empty when default is selected
+                            $set("email_template_{$key}_sender", '');
+                            $set("email_template_{$key}_cc", '');
+                            $set("email_template_{$key}_bcc", '');
+                        }
+                    }),
 
                 TextInput::make("email_template_{$key}_sender")
                     ->label('Sender Email (Optional)')
@@ -311,6 +477,148 @@ final class EmailSettings extends Page implements HasForms
                     ->helperText('Comma-separated email addresses'),
             ])
             ->collapsed();
+    }
+
+    /**
+     * Create a new email template.
+     */
+    public function createTemplate(array $data): void
+    {
+        /** @var Team $team */
+        $team = Filament::getTenant();
+        $emailService = app(EmailTemplateService::class);
+
+        $template = EmailTemplate::create([
+            'team_id' => $team->id,
+            'type' => $data['type'] ?? $this->createTemplateType,
+            'name' => $data['name'],
+            'content' => $data['content'],
+            'sender_email' => !empty($data['sender_email']) ? $data['sender_email'] : null,
+            'cc_emails' => !empty($data['cc_emails']) ? $emailService->parseEmailList($data['cc_emails']) : null,
+            'bcc_emails' => !empty($data['bcc_emails']) ? $emailService->parseEmailList($data['bcc_emails']) : null,
+            'is_default' => false,
+        ]);
+
+        Notification::make()
+            ->title('Template Created')
+            ->body("Template '{$template->name}' has been created successfully.")
+            ->success()
+            ->send();
+
+        $this->createTemplateType = null;
+        
+        // Refresh the form to show new template in select and auto-select it
+        $this->mount();
+        $this->emailForm->fill([
+            "email_template_{$template->type}_id" => $template->id,
+        ]);
+    }
+
+    /**
+     * Delete an email template and handle fallback.
+     */
+    public function deleteTemplate(int $templateId): void
+    {
+        /** @var Team $team */
+        $team = Filament::getTenant();
+        $template = EmailTemplate::find($templateId);
+
+        if (!$template) {
+            Notification::make()
+                ->title('Template Not Found')
+                ->body('The template you are trying to delete does not exist.')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        // Check if template belongs to team or is default
+        if ($template->is_default || $template->team_id === null) {
+            Notification::make()
+                ->title('Cannot Delete Default Template')
+                ->body('Default templates cannot be deleted.')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        if ($template->team_id !== $team->id) {
+            Notification::make()
+                ->title('Unauthorized')
+                ->body('You can only delete templates belonging to your team.')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        $templateType = $template->type;
+        $templateName = $template->name;
+
+        // Check if this template is currently selected
+        $settings = $team->getErpSettings();
+        $templateIdField = "email_template_{$templateType}_id";
+        $isSelected = isset($settings->{$templateIdField}) && $settings->{$templateIdField} === $templateId;
+
+        // Delete the template
+        $template->delete();
+
+        // If template was selected, reset to default (null)
+        if ($isSelected) {
+            $updatedSettings = new TeamErpSettings(
+                company_name: $settings->company_name,
+                company_address: $settings->company_address,
+                company_phone: $settings->company_phone,
+                company_email: $settings->company_email,
+                default_currency: $settings->default_currency,
+                default_tax_percent: $settings->default_tax_percent,
+                quote_validity_days: $settings->quote_validity_days,
+                default_payment_terms_days: $settings->default_payment_terms_days,
+                prices_include_tax: $settings->prices_include_tax,
+                default_margin_percent: $settings->default_margin_percent,
+                request_number_prefix: $settings->request_number_prefix,
+                project_number_prefix: $settings->project_number_prefix,
+                buyer_quote_number_prefix: $settings->buyer_quote_number_prefix,
+                buyer_order_number_prefix: $settings->buyer_order_number_prefix,
+                supplier_order_number_prefix: $settings->supplier_order_number_prefix,
+                shipment_number_prefix: $settings->shipment_number_prefix,
+                buyer_invoice_number_prefix: $settings->buyer_invoice_number_prefix,
+                supplier_invoice_number_prefix: $settings->supplier_invoice_number_prefix,
+                buyer_payment_number_prefix: $settings->buyer_payment_number_prefix,
+                supplier_payment_number_prefix: $settings->supplier_payment_number_prefix,
+                email_from_address: $settings->email_from_address,
+                email_from_name: $settings->email_from_name,
+                email_logo_media_id: $settings->email_logo_media_id,
+                email_signature: $settings->email_signature,
+                test_email_address: $settings->test_email_address,
+                smtp_host: $settings->smtp_host,
+                smtp_port: $settings->smtp_port,
+                smtp_username: $settings->smtp_username,
+                smtp_password: $settings->smtp_password,
+                smtp_encryption: $settings->smtp_encryption,
+                email_template_buyer_quote_id: $templateType === EmailTemplate::TYPE_BUYER_QUOTE ? null : $settings->email_template_buyer_quote_id,
+                email_template_buyer_order_id: $templateType === EmailTemplate::TYPE_BUYER_ORDER ? null : $settings->email_template_buyer_order_id,
+                email_template_supplier_order_id: $templateType === EmailTemplate::TYPE_SUPPLIER_ORDER ? null : $settings->email_template_supplier_order_id,
+                email_template_delivery_order_id: $templateType === EmailTemplate::TYPE_DELIVERY_ORDER ? null : $settings->email_template_delivery_order_id,
+                email_template_buyer_quote: $settings->email_template_buyer_quote,
+                email_template_buyer_order: $settings->email_template_buyer_order,
+                email_template_supplier_order: $settings->email_template_supplier_order,
+                email_template_delivery_order: $settings->email_template_delivery_order,
+            );
+
+            $team->erp_settings = $updatedSettings;
+            $team->save();
+        }
+
+        Notification::make()
+            ->title('Template Deleted')
+            ->body($isSelected 
+                ? "Template '{$templateName}' has been deleted. The default template will now be used."
+                : "Template '{$templateName}' has been deleted successfully.")
+            ->success()
+            ->send();
+
+        // Refresh the form
+        $this->mount();
     }
 
     public function saveEmailSettings(): void
@@ -358,27 +666,45 @@ final class EmailSettings extends Page implements HasForms
             }
         }
 
-        // Build template configurations
-        $templates = [
+        // Save template IDs and update template settings if modified
+        $templateTypes = [
             'buyer_quote',
             'buyer_order',
             'supplier_order',
             'delivery_order',
         ];
 
-        $templateConfigs = [];
-        foreach ($templates as $template) {
-            $content = trim($emailData["email_template_{$template}_content"] ?? '');
-            $sender = !empty($emailData["email_template_{$template}_sender"]) ? trim($emailData["email_template_{$template}_sender"]) : null;
-            $cc = trim($emailData["email_template_{$template}_cc"] ?? '');
-            $bcc = trim($emailData["email_template_{$template}_bcc"] ?? '');
+        $templateIds = [];
+        foreach ($templateTypes as $type) {
+            $templateId = $emailData["email_template_{$type}_id"] ?? null;
+            $templateIds["email_template_{$type}_id"] = $templateId ? (int) $templateId : null;
 
-            // Always save template config, even if empty (to allow clearing templates)
+            // If a template is selected and sender/CC/BCC are modified, update the template
+            if ($templateId) {
+                $template = EmailTemplate::find($templateId);
+                if ($template && $template->team_id === $team->id) {
+                    // Only update if it's a team template (not default)
+                    $sender = !empty($emailData["email_template_{$type}_sender"]) ? trim($emailData["email_template_{$type}_sender"]) : null;
+                    $cc = trim($emailData["email_template_{$type}_cc"] ?? '');
+                    $bcc = trim($emailData["email_template_{$type}_bcc"] ?? '');
+
+                    $template->update([
+                        'sender_email' => $sender,
+                        'cc_emails' => !empty($cc) ? $emailService->parseEmailList($cc) : null,
+                        'bcc_emails' => !empty($bcc) ? $emailService->parseEmailList($bcc) : null,
+                    ]);
+                }
+            }
+        }
+
+        // Keep old template format for backward compatibility (empty arrays)
+        $templateConfigs = [];
+        foreach ($templateTypes as $template) {
             $templateConfigs["email_template_{$template}"] = [
-                'content' => $content,
-                'sender_email' => $sender,
-                'cc_emails' => ! empty($cc) ? $emailService->parseEmailList($cc) : [],
-                'bcc_emails' => ! empty($bcc) ? $emailService->parseEmailList($bcc) : [],
+                'content' => '',
+                'sender_email' => null,
+                'cc_emails' => [],
+                'bcc_emails' => [],
             ];
         }
 
@@ -413,6 +739,10 @@ final class EmailSettings extends Page implements HasForms
             smtp_username: ! empty($emailData['smtp_username']) ? $emailData['smtp_username'] : null,
             smtp_password: $smtpPassword,
             smtp_encryption: ! empty($emailData['smtp_encryption']) ? $emailData['smtp_encryption'] : null,
+            email_template_buyer_quote_id: $templateIds['email_template_buyer_quote_id'],
+            email_template_buyer_order_id: $templateIds['email_template_buyer_order_id'],
+            email_template_supplier_order_id: $templateIds['email_template_supplier_order_id'],
+            email_template_delivery_order_id: $templateIds['email_template_delivery_order_id'],
             email_template_buyer_quote: $templateConfigs['email_template_buyer_quote'],
             email_template_buyer_order: $templateConfigs['email_template_buyer_order'],
             email_template_supplier_order: $templateConfigs['email_template_supplier_order'],
@@ -577,6 +907,251 @@ final class EmailSettings extends Page implements HasForms
                 ->color('success')
                 ->action('sendTestEmail'),
         ];
+    }
+
+    /**
+     * Get the actions for the page.
+     *
+     * @return array<int, Action>
+     */
+    protected function getActions(): array
+    {
+        return [
+            Action::make('createTemplate')
+                ->label('Create Email Template')
+                ->icon('heroicon-o-plus')
+                ->form([
+                    TextInput::make('name')
+                        ->label('Template Name')
+                        ->required()
+                        ->maxLength(255)
+                        ->helperText('A descriptive name for this template'),
+
+                    Select::make('type')
+                        ->label('Template Type')
+                        ->options([
+                            EmailTemplate::TYPE_BUYER_QUOTE => 'Buyer Quote',
+                            EmailTemplate::TYPE_BUYER_ORDER => 'Buyer Order',
+                            EmailTemplate::TYPE_SUPPLIER_ORDER => 'Supplier Order',
+                            EmailTemplate::TYPE_DELIVERY_ORDER => 'Delivery Order',
+                        ])
+                        ->required()
+                        ->default(fn () => $this->createTemplateType)
+                        ->disabled(fn () => $this->createTemplateType !== null)
+                        ->dehydrated(),
+
+                    Textarea::make('content')
+                        ->label('Template Content')
+                        ->required()
+                        ->rows(5)
+                        ->helperText('Use {{variable_name}} for dynamic content. Available variables: {{supplier_name}}, {{buyer_name}}, {{quote_number}}, {{order_number}}, etc.'),
+
+                    TextInput::make('sender_email')
+                        ->label('Sender Email (Optional)')
+                        ->email()
+                        ->helperText('Overrides global sender email for this template'),
+
+                    TextInput::make('cc_emails')
+                        ->label('CC Emails')
+                        ->helperText('Comma-separated email addresses'),
+
+                    TextInput::make('bcc_emails')
+                        ->label('BCC Emails')
+                        ->helperText('Comma-separated email addresses'),
+                ])
+                ->action(function (array $data): void {
+                    $this->createTemplate($data);
+                })
+                ->modalWidth('2xl'),
+            Action::make('editTemplate')
+                ->label('Edit Email Template')
+                ->icon('heroicon-o-pencil')
+                ->form([
+                    TextInput::make('name')
+                        ->label('Template Name')
+                        ->required()
+                        ->maxLength(255)
+                        ->helperText('A descriptive name for this template'),
+
+                    Select::make('type')
+                        ->label('Template Type')
+                        ->options([
+                            EmailTemplate::TYPE_BUYER_QUOTE => 'Buyer Quote',
+                            EmailTemplate::TYPE_BUYER_ORDER => 'Buyer Order',
+                            EmailTemplate::TYPE_SUPPLIER_ORDER => 'Supplier Order',
+                            EmailTemplate::TYPE_DELIVERY_ORDER => 'Delivery Order',
+                        ])
+                        ->required()
+                        ->disabled()
+                        ->dehydrated(),
+
+                    Textarea::make('content')
+                        ->label('Template Content')
+                        ->required()
+                        ->rows(5)
+                        ->helperText('Use {{variable_name}} for dynamic content. Available variables: {{supplier_name}}, {{buyer_name}}, {{quote_number}}, {{order_number}}, etc.'),
+
+                    TextInput::make('sender_email')
+                        ->label('Sender Email (Optional)')
+                        ->email()
+                        ->helperText('Overrides global sender email for this template'),
+
+                    TextInput::make('cc_emails')
+                        ->label('CC Emails')
+                        ->helperText('Comma-separated email addresses'),
+
+                    TextInput::make('bcc_emails')
+                        ->label('BCC Emails')
+                        ->helperText('Comma-separated email addresses'),
+                ])
+                ->fillForm(function (array $arguments): array {
+                    $template = EmailTemplate::find($arguments['id'] ?? null);
+                    if (!$template) {
+                        return [];
+                    }
+
+                    return [
+                        'name' => $template->name,
+                        'type' => $template->type,
+                        'content' => $template->content,
+                        'sender_email' => $template->sender_email ?? '',
+                        'cc_emails' => $template->cc_emails ? implode(', ', $template->cc_emails) : '',
+                        'bcc_emails' => $template->bcc_emails ? implode(', ', $template->bcc_emails) : '',
+                    ];
+                })
+                ->action(function (array $data, array $arguments): void {
+                    $this->updateTemplate($arguments['id'] ?? null, $data);
+                })
+                ->modalWidth('2xl'),
+        ];
+    }
+
+    /**
+     * Update an email template.
+     */
+    public function updateTemplate(?int $templateId, array $data): void
+    {
+        if (!$templateId) {
+            Notification::make()
+                ->title('Template ID Required')
+                ->body('Template ID is required to update a template.')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        /** @var Team $team */
+        $team = Filament::getTenant();
+        $template = EmailTemplate::find($templateId);
+
+        if (!$template) {
+            Notification::make()
+                ->title('Template Not Found')
+                ->body('The template you are trying to edit does not exist.')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        if ($template->team_id !== $team->id) {
+            Notification::make()
+                ->title('Unauthorized')
+                ->body('You can only edit templates belonging to your team.')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        $emailService = app(EmailTemplateService::class);
+
+        $template->update([
+            'name' => $data['name'],
+            'content' => $data['content'],
+            'sender_email' => !empty($data['sender_email']) ? $data['sender_email'] : null,
+            'cc_emails' => !empty($data['cc_emails']) ? $emailService->parseEmailList($data['cc_emails']) : null,
+            'bcc_emails' => !empty($data['bcc_emails']) ? $emailService->parseEmailList($data['bcc_emails']) : null,
+        ]);
+
+        Notification::make()
+            ->title('Template Updated')
+            ->body("Template '{$template->name}' has been updated successfully.")
+            ->success()
+            ->send();
+
+        // Refresh the form
+        $this->mount();
+    }
+
+    /**
+     * Load default template content for the create template modal.
+     * This method is called from the createOptionForm modal.
+     */
+    public function loadDefaultTemplateForCreate(string $type): void
+    {
+        // Map template types to Blade file paths
+        $templateFileMap = [
+            EmailTemplate::TYPE_BUYER_QUOTE => 'emails/quote-to-buyer.blade.php',
+            EmailTemplate::TYPE_BUYER_ORDER => 'emails/buyer-order-to-buyer.blade.php',
+            EmailTemplate::TYPE_SUPPLIER_ORDER => 'emails/purchase-order-to-supplier.blade.php',
+            EmailTemplate::TYPE_DELIVERY_ORDER => 'emails/shipment-to-buyer.blade.php',
+        ];
+
+        $bladeFilePath = $templateFileMap[$type] ?? null;
+
+        if (!$bladeFilePath) {
+            Notification::make()
+                ->title('Invalid Template Type')
+                ->body('No default template file found for this type.')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        // Read the Blade file content
+        $fullPath = resource_path("views/{$bladeFilePath}");
+        
+        if (!file_exists($fullPath)) {
+            Notification::make()
+                ->title('Default Template Not Found')
+                ->body("Template file not found: {$bladeFilePath}")
+                ->warning()
+                ->send();
+            return;
+        }
+
+        $content = file_get_contents($fullPath);
+
+        if ($content === false || empty(trim($content))) {
+            Notification::make()
+                ->title('Default Template Empty')
+                ->body('The default template file is empty.')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        // Store the content in a public property that can be accessed by the form
+        $this->createTemplateType = $type;
+        
+        // Dispatch a browser event with the content to update the modal form
+        $this->dispatch('load-default-template-content', content: $content);
+        
+        // Also try to update via Livewire's form state if possible
+        // Note: This might not work in modal context, but worth trying
+        try {
+            if (method_exists($this, 'form') && $this->form) {
+                // Try to get the form and update it
+                $this->form->fill(['content' => $content]);
+            }
+        } catch (\Exception $e) {
+            // Ignore if form is not available in this context
+        }
+        
+        Notification::make()
+            ->title('Default Template Loaded')
+            ->body('Default template content has been loaded.')
+            ->success()
+            ->send();
     }
 
 }

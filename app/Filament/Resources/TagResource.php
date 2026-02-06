@@ -81,7 +81,7 @@ final class TagResource extends Resource
                     ->copyable(),
                 TextColumn::make('name')
                     ->label('Category')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('articles_count')
                     ->label('Articles')

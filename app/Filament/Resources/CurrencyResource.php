@@ -79,7 +79,8 @@ final class CurrencyResource extends Resource
                     'before' => 'Before amount (e.g., $100)',
                     'after' => 'After amount (e.g., 100 EUR)',
                 ])
-                ->default('before'),
+                ->default('before')
+                ->selectablePlaceholder(false),
             Toggle::make('is_active')
                 ->label('Active')
                 ->default(true),
@@ -109,11 +110,11 @@ final class CurrencyResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('code')
-                    ->searchable()
+                    
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('name')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('symbol')
                     ->sortable(),

@@ -100,6 +100,12 @@ final class ErpPermissionSeeder extends Seeder
             'view erp settings',
             'update erp settings',
 
+            // Email Template permissions
+            'view email templates',
+            'create email templates',
+            'update email templates',
+            'delete email templates',
+
             // Tag permissions
             'view tags',
             'create tags',
@@ -200,6 +206,7 @@ final class ErpPermissionSeeder extends Seeder
             'view supplier invoices', 'create supplier invoices', 'update supplier invoices', 'delete supplier invoices',
             'view payments', 'create payments', 'update payments', 'delete payments',
             'view erp settings', 'update erp settings',
+            'view email templates', 'create email templates', 'update email templates', 'delete email templates',
             'view tags', 'create tags', 'update tags', 'delete tags',
             'view currencies', 'create currencies', 'update currencies', 'delete currencies',
             'view exchange rates', 'create exchange rates', 'update exchange rates', 'delete exchange rates',
@@ -231,6 +238,7 @@ final class ErpPermissionSeeder extends Seeder
             'view buyer invoices',
             'view supplier invoices',
             'view tags',
+            'view email templates',
             'view currencies',
             'view tax codes',
             'view unit of measures',
@@ -285,6 +293,7 @@ final class ErpPermissionSeeder extends Seeder
             'view supplier invoices',
             'view payments',
             'view tags',
+            'view email templates',
             'view currencies',
             'view exchange rates',
             'view tax codes',

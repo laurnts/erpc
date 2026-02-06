@@ -69,7 +69,7 @@ final class PeopleResource extends Resource
                 ->relationship('companies', 'name')
                 ->multiple()
                 ->preload()
-                ->searchable()
+                
                 ->helperText('Assign this person to one or more companies')
                 ->createOptionForm(CompanyResource::getFormSchema(excludePeopleField: true))
                 ->createOptionUsing(function (array $data): int {
@@ -108,15 +108,15 @@ final class PeopleResource extends Resource
             ->columns([
                 ImageColumn::make('avatar')->label('')->size(24)->circular(),
                 TextColumn::make('name')
-                    ->searchable(),
+                    ,
                 TextColumn::make('companies.name')
                     ->label('Companies')
                     ->badge()
-                    ->searchable()
+                    
                     ->toggleable(),
                 TextColumn::make('creator.name')
                     ->label('Created By')
-                    ->searchable()
+                    
                     ->sortable()
                     ->toggleable()
                     ->getStateUsing(fn (People $record): string => $record->created_by)

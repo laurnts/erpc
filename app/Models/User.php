@@ -119,6 +119,23 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
         return $this->hasMany(Opportunity::class, 'creator_id');
     }
 
+    /**
+     * Buyers assigned to this key account user.
+     *
+     * @return BelongsToMany<Company, $this>
+     */
+    public function buyers(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Company::class,
+            'key_account_buyers',
+            'key_account_id',
+            'buyer_id'
+        )
+            ->where('companies.is_buyer', true)
+            ->withTimestamps();
+    }
+
     public function getDefaultTenant(Panel $panel): ?Model
     {
         return $this->currentTeam;

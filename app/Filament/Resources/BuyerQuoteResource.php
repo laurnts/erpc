@@ -44,18 +44,18 @@ final class BuyerQuoteResource extends Resource
             ->columns([
                 TextColumn::make('quote_number')
                     ->label('Quote #')
-                    ->searchable()
+                    
                     ->sortable()
                     ->weight('bold')
                     ->description(fn (BuyerQuote $record): string => 'v'.$record->version),
                 TextColumn::make('request.request_number')
                     ->label('Request')
-                    ->searchable()
+                    
                     ->sortable()
                     ->url(fn (BuyerQuote $record): string => RequestResource::getUrl('view', ['record' => $record->request_id])),
                 TextColumn::make('buyer.name')
                     ->label('Buyer')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('status')
                     ->badge()
@@ -106,12 +106,12 @@ final class BuyerQuoteResource extends Resource
                     ->relationship('buyer', 'name', fn ($query) => $query->where('is_buyer', true))
                     ->label('Buyer')
                     ->preload()
-                    ->searchable(),
+                    ,
                 SelectFilter::make('request_id')
                     ->relationship('request', 'request_number')
                     ->label('Request')
                     ->preload()
-                    ->searchable(),
+                    ,
                 TrashedFilter::make(),
             ])
             ->recordUrl(fn (BuyerQuote $record): string => RequestResource::getUrl('view', ['record' => $record->request_id]))

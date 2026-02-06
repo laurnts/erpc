@@ -41,12 +41,12 @@ final class BuyerCreditLimitRequestResource extends Resource
             ->columns([
                 TextColumn::make('buyer.name')
                     ->label('Buyer')
-                    ->searchable()
+                    
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('buyer.code')
                     ->label('Code')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('current_limit')
                     ->label('Current Limit')
@@ -92,12 +92,12 @@ final class BuyerCreditLimitRequestResource extends Resource
                 SelectFilter::make('buyer_id')
                     ->label('Buyer')
                     ->relationship('buyer', 'name')
-                    ->searchable()
+                    
                     ->preload(),
                 SelectFilter::make('requested_by_id')
                     ->label('Requested By')
                     ->relationship('requestedBy', 'name')
-                    ->searchable()
+                    
                     ->preload(),
             ])
             ->actions([

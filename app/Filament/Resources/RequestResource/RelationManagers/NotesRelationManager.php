@@ -45,7 +45,7 @@ final class NotesRelationManager extends RelationManager
             ->recordTitleAttribute('title')
             ->columns([
                 TextColumn::make('title')
-                    ->searchable(),
+                    ,
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable(),

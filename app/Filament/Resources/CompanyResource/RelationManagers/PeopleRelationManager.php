@@ -42,7 +42,7 @@ final class PeopleRelationManager extends RelationManager
                     ->label('Role')
                     ->options(ContactRole::class)
                     ->getOptionLabelUsing(fn (string $value): ?string => ContactRole::tryFrom($value)?->getLabel())
-                    ->searchable()
+                    
                     ->nullable()
                     ->helperText('Contact role at this company'),
                 Toggle::make('pivot.is_primary')

@@ -47,12 +47,12 @@ final class MemberResource extends Resource
                     ->size(32),
                 TextColumn::make('user.name')
                     ->label('Name')
-                    ->searchable()
+                    
                     ->sortable()
                     ->weight('medium'),
                 TextColumn::make('user.email')
                     ->label('Email')
-                    ->searchable()
+                    
                     ->sortable()
                     ->copyable(),
                 TextColumn::make('role')

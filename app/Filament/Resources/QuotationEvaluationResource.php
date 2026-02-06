@@ -104,16 +104,16 @@ final class QuotationEvaluationResource extends Resource
             ->columns([
                 TextColumn::make('qe_number')
                     ->label('QE Number')
-                    ->searchable()
+                    
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('request.request_number')
                     ->label('Request')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('description')
                     ->limit(40)
-                    ->searchable()
+                    
                     ->toggleable(),
                 TextColumn::make('qe_date')
                     ->label('Date')
@@ -159,6 +159,7 @@ final class QuotationEvaluationResource extends Resource
         $team = Filament::getTenant();
 
         return parent::getEloquentQuery()
-            ->where('team_id', $team?->getKey());
+            ->where('team_id', $team?->getKey())
+            ->with(['preparedBy', 'deptHeadSales', 'deputyDirector', 'approvedBy']);
     }
 }

@@ -84,8 +84,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                 $supplier->getKey() => "[{$supplier->code}] {$supplier->name}",
                                             ])
                                     )
-                                    ->searchable()
                                     ->required()
+                                    ->selectablePlaceholder(false)
                                     ->live()
                                     ->afterStateUpdated(function (Set $set, Get $get): void {
                                         // Check if supplier is taxable
@@ -154,8 +154,9 @@ final class SupplierQuotesRelationManager extends RelationManager
 
                                         return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
                                     })
-                                    ->searchable()
+                                    
                                     ->required()
+                                    ->selectablePlaceholder(false)
                                     ->live()
                                     ->helperText(function (Get $get): ?string {
                                         $rate = (float) ($get('exchange_rate') ?? 1);
@@ -236,8 +237,24 @@ final class SupplierQuotesRelationManager extends RelationManager
                                     ->required(),
                                 Select::make('status')
                                     ->options(SupplierQuoteStatus::class)
-                                    ->default(SupplierQuoteStatus::PENDING)
-                                    ->required(),
+                                    ->default(function (?SupplierQuote $record): SupplierQuoteStatus {
+                                        // If editing existing quote, check if it has prices and auto-update status
+                                        if ($record instanceof \App\Models\SupplierQuote) {
+                                            $hasPrices = $record->items()->where('unit_price', '>', 0)->exists();
+                                            $total = (float) $record->total;
+                                            
+                                            // Auto-update status from PENDING to RECEIVED if prices exist
+                                            if ($record->status === SupplierQuoteStatus::PENDING && ($hasPrices || $total > 0)) {
+                                                return SupplierQuoteStatus::RECEIVED;
+                                            }
+                                            
+                                            return $record->status;
+                                        }
+                                        
+                                        return SupplierQuoteStatus::PENDING;
+                                    })
+                                    ->required()
+                                    ->selectablePlaceholder(false),
                             ]),
                         DatePicker::make('valid_until')
                             ->label('Valid Until')
@@ -259,7 +276,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                     $item->getKey() => $item->display_text,
                                                 ])
                                                 ->all())
-                                            ->searchable()
+                                            
+                                            ->selectablePlaceholder(false)
                                             ->columnSpan(4)
                                             ->live()
                                             ->afterStateUpdated(function (Set $set, ?int $state) use ($request): void {
@@ -299,8 +317,9 @@ final class SupplierQuotesRelationManager extends RelationManager
                                         Select::make('unit_of_measure_id')
                                             ->label('Unit')
                                             ->relationship('unitOfMeasure', 'label', fn ($query) => $query->where('team_id', $request->team_id)->where('is_active', true))
-                                            ->searchable()
+                                            
                                             ->preload()
+                                            ->selectablePlaceholder(false)
                                             ->default(fn (): ?int => UnitOfMeasure::query()
                                                 ->where('team_id', $request->team_id)
                                                 ->where('code', 'pcs')
@@ -347,7 +366,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                 ->where('is_default', true)
                                                 ->where('is_active', true)
                                                 ->value('id'))
-                                            ->searchable()
+                                            
+                                            ->selectablePlaceholder(false)
                                             ->columnSpan(3)
                                             ->live()
                                             ->visible(fn (Get $get): bool => $this->isSupplierTaxable($get))
@@ -410,7 +430,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                             ])
                             ->columns(1)
                             ->defaultItems(0)
-                            ->addActionLabel('Add Line Item')
+                            ->addable(false)
                             ->reorderable()
                             ->orderColumn('sort_order')
                             ->collapsible()
@@ -510,15 +530,15 @@ final class SupplierQuotesRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('quote_number')
                     ->label('Quote #')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('supplier.name')
                     ->label('Supplier')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('supplier_reference')
                     ->label('Supplier Ref')
-                    ->searchable()
+                    
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('status')
                     ->badge()
@@ -588,16 +608,56 @@ final class SupplierQuotesRelationManager extends RelationManager
                         $request = $this->getOwnerRecord();
 
                         return $request->supplierQuotes()
-                            ->whereIn('status', [SupplierQuoteStatus::PENDING, SupplierQuoteStatus::SELECTED])
+                            ->whereIn('status', [SupplierQuoteStatus::RECEIVED, SupplierQuoteStatus::SELECTED])
                             ->count() >= 2;
                     }),
             ])
             ->recordAction('edit')
             ->recordActions([
                 EditAction::make()
-                    ->label('Input Supplier Response')
+                    ->label('Input Supplier Price')
                     ->icon('heroicon-o-pencil-square')
-                    ->size(Size::Small),
+                    ->size(Size::Small)
+                    ->mutateFormDataUsing(function (array $data, SupplierQuote $record): array {
+                        // Check if items in form data have prices
+                        $hasPrices = false;
+                        if (isset($data['items']) && is_array($data['items'])) {
+                            foreach ($data['items'] as $item) {
+                                $unitPrice = (float) ($item['unit_price'] ?? 0);
+                                if ($unitPrice > 0) {
+                                    $hasPrices = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Also check existing items if form items don't have prices yet
+                        if (! $hasPrices) {
+                            $hasPrices = $record->items()->where('unit_price', '>', 0)->exists();
+                        }
+                        
+                        // Update status from PENDING to RECEIVED if prices exist
+                        if ($hasPrices && ($data['status'] ?? null) === SupplierQuoteStatus::PENDING->value) {
+                            $data['status'] = SupplierQuoteStatus::RECEIVED->value;
+                        }
+                        
+                        return $data;
+                    })
+                    ->after(function (SupplierQuote $record): void {
+                        // After save, check if status needs to be updated
+                        // Reload to get fresh data including items
+                        $record->refresh();
+                        
+                        // Check if items have prices
+                        $hasPrices = $record->items()->where('unit_price', '>', 0)->exists();
+                        $total = (float) $record->total;
+                        
+                        // Update status from PENDING to RECEIVED if prices exist
+                        if ($record->status === SupplierQuoteStatus::PENDING && ($hasPrices || $total > 0)) {
+                            $record->status = SupplierQuoteStatus::RECEIVED;
+                            $record->save();
+                        }
+                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

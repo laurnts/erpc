@@ -41,7 +41,7 @@ final class NotesRelationManager extends RelationManager
                     ->label('People')
                     ->badge()
                     ->color('primary')
-                    ->searchable(),
+                    ,
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

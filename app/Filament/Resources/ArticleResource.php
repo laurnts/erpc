@@ -62,7 +62,7 @@ final class ArticleResource extends Resource
                 ->where('is_default', true)
                 ->where('is_active', true)
                 ->value('id'))
-            ->searchable()
+            
             ->preload()
             ->helperText('Tax code to apply when using this article');
 
@@ -85,7 +85,7 @@ final class ArticleResource extends Resource
             ->label('Categories')
             ->multiple()
             ->preload()
-            ->searchable()
+            
             ->createOptionForm(TagResource::getFormSchema())
             ->createOptionUsing(function (array $data): int {
                 /** @var \App\Models\Team $team */
@@ -121,7 +121,7 @@ final class ArticleResource extends Resource
             ->label('Suppliers')
             ->multiple()
             ->preload()
-            ->searchable()
+            
             ->createOptionForm(SupplierResource::getFormSchema(excludePeopleField: true, forModal: true))
             ->createOptionUsing(function (array $data): int {
                 /** @var \App\Models\Team $team */
@@ -168,7 +168,7 @@ final class ArticleResource extends Resource
             Select::make('unit_of_measure_id')
                 ->label('Unit of Measure')
                 ->relationship('unitOfMeasure', 'label')
-                ->searchable()
+                
                 ->preload()
                 ->required()
                 ->default(fn (): ?int => UnitOfMeasure::query()
@@ -211,17 +211,17 @@ final class ArticleResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('code')
-                    ->searchable()
+                    
                     ->sortable()
                     ->copyable()
                     ->weight('bold'),
                 TextColumn::make('name')
-                    ->searchable()
+                    
                     ->sortable()
                     ->limit(50),
                 TextColumn::make('sku')
                     ->label('SKU')
-                    ->searchable()
+                    
                     ->sortable()
                     ->toggleable()
                     ->toggledHiddenByDefault(),

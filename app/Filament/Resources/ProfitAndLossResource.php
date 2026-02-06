@@ -104,7 +104,7 @@ final class ProfitAndLossResource extends Resource
             ->columns([
                 TextColumn::make('pnl_number')
                     ->label('PNL Number')
-                    ->searchable()
+                    
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('status')
@@ -114,11 +114,11 @@ final class ProfitAndLossResource extends Resource
                         ->orderBy('has_buyer_orders', $direction)),
                 TextColumn::make('request.request_number')
                     ->label('Request')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('description')
                     ->limit(40)
-                    ->searchable()
+                    
                     ->toggleable(),
                 TextColumn::make('pnl_date')
                     ->label('Date')
@@ -166,6 +166,7 @@ final class ProfitAndLossResource extends Resource
         $team = Filament::getTenant();
 
         return parent::getEloquentQuery()
-            ->where('team_id', $team?->getKey());
+            ->where('team_id', $team?->getKey())
+            ->with(['preparedBy', 'deptHeadSales', 'deputyDirector', 'approvedBy']);
     }
 }

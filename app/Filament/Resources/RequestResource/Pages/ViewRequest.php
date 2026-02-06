@@ -283,6 +283,7 @@ final class ViewRequest extends ViewRecord
         ]);
     }
 
+
     public function getRelationManagers(): array
     {
         return [
@@ -294,6 +295,19 @@ final class ViewRequest extends ViewRecord
             ShipmentsRelationManager::class,
         ];
     }
+
+    /**
+     * Get footer widgets for the page.
+     * This adds the information flow guide below the relation managers.
+     */
+    public function getFooterWidgets(): array
+    {
+        return [
+            \App\Filament\Widgets\RequestInformationFlowWidget::class,
+        ];
+    }
+
+
 
     /**
      * Format a currency value using the team's base currency.

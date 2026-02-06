@@ -53,11 +53,16 @@ ERPC is designed for trading businesses that source products from multiple suppl
     - Deputy Director (approval workflow)
     - Director (final approval)
 - **Email Settings** - Comprehensive email configuration:
-  - Custom email templates for quotes, orders, invoices, and shipments
+  - **Email Template Management** - Create, edit, and manage multiple email templates per document type:
+    - Dedicated Email Templates page for template library management
+    - Template selection via dropdown in Email Settings
+    - Load default templates from blade files as starting points
+    - Support for both simple content and full HTML email templates
+    - Automatic fallback to default templates when custom templates are deleted
+    - Template variables system for dynamic content ({{buyer_name}}, {{quote_number}}, etc.)
   - Team-specific SMTP configuration with encrypted passwords
   - Email branding with logo upload and signature
-  - Per-template sender, CC, and BCC configuration
-  - Template variable system for dynamic content
+  - Per-template sender, CC, and BCC configuration (via Email Settings)
   - Test email functionality
 - **Custom Fields** - Extend entities without code changes
 - **Role-Based Access** - Granular permissions
@@ -112,15 +117,16 @@ app/
 ├── Data/              # Data transfer objects (Spatie Laravel Data)
 ├── Enums/             # PHP enums
 ├── Filament/          # Admin panel resources
-│   └── Pages/         # Custom Filament pages (e.g., EmailSettings)
+│   ├── Pages/         # Custom Filament pages (e.g., EmailSettings)
+│   └── Resources/     # Filament resources (e.g., EmailTemplateResource)
 ├── Jobs/              # Background jobs
 ├── Mail/              # Laravel Mailables
 │   └── Erp/           # ERP-specific email templates
-├── Models/            # Eloquent models
+├── Models/            # Eloquent models (e.g., EmailTemplate)
 ├── Observers/         # Model observers
-├── Policies/          # Authorization policies
+├── Policies/          # Authorization policies (e.g., EmailTemplatePolicy)
 └── Services/          # Service classes
-    └── Email/         # Email template and SMTP services
+    └── Email/         # Email template and SMTP services (EmailTemplateService)
 
 app-modules/           # Isolated modules
 ├── Documentation/

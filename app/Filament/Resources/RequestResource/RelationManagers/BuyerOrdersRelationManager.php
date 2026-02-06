@@ -41,7 +41,7 @@ final class BuyerOrdersRelationManager extends RelationManager
 
     protected static string $relationship = 'buyerOrders';
 
-    protected static ?string $title = 'Buyer Orders';
+    protected static ?string $title = 'Invoices';
 
     protected static string|\BackedEnum|null $icon = 'heroicon-o-document-currency-dollar';
 
@@ -118,7 +118,7 @@ final class BuyerOrdersRelationManager extends RelationManager
                 ->schema([
                     Repeater::make('items')
                         ->relationship(
-                            modifyQueryUsing: fn ($query) => $query->with('unitOfMeasure')
+                            modifyQueryUsing: fn ($query) => $query->with(['unitOfMeasure', 'requestItem.supplier', 'buyerQuoteItem.supplierQuoteItem.supplierQuote.supplier'])
                         )
                         ->schema([
                             Grid::make(12)
@@ -136,7 +136,22 @@ final class BuyerOrdersRelationManager extends RelationManager
                                     TextInput::make('unit_price')
                                         ->label('Price')
                                         ->columnSpan(2)
-                                        ->disabled(),
+                                        ->disabled()
+                                        ->helperText(function ($record): ?string {
+                                            if ($record === null) {
+                                                return null;
+                                            }
+                                            
+                                            // Try to get supplier from request item first
+                                            $supplier = $record->requestItem?->supplier;
+                                            
+                                            // Fallback to supplier from quote chain
+                                            if ($supplier === null && $record->buyerQuoteItem?->supplierQuoteItem?->supplierQuote?->supplier !== null) {
+                                                $supplier = $record->buyerQuoteItem->supplierQuoteItem->supplierQuote->supplier;
+                                            }
+                                            
+                                            return $supplier !== null ? "From: {$supplier->name}" : null;
+                                        }),
                                     TextInput::make('line_total')
                                         ->label('Total')
                                         ->columnSpan(2)
@@ -221,11 +236,11 @@ final class BuyerOrdersRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('order_number')
                     ->label('Order #')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('buyer.name')
                     ->label('Buyer')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('buyerQuote.quote_number')
                     ->label('Source Quote')
@@ -288,8 +303,17 @@ final class BuyerOrdersRelationManager extends RelationManager
                                     ),
                                 ])
                                 ->all())
+                            ->default(function () use ($request): ?int {
+                                $acceptedQuote = BuyerQuote::query()
+                                    ->where('request_id', $request->getKey())
+                                    ->where('status', BuyerQuoteStatus::ACCEPTED)
+                                    ->first();
+                                
+                                return $acceptedQuote?->getKey();
+                            })
+                            ->selectablePlaceholder(false)
                             ->required()
-                            ->searchable()
+                            
                             ->helperText('Only accepted quotes can be converted to orders.'),
                     ])
                     ->action(function (array $data) use ($request): void {
@@ -386,7 +410,9 @@ final class BuyerOrdersRelationManager extends RelationManager
                                     $record->team,
                                     new BuyerOrderToBuyerMail($record),
                                     $buyerEmail,
-                                    $settings->email_template_buyer_order
+                                    $settings->email_template_buyer_order, // Old system fallback
+                                    $settings->email_template_buyer_order_id ?? null, // New system
+                                    \App\Models\EmailTemplate::TYPE_BUYER_ORDER
                                 );
 
                                 Notification::make()
@@ -450,7 +476,9 @@ final class BuyerOrdersRelationManager extends RelationManager
                                     $record->team,
                                     new BuyerOrderToBuyerMail($record),
                                     $buyerEmail,
-                                    $settings->email_template_buyer_order
+                                    $settings->email_template_buyer_order, // Old system fallback
+                                    $settings->email_template_buyer_order_id ?? null, // New system
+                                    \App\Models\EmailTemplate::TYPE_BUYER_ORDER
                                 );
 
                                 Notification::make()

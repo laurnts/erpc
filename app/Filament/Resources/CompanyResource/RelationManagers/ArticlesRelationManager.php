@@ -50,7 +50,7 @@ final class ArticlesRelationManager extends RelationManager
                 Select::make('last_quoted_currency_id')
                     ->label('Currency')
                     ->options(fn () => Currency::query()->where('is_active', true)->pluck('code', 'id')->all())
-                    ->searchable()
+                    
                     ->preload(),
                 DateTimePicker::make('last_quoted_at')
                     ->label('Last Quoted At'),
@@ -80,11 +80,11 @@ final class ArticlesRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('code')
                     ->label('Code')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('name')
                     ->label('Article Name')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('supplier_sku')
                     ->label('Supplier SKU')
@@ -195,7 +195,7 @@ final class ArticlesRelationManager extends RelationManager
             Select::make('last_quoted_currency_id')
                 ->label('Currency')
                 ->options(fn () => Currency::query()->where('is_active', true)->pluck('code', 'id')->all())
-                ->searchable()
+                
                 ->preload(),
             DateTimePicker::make('last_quoted_at')
                 ->label('Last Quoted At'),

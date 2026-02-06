@@ -182,8 +182,8 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
                     ->whereIn('request_item_id', $quoteSelections[$quote->getKey()])
                     ->update(['is_selected' => true]);
             } elseif ($quote->status === SupplierQuoteStatus::SELECTED) {
-                // Quote was selected but no longer has selections, mark as pending
-                $quote->status = SupplierQuoteStatus::PENDING;
+                // Quote was selected but no longer has selections, mark as received
+                $quote->status = SupplierQuoteStatus::RECEIVED;
                 $quote->save();
             }
         }
@@ -206,7 +206,7 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
     public function quotes(): Collection
     {
         return $this->request->supplierQuotes()
-            ->whereIn('status', [SupplierQuoteStatus::PENDING, SupplierQuoteStatus::SELECTED])
+            ->whereIn('status', [SupplierQuoteStatus::RECEIVED, SupplierQuoteStatus::SELECTED])
             ->with(['supplier', 'currency', 'items.requestItem'])
             ->orderBy('total_base')
             ->get();

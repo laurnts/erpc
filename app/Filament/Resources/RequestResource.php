@@ -75,8 +75,10 @@ final class RequestResource extends Resource
                 )
                 ->required()
                 ->preload()
-                ->searchable()
+                
+                ->selectablePlaceholder(false)
                 ->live()
+                ->searchable()
                 ->afterStateUpdated(fn ($set) => $set('project_id', null))
                 ->createOptionForm(BuyerResource::getFormSchema(excludePeopleField: true))
                 ->createOptionAction(fn (Action $action): \Filament\Actions\Action => $action->slideOver())
@@ -109,12 +111,14 @@ final class RequestResource extends Resource
                 ->options(RequestStage::class)
                 ->default(RequestStage::DRAFT)
                 ->required()
+                ->selectablePlaceholder(false)
                 ->native(false);
         }
         $requestDetailsSchema[] = Select::make('priority')
             ->options(RequestPriority::class)
             ->default(RequestPriority::NORMAL)
             ->required()
+            ->selectablePlaceholder(false)
             ->native(false);
 
         $fields = array_merge($fields, [
@@ -156,7 +160,8 @@ final class RequestResource extends Resource
                 )
                 ->nullable()
                 ->preload()
-                ->searchable()
+                
+                ->selectablePlaceholder(false)
                 ->helperText('Optional: Group this request under a project (filtered by selected buyer)')
                 ->disabled(fn ($get): bool => empty($get('buyer_id')))
                 ->createOptionForm(ProjectResource::getFormSchema(excludeBuyerField: true))
@@ -200,17 +205,17 @@ final class RequestResource extends Resource
             ->columns([
                 TextColumn::make('request_number')
                     ->label('Request #')
-                    ->searchable()
+                    
                     ->sortable()
                     ->copyable()
                     ->weight('bold'),
                 TextColumn::make('buyer.name')
                     ->label('Buyer')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('project.name')
                     ->label('Project')
-                    ->searchable()
+                    
                     ->sortable()
                     ->toggleable()
                     ->toggledHiddenByDefault(),
@@ -266,12 +271,12 @@ final class RequestResource extends Resource
                     ->relationship('buyer', 'name', fn ($query) => $query->where('is_buyer', true))
                     ->label('Buyer')
                     ->preload()
-                    ->searchable(),
+                    ,
                 SelectFilter::make('project_id')
                     ->relationship('project', 'name')
                     ->label('Project')
                     ->preload()
-                    ->searchable(),
+                    ,
                 SelectFilter::make('is_active')
                     ->label('Status')
                     ->options([

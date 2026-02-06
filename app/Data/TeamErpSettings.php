@@ -78,7 +78,14 @@ final class TeamErpSettings extends Data
         #[Max(10)]
         public ?string $smtp_encryption = null, // 'tls', 'ssl', or null
 
-        // Email Templates (stored as arrays with content, sender_email, cc_emails, bcc_emails)
+        // Email Templates - New system (template IDs)
+        public ?int $email_template_buyer_quote_id = null,
+        public ?int $email_template_buyer_order_id = null,
+        public ?int $email_template_supplier_order_id = null,
+        public ?int $email_template_delivery_order_id = null,
+
+        // Email Templates - Old system (stored as arrays with content, sender_email, cc_emails, bcc_emails)
+        // Kept for backward compatibility during migration
         /** @var array{content: string, sender_email?: string|null, cc_emails?: string[], bcc_emails?: string[]}|null */
         public ?array $email_template_buyer_quote = null,
         /** @var array{content: string, sender_email?: string|null, cc_emails?: string[], bcc_emails?: string[]}|null */

@@ -94,8 +94,9 @@ final class SupplierOrdersRelationManager extends RelationManager
                                                 $supplier->getKey() => "[{$supplier->code}] {$supplier->name}",
                                             ])
                                     )
-                                    ->searchable()
+                                    
                                     ->required()
+                                    ->selectablePlaceholder(false)
                                     ->live()
                                     ->afterStateUpdated(function (Set $set, Get $get): void {
                                         // Check if supplier is taxable
@@ -146,7 +147,8 @@ final class SupplierOrdersRelationManager extends RelationManager
                                             $quote->getKey() => "[{$quote->quote_number}] {$quote->supplier->name}",
                                         ])
                                         ->all())
-                                    ->searchable()
+                                    
+                                    ->selectablePlaceholder(false)
                                     ->live()
                                     ->afterStateUpdated(function (Set $set, ?int $state): void {
                                         if ($state === null) {
@@ -164,7 +166,8 @@ final class SupplierOrdersRelationManager extends RelationManager
                                 Select::make('status')
                                     ->options(OrderStatus::class)
                                     ->default(OrderStatus::DRAFT)
-                                    ->required(),
+                                    ->required()
+                                    ->selectablePlaceholder(false),
                             ]),
                         Grid::make(3)
                             ->schema([
@@ -186,8 +189,9 @@ final class SupplierOrdersRelationManager extends RelationManager
 
                                         return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
                                     })
-                                    ->searchable()
-                                    ->required(),
+                                    
+                                    ->required()
+                                    ->selectablePlaceholder(false),
                                 TextInput::make('exchange_rate')
                                     ->label('Exchange Rate')
                                     ->numeric()
@@ -229,7 +233,8 @@ final class SupplierOrdersRelationManager extends RelationManager
                                                     $item->getKey() => $item->display_text,
                                                 ])
                                                 ->all())
-                                            ->searchable()
+                                            
+                                            ->selectablePlaceholder(false)
                                             ->columnSpan(4)
                                             ->live()
                                             ->afterStateUpdated(function (Set $set, ?int $state) use ($request): void {
@@ -269,8 +274,9 @@ final class SupplierOrdersRelationManager extends RelationManager
                                         Select::make('unit_of_measure_id')
                                             ->label('Unit')
                                             ->relationship('unitOfMeasure', 'label', fn ($query) => $query->where('team_id', $request->team_id)->where('is_active', true))
-                                            ->searchable()
+                                            
                                             ->preload()
+                                            ->selectablePlaceholder(false)
                                             ->default(fn (): ?int => UnitOfMeasure::query()
                                                 ->where('team_id', $request->team_id)
                                                 ->where('code', 'pcs')
@@ -305,7 +311,8 @@ final class SupplierOrdersRelationManager extends RelationManager
                                                 ->where('is_default', true)
                                                 ->where('is_active', true)
                                                 ->value('id'))
-                                            ->searchable()
+                                            
+                                            ->selectablePlaceholder(false)
                                             ->columnSpan(3)
                                             ->live()
                                             ->visible(fn (Get $get): bool => $this->isSupplierTaxable($get))
@@ -462,11 +469,11 @@ final class SupplierOrdersRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('po_number')
                     ->label('PO #')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('supplier.name')
                     ->label('Supplier')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('supplierQuote.quote_number')
                     ->label('From Quote')
@@ -524,42 +531,6 @@ final class SupplierOrdersRelationManager extends RelationManager
                         ->all()),
             ])
             ->headerActions([
-                Action::make('createFromQuote')
-                    ->label('Create from Quote')
-                    ->icon('heroicon-o-document-duplicate')
-                    ->color('success')
-                    ->size(Size::Small)
-                    ->form([
-                        Select::make('supplier_quote_id')
-                            ->label('Select Quote')
-                            ->options(function (): array {
-                                /** @var Request $request */
-                                $request = $this->getOwnerRecord();
-
-                                return SupplierQuote::query()
-                                    ->where('request_id', $request->getKey())
-                                    ->where('status', SupplierQuoteStatus::SELECTED)
-                                    ->with('supplier')
-                                    ->get()
-                                    ->mapWithKeys(fn (SupplierQuote $quote): array => [
-                                        $quote->getKey() => "[{$quote->quote_number}] {$quote->supplier->name} - ".number_format((float) $quote->total, 2),
-                                    ])
-                                    ->all();
-                            })
-                            ->required()
-                            ->searchable()
-                            ->helperText('Select a quote to create a purchase order from'),
-                    ])
-                    ->action(function (array $data): void {
-                        $quote = SupplierQuote::with('items')->findOrFail($data['supplier_quote_id']);
-                        $order = SupplierOrder::createFromQuote($quote);
-
-                        Notification::make()
-                            ->title('Purchase order created')
-                            ->body("PO #{$order->po_number} created from quote #{$quote->quote_number}")
-                            ->success()
-                            ->send();
-                    }),
                 Action::make('createFromBuyerOrder')
                     ->label('Create from Buyer Order')
                     ->icon('heroicon-o-shopping-cart')
@@ -577,7 +548,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                         $buyerOrder = BuyerOrder::query()
                             ->where('request_id', $request->getKey())
                             ->where('status', OrderStatus::CONFIRMED)
-                            ->with(['items.buyerQuoteItem.supplierQuoteItem', 'items.requestItem.supplier', 'items.unitOfMeasure'])
+                            ->with(['items.buyerQuoteItem.supplierQuoteItem.supplierQuote.supplier', 'items.requestItem.supplier', 'items.unitOfMeasure'])
                             ->first();
 
                         if ($buyerOrder === null) {
@@ -593,17 +564,26 @@ final class SupplierOrdersRelationManager extends RelationManager
                         foreach ($buyerOrder->items as $buyerOrderItem) {
                             /** @var \App\Models\BuyerOrderItem $buyerOrderItem */
                             $requestItem = $buyerOrderItem->requestItem;
-                            if ($requestItem === null) {
+                            
+                            // Try to get supplier from request item first
+                            $supplier = null;
+                            $supplierId = null;
+                            
+                            if ($requestItem !== null && $requestItem->supplier_id !== null) {
+                                $supplier = $requestItem->supplier;
+                                $supplierId = $requestItem->supplier_id;
+                            } elseif ($buyerOrderItem->buyerQuoteItem?->supplierQuoteItem?->supplierQuote?->supplier !== null) {
+                                // Fallback to supplier from quote chain
+                                $supplier = $buyerOrderItem->buyerQuoteItem->supplierQuoteItem->supplierQuote->supplier;
+                                $supplierId = $supplier->getKey();
+                            }
+                            
+                            if ($supplierId === null || $supplier === null) {
                                 continue;
                             }
-                            if ($requestItem->supplier_id === null) {
-                                continue;
-                            }
-
-                            $supplierId = $requestItem->supplier_id;
                             if (! isset($itemsBySupplier[$supplierId])) {
                                 $itemsBySupplier[$supplierId] = [
-                                    'supplier' => $requestItem->supplier,
+                                    'supplier' => $supplier,
                                     'items' => [],
                                     'total' => 0,
                                 ];
@@ -703,6 +683,11 @@ final class SupplierOrdersRelationManager extends RelationManager
                         // Add options section
                         $sections[] = \Filament\Schemas\Components\Section::make('Options')
                             ->schema([
+                                \Filament\Forms\Components\Textarea::make('notes')
+                                    ->label('Order Notes')
+                                    ->rows(3)
+                                    ->placeholder('Optional notes for the supplier orders')
+                                    ->helperText('These notes will be added to all created supplier orders'),
                                 \Filament\Forms\Components\Checkbox::make('confirm_and_send')
                                     ->label('Confirm and send to suppliers')
                                     ->helperText('Confirm orders and send PO emails to suppliers'),
@@ -728,7 +713,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                         $buyerOrder = BuyerOrder::query()
                             ->where('request_id', $request->getKey())
                             ->where('status', OrderStatus::CONFIRMED)
-                            ->with(['items.buyerQuoteItem.supplierQuoteItem', 'items.requestItem'])
+                            ->with(['items.buyerQuoteItem.supplierQuoteItem.supplierQuote.supplier', 'items.requestItem.supplier'])
                             ->first();
 
                         if ($buyerOrder === null) {
@@ -741,19 +726,25 @@ final class SupplierOrdersRelationManager extends RelationManager
                             return;
                         }
 
-                        // Group items by supplier from request items
+                        // Group items by supplier from request items or quote chain
                         $itemsBySupplier = [];
                         foreach ($buyerOrder->items as $buyerOrderItem) {
                             /** @var \App\Models\BuyerOrderItem $buyerOrderItem */
                             $requestItem = $buyerOrderItem->requestItem;
-                            if ($requestItem === null) {
+                            
+                            // Try to get supplier from request item first
+                            $supplierId = null;
+                            
+                            if ($requestItem !== null && $requestItem->supplier_id !== null) {
+                                $supplierId = $requestItem->supplier_id;
+                            } elseif ($buyerOrderItem->buyerQuoteItem?->supplierQuoteItem?->supplierQuote?->supplier !== null) {
+                                // Fallback to supplier from quote chain
+                                $supplierId = $buyerOrderItem->buyerQuoteItem->supplierQuoteItem->supplierQuote->supplier->getKey();
+                            }
+                            
+                            if ($supplierId === null) {
                                 continue;
                             }
-                            if ($requestItem->supplier_id === null) {
-                                continue;
-                            }
-
-                            $supplierId = $requestItem->supplier_id;
                             if (! isset($itemsBySupplier[$supplierId])) {
                                 $itemsBySupplier[$supplierId] = [];
                             }
@@ -771,6 +762,9 @@ final class SupplierOrdersRelationManager extends RelationManager
                         }
 
                         $ordersCreated = 0;
+                        $emailsSent = 0;
+                        $emailsFailed = 0;
+                        $noEmailAddress = 0;
 
                         // Create a supplier order for each supplier
                         foreach ($itemsBySupplier as $supplierId => $items) {
@@ -795,7 +789,15 @@ final class SupplierOrdersRelationManager extends RelationManager
                             $supplierOrder->supplier_id = $supplierId;
                             $supplierOrder->currency_id = $defaultCurrencyId;
                             $supplierOrder->exchange_rate = '1.00000000';
-                            $supplierOrder->notes = "Created from Buyer Order #{$buyerOrder->order_number}";
+                            
+                            // Set notes: use custom notes if provided, otherwise use default message
+                            $customNotes = trim($data['notes'] ?? '');
+                            if (!empty($customNotes)) {
+                                $supplierOrder->notes = $customNotes;
+                            } else {
+                                $supplierOrder->notes = "Created from Buyer Order #{$buyerOrder->order_number}";
+                            }
+                            
                             $supplierOrder->save();
 
                             // Add items for this supplier
@@ -857,8 +859,18 @@ final class SupplierOrdersRelationManager extends RelationManager
                                 $supplierOrder->markAsOrdered();
 
                                 // Send email to supplier
-                                $supplierEmail = $supplierOrder->supplier->email;
-                                if ($supplierEmail) {
+                                $supplierEmail = $supplierOrder->supplier->email ?? null;
+                                $supplierName = $supplierOrder->supplier->name ?? 'Supplier';
+                                
+                                if (empty($supplierEmail)) {
+                                    $noEmailAddress++;
+                                    // Log warning but don't fail the operation
+                                    \Illuminate\Support\Facades\Log::warning('Cannot send purchase order email - supplier has no email', [
+                                        'order_id' => $supplierOrder->id,
+                                        'supplier_id' => $supplierOrder->supplier_id,
+                                        'supplier_name' => $supplierName,
+                                    ]);
+                                } else {
                                     try {
                                         $emailService = app(EmailTemplateService::class);
                                         $settings = $supplierOrder->team->getErpSettings();
@@ -866,13 +878,19 @@ final class SupplierOrdersRelationManager extends RelationManager
                                             $supplierOrder->team,
                                             new PurchaseOrderToSupplierMail($supplierOrder),
                                             $supplierEmail,
-                                            $settings->email_template_supplier_order
+                                            $settings->email_template_supplier_order, // Old system fallback
+                                            $settings->email_template_supplier_order_id ?? null, // New system
+                                            \App\Models\EmailTemplate::TYPE_SUPPLIER_ORDER
                                         );
+                                        $emailsSent++;
                                     } catch (\Exception $e) {
+                                        $emailsFailed++;
                                         // Log error but don't fail the operation
                                         \Illuminate\Support\Facades\Log::error('Failed to send purchase order email', [
                                             'order_id' => $supplierOrder->id,
+                                            'supplier_email' => $supplierEmail,
                                             'error' => $e->getMessage(),
+                                            'trace' => $e->getTraceAsString(),
                                         ]);
                                     }
                                 }
@@ -882,13 +900,27 @@ final class SupplierOrdersRelationManager extends RelationManager
                         }
 
                         if ($ordersCreated > 0) {
-                            $statusText = ($data['confirm_and_send'] ?? false) ? ' and sent to suppliers' : '';
-
-                            Notification::make()
+                            $notification = Notification::make()
                                 ->title('Supplier orders created')
-                                ->body("{$ordersCreated} purchase order(s) created{$statusText} from Buyer Order #{$buyerOrder->order_number}")
-                                ->success()
-                                ->send();
+                                ->success();
+
+                            $bodyParts = ["{$ordersCreated} purchase order(s) created from Buyer Order #{$buyerOrder->order_number}"];
+                            
+                            if ($data['confirm_and_send'] ?? false) {
+                                if ($emailsSent > 0) {
+                                    $bodyParts[] = "{$emailsSent} email(s) sent successfully";
+                                }
+                                if ($noEmailAddress > 0) {
+                                    $bodyParts[] = "{$noEmailAddress} order(s) could not be sent (supplier has no email address)";
+                                    $notification->warning();
+                                }
+                                if ($emailsFailed > 0) {
+                                    $bodyParts[] = "{$emailsFailed} email(s) failed to send (check logs for details)";
+                                    $notification->warning();
+                                }
+                            }
+
+                            $notification->body(implode('. ', $bodyParts))->send();
                         } else {
                             Notification::make()
                                 ->title('No new orders created')

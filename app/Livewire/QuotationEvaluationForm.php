@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire;
 
+use App\Enums\CentralPurchasingRole;
 use App\Enums\SupplierQuoteStatus;
 use App\Filament\Resources\QuotationEvaluationResource;
 use App\Livewire\Concerns\AuthorizesLivewireActions;
@@ -25,6 +26,7 @@ use Filament\Schemas\Schema;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -119,17 +121,67 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
         );
 
         // Filter to only show key accounts assigned to handle this request's buyer
-        // Note: This requires key_account_buyers table to reference users instead of people
         if ($this->request->buyer_id) {
             $users = $users->filter(function ($user) {
-                // TODO: Implement buyer filtering when key_account_buyers table is updated
-                return true; // Temporary - allow all for now
+                // Check if this key account is assigned to handle the request's buyer via key_account_buyers table
+                return \Illuminate\Support\Facades\DB::table('key_account_buyers')
+                    ->where('key_account_id', $user->id)
+                    ->where('buyer_id', $this->request->buyer_id)
+                    ->exists();
             });
         }
 
         return $users
             ->mapWithKeys(fn (\App\Models\User $user): array => [$user->id => $user->name])
             ->toArray();
+    }
+
+    /**
+     * Get Dept Head of Sales options for select fields.
+     *
+     * @return array<int, string>
+     */
+    public function getDeptHeadSalesOptions(): array
+    {
+        /** @var \App\Models\Team $team */
+        $team = Filament::getTenant();
+
+        return \App\Services\TeamMemberService::getTeamMemberOptionsByRole(
+            $team,
+            CentralPurchasingRole::DEPT_HEAD_SALES
+        );
+    }
+
+    /**
+     * Get Deputy Director options for select fields.
+     *
+     * @return array<int, string>
+     */
+    public function getDeputyDirectorOptions(): array
+    {
+        /** @var \App\Models\Team $team */
+        $team = Filament::getTenant();
+
+        return \App\Services\TeamMemberService::getTeamMemberOptionsByRole(
+            $team,
+            CentralPurchasingRole::DEPUTY_DIRECTOR
+        );
+    }
+
+    /**
+     * Get Approved By (Director) options for select fields.
+     *
+     * @return array<int, string>
+     */
+    public function getApprovedByOptions(): array
+    {
+        /** @var \App\Models\Team $team */
+        $team = Filament::getTenant();
+
+        return \App\Services\TeamMemberService::getTeamMemberOptionsByRole(
+            $team,
+            CentralPurchasingRole::DIRECTOR
+        );
     }
 
     /**
@@ -305,7 +357,7 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
     {
         // Get all active quotes
         $quotes = $this->request->supplierQuotes()
-            ->whereIn('status', [SupplierQuoteStatus::PENDING, SupplierQuoteStatus::SELECTED])
+            ->whereIn('status', [SupplierQuoteStatus::RECEIVED, SupplierQuoteStatus::SELECTED])
             ->with(['supplier', 'currency', 'items.requestItem'])
             ->orderBy('total_base')
             ->get();

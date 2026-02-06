@@ -51,8 +51,9 @@ final class ExchangeRateResource extends Resource
                 )
                 ->getOptionLabelFromRecordUsing(fn (?Currency $record): string => $record instanceof \App\Models\Currency ? "{$record->code} - {$record->name}" : '')
                 ->required()
-                ->searchable()
+                
                 ->preload()
+                ->selectablePlaceholder(false)
                 ->live()
                 ->createOptionForm(CurrencyResource::getFormSchema(excludeDefaultField: true))
                 ->createOptionUsing(function (array $data): int {
@@ -70,8 +71,9 @@ final class ExchangeRateResource extends Resource
                 )
                 ->getOptionLabelFromRecordUsing(fn (?Currency $record): string => $record instanceof \App\Models\Currency ? "{$record->code} - {$record->name}" : '')
                 ->required()
-                ->searchable()
+                
                 ->preload()
+                ->selectablePlaceholder(false)
                 ->live()
                 ->different('from_currency_id')
                 ->createOptionForm(CurrencyResource::getFormSchema(excludeDefaultField: true))
@@ -144,12 +146,12 @@ final class ExchangeRateResource extends Resource
             ->columns([
                 TextColumn::make('fromCurrency.code')
                     ->label('From')
-                    ->searchable()
+                    
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('toCurrency.code')
                     ->label('To')
-                    ->searchable()
+                    
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('rate_preview')

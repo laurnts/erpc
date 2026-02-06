@@ -56,7 +56,7 @@ final class TaskResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('title')
-                    ->searchable()
+                    
                     ->wrap()
                     ->limit(50)
                     ->weight('medium'),
@@ -64,11 +64,11 @@ final class TaskResource extends Resource
                     ->label('Assignee')
                     ->badge()
                     ->color('primary')
-                    ->searchable()
+                    
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('creator.name')
                     ->label('Created By')
-                    ->searchable()
+                    
                     ->sortable()
                     ->toggleable()
                     ->getStateUsing(fn (Task $record): string => $record->createdBy)
@@ -88,7 +88,7 @@ final class TaskResource extends Resource
                     ->toggledHiddenByDefault(),
             ])
             ->defaultSort('created_at', 'desc')
-            ->searchable()
+            
             ->paginated([10, 25, 50])
             ->filters([
                 Filter::make('assigned_to_me')
@@ -100,7 +100,7 @@ final class TaskResource extends Resource
                 SelectFilter::make('assignees')
                     ->multiple()
                     ->relationship('assignees', 'name')
-                    ->searchable()
+                    
                     ->preload(),
                 SelectFilter::make('creation_source')
                     ->label('Creation Source')

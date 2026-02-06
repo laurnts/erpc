@@ -79,12 +79,12 @@ final class UnitOfMeasureResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('code')
-                    ->searchable()
+                    
                     ->sortable()
                     ->copyable()
                     ->weight('bold'),
                 TextColumn::make('label')
-                    ->searchable()
+                    
                     ->sortable(),
                 IconColumn::make('is_active')
                     ->label('Active')

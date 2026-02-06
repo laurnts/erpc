@@ -97,6 +97,7 @@ final class Settings extends Page implements HasForms
             ->schema([
                 Select::make('default_currency')
                     ->label('Default Currency')
+                    ->selectablePlaceholder(false)
                     ->options(fn (): array => Currency::query()
                         ->where('is_active', true)
                         ->orderBy('code')
@@ -106,7 +107,7 @@ final class Settings extends Page implements HasForms
                         ])
                         ->all()
                     )
-                    ->searchable()
+                    
                     ->required(),
                 TextInput::make('quote_validity_days')
                     ->label('Quote Validity (Days)')

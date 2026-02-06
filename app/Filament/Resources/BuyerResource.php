@@ -88,7 +88,6 @@ final class BuyerResource extends Resource
                 ->relationship('tags', 'name')
                 ->multiple()
                 ->preload()
-                ->searchable()
                 ->createOptionForm(TagResource::getFormSchema())
                 ->createOptionUsing(function (array $data): int {
                     /** @var \App\Models\Team $team */
@@ -114,7 +113,7 @@ final class BuyerResource extends Resource
                 ->relationship('people', 'name')
                 ->multiple()
                 ->preload()
-                ->searchable()
+                
                 ->helperText('Add people associated with this buyer')
                 ->createOptionForm(PeopleResource::getFormSchema(excludeCompaniesField: true))
                 ->createOptionUsing(function (array $data): int {
@@ -137,8 +136,7 @@ final class BuyerResource extends Resource
                 ->schema([
                     Select::make('country')
                         ->options(self::getCountryOptions())
-                        ->default('Indonesia')
-                        ->searchable(),
+                        ->default('Indonesia'),
                     Textarea::make('address')
                         ->label('Address')
                         ->rows(2),
@@ -162,7 +160,7 @@ final class BuyerResource extends Resource
                             return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
                         })
                         ->nullable()
-                        ->searchable()
+                        
                         ->preload()
                         ->createOptionForm(CurrencyResource::getFormSchema(excludeDefaultField: true))
                         ->createOptionUsing(function (array $data): int {
@@ -182,7 +180,7 @@ final class BuyerResource extends Resource
                         ->label('Account Owner')
                         ->nullable()
                         ->preload()
-                        ->searchable(),
+                        ,
                 ])
                 ->columns(1),
             Section::make('Credit Settings')
@@ -277,10 +275,10 @@ final class BuyerResource extends Resource
                 ImageColumn::make('logo')->label('')->imageSize(28)->square(),
                 TextColumn::make('code')
                     ->label('Code')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('name')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('people_count')
                     ->label('Contacts')
@@ -288,7 +286,7 @@ final class BuyerResource extends Resource
                     ->sortable()
                     ->toggleable(),
                 TextColumn::make('country')
-                    ->searchable()
+                    
                     ->sortable()
                     ->toggleable(),
                 TextColumn::make('credit_limit')
@@ -335,7 +333,7 @@ final class BuyerResource extends Resource
                     ]),
                 SelectFilter::make('country')
                     ->label('Country')
-                    ->searchable()
+                    
                     ->preload()
                     ->options(fn () => Company::query()
                         ->where('is_buyer', true)

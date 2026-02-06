@@ -83,9 +83,10 @@ final class ItemsRelationManager extends RelationManager
                                 $unit->getKey() => $unit->label,
                             ])
                             ->toArray())
-                    ->searchable()
+                    
                     ->preload()
                     ->required()
+                    ->selectablePlaceholder(false)
                     ->default(fn (): ?int => UnitOfMeasure::query()
                         ->where('team_id', $request->team_id)
                         ->where('code', 'pcs')
@@ -122,8 +123,10 @@ final class ItemsRelationManager extends RelationManager
                                 $article->getKey() => "[{$article->code}] {$article->name}",
                             ])
                             ->toArray())
-                    ->searchable()
+                    
                     ->preload()
+                    ->searchable()
+                    ->selectablePlaceholder(false)
                     ->placeholder('Select article...')
                     ->helperText('Quotes will be sent to all suppliers of this article. Use + to create a new article.')
                     ->createOptionForm(\App\Filament\Resources\ArticleResource::getFormSchema(forModal: true))
@@ -189,7 +192,7 @@ final class ItemsRelationManager extends RelationManager
             ->defaultSort('sort_order')
             ->columns([
                 TextColumn::make('description')
-                    ->searchable()
+                    
                     ->limit(50)
                     ->tooltip(fn (RequestItem $record): ?string => $record->description),
                 TextColumn::make('article.code')

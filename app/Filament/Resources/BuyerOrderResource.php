@@ -44,17 +44,17 @@ final class BuyerOrderResource extends Resource
             ->columns([
                 TextColumn::make('order_number')
                     ->label('Order #')
-                    ->searchable()
+                    
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('request.request_number')
                     ->label('Request')
-                    ->searchable()
+                    
                     ->sortable()
                     ->url(fn (BuyerOrder $record): string => RequestResource::getUrl('view', ['record' => $record->request_id])),
                 TextColumn::make('buyer.name')
                     ->label('Buyer')
-                    ->searchable()
+                    
                     ->sortable(),
                 TextColumn::make('buyerQuote.quote_number')
                     ->label('From Quote')
@@ -65,7 +65,7 @@ final class BuyerOrderResource extends Resource
                     ->sortable(),
                 TextColumn::make('total')
                     ->label('Total')
-                    ->formatStateUsing(fn (BuyerOrder $record): string => $record->currency?->format($record->total) ?? number_format($record->total, 2))
+                    ->formatStateUsing(fn (BuyerOrder $record): string => $record->currency?->format($record->total) ?? number_format((float) $record->total, 2))
                     ->sortable(),
                 TextColumn::make('payment_terms_days')
                     ->label('Terms')
@@ -103,12 +103,12 @@ final class BuyerOrderResource extends Resource
                     ->relationship('buyer', 'name', fn ($query) => $query->where('is_buyer', true))
                     ->label('Buyer')
                     ->preload()
-                    ->searchable(),
+                    ,
                 SelectFilter::make('request_id')
                     ->relationship('request', 'request_number')
                     ->label('Request')
                     ->preload()
-                    ->searchable(),
+                    ,
                 TrashedFilter::make(),
             ])
             ->recordUrl(fn (BuyerOrder $record): string => RequestResource::getUrl('view', ['record' => $record->request_id]))

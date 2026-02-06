@@ -21,13 +21,13 @@ final class OpportunityForm
                     ->columnSpanFull(),
                 Select::make('company_id')
                     ->relationship('company', 'name')
-                    ->searchable()
+                    
                     ->preload()
                     ->required()
                     ->columnSpan(2),
                 Select::make('contact_id')
                     ->relationship('contact', 'name')
-                    ->searchable()
+                    
                     ->preload()
                     ->columnSpan(2),
                 CustomFields::form()->forSchema($schema)->build()->columnSpanFull(),
