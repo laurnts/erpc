@@ -6,7 +6,6 @@ namespace App\Filament\Resources\BuyerCreditLimitOverviewResource\Pages;
 
 use App\Filament\Resources\BuyerCreditLimitOverviewResource;
 use App\Models\Company;
-use Filament\Actions\EditAction;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Resources\Pages\ViewRecord;
@@ -22,9 +21,7 @@ final class ViewBuyerCreditLimit extends ViewRecord
 
     protected function getHeaderActions(): array
     {
-        return [
-            EditAction::make(),
-        ];
+        return [];
     }
 
     public function infolist(Schema $schema): Schema
