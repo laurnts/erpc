@@ -166,6 +166,7 @@ final class ProfitAndLossResource extends Resource
         $team = Filament::getTenant();
 
         return parent::getEloquentQuery()
-            ->where('team_id', $team?->getKey());
+            ->where('team_id', $team?->getKey())
+            ->with(['preparedBy', 'deptHeadSales', 'deputyDirector', 'approvedBy']);
     }
 }

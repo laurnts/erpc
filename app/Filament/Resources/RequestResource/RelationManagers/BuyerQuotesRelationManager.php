@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Filament\Resources\RequestResource\RelationManagers;
 
 use App\Enums\BuyerQuoteStatus;
+use App\Enums\CentralPurchasingRole;
 use App\Enums\PrepaymentType;
 use App\Enums\RequestStage;
 use App\Enums\SupplierQuoteStatus;
 use App\Filament\Actions\DownloadPdfAction;
+use App\Filament\Forms\Components\KeyAccountSelect;
 use App\Filament\Resources\ProfitAndLossResource;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Models\BuyerQuote;
@@ -1070,38 +1072,34 @@ final class BuyerQuotesRelationManager extends RelationManager
                         Section::make('Central Purchasing')
                             ->description('Approval workflow personnel')
                             ->schema([
-                                Select::make('prepared_by_id')
-                                    ->label('Prepared By')
-                                    ->options(fn (): array => TeamMemberService::getTeamMemberOptionsByRole(
-                                        Filament::getTenant(),
-                                        \App\Enums\CentralPurchasingRole::KEY_ACCOUNT
-                                    ))
-                                    
-                                    ->selectablePlaceholder(false),
-                                Select::make('dept_head_sales_id')
-                                    ->label('Dept Head of Sales')
-                                    ->options(fn (): array => TeamMemberService::getTeamMemberOptionsByRole(
-                                        Filament::getTenant(),
-                                        \App\Enums\CentralPurchasingRole::DEPT_HEAD_SALES
-                                    ))
-                                    
-                                    ->selectablePlaceholder(false),
-                                Select::make('deputy_director_id')
-                                    ->label('Deputy Director')
-                                    ->options(fn (): array => TeamMemberService::getTeamMemberOptionsByRole(
-                                        Filament::getTenant(),
-                                        \App\Enums\CentralPurchasingRole::DEPUTY_DIRECTOR
-                                    ))
-                                    
-                                    ->selectablePlaceholder(false),
-                                Select::make('approved_by_id')
-                                    ->label('Approved By')
-                                    ->options(fn (): array => TeamMemberService::getTeamMemberOptionsByRole(
-                                        Filament::getTenant(),
-                                        \App\Enums\CentralPurchasingRole::DIRECTOR
-                                    ))
-                                    
-                                    ->selectablePlaceholder(false),
+                                KeyAccountSelect::makeWithRelationship(
+                                    'prepared_by_id',
+                                    'Prepared By',
+                                    'preparedBy',
+                                    CentralPurchasingRole::KEY_ACCOUNT,
+                                    fn () => $request->buyer_id
+                                ),
+                                KeyAccountSelect::makeWithRelationship(
+                                    'dept_head_sales_id',
+                                    'Dept Head of Sales',
+                                    'deptHeadSales',
+                                    CentralPurchasingRole::DEPT_HEAD_SALES,
+                                    null
+                                ),
+                                KeyAccountSelect::makeWithRelationship(
+                                    'deputy_director_id',
+                                    'Deputy Director',
+                                    'deputyDirector',
+                                    CentralPurchasingRole::DEPUTY_DIRECTOR,
+                                    null
+                                ),
+                                KeyAccountSelect::makeWithRelationship(
+                                    'approved_by_id',
+                                    'Approved By',
+                                    'approvedBy',
+                                    CentralPurchasingRole::DIRECTOR,
+                                    null
+                                ),
                             ])
                             ->columns(2),
                     ])

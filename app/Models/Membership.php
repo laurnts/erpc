@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\CentralPurchasingRole;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Laravel\Jetstream\Jetstream;
 use Laravel\Jetstream\Membership as JetstreamMembership;
 
@@ -45,6 +46,27 @@ final class Membership extends JetstreamMembership
     public function team(): BelongsTo
     {
         return $this->belongsTo(Team::class);
+    }
+
+    /**
+     * Buyers assigned to this key account team member.
+     * Uses user_id from Membership to match key_account_id in pivot table.
+     *
+     * @return BelongsToMany<Company, $this>
+     */
+    public function buyers(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Company::class,
+            'key_account_buyers',
+            'key_account_id', // Column in pivot table that references users.id
+            'buyer_id', // Column in pivot table that references companies.id
+            'user_id', // Column on Membership (this model) to match key_account_id
+            'id' // Column on Company to match buyer_id
+        )
+            ->where('companies.is_buyer', true)
+            ->where('companies.team_id', $this->team_id)
+            ->withTimestamps();
     }
 
     public function getRoleNameAttribute(): string

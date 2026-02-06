@@ -41,29 +41,98 @@ final class KeyAccountSelect
         /** @var \App\Models\Team $team */
         $team = Filament::getTenant();
 
+        // Build base query for relationship (without buyer filtering for validation)
+        $baseQuery = User::query()
+            ->whereHas('teams', function ($q) use ($team, $role) {
+                $q->where('teams.id', $team->id)
+                    ->where('team_user.role', 'central_purchasing')
+                    ->where('team_user.central_purchasing_role', $role->value);
+            });
+
         return Select::make($name)
             ->label($label)
-            ->relationship(
-                $relationshipName,
-                'name',
-                modifyQueryUsing: function ($query) use ($team, $role, $buyerId) {
-                    // Query Users who are team members with the specified Central Purchasing role
-                    $query->whereHas('teams', function ($q) use ($team, $role) {
-                        $q->where('teams.id', $team->id)
+            ->options(function ($get, $livewire) use ($team, $role, $buyerId, $name, $relationshipName) {
+                // Build query from scratch to avoid Filament's relationship query constraints
+                $currentValue = null;
+                if ($livewire && isset($livewire->record) && $livewire->record) {
+                    $currentValue = $livewire->record->getAttribute($name);
+                } elseif ($livewire && isset($livewire->data[$name])) {
+                    $currentValue = $livewire->data[$name];
+                }
+                
+                $query = User::query();
+                
+                // Base query: ONLY users who are team members with the specified Central Purchasing role
+                $query->whereHas('teams', function ($q) use ($team, $role) {
+                    $q->where('teams.id', $team->id)
+                        ->where('team_user.role', 'central_purchasing')
+                        ->where('team_user.central_purchasing_role', $role->value);
+                });
+                
+                // Filter by buyer assignment ONLY for Key Account role
+                if ($buyerId !== null && $role === CentralPurchasingRole::KEY_ACCOUNT) {
+                    $resolvedBuyerId = null;
+                    
+                    if ($livewire && isset($livewire->record) && $livewire->record) {
+                        if (!$livewire->record->relationLoaded('request')) {
+                            $livewire->record->load('request');
+                        }
+                        
+                        if ($livewire->record->request && $livewire->record->request->buyer_id) {
+                            $resolvedBuyerId = $livewire->record->request->buyer_id;
+                        } elseif ($livewire->record->request_id) {
+                            $request = \App\Models\Request::find($livewire->record->request_id);
+                            $resolvedBuyerId = $request?->buyer_id;
+                        } elseif (is_callable($buyerId)) {
+                            try {
+                                $resolvedBuyerId = $buyerId($livewire);
+                            } catch (\Exception $e) {
+                                $resolvedBuyerId = null;
+                            }
+                        }
+                    } elseif (is_callable($buyerId)) {
+                        try {
+                            $resolvedBuyerId = $buyerId($livewire);
+                        } catch (\Exception $e) {
+                            $resolvedBuyerId = null;
+                        }
+                    } else {
+                        $resolvedBuyerId = $buyerId;
+                    }
+                    
+                    if ($resolvedBuyerId !== null) {
+                        // Only show key accounts assigned to this buyer
+                        $query->whereExists(function ($subQuery) use ($resolvedBuyerId) {
+                            $subQuery->select(\Illuminate\Support\Facades\DB::raw(1))
+                                ->from('key_account_buyers')
+                                ->whereColumn('key_account_buyers.key_account_id', 'users.id')
+                                ->where('key_account_buyers.buyer_id', $resolvedBuyerId);
+                        });
+                    }
+                }
+                
+                return $query->pluck('name', 'id')->toArray();
+            })
+            // REMOVED ->relationship() because Filament ignores ->options() when both are present
+            // When prepared_by_id is NULL, Filament doesn't call modifyQueryUsing, so no options are loaded
+            // Using only ->options() ensures it's always called
+            // Filament will save directly to the model attribute (e.g., prepared_by_id)
+            // The BelongsTo relationship on the model will handle the relationship binding automatically
+            ->rules([
+                \Illuminate\Validation\Rule::exists('users', 'id')->where(function ($query) use ($team, $role) {
+                    return $query->whereExists(function ($subQuery) use ($team, $role) {
+                        $subQuery->select(\Illuminate\Support\Facades\DB::raw(1))
+                            ->from('team_user')
+                            ->whereColumn('team_user.user_id', 'users.id')
+                            ->where('team_user.team_id', $team->id)
                             ->where('team_user.role', 'central_purchasing')
                             ->where('team_user.central_purchasing_role', $role->value);
                     });
-
-                    // TODO: Filter by buyer assignment when key_account_buyers table is updated to reference users
-                    // For now, buyer filtering is disabled since the relationship still references people
-
-                    return $query;
-                }
-            )
-            
-            ->preload()
+                }),
+            ])
             ->selectablePlaceholder(false)
             ->nullable()
+            ->searchable()
             ->createOptionForm([
                 \Filament\Forms\Components\TextInput::make('name')
                     ->required()
@@ -88,16 +157,6 @@ final class KeyAccountSelect
                 ]);
 
                 return $user->id;
-            })
-            ->editOptionForm([
-                \Filament\Forms\Components\TextInput::make('name')
-                    ->required()
-                    ->maxLength(255),
-                \Filament\Forms\Components\TextInput::make('email')
-                    ->email()
-                    ->required()
-                    ->unique(User::class, ignorable: fn ($record) => $record),
-            ])
-            ->editOptionAction(fn ($action) => $action->modalHeading('Edit Central Purchasing Personnel'));
+            });
     }
 }

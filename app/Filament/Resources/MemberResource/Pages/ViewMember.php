@@ -6,6 +6,7 @@ namespace App\Filament\Resources\MemberResource\Pages;
 
 use App\Enums\CentralPurchasingRole;
 use App\Filament\Resources\MemberResource;
+use App\Filament\Resources\MemberResource\RelationManagers\BuyersRelationManager;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
@@ -252,5 +253,20 @@ final class ViewMember extends ViewRecord
                         ->grow(false),
                 ])->columnSpan('full'),
             ]);
+    }
+
+    public function getRelationManagers(): array
+    {
+        $membership = $this->getRecord();
+        
+        $managers = [];
+        
+        // Only show Buyers relation manager for Key Account role
+        if ($membership->role === 'central_purchasing' && 
+            $membership->central_purchasing_role === CentralPurchasingRole::KEY_ACCOUNT) {
+            $managers[] = BuyersRelationManager::class;
+        }
+        
+        return $managers;
     }
 }

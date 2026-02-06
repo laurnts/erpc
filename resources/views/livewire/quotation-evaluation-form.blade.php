@@ -136,7 +136,7 @@
                             <x-filament::input.wrapper>
                                 <x-filament::input.select wire:model="deptHeadSalesId">
                                     <option value="">Select key account...</option>
-                                    @foreach($this->getKeyAccountOptions() as $id => $name)
+                                    @foreach($this->getDeptHeadSalesOptions() as $id => $name)
                                         <option value="{{ $id }}">{{ $name }}</option>
                                     @endforeach
                                 </x-filament::input.select>
@@ -153,7 +153,7 @@
                             <x-filament::input.wrapper>
                                 <x-filament::input.select wire:model="deputyDirectorId">
                                     <option value="">Select key account...</option>
-                                    @foreach($this->getKeyAccountOptions() as $id => $name)
+                                    @foreach($this->getDeputyDirectorOptions() as $id => $name)
                                         <option value="{{ $id }}">{{ $name }}</option>
                                     @endforeach
                                 </x-filament::input.select>
@@ -170,7 +170,7 @@
                             <x-filament::input.wrapper>
                                 <x-filament::input.select wire:model="approvedById">
                                     <option value="">Select key account...</option>
-                                    @foreach($this->getKeyAccountOptions() as $id => $name)
+                                    @foreach($this->getApprovedByOptions() as $id => $name)
                                         <option value="{{ $id }}">{{ $name }}</option>
                                     @endforeach
                                 </x-filament::input.select>

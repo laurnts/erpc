@@ -125,6 +125,7 @@ final class ItemsRelationManager extends RelationManager
                             ->toArray())
                     
                     ->preload()
+                    ->searchable()
                     ->selectablePlaceholder(false)
                     ->placeholder('Select article...')
                     ->helperText('Quotes will be sent to all suppliers of this article. Use + to create a new article.')
