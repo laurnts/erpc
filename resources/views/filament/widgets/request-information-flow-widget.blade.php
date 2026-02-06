@@ -158,19 +158,6 @@
                 <span>Information Flow</span>
             </div>
         </x-slot>
-        <x-slot name="description">
-            Guide for using this tab
-        </x-slot>
-        
-        <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-            <div class="text-sm">
-                <strong>Debug Info:</strong>
-                <div class="mt-1">Active Tab: <code class="bg-white dark:bg-gray-800 px-2 py-1 rounded" x-text="activeTab || 'None'"></code></div>
-                <div class="mt-1">Content Found: <code class="bg-white dark:bg-gray-800 px-2 py-1 rounded" x-text="content ? 'Yes' : 'No'"></code></div>
-                <div class="mt-1">Has Content: <code class="bg-white dark:bg-gray-800 px-2 py-1 rounded" x-text="hasContent() ? 'Yes' : 'No'"></code></div>
-                <div class="mt-1">Available Keys: <code class="bg-white dark:bg-gray-800 px-2 py-1 rounded text-xs" x-text="Object.keys(flowTexts).join(', ')"></code></div>
-            </div>
-        </div>
         
         <div x-show="hasContent()" class="prose prose-sm max-w-none dark:prose-invert" x-html="content"></div>
         <div x-show="!hasContent()" class="text-gray-500 dark:text-gray-400 text-sm">

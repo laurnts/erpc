@@ -97,13 +97,8 @@ final class RequestInformationFlowWidget extends Widget
     {
         return <<<'MARKDOWN'
 **Step 1: Requested Items**
-
-1. **Add Items**: Click "+ New item" to add items requested by the buyer
-2. **Match to Articles**: For each item, select or create an article to match it with your product catalog
-3. **Set Quantities**: Enter the quantity and unit of measure for each item
-4. **Complete Matching**: Ensure all items are matched (green checkmark) before proceeding to Supplier Quotes
-
-**Note**: All items must be matched to articles before you can request quotes from suppliers.
+Add items requested by the buyer to the request. All listed items must be matched to articles before you can request quotes from suppliers.
+Click on send send to suppliers to request quotes from suppliers.
 MARKDOWN;
     }
 
@@ -114,14 +109,10 @@ MARKDOWN;
     {
         return <<<'MARKDOWN'
 **Step 2: Supplier Quotes**
-
-1. **Generate Quotes**: Click "Generate Supplier Quotes" to automatically create quote requests for all suppliers
-2. **Input Supplier Prices**: Click "Input Supplier Price" on each quote to enter supplier pricing
-3. **Status Updates**: Quote status automatically changes from "Pending" to "Received" when prices are entered
-4. **Select Best Quote**: Review all quotes and select the best one(s) for each item
-5. **Compare Quotes**: Use "Compare Quotes" button to view all supplier quotes side by side
-
-**Note**: Only selected supplier quotes will be used when creating buyer quotes.
+Input supplier prices for the items in the request.
+Review the supplier quotes and select the best one(s) for each item.
+Click on send to buyer to send the quotes to the buyer.
+Quotation evaluation can be created once selected item applied.
 MARKDOWN;
     }
 
@@ -132,15 +123,10 @@ MARKDOWN;
     {
         return <<<'MARKDOWN'
 **Step 3: Buyer Quotes**
-
-1. **Create Buyer Quote**: Click "+ New buyer quote" to create a quote for the buyer
-2. **Set Pricing**: Review and adjust selling prices, margins, and tax settings
-3. **Create PNL**: Click "Create PNL" to generate a Profit & Loss document for approval
-4. **Send Quote**: After PNL is created, click "Send" to email the quote to the buyer
-5. **Upload PO**: Once buyer sends Purchase Order, click "Upload PO" to upload the PO file
-6. **Status Updates**: Quote status automatically changes to "Accepted" when PO is uploaded
-
-**Note**: You must create a PNL before you can send the quote to the buyer.
+Buyer quote has items that selected from supplier quote. 
+Set selling prices, margins, and tax settings. Verify all order details, pricing, and terms.
+Create a Profit & Loss document for approval before send buyer quote to buyer.
+Once receive PO from buyer, upload PO to the buyer quote. It will set buyer quote status to Accepted.
 MARKDOWN;
     }
 
@@ -151,13 +137,9 @@ MARKDOWN;
     {
         return <<<'MARKDOWN'
 **Step 4: Buyer Orders**
-
-1. **Create Order**: Click "Create from Quote" to convert an accepted buyer quote into an order
-2. **Review Order**: Verify all order details, pricing, and payment terms
-3. **Confirm Order**: Once confirmed, the order status changes to "Confirmed"
-4. **Track Status**: Monitor order status through the workflow stages
-
-**Note**: Only accepted buyer quotes can be converted to orders.
+Buyer order has items that selected from buyer quote. 
+Confirm the buyer order to create a supplier order (PO to supplier).
+Buyer order used as invoice that will send to buyer.
 MARKDOWN;
     }
 
@@ -168,49 +150,9 @@ MARKDOWN;
     {
         return <<<'MARKDOWN'
 **Step 5: Supplier Orders**
-
-1. **Create Order**: Click "Create from Quote" to convert a selected supplier quote into a purchase order
-2. **Review Order**: Verify all order details, pricing, and terms
-3. **Send to Supplier**: Send the purchase order to the supplier
-4. **Track Status**: Monitor order status and supplier confirmations
-
-**Note**: Only selected supplier quotes can be converted to purchase orders.
-MARKDOWN;
-    }
-
-    /**
-     * Get information flow text for Invoices tab.
-     */
-    public function getInvoicesInformationFlow(): string
-    {
-        return <<<'MARKDOWN'
-**Step 5: Invoices**
-
-1. **Create Invoice**: Generate invoices for buyer orders that have been confirmed
-2. **Review Invoice**: Verify all invoice details, line items, and amounts
-3. **Send Invoice**: Send the invoice to the buyer for payment
-4. **Track Payment**: Monitor invoice status and payment confirmations
-5. **Record Payment**: Mark invoice as paid when payment is received
-
-**Note**: Invoices are generated from confirmed buyer orders and track payment status.
-MARKDOWN;
-    }
-
-    /**
-     * Get information flow text for Purchases tab.
-     */
-    public function getPurchasesInformationFlow(): string
-    {
-        return <<<'MARKDOWN'
-**Step 6: Purchases**
-
-1. **View Purchases**: Review all purchase orders created from supplier quotes
-2. **Track Status**: Monitor purchase order status and supplier confirmations
-3. **Receive Goods**: Update purchase status when goods are received
-4. **Match Invoices**: Link supplier invoices to purchase orders
-5. **Complete Purchase**: Mark purchase as complete when all items are received and invoiced
-
-**Note**: Purchases track the procurement process from order creation to receipt of goods.
+Supplier order created based on buyer order as purchase order to supplier.
+There will be more than one purchase order to supplier.
+Verify all order details, pricing, and terms.
 MARKDOWN;
     }
 
@@ -221,13 +163,9 @@ MARKDOWN;
     {
         return <<<'MARKDOWN'
 **Step 7: Inbound Shipments**
-
-1. **Create Shipment**: Create a new shipment record when goods are received
-2. **Link Orders**: Associate the shipment with relevant supplier orders
-3. **Track Delivery**: Update shipment status as goods are received and inspected
-4. **Complete Shipment**: Mark shipment as delivered when all items are received
-
-**Note**: Shipments help track the physical receipt of goods from suppliers.
+Create shipment and set the detail before submit it.
+The shipment can be multiple depend on shipment aggrement.
+Send delivery order email to buyer once status shipment is In Transit.
 MARKDOWN;
     }
 }
