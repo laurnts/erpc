@@ -45,6 +45,19 @@
             if (typeof Livewire !== 'undefined') {
                 Livewire.hook('morph.updated', () => {
                     setTimeout(() => {
+                        // Remove duplicates first - keep only this instance
+                        const widgetId = 'request-information-flow';
+                        const allWidgets = document.querySelectorAll('[data-widget-id=\' + widgetId + \']');
+                        if (allWidgets.length > 1) {
+                            const currentWidget = this.$el;
+                            // Remove all widgets except this one
+                            for (let i = 0; i < allWidgets.length; i++) {
+                                if (allWidgets[i] !== currentWidget) {
+                                    allWidgets[i].remove();
+                                    console.log('[InformationFlow] Removed duplicate widget after morph');
+                                }
+                            }
+                        }
                         this.moveWidgetToCorrectLocation();
                         this.detectActiveTab();
                     }, 100);
@@ -60,6 +73,19 @@
         moveWidgetToCorrectLocation() {
             const widget = this.$el;
             if (!widget) return;
+            
+            // Remove any duplicate widgets first - keep only this instance
+            const widgetId = 'request-information-flow';
+            const allWidgets = document.querySelectorAll('[data-widget-id=\'' + widgetId + '\']');
+            if (allWidgets.length > 1) {
+                // Remove all widgets except this one
+                for (let i = 0; i < allWidgets.length; i++) {
+                    if (allWidgets[i] !== widget) {
+                        allWidgets[i].remove();
+                        console.log('[InformationFlow] Removed duplicate widget');
+                    }
+                }
+            }
             
             // Find the tabs container
             const tabsContainer = document.querySelector('[role=\'tablist\']') || 
@@ -77,6 +103,13 @@
                               tabsContainer.parentElement;
             
             if (tabsParent && widget.parentElement && widget.parentElement !== tabsParent) {
+                // Check if widget is already in the correct position
+                const nextSibling = tabsContainer.nextSibling;
+                if (nextSibling && nextSibling === widget) {
+                    // Already in correct position, no need to move
+                    return;
+                }
+                
                 // Insert widget after tabs container but before content
                 tabsParent.insertBefore(widget, tabsContainer.nextSibling);
                 console.log('[InformationFlow] Widget moved to correct location');
