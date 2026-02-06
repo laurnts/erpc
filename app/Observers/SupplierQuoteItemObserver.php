@@ -75,6 +75,14 @@ final readonly class SupplierQuoteItemObserver
      */
     private function prefillTaxCodeFromArticle(SupplierQuoteItem $item): void
     {
+        // Check if supplier is taxable - skip tax code prefilling if not taxable
+        $supplier = $item->supplierQuote?->supplier;
+        $isSupplierTaxable = $supplier?->is_taxable ?? true; // Default to taxable if supplier not found
+
+        if (! $isSupplierTaxable) {
+            return;
+        }
+
         // Only prefill if tax_code_id is not set and article_id is set
         if ($item->tax_code_id === null && $item->article_id !== null) {
             $article = $item->article;
@@ -89,6 +97,19 @@ final readonly class SupplierQuoteItemObserver
      */
     private function syncTaxRateFromCode(SupplierQuoteItem $item): void
     {
+        // Check if supplier is taxable - skip tax rate syncing if not taxable
+        $supplier = $item->supplierQuote?->supplier;
+        $isSupplierTaxable = $supplier?->is_taxable ?? true; // Default to taxable if supplier not found
+
+        if (! $isSupplierTaxable) {
+            // Clear tax values for non-taxable suppliers
+            $item->tax_code_id = null;
+            $item->tax_rate = '0.0000';
+            $item->is_tax_inclusive = false;
+
+            return;
+        }
+
         if ($item->tax_code_id !== null) {
             $taxCode = TaxCode::find($item->tax_code_id);
             if ($taxCode !== null) {
