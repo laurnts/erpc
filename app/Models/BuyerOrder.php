@@ -206,6 +206,14 @@ final class BuyerOrder extends Model implements HasCustomFields
             return;
         }
 
+        // Skip credit checks if credit_status is disabled
+        if (!$buyer->credit_status) {
+            $this->status = OrderStatus::CONFIRMED;
+            $this->confirmed_at = now();
+            $this->save();
+            return;
+        }
+
         $availableCredit = (float) $buyer->available_credit;
 
         // Check if sufficient credit available
@@ -249,6 +257,22 @@ final class BuyerOrder extends Model implements HasCustomFields
             $buyer->available_credit = max(0, $currentAvailableCredit - $orderTotal);
             $buyer->credit_used = $currentCreditUsed + $orderTotal;
             $buyer->save();
+
+            // Create credit usage history record
+            BuyerCreditUsageHistory::create([
+                'team_id' => $buyer->team_id,
+                'buyer_id' => $buyer->id,
+                'transaction_type' => 'used',
+                'amount' => $orderTotal,
+                'available_credit_before' => $currentAvailableCredit,
+                'available_credit_after' => $buyer->available_credit,
+                'credit_used_before' => $currentCreditUsed,
+                'credit_used_after' => $buyer->credit_used,
+                'related_type' => self::class,
+                'related_id' => $this->id,
+                'description' => "Order {$this->order_number} confirmed",
+                'created_by_id' => auth()->id(),
+            ]);
         });
     }
 
@@ -341,6 +365,24 @@ final class BuyerOrder extends Model implements HasCustomFields
             $buyer->available_credit = $currentAvailableCredit + $orderTotal;
             $buyer->credit_used = max(0, $currentCreditUsed - $orderTotal);
             $buyer->save();
+
+            // Create credit usage history record only if credit_status is enabled
+            if ($buyer->credit_status) {
+                BuyerCreditUsageHistory::create([
+                    'team_id' => $buyer->team_id,
+                    'buyer_id' => $buyer->id,
+                    'transaction_type' => 'restored',
+                    'amount' => $orderTotal,
+                    'available_credit_before' => $currentAvailableCredit,
+                    'available_credit_after' => $buyer->available_credit,
+                    'credit_used_before' => $currentCreditUsed,
+                    'credit_used_after' => $buyer->credit_used,
+                    'related_type' => self::class,
+                    'related_id' => $this->id,
+                    'description' => "Order {$this->order_number} cancelled - credit restored",
+                    'created_by_id' => auth()->id(),
+                ]);
+            }
         });
     }
 

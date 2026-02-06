@@ -51,6 +51,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string $credit_used
  * @property bool $is_on_hold
  * @property string|null $on_hold_reason
+ * @property bool $credit_status
  * @property int $lead_time_days
  * @property DeliveryType|null $delivery_type
  * @property DeliveryType|null $delivery_type_details
@@ -101,6 +102,7 @@ final class Company extends Model implements HasCustomFields, HasMedia
         'credit_used',
         'is_on_hold',
         'on_hold_reason',
+        'credit_status',
         'lead_time_days',
         'delivery_type',
         'delivery_type_details',
@@ -123,6 +125,7 @@ final class Company extends Model implements HasCustomFields, HasMedia
         'available_credit' => 0,
         'credit_used' => 0,
         'is_on_hold' => false,
+        'credit_status' => true,
         'lead_time_days' => 0,
         'is_taxable' => true,
         'payment_terms_days' => 30,
@@ -145,6 +148,7 @@ final class Company extends Model implements HasCustomFields, HasMedia
             'requested_credit_limit' => 'decimal:2',
             'credit_used' => 'decimal:2',
             'is_on_hold' => 'boolean',
+            'credit_status' => 'boolean',
             'lead_time_days' => 'integer',
             'is_taxable' => 'boolean',
             'payment_terms_days' => 'integer',
@@ -267,6 +271,16 @@ final class Company extends Model implements HasCustomFields, HasMedia
     public function creditLimitRequests(): HasMany
     {
         return $this->hasMany(BuyerCreditLimitRequest::class, 'buyer_id');
+    }
+
+    /**
+     * Get all credit usage history records for this buyer.
+     *
+     * @return HasMany<BuyerCreditUsageHistory, $this>
+     */
+    public function creditUsageHistory(): HasMany
+    {
+        return $this->hasMany(BuyerCreditUsageHistory::class, 'buyer_id');
     }
 
     /**

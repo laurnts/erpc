@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
 /**
  * @property int $id
@@ -54,5 +55,23 @@ final class BuyerCreditLimitRequestApproval extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the team through the buyer credit limit request.
+     * This is used by Filament's tenant scoping system.
+     *
+     * @return HasOneThrough<\App\Models\Team, BuyerCreditLimitRequest>
+     */
+    public function team(): HasOneThrough
+    {
+        return $this->hasOneThrough(
+            \App\Models\Team::class,
+            BuyerCreditLimitRequest::class,
+            'id', // Foreign key on buyer_credit_limit_requests table
+            'id', // Foreign key on teams table
+            'buyer_credit_limit_request_id', // Local key on buyer_credit_limit_request_approvals table
+            'team_id' // Local key on buyer_credit_limit_requests table
+        );
     }
 }

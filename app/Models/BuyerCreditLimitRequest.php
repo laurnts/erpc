@@ -208,7 +208,8 @@ final class BuyerCreditLimitRequest extends Model
                 $buyer->credit_limit = $this->requested_limit;
                 
                 // Increase available_credit by the increase amount (preserve existing available credit)
-                $buyer->available_credit = $currentAvailableCredit + $increaseAmount;
+                // $buyer->available_credit = $currentAvailableCredit + $increaseAmount; // not resetting credit limit
+                $buyer->available_credit = $requestedLimit;
                 
                 // Ensure available_credit doesn't exceed credit_limit (safety check)
                 $buyer->available_credit = min((float) $buyer->available_credit, $requestedLimit);

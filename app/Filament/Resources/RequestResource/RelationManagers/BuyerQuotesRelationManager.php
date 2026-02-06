@@ -48,6 +48,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Closure;
 
 final class BuyerQuotesRelationManager extends RelationManager
 {
@@ -154,6 +155,40 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ]),
                     Repeater::make('paymentTerms')
                         ->relationship()
+                        ->visible(function (): bool {
+                            /** @var Request $request */
+                            $request = $this->getOwnerRecord();
+                            $buyer = $request->buyer;
+                            return $buyer?->credit_status ?? true;
+                        })
+                        ->rules([
+                            function (): Closure {
+                                return function (string $attribute, $value, Closure $fail) {
+                                    /** @var Request $request */
+                                    $request = $this->getOwnerRecord();
+                                    $buyer = $request->buyer;
+                                    
+                                    // Only validate if credit_status is enabled
+                                    if (!$buyer?->credit_status) {
+                                        return;
+                                    }
+                                    
+                                    // Calculate sum of all percentages
+                                    $totalPercentage = 0;
+                                    if (is_array($value)) {
+                                        foreach ($value as $item) {
+                                            $percentage = (float) ($item['percentage'] ?? 0);
+                                            $totalPercentage += $percentage;
+                                        }
+                                    }
+                                    
+                                    // Validate sum equals 100
+                                    if (abs($totalPercentage - 100) > 0.01) { // Allow small floating point differences
+                                        $fail("The total payment terms percentage must equal 100%. Current total: " . number_format($totalPercentage, 2) . "%");
+                                    }
+                                };
+                            },
+                        ])
                         ->schema([
                             Grid::make(2)
                                 ->schema([
