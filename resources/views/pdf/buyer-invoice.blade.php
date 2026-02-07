@@ -117,7 +117,7 @@
                 <tr>
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td>{{ $item->description }}</td>
-                    <td class="text-center">{{ $invoice->currency?->formatNumber((float)$item->quantity) ?? number_format((float)$item->quantity, 2) }}</td>
+                    <td class="text-center">{{ number_format((float)$item->quantity, 0) }}</td>
                     <td class="text-right">{{ $invoice->currency?->formatNumber((float)$item->unit_price) ?? number_format((float)$item->unit_price, 2) }}</td>
                     <td class="text-right">{{ number_format((float)$item->tax_rate, 1) }}%</td>
                     <td class="text-right">{{ $invoice->currency?->formatNumber((float)$item->line_tax) ?? number_format((float)$item->line_tax, 2) }}</td>

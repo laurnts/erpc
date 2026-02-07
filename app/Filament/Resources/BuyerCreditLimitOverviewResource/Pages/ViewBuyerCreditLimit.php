@@ -28,15 +28,16 @@ final class ViewBuyerCreditLimit extends ViewRecord
     {
         return $schema->schema([
             Section::make()->schema([
-                Flex::make([
-                    TextEntry::make('name')
+                Grid::make(4)
+                    ->schema([
+                        TextEntry::make('name')
                         ->label('')
                         ->size(TextSize::Large)
                         ->weight('bold'),
-                    TextEntry::make('code')
-                        ->label('Code')
-                        ->size(TextSize::Large),
-                ]),
+                        TextEntry::make('code')
+                            ->label('Code')
+                            ->size(TextSize::Large),
+                        ]),
                 Grid::make(4)
                     ->schema([
                         TextEntry::make('credit_limit')
@@ -48,11 +49,11 @@ final class ViewBuyerCreditLimit extends ViewRecord
                         TextEntry::make('credit_used')
                             ->label('Credit Used')
                             ->money(fn (): string => \Filament\Facades\Filament::getTenant() instanceof \App\Models\Team ? \Filament\Facades\Filament::getTenant()->getBaseCurrencyCode() : 'USD'),
-                        TextEntry::make('is_on_hold')
-                            ->label('On Hold')
+                        TextEntry::make('credit_status')
+                            ->label('Credit Status')
                             ->badge()
-                            ->formatStateUsing(fn (bool $state): string => $state ? 'Yes' : 'No')
-                            ->color(fn (bool $state): string => $state ? 'danger' : 'success'),
+                            ->formatStateUsing(fn (bool $state): string => $state ? 'Active' : 'Inactive')
+                            ->color(fn (bool $state): string => $state ? 'success' : 'danger'),
                     ]),
             ])
                 ->columnSpanFull(),

@@ -81,7 +81,7 @@
                             <br><small style="color: #6b7280;">{{ $item->notes }}</small>
                         @endif
                     </td>
-                    <td class="text-center">{{ $quote->currency?->formatNumber((float)$item->quantity) ?? number_format((float)$item->quantity, 2) }}</td>
+                    <td class="text-center">{{ number_format((float)$item->quantity, 0) }}</td>
                     <td class="text-center">{{ $item->unit_label }}</td>
                     <td class="text-right">{{ $quote->currency?->formatNumber((float)$item->unit_price_exc_tax) ?? number_format((float)$item->unit_price_exc_tax, 2) }}</td>
                     <td class="text-right">{{ $quote->currency?->formatNumber((float)$item->line_total) ?? number_format((float)$item->line_total, 2) }}</td>

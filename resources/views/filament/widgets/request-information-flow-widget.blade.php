@@ -9,7 +9,6 @@
             'purchases' => \Illuminate\Support\Str::markdown($this->getSupplierOrdersInformationFlow()),
             'inbound shipments' => \Illuminate\Support\Str::markdown($this->getShipmentsInformationFlow()),
         ];
-        \Log::info('[InformationFlow] Widget rendering, flowTexts keys:', array_keys($flowTexts));
     } catch (\Exception $e) {
         $flowTexts = [];
         \Log::error('[InformationFlow] Error generating flowTexts:', ['error' => $e->getMessage()]);

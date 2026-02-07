@@ -184,6 +184,7 @@ final class BuyerCreditLimitRequest extends Model
 
             // Create approval record
             BuyerCreditLimitRequestApproval::create([
+                'team_id' => $this->team_id,
                 'buyer_credit_limit_request_id' => $this->id,
                 'user_id' => $user->id,
                 'approved_at' => now(),
