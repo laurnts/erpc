@@ -32,7 +32,15 @@
                     @if($order->expected_delivery_date)
                         Expected Delivery: {{ $order->expected_delivery_date->format('d M Y') }}<br>
                     @endif
-                    <span class="status-badge status-{{ strtolower($order->status->value) }}">{{ $order->status->getLabel() }}</span>
+                    {{-- Reference Information --}}
+                    @if($order->supplierQuote || $order->request)
+                        @if($order->supplierQuote)
+                            Quote Reference: {{ $order->supplierQuote->quote_number ?? 'N/A' }}<br>
+                        @endif
+                        @if($order->request)
+                            Request Reference: {{ $order->request->request_number }}<br>
+                        @endif
+                    @endif
                 </div>
             </div>
         </div>
@@ -59,26 +67,6 @@
             </div>
         </div>
     </div>
-
-    {{-- Reference Information --}}
-    @if($order->supplierQuote || $order->request)
-        <div class="mb-20">
-            <table style="width: 100%; font-size: 9pt;">
-                @if($order->supplierQuote)
-                    <tr>
-                        <td style="width: 120px; color: #6b7280;"><strong>Quote Reference:</strong></td>
-                        <td>{{ $order->supplierQuote->quote_number ?? 'N/A' }}</td>
-                    </tr>
-                @endif
-                @if($order->request)
-                    <tr>
-                        <td style="width: 120px; color: #6b7280;"><strong>Request Reference:</strong></td>
-                        <td>{{ $order->request->request_number }}</td>
-                    </tr>
-                @endif
-            </table>
-        </div>
-    @endif
 
     {{-- Items Table --}}
     <table class="items-table">

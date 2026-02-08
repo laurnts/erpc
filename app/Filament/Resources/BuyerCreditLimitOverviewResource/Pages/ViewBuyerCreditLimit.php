@@ -58,23 +58,23 @@ final class ViewBuyerCreditLimit extends ViewRecord
             ])
                 ->columnSpanFull(),
 
-            Section::make('Credit Limit Request History')
-                ->icon('heroicon-o-document-text')
-                ->schema([
-                    ViewEntry::make('credit_limit_requests')
-                        ->label('')
-                        ->view('filament.infolists.components.credit-limit-request-history'),
-                ])
-                ->collapsible()
-                ->collapsed(false)
-                ->columnSpanFull(),
-
             Section::make('Credit Usage History')
                 ->icon('heroicon-o-chart-bar')
                 ->schema([
                     ViewEntry::make('credit_usage_history')
                         ->label('')
                         ->view('filament.infolists.components.credit-usage-history'),
+                ])
+                ->collapsible()
+                ->collapsed(false)
+                ->columnSpanFull(),
+
+            Section::make('Credit Limit Request History')
+                ->icon('heroicon-o-document-text')
+                ->schema([
+                    ViewEntry::make('credit_limit_requests')
+                        ->label('')
+                        ->view('filament.infolists.components.credit-limit-request-history'),
                 ])
                 ->collapsible()
                 ->collapsed(false)

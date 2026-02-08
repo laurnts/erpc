@@ -25,7 +25,7 @@ final class BuyerCreditLimitOverviewResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Finance';
 
-    protected static ?string $navigationLabel = 'Credit Limits';
+    protected static ?string $navigationLabel = 'Transactions';
 
     protected static ?string $pluralModelLabel = 'Credit Limits';
 
