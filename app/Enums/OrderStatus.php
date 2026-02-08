@@ -13,6 +13,7 @@ enum OrderStatus: string implements HasColor, HasIcon, HasLabel
     case DRAFT = 'draft';
     case SENT = 'sent';
     case CONFIRMED = 'confirmed';
+    case APPROVED = 'approved';
     case PROCESSING = 'processing';
     case SHIPPED = 'shipped';
     case DELIVERED = 'delivered';
@@ -26,6 +27,7 @@ enum OrderStatus: string implements HasColor, HasIcon, HasLabel
             self::DRAFT => 'Draft',
             self::SENT => 'Sent',
             self::CONFIRMED => 'Confirmed',
+            self::APPROVED => 'Approved',
             self::PROCESSING => 'Processing',
             self::SHIPPED => 'Shipped',
             self::DELIVERED => 'Delivered',
@@ -41,6 +43,7 @@ enum OrderStatus: string implements HasColor, HasIcon, HasLabel
             self::DRAFT => 'gray',
             self::SENT => 'info',
             self::CONFIRMED => 'info',
+            self::APPROVED => 'success',
             self::PROCESSING => 'warning',
             self::SHIPPED => 'primary',
             self::DELIVERED => 'success',
@@ -56,6 +59,7 @@ enum OrderStatus: string implements HasColor, HasIcon, HasLabel
             self::DRAFT => 'heroicon-o-pencil',
             self::SENT => 'heroicon-o-paper-airplane',
             self::CONFIRMED => 'heroicon-o-check-circle',
+            self::APPROVED => 'heroicon-o-check-badge',
             self::PROCESSING => 'heroicon-o-cog-6-tooth',
             self::SHIPPED => 'heroicon-o-truck',
             self::DELIVERED => 'heroicon-o-inbox-arrow-down',
@@ -78,7 +82,7 @@ enum OrderStatus: string implements HasColor, HasIcon, HasLabel
      */
     public function canSend(): bool
     {
-        return $this === self::DRAFT;
+        return $this === self::APPROVED;
     }
 
     /**
@@ -95,6 +99,14 @@ enum OrderStatus: string implements HasColor, HasIcon, HasLabel
     public function canCancel(): bool
     {
         return in_array($this, [self::DRAFT, self::SENT, self::CONFIRMED], true);
+    }
+
+    /**
+     * Check if order can be approved.
+     */
+    public function canApprove(): bool
+    {
+        return $this === self::CONFIRMED;
     }
 
     /**
@@ -129,7 +141,8 @@ enum OrderStatus: string implements HasColor, HasIcon, HasLabel
         return match ($this) {
             self::DRAFT => self::SENT,
             self::SENT => self::CONFIRMED,
-            self::CONFIRMED => self::PROCESSING,
+            self::CONFIRMED => self::APPROVED,
+            self::APPROVED => self::SENT,
             self::PROCESSING => self::SHIPPED,
             self::SHIPPED => self::DELIVERED,
             self::DELIVERED => self::INVOICED,

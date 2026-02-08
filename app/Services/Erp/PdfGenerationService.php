@@ -211,7 +211,16 @@ final readonly class PdfGenerationService
      */
     public function generateSupplierOrderPdf(SupplierOrder $order): string
     {
-        $order->load(['supplier', 'currency', 'items', 'team']);
+        // Load necessary relationships for PDF including approval data
+        $order->load([
+            'supplier',
+            'currency',
+            'items',
+            'team',
+            'request.buyer.keyAccounts',
+            'approver1',
+            'approver2',
+        ]);
 
         $pdf = Pdf::loadView('pdf.supplier-order', [
             'order' => $order,

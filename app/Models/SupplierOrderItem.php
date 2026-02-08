@@ -48,6 +48,41 @@ final class SupplierOrderItem extends Model
     use HasFactory;
 
     /**
+     * Boot the model.
+     */
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        // Recalculate line total when saving if supplier is taxable and tax rate is set
+        static::saving(function (SupplierOrderItem $item): void {
+            $supplierOrder = $item->supplierOrder;
+            if ($supplierOrder !== null) {
+                $supplier = $supplierOrder->supplier;
+                if ($supplier !== null && $supplier->is_taxable && (float) $item->tax_rate > 0) {
+                    $item->calculateLineTotal();
+                }
+            }
+        });
+
+        // Recalculate order totals after item is saved
+        static::saved(function (SupplierOrderItem $item): void {
+            $supplierOrder = $item->supplierOrder;
+            if ($supplierOrder !== null) {
+                $supplierOrder->recalculateTotals();
+            }
+        });
+
+        // Recalculate order totals after item is deleted
+        static::deleted(function (SupplierOrderItem $item): void {
+            $supplierOrder = $item->supplierOrder;
+            if ($supplierOrder !== null) {
+                $supplierOrder->recalculateTotals();
+            }
+        });
+    }
+
+    /**
      * @var list<string>
      */
     protected $fillable = [

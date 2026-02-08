@@ -93,9 +93,9 @@
                     </td>
                     <td class="text-center">{{ number_format((float)$item->quantity, 0) }}</td>
                     <td class="text-center">{{ $item->unit_label }}</td>
-                    <td class="text-right">{{ number_format((float)$item->unit_price_exc_tax, 2) }}</td>
-                    <td class="text-right">{{ number_format((float)($item->tax_amount * $item->quantity), 2) }}</td>
-                    <td class="text-right">{{ number_format((float)$item->line_total, 2) }}</td>
+                    <td class="text-right">{{ $order->currency?->formatNumber((float)$item->unit_price_exc_tax) ?? number_format((float)$item->unit_price_exc_tax, 2) }}</td>
+                    <td class="text-right">{{ $order->currency?->formatNumber((float)($item->tax_amount * $item->quantity)) ?? number_format((float)($item->tax_amount * $item->quantity), 2) }}</td>
+                    <td class="text-right">{{ $order->currency?->formatNumber((float)$item->line_total) ?? number_format((float)$item->line_total, 2) }}</td>
                 </tr>
             @empty
                 <tr>
@@ -145,23 +145,72 @@
         </div>
     @endif
 
-    {{-- Signature Block --}}
-    <div style="margin-top: 40px;">
-        <table style="width: 100%;">
-            <tr>
-                <td style="width: 50%; vertical-align: bottom;">
-                    <div style="border-top: 1px solid #374151; width: 200px; padding-top: 5px; font-size: 9pt; color: #6b7280;">
-                        Authorized Signature
-                    </div>
-                </td>
-                <td style="width: 50%; vertical-align: bottom; text-align: right;">
-                    <div style="border-top: 1px solid #374151; width: 200px; display: inline-block; padding-top: 5px; font-size: 9pt; color: #6b7280;">
-                        Date
-                    </div>
-                </td>
-            </tr>
-        </table>
-    </div>
+    {{-- Approval Section (only show when approved) --}}
+    @if($order->status === \App\Enums\OrderStatus::APPROVED)
+        <div style="margin-top: 40px;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th style="width: 25%; text-align: left; padding: 8px; border-bottom: 1px solid #374151; font-size: 9pt; color: #374151; font-weight: bold;">Checked by</th>
+                        <th style="width: 25%; text-align: left; padding: 8px; border-bottom: 1px solid #374151; font-size: 9pt; color: #374151; font-weight: bold;">Approved by</th>
+                        <th style="width: 25%; text-align: left; padding: 8px; border-bottom: 1px solid #374151; font-size: 9pt; color: #374151; font-weight: bold;">Approved by</th>
+                        <th style="width: 25%; text-align: left; padding: 8px; border-bottom: 1px solid #374151; font-size: 9pt; color: #374151; font-weight: bold;">Supplier/Vendor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 20px 8px 8px 8px; vertical-align: bottom; border-bottom: 1px solid #374151;">
+                            @php
+                                $keyAccounts = $order->request->buyer->keyAccounts ?? collect();
+                            @endphp
+                            @if($keyAccounts->isNotEmpty())
+                                @foreach($keyAccounts as $keyAccount)
+                                    <div style="margin-bottom: 5px;">{{ $keyAccount->name }}</div>
+                                @endforeach
+                            @else
+                                <div style="color: #9ca3af;">-</div>
+                            @endif
+                        </td>
+                        <td style="padding: 20px 8px 8px 8px; vertical-align: bottom; border-bottom: 1px solid #374151;">
+                            @if($order->approver1)
+                                <div>{{ $order->approver1->name }}</div>
+                            @else
+                                <div style="color: #9ca3af;">-</div>
+                            @endif
+                        </td>
+                        <td style="padding: 20px 8px 8px 8px; vertical-align: bottom; border-bottom: 1px solid #374151;">
+                            @if($order->approver2)
+                                <div>{{ $order->approver2->name }}</div>
+                            @else
+                                <div style="color: #9ca3af;">-</div>
+                            @endif
+                        </td>
+                        <td style="padding: 20px 8px 8px 8px; vertical-align: bottom; border-bottom: 1px solid #374151;">
+                            <div style="color: #9ca3af;">&nbsp;</div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    @else
+        {{-- Signature Block (for non-approved orders) --}}
+        <div style="margin-top: 40px;">
+            <table style="width: 100%;">
+                <tr>
+                    <td style="width: 50%; vertical-align: bottom;">
+                        <div style="border-top: 1px solid #374151; width: 200px; padding-top: 5px; font-size: 9pt; color: #6b7280;">
+                            Authorized Signature
+                        </div>
+                    </td>
+                    <td style="width: 50%; vertical-align: bottom; text-align: right;">
+                        <div style="border-top: 1px solid #374151; width: 200px; display: inline-block; padding-top: 5px; font-size: 9pt; color: #6b7280;">
+                            Date
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    @endif
 @endsection
 
 @section('footer')
