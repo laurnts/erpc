@@ -26,9 +26,9 @@ final class ProfitAndLossResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chart-bar';
 
-    protected static ?int $navigationSort = 12;
+    protected static ?int $navigationSort = 23;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Finance';
+    protected static string|\UnitEnum|null $navigationGroup = 'Approval';
 
     protected static ?string $navigationLabel = 'Profit & Loss';
 

@@ -226,10 +226,30 @@ final class SupplierQuoteItem extends Model
     {
         $quantity = (float) $this->quantity;
         $unitPrice = (float) $this->unit_price;
+        $lineAmount = $quantity * $unitPrice;
+
+        // Check if supplier is taxable
+        $supplier = $this->supplierQuote?->supplier;
+        $isSupplierTaxable = $supplier?->is_taxable ?? true; // Default to taxable if supplier not found
+
+        // If supplier is not taxable, set all tax values to 0 and line_total = quantity * unit_price
+        if (! $isSupplierTaxable) {
+            $this->line_subtotal = (string) round($lineAmount, 4);
+            $this->line_tax = '0.0000';
+            $this->line_total = (string) round($lineAmount, 4);
+            $this->unit_price_exc_tax = $this->unit_price;
+            $this->tax_amount = '0.0000';
+            // Clear tax-related fields
+            $this->tax_rate = '0.0000';
+            $this->tax_code_id = null;
+            $this->is_tax_inclusive = false;
+
+            return;
+        }
+
+        // Supplier is taxable - proceed with tax calculations
         $taxRate = (float) $this->tax_rate;
         $isTaxInclusive = $this->is_tax_inclusive;
-
-        $lineAmount = $quantity * $unitPrice;
 
         if ($isTaxInclusive) {
             // Unit price includes tax

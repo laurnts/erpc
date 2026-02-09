@@ -446,7 +446,7 @@ final class ShipmentsRelationManager extends RelationManager
             ->recordTitleAttribute('po_number')
             ->defaultSort('created_at', 'desc')
             ->modifyQueryUsing(fn ($query) => $query
-                ->whereIn('status', [OrderStatus::CONFIRMED, OrderStatus::COMPLETED])
+                ->whereIn('status', [OrderStatus::SENT, OrderStatus::COMPLETED])
                 ->with(['supplier', 'shipments', 'items'])
             )
             ->columns([
@@ -637,8 +637,8 @@ final class ShipmentsRelationManager extends RelationManager
                         }),
                 ]),
             ])
-            ->emptyStateHeading('No confirmed supplier orders')
-            ->emptyStateDescription('Supplier orders will appear here once confirmed. Create shipments to track deliveries.')
+            ->emptyStateHeading('No sent supplier orders')
+            ->emptyStateDescription('Supplier orders will appear here once sent. Create shipments to track deliveries.')
             ->emptyStateIcon('heroicon-o-truck');
     }
 

@@ -260,6 +260,10 @@ final class SupplierOrdersRelationManager extends RelationManager
                                                 }
                                             }),
                                         Hidden::make('article_id'),
+                                        Hidden::make('unit_price_exc_tax')
+                                            ->dehydrated(),
+                                        Hidden::make('tax_amount')
+                                            ->dehydrated(),
                                         TextInput::make('description')
                                             ->required()
                                             ->columnSpan(4),
@@ -270,6 +274,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                             ->step(0.0001)
                                             ->columnSpan(2)
                                             ->live(onBlur: true)
+                                            ->afterStateHydrated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get))
                                             ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
                                         Select::make('unit_of_measure_id')
                                             ->label('Unit')
@@ -294,6 +299,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                             ->step(0.0001)
                                             ->columnSpan(3)
                                             ->live(onBlur: true)
+                                            ->afterStateHydrated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get))
                                             ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
                                         Select::make('tax_code_id')
                                             ->label('Tax Code')
@@ -354,7 +360,8 @@ final class SupplierOrdersRelationManager extends RelationManager
                                             ->columnSpan(2)
                                             ->disabled()
                                             ->dehydrated()
-                                            ->visible(fn (Get $get): bool => $this->isSupplierTaxable($get)),
+                                            ->visible(fn (Get $get): bool => $this->isSupplierTaxable($get))
+                                            ->afterStateHydrated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
                                         TextInput::make('line_total')
                                             ->label('Line Total')
                                             ->numeric()
@@ -382,26 +389,131 @@ final class SupplierOrdersRelationManager extends RelationManager
                             ->schema([
                                 Placeholder::make('subtotal_display')
                                     ->label('Subtotal')
-                                    ->content(fn (?SupplierOrder $record): string => $record instanceof \App\Models\SupplierOrder
-                                        ? ($record->currency?->formatNumber((float) $record->subtotal) ?? number_format((float) $record->subtotal, 2))
-                                        : '0,-'),
+                                    ->live()
+                                    ->content(function (Get $get): string {
+                                        // Calculate from form state if creating/editing
+                                        /** @var array<int, array<string, mixed>> $items */
+                                        $items = $get('items') ?? [];
+                                        if (! empty($items)) {
+                                            $subtotal = 0.0;
+                                            foreach ($items as $item) {
+                                                $quantity = (float) ($item['quantity'] ?? 0);
+                                                $unitPriceExcTax = (float) ($item['unit_price_exc_tax'] ?? $item['unit_price'] ?? 0);
+                                                $subtotal += $quantity * $unitPriceExcTax;
+                                            }
+
+                                            $currencyId = $get('currency_id');
+                                            /** @var Currency|null $currency */
+                                            $currency = $currencyId !== null ? Currency::find($currencyId) : null;
+
+                                            return $currency instanceof Currency ? $currency->formatNumber($subtotal) : number_format($subtotal, 2);
+                                        }
+
+                                        // Fallback to record values
+                                        $record = $this->getRecord();
+                                        return $record instanceof \App\Models\SupplierOrder
+                                            ? ($record->currency?->formatNumber((float) $record->subtotal) ?? number_format((float) $record->subtotal, 2))
+                                            : '0,-';
+                                    }),
                                 Placeholder::make('tax_total_display')
                                     ->label('Tax Total')
-                                    ->content(fn (?SupplierOrder $record): string => $record instanceof \App\Models\SupplierOrder
-                                        ? ($record->currency?->formatNumber((float) $record->tax_total) ?? number_format((float) $record->tax_total, 2))
-                                        : '0,-')
-                                    ->visible(fn (?SupplierOrder $record): bool => ! $record instanceof \App\Models\SupplierOrder || $this->isRecordSupplierTaxable($record)),
+                                    ->live()
+                                    ->content(function (Get $get): string {
+                                        // Calculate from form state if creating/editing
+                                        /** @var array<int, array<string, mixed>> $items */
+                                        $items = $get('items') ?? [];
+                                        if (! empty($items)) {
+                                            $taxTotal = 0.0;
+                                            foreach ($items as $item) {
+                                                $quantity = (float) ($item['quantity'] ?? 0);
+                                                $taxAmount = (float) ($item['tax_amount'] ?? 0);
+                                                $taxTotal += $quantity * $taxAmount;
+                                            }
+
+                                            $currencyId = $get('currency_id');
+                                            /** @var Currency|null $currency */
+                                            $currency = $currencyId !== null ? Currency::find($currencyId) : null;
+
+                                            return $currency instanceof Currency ? $currency->formatNumber($taxTotal) : number_format($taxTotal, 2);
+                                        }
+
+                                        // Fallback to record values
+                                        $record = $this->getRecord();
+                                        return $record instanceof \App\Models\SupplierOrder
+                                            ? ($record->currency?->formatNumber((float) $record->tax_total) ?? number_format((float) $record->tax_total, 2))
+                                            : '0,-';
+                                    })
+                                    ->visible(function (Get $get): bool {
+                                        // Check form state first
+                                        $supplierId = $get('supplier_id');
+                                        if ($supplierId !== null) {
+                                            /** @var Company|null $supplier */
+                                            $supplier = Company::query()->find($supplierId);
+                                            return $supplier?->is_taxable ?? true;
+                                        }
+
+                                        // Fallback to record
+                                        $record = $this->getRecord();
+                                        return ! $record instanceof \App\Models\SupplierOrder || $this->isRecordSupplierTaxable($record);
+                                    }),
                                 Placeholder::make('total_display')
                                     ->label('Total')
-                                    ->content(fn (?SupplierOrder $record): string => $record instanceof \App\Models\SupplierOrder
-                                        ? ($record->currency?->format((float) $record->total) ?? number_format((float) $record->total, 2))
-                                        : '0,-'),
+                                    ->live()
+                                    ->content(function (Get $get): string {
+                                        // Calculate from form state if creating/editing
+                                        /** @var array<int, array<string, mixed>> $items */
+                                        $items = $get('items') ?? [];
+                                        if (! empty($items)) {
+                                            $total = 0.0;
+                                            foreach ($items as $item) {
+                                                $total += (float) ($item['line_total'] ?? 0);
+                                            }
+
+                                            $currencyId = $get('currency_id');
+                                            /** @var Currency|null $currency */
+                                            $currency = $currencyId !== null ? Currency::find($currencyId) : null;
+
+                                            return $currency instanceof Currency ? $currency->format($total) : number_format($total, 2);
+                                        }
+
+                                        // Fallback to record values
+                                        $record = $this->getRecord();
+                                        return $record instanceof \App\Models\SupplierOrder
+                                            ? ($record->currency?->format((float) $record->total) ?? number_format((float) $record->total, 2))
+                                            : '0,-';
+                                    }),
                             ]),
                         Grid::make(3)
                             ->schema([
                                 Placeholder::make('base_subtotal_display')
                                     ->label('Subtotal (Base)')
-                                    ->content(function (?SupplierOrder $record): string {
+                                    ->live()
+                                    ->content(function (Get $get): string {
+                                        // Calculate from form state if creating/editing
+                                        /** @var array<int, array<string, mixed>> $items */
+                                        $items = $get('items') ?? [];
+                                        if (! empty($items)) {
+                                            $subtotal = 0.0;
+                                            foreach ($items as $item) {
+                                                $quantity = (float) ($item['quantity'] ?? 0);
+                                                $unitPriceExcTax = (float) ($item['unit_price_exc_tax'] ?? $item['unit_price'] ?? 0);
+                                                $subtotal += $quantity * $unitPriceExcTax;
+                                            }
+
+                                            $exchangeRate = (float) ($get('exchange_rate') ?? 1);
+                                            $baseSubtotal = $subtotal * $exchangeRate;
+
+                                            /** @var \App\Models\Team|null $team */
+                                            $team = Filament::getTenant();
+                                            $baseCurrency = $team?->getBaseCurrency();
+
+                                            return $baseCurrency !== null
+                                                ? $baseCurrency->formatNumber($baseSubtotal)
+                                                : number_format($baseSubtotal, 2);
+                                        }
+
+                                        // Fallback to record values
+                                        $record = $this->getRecord();
                                         if (! $record instanceof \App\Models\SupplierOrder) {
                                             return '0,-';
                                         }
@@ -415,7 +527,33 @@ final class SupplierOrdersRelationManager extends RelationManager
                                     }),
                                 Placeholder::make('base_tax_total_display')
                                     ->label('Tax Total (Base)')
-                                    ->content(function (?SupplierOrder $record): string {
+                                    ->live()
+                                    ->content(function (Get $get): string {
+                                        // Calculate from form state if creating/editing
+                                        /** @var array<int, array<string, mixed>> $items */
+                                        $items = $get('items') ?? [];
+                                        if (! empty($items)) {
+                                            $taxTotal = 0.0;
+                                            foreach ($items as $item) {
+                                                $quantity = (float) ($item['quantity'] ?? 0);
+                                                $taxAmount = (float) ($item['tax_amount'] ?? 0);
+                                                $taxTotal += $quantity * $taxAmount;
+                                            }
+
+                                            $exchangeRate = (float) ($get('exchange_rate') ?? 1);
+                                            $baseTaxTotal = $taxTotal * $exchangeRate;
+
+                                            /** @var \App\Models\Team|null $team */
+                                            $team = Filament::getTenant();
+                                            $baseCurrency = $team?->getBaseCurrency();
+
+                                            return $baseCurrency !== null
+                                                ? $baseCurrency->formatNumber($baseTaxTotal)
+                                                : number_format($baseTaxTotal, 2);
+                                        }
+
+                                        // Fallback to record values
+                                        $record = $this->getRecord();
                                         if (! $record instanceof \App\Models\SupplierOrder) {
                                             return '0,-';
                                         }
@@ -427,10 +565,46 @@ final class SupplierOrdersRelationManager extends RelationManager
                                             ? $baseCurrency->formatNumber((float) $record->base_tax_total)
                                             : number_format((float) $record->base_tax_total, 2);
                                     })
-                                    ->visible(fn (?SupplierOrder $record): bool => ! $record instanceof \App\Models\SupplierOrder || $this->isRecordSupplierTaxable($record)),
+                                    ->visible(function (Get $get): bool {
+                                        // Check form state first
+                                        $supplierId = $get('supplier_id');
+                                        if ($supplierId !== null) {
+                                            /** @var Company|null $supplier */
+                                            $supplier = Company::query()->find($supplierId);
+                                            return $supplier?->is_taxable ?? true;
+                                        }
+
+                                        // Fallback to record
+                                        $record = $this->getRecord();
+                                        return ! $record instanceof \App\Models\SupplierOrder || $this->isRecordSupplierTaxable($record);
+                                    }),
                                 Placeholder::make('base_total_display')
                                     ->label('Total (Base)')
-                                    ->content(function (?SupplierOrder $record): string {
+                                    ->live()
+                                    ->content(function (Get $get): string {
+                                        // Calculate from form state if creating/editing
+                                        /** @var array<int, array<string, mixed>> $items */
+                                        $items = $get('items') ?? [];
+                                        if (! empty($items)) {
+                                            $total = 0.0;
+                                            foreach ($items as $item) {
+                                                $total += (float) ($item['line_total'] ?? 0);
+                                            }
+
+                                            $exchangeRate = (float) ($get('exchange_rate') ?? 1);
+                                            $baseTotal = $total * $exchangeRate;
+
+                                            /** @var \App\Models\Team|null $team */
+                                            $team = Filament::getTenant();
+                                            $baseCurrency = $team?->getBaseCurrency();
+
+                                            return $baseCurrency !== null
+                                                ? $baseCurrency->format($baseTotal)
+                                                : number_format($baseTotal, 2);
+                                        }
+
+                                        // Fallback to record values
+                                        $record = $this->getRecord();
                                         if (! $record instanceof \App\Models\SupplierOrder) {
                                             return '0,-';
                                         }
@@ -688,9 +862,6 @@ final class SupplierOrdersRelationManager extends RelationManager
                                     ->rows(3)
                                     ->placeholder('Optional notes for the supplier orders')
                                     ->helperText('These notes will be added to all created supplier orders'),
-                                \Filament\Forms\Components\Checkbox::make('confirm_and_send')
-                                    ->label('Confirm and send to suppliers')
-                                    ->helperText('Confirm orders and send PO emails to suppliers'),
                             ]);
 
                         return $sections;
@@ -762,9 +933,6 @@ final class SupplierOrdersRelationManager extends RelationManager
                         }
 
                         $ordersCreated = 0;
-                        $emailsSent = 0;
-                        $emailsFailed = 0;
-                        $noEmailAddress = 0;
 
                         // Create a supplier order for each supplier
                         foreach ($itemsBySupplier as $supplierId => $items) {
@@ -853,74 +1021,15 @@ final class SupplierOrdersRelationManager extends RelationManager
                             // Recalculate totals
                             $supplierOrder->recalculateTotals();
 
-                            // Confirm and send if requested
-                            if ($data['confirm_and_send'] ?? false) {
-                                $supplierOrder->confirm();
-                                $supplierOrder->markAsOrdered();
-
-                                // Send email to supplier
-                                $supplierEmail = $supplierOrder->supplier->email ?? null;
-                                $supplierName = $supplierOrder->supplier->name ?? 'Supplier';
-                                
-                                if (empty($supplierEmail)) {
-                                    $noEmailAddress++;
-                                    // Log warning but don't fail the operation
-                                    \Illuminate\Support\Facades\Log::warning('Cannot send purchase order email - supplier has no email', [
-                                        'order_id' => $supplierOrder->id,
-                                        'supplier_id' => $supplierOrder->supplier_id,
-                                        'supplier_name' => $supplierName,
-                                    ]);
-                                } else {
-                                    try {
-                                        $emailService = app(EmailTemplateService::class);
-                                        $settings = $supplierOrder->team->getErpSettings();
-                                        $emailService->sendWithTeamSettings(
-                                            $supplierOrder->team,
-                                            new PurchaseOrderToSupplierMail($supplierOrder),
-                                            $supplierEmail,
-                                            $settings->email_template_supplier_order, // Old system fallback
-                                            $settings->email_template_supplier_order_id ?? null, // New system
-                                            \App\Models\EmailTemplate::TYPE_SUPPLIER_ORDER
-                                        );
-                                        $emailsSent++;
-                                    } catch (\Exception $e) {
-                                        $emailsFailed++;
-                                        // Log error but don't fail the operation
-                                        \Illuminate\Support\Facades\Log::error('Failed to send purchase order email', [
-                                            'order_id' => $supplierOrder->id,
-                                            'supplier_email' => $supplierEmail,
-                                            'error' => $e->getMessage(),
-                                            'trace' => $e->getTraceAsString(),
-                                        ]);
-                                    }
-                                }
-                            }
-
                             $ordersCreated++;
                         }
 
                         if ($ordersCreated > 0) {
-                            $notification = Notification::make()
+                            Notification::make()
                                 ->title('Supplier orders created')
-                                ->success();
-
-                            $bodyParts = ["{$ordersCreated} purchase order(s) created from Buyer Order #{$buyerOrder->order_number}"];
-                            
-                            if ($data['confirm_and_send'] ?? false) {
-                                if ($emailsSent > 0) {
-                                    $bodyParts[] = "{$emailsSent} email(s) sent successfully";
-                                }
-                                if ($noEmailAddress > 0) {
-                                    $bodyParts[] = "{$noEmailAddress} order(s) could not be sent (supplier has no email address)";
-                                    $notification->warning();
-                                }
-                                if ($emailsFailed > 0) {
-                                    $bodyParts[] = "{$emailsFailed} email(s) failed to send (check logs for details)";
-                                    $notification->warning();
-                                }
-                            }
-
-                            $notification->body(implode('. ', $bodyParts))->send();
+                                ->body("{$ordersCreated} purchase order(s) created from Buyer Order #{$buyerOrder->order_number}. Orders are in draft status and need to be confirmed before approval.")
+                                ->success()
+                                ->send();
                         } else {
                             Notification::make()
                                 ->title('No new orders created')
@@ -939,8 +1048,6 @@ final class SupplierOrdersRelationManager extends RelationManager
                     ViewAction::make(),
                     EditAction::make()
                         ->visible(fn (SupplierOrder $record): bool => $record->is_editable),
-                    DownloadPdfAction::make()
-                        ->label('PDF'),
                     Action::make('confirm')
                         ->label('Confirm')
                         ->icon('heroicon-o-check-circle')
@@ -948,19 +1055,23 @@ final class SupplierOrdersRelationManager extends RelationManager
                         ->visible(fn (SupplierOrder $record): bool => $record->status->canConfirm())
                         ->requiresConfirmation()
                         ->modalHeading('Confirm this order?')
-                        ->modalDescription('This will confirm the purchase order and lock it for editing.')
+                        ->modalDescription('This will confirm the purchase order, lock it for editing, and notify approvers.')
                         ->action(function (SupplierOrder $record): void {
                             $record->confirm();
                             Notification::make()
                                 ->title('Order confirmed')
+                                ->body('Approval request emails have been sent to eligible approvers.')
                                 ->success()
                                 ->send();
                         }),
+                    DownloadPdfAction::make()
+                        ->label('PDF')
+                        ->visible(fn (?SupplierOrder $record): bool => $record !== null && $record->status === OrderStatus::APPROVED),
                     Action::make('send')
                         ->label('Send')
                         ->icon('heroicon-o-paper-airplane')
                         ->color('primary')
-                        ->visible(fn (?SupplierOrder $record): bool => $record !== null && $record->status->canSend())
+                        ->visible(fn (?SupplierOrder $record): bool => $record !== null && $record->status === OrderStatus::APPROVED)
                         ->requiresConfirmation()
                         ->modalHeading('Send purchase order email to supplier?')
                         ->modalDescription(function (SupplierOrder $record): string {
@@ -1109,6 +1220,38 @@ final class SupplierOrdersRelationManager extends RelationManager
                     DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    /**
+     * Handle record creation - recalculate totals after items are saved.
+     */
+    protected function handleRecordCreation(array $data): Model
+    {
+        $record = parent::handleRecordCreation($data);
+        
+        // Recalculate totals after creation (items are saved via relationship)
+        if ($record instanceof SupplierOrder) {
+            $record->load('items');
+            $record->recalculateTotals();
+        }
+        
+        return $record;
+    }
+
+    /**
+     * Handle record update - recalculate totals after items are saved.
+     */
+    protected function handleRecordUpdate(Model $record, array $data): Model
+    {
+        $updated = parent::handleRecordUpdate($record, $data);
+        
+        // Recalculate totals after update (items are saved via relationship)
+        if ($updated instanceof SupplierOrder) {
+            $updated->load('items');
+            $updated->recalculateTotals();
+        }
+        
+        return $updated;
     }
 
     /**

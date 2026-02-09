@@ -186,7 +186,7 @@
         }
 
         .totals-table .grand-total td {
-            font-size: 12pt;
+            font-size: 12px;
             border-top: 2px solid #1e40af;
             padding-top: 10px;
             color: #1e40af;

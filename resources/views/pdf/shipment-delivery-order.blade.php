@@ -62,7 +62,7 @@
                     <td>{{ $item['item_name'] }}</td>
                     <td>{{ $item['brand'] ?? '-' }}</td>
                     <td>{{ $item['model'] ?? '-' }}</td>
-                    <td class="text-center">{{ number_format((float)$item['qty'], 2) }}</td>
+                    <td class="text-center">{{ number_format((float)$item['qty'], 0) }}</td>
                     <td>{{ $item['remarks'] ?? '-' }}</td>
                 </tr>
             @empty

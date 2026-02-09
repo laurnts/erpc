@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\CentralPurchasingRole;
 use App\Enums\OrderStatus;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use App\Observers\SupplierOrderObserver;
+use App\Services\TeamMemberService;
 use Database\Factories\SupplierOrderFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -42,6 +44,9 @@ use Illuminate\Support\Carbon;
  * @property string|null $internal_notes
  * @property Carbon|null $ordered_at
  * @property Carbon|null $confirmed_at
+ * @property int|null $approver_1_id
+ * @property int|null $approver_2_id
+ * @property Carbon|null $approved_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
@@ -50,6 +55,9 @@ use Illuminate\Support\Carbon;
  * @property-read string $formatted_base_total
  * @property-read bool $is_editable
  * @property-read bool $is_cancellable
+ * @property-read bool $is_approved
+ * @property-read User|null $approver1
+ * @property-read User|null $approver2
  */
 #[ObservedBy(SupplierOrderObserver::class)]
 final class SupplierOrder extends Model
@@ -86,6 +94,9 @@ final class SupplierOrder extends Model
         'internal_notes',
         'ordered_at',
         'confirmed_at',
+        'approver_1_id',
+        'approver_2_id',
+        'approved_at',
     ];
 
     /**
@@ -120,6 +131,7 @@ final class SupplierOrder extends Model
             'expected_delivery_date' => 'date',
             'ordered_at' => 'datetime',
             'confirmed_at' => 'datetime',
+            'approved_at' => 'datetime',
         ];
     }
 
@@ -184,6 +196,26 @@ final class SupplierOrder extends Model
     }
 
     /**
+     * The first approver of this order.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function approver1(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approver_1_id');
+    }
+
+    /**
+     * The second approver of this order.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function approver2(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approver_2_id');
+    }
+
+    /**
      * Get formatted total in order currency.
      *
      * @return Attribute<string, never>
@@ -244,6 +276,18 @@ final class SupplierOrder extends Model
     {
         return Attribute::make(
             get: fn (): bool => $this->status->canCancel(),
+        );
+    }
+
+    /**
+     * Check if the order is approved (has 2 approvals).
+     *
+     * @return Attribute<bool, never>
+     */
+    protected function isApproved(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): bool => $this->status === OrderStatus::APPROVED && $this->approver_1_id !== null && $this->approver_2_id !== null,
         );
     }
 
@@ -312,6 +356,81 @@ final class SupplierOrder extends Model
 
         $this->status = OrderStatus::CANCELLED;
         $this->save();
+    }
+
+    /**
+     * Approve the order by a user.
+     * Requires minimum 2 approvals from eligible roles (Dept Head of Sales, Deputy Director, Director).
+     * Status automatically changes to APPROVED after second approval.
+     *
+     * @param  User  $approver  The user approving the order
+     * @throws \InvalidArgumentException If user cannot approve or already approved
+     */
+    public function approve(User $approver): void
+    {
+        if (! $this->canBeApprovedBy($approver)) {
+            throw new \InvalidArgumentException('User cannot approve this order.');
+        }
+
+        // Check if user already approved
+        if ($this->approver_1_id === $approver->id || $this->approver_2_id === $approver->id) {
+            throw new \InvalidArgumentException('User has already approved this order.');
+        }
+
+        // Set first approver if not set
+        if ($this->approver_1_id === null) {
+            $this->approver_1_id = $approver->id;
+            $this->save();
+            return;
+        }
+
+        // Set second approver and mark as approved
+        if ($this->approver_2_id === null) {
+            $this->approver_2_id = $approver->id;
+            $this->approved_at = now();
+            $this->status = OrderStatus::APPROVED;
+            $this->save();
+        }
+    }
+
+    /**
+     * Check if a user can approve this order.
+     *
+     * @param  User  $user  The user to check
+     * @return bool True if user can approve
+     */
+    public function canBeApprovedBy(User $user): bool
+    {
+        // Must be in confirmed status
+        if (! $this->status->canApprove()) {
+            return false;
+        }
+
+        // User must be in the same team
+        if ($this->team_id === null || ! $user->teams->contains($this->team_id)) {
+            return false;
+        }
+
+        // Check if user has one of the approval roles
+        $team = $this->team;
+        if ($team === null) {
+            return false;
+        }
+
+        $approvalRoles = [
+            CentralPurchasingRole::DEPT_HEAD_SALES,
+            CentralPurchasingRole::DEPUTY_DIRECTOR,
+            CentralPurchasingRole::DIRECTOR,
+        ];
+
+        foreach ($approvalRoles as $role) {
+            $members = TeamMemberService::getTeamMembersByCentralPurchasingRole($team, $role);
+            if ($members->contains('id', $user->id)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -407,8 +526,18 @@ final class SupplierOrder extends Model
             // Use setRawAttributes to bypass SafeUnitCast and ensure unit is set
             $attributes = $item->getAttributes();
             $item->setRawAttributes(array_merge($attributes, ['unit' => (string) $unitCode]));
+            
+            // If supplier is taxable and item has tax, recalculate line total to include tax
+            if ($quote->supplier !== null && $quote->supplier->is_taxable && (float) $item->tax_rate > 0) {
+                $item->calculateLineTotal();
+            }
+            
             $item->save();
         }
+
+        // Recalculate order totals from items (ensures tax_total is correct)
+        $order->load('supplier');
+        $order->recalculateTotals();
 
         return $order;
     }

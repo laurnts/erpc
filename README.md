@@ -25,6 +25,7 @@ ERPC is designed for trading businesses that source products from multiple suppl
   - **Buyer PO Upload** - Upload and view buyer purchase order files via action button (available when quote status is Accepted)
 - **Profit & Loss** - Generate PNL documents with items by supplier, cost/sell/margin analysis, and approval workflow
 - **Order Processing** - Manage buyer and supplier purchase orders
+  - **Supplier Order Approval** - Dual-approval workflow requiring minimum 2 approvals from senior roles (Dept Head of Sales, Deputy Director, Director) before supplier orders can be sent
 - **Invoicing** - Handle buyer and supplier invoices with payment tracking
 - **Shipment Tracking** - Monitor delivery status and logistics with Delivery Order (DO) PDF generation for inbound shipments
 
@@ -34,7 +35,7 @@ ERPC is designed for trading businesses that source products from multiple suppl
 - **Projects** - Group related requests for large deals
 - **Currencies & Exchange Rates** - Multi-currency support
 - **Tax Codes** - Configurable tax handling per item
-- **Team Members** - Central Purchasing personnel for approval workflows in QE and PNL documents (managed as team members with Central Purchasing role)
+- **Team Members** - Central Purchasing personnel for approval workflows in QE, PNL documents, and Supplier Orders (managed as team members with Central Purchasing role)
 
 ### CRM Capabilities
 - **People/Contacts** - Contact management linked to companies
@@ -49,9 +50,9 @@ ERPC is designed for trading businesses that source products from multiple suppl
   - **Editor** - Read, create, and update permissions
   - **Central Purchasing** - Read, create, and update permissions with hierarchical sub-roles:
     - Key Account (prepares QE/PNL documents)
-    - Dept. Head of Sales (approval workflow)
-    - Deputy Director (approval workflow)
-    - Director (final approval)
+    - Dept. Head of Sales (approval workflow for QE, PNL, and Supplier Orders)
+    - Deputy Director (approval workflow for QE, PNL, and Supplier Orders)
+    - Director (final approval for QE, PNL, and Supplier Orders)
 - **Email Settings** - Comprehensive email configuration:
   - **Email Template Management** - Create, edit, and manage multiple email templates per document type:
     - Dedicated Email Templates page for template library management

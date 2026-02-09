@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\RequestResource\Pages;
 
+use App\Enums\InvoiceStatus;
+use App\Enums\PrepaymentType;
 use App\Enums\RequestStage;
 use App\Filament\Resources\BuyerResource;
 use App\Filament\Resources\ProjectResource;
@@ -14,6 +16,8 @@ use App\Filament\Resources\RequestResource\RelationManagers\ItemsRelationManager
 use App\Filament\Resources\RequestResource\RelationManagers\ShipmentsRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierOrdersRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierQuotesRelationManager;
+use App\Models\BuyerInvoice;
+use App\Models\BuyerOrder;
 use App\Models\Currency;
 use App\Models\Request;
 use Filament\Actions\ActionGroup;
@@ -28,6 +32,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
+use Illuminate\Support\HtmlString;
 use Relaticle\CustomFields\Facades\CustomFields;
 
 final class ViewRequest extends ViewRecord
@@ -213,8 +218,8 @@ final class ViewRequest extends ViewRecord
                 ->visible(fn (Request $record): bool => $record->internal_notes !== null && $record->internal_notes !== '')
                 ->columnSpanFull(),
 
-            // Financial Summary & Items Summary (side by side)
-            Grid::make(2)
+            // Financial Summary, Payment Terms & Shipment (three columns)
+            Grid::make(3)
                 ->schema([
                     Section::make('Financial Summary')
                         ->icon('heroicon-o-banknotes')
@@ -240,27 +245,28 @@ final class ViewRequest extends ViewRecord
                                         ->color(fn (Request $record): string => $this->getMarginPercentColor($record)),
                                 ]),
                         ]),
-                    Section::make('Requested Items')
-                        ->icon('heroicon-o-clipboard-document-list')
+                    Section::make('Payment Terms')
+                        ->icon('heroicon-o-credit-card')
                         ->schema([
-                            Grid::make(2)
-                                ->schema([
-                                    TextEntry::make('items_count')
-                                        ->label('Total Items')
-                                        ->state(fn (Request $record): int => $record->items()->count()),
-                                    TextEntry::make('matched_items_count')
-                                        ->label('Matched')
-                                        ->state(fn (Request $record): int => $record->items()->where('is_matched', true)->count())
-                                        ->color('success'),
-                                    TextEntry::make('unmatched_items_count')
-                                        ->label('Unmatched')
-                                        ->state(fn (Request $record): int => $record->items()->where('is_matched', false)->count())
-                                        ->color(fn (Request $record): string => $record->items()->where('is_matched', false)->exists() ? 'warning' : 'gray'),
-                                    IconEntry::make('all_items_matched')
-                                        ->label('Ready for Quoting')
-                                        ->state(fn (Request $record): bool => $record->all_items_matched)
-                                        ->boolean(),
-                                ]),
+                            TextEntry::make('prepayment_display')
+                                ->label('Prepayment')
+                                ->state(fn (Request $record): string => $this->getPrepaymentDisplay($record))
+                                ->placeholder('No prepayment')
+                                ->columnSpanFull(),
+                            TextEntry::make('payment_terms_list')
+                                ->label('Payment Terms')
+                                ->state(fn (Request $record): HtmlString => $this->getPaymentTermsList($record))
+                                ->placeholder('No payment terms')
+                                ->columnSpanFull(),
+                        ]),
+                    Section::make('Shipment')
+                        ->icon('heroicon-o-truck')
+                        ->schema([
+                            TextEntry::make('shipments_list')
+                                ->label('Shipments')
+                                ->state(fn (Request $record): HtmlString => $this->getShipmentsList($record))
+                                ->placeholder('No shipments')
+                                ->columnSpanFull(),
                         ]),
                 ])
                 ->columnSpanFull(),
@@ -538,5 +544,163 @@ final class ViewRequest extends ViewRecord
         }
 
         return 'info';
+    }
+
+    /**
+     * Get the primary buyer order for payment terms display.
+     * Prefers confirmed orders, then most recent order.
+     */
+    private function getPrimaryBuyerOrder(Request $record): ?BuyerOrder
+    {
+        // Try to get confirmed order first
+        $confirmedOrder = $record->buyerOrders()
+            ->whereNotIn('status', [\App\Enums\OrderStatus::DRAFT, \App\Enums\OrderStatus::CANCELLED])
+            ->with('buyerQuote')
+            ->orderByDesc('confirmed_at')
+            ->first();
+
+        if ($confirmedOrder !== null) {
+            return $confirmedOrder;
+        }
+
+        // Fall back to most recent order
+        return $record->buyerOrders()
+            ->with('buyerQuote')
+            ->orderByDesc('created_at')
+            ->first();
+    }
+
+    /**
+     * Get prepayment display value from buyer quote.
+     */
+    private function getPrepaymentDisplay(Request $record): string
+    {
+        $buyerOrder = $this->getPrimaryBuyerOrder($record);
+
+        if ($buyerOrder === null || $buyerOrder->buyerQuote === null) {
+            return '';
+        }
+
+        $quote = $buyerOrder->buyerQuote;
+
+        if ($quote->prepayment_type === PrepaymentType::PERCENT) {
+            return $quote->prepayment_percent.'%';
+        }
+
+        if ($quote->prepayment_type === PrepaymentType::FIXED) {
+            return $this->formatCurrency((float) $quote->prepayment_amount);
+        }
+
+        return '';
+    }
+
+    /**
+     * Get payment terms list as HTML.
+     */
+    private function getPaymentTermsList(Request $record): HtmlString
+    {
+        $buyerOrder = $this->getPrimaryBuyerOrder($record);
+
+        if ($buyerOrder === null || $buyerOrder->buyerQuote === null) {
+            return new HtmlString('<span class="text-gray-400">No payment terms</span>');
+        }
+
+        $quote = $buyerOrder->buyerQuote;
+        $paymentTerms = $quote->paymentTerms;
+
+        if ($paymentTerms->isEmpty()) {
+            return new HtmlString('<span class="text-gray-400">No payment terms</span>');
+        }
+
+        $rows = [];
+        foreach ($paymentTerms as $term) {
+            $status = $this->getPaymentTermStatus($record, $term->due_days, $term->percentage);
+            $statusColor = $status === 'Paid' ? 'success' : 'warning';
+            $statusBadge = sprintf(
+                '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-%s-100 text-%s-800">%s</span>',
+                $statusColor,
+                $statusColor,
+                htmlspecialchars($status)
+            );
+
+            $rows[] = sprintf(
+                '<tr><td class="pr-4">%d days</td><td class="pr-4 text-right">%d%%</td><td>%s</td></tr>',
+                $term->due_days,
+                $term->percentage,
+                $statusBadge
+            );
+        }
+
+        $html = '<table class="text-sm w-full"><thead><tr class="text-gray-500"><th class="text-left pr-4">Due Days</th><th class="text-right pr-4">Percentage</th><th class="text-left">Status</th></tr></thead><tbody>'.implode('', $rows).'</tbody></table>';
+
+        return new HtmlString($html);
+    }
+
+    /**
+     * Get payment term status (Paid/Not Paid) based on invoice payments.
+     */
+    private function getPaymentTermStatus(Request $record, int $dueDays, int $percentage): string
+    {
+        // Get invoices for this request with matching net_days
+        $invoices = BuyerInvoice::query()
+            ->where('request_id', $record->getKey())
+            ->where('net_days', $dueDays)
+            ->whereNotIn('status', [InvoiceStatus::CANCELLED, InvoiceStatus::DRAFT])
+            ->get();
+
+        if ($invoices->isEmpty()) {
+            return 'Not Paid';
+        }
+
+        // Calculate expected payment amount based on percentage
+        $buyerTotal = $this->getEffectiveBuyerTotal($record);
+        $expectedAmount = ($buyerTotal * $percentage) / 100;
+
+        // Sum up paid amounts from invoices
+        $paidAmount = 0.0;
+        foreach ($invoices as $invoice) {
+            $paidAmount += (float) $invoice->amount_paid;
+        }
+
+        // Consider paid if paid amount equals or exceeds expected amount (with small tolerance)
+        if ($paidAmount >= ($expectedAmount - 0.01)) {
+            return 'Paid';
+        }
+
+        return 'Not Paid';
+    }
+
+    /**
+     * Get shipments list as HTML.
+     */
+    private function getShipmentsList(Request $record): HtmlString
+    {
+        $shipments = $record->shipments()->orderByDesc('created_at')->get();
+
+        if ($shipments->isEmpty()) {
+            return new HtmlString('<span class="text-gray-400">No shipments</span>');
+        }
+
+        $rows = [];
+        foreach ($shipments as $shipment) {
+            $statusBadge = sprintf(
+                '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-%s-100 text-%s-800">%s</span>',
+                $shipment->status->getColor(),
+                $shipment->status->getColor(),
+                htmlspecialchars($shipment->status->getLabel())
+            );
+
+            $rows[] = sprintf(
+                '<tr><td class="pr-4 font-medium">%s</td><td class="pr-4">%s</td><td class="pr-4">%s</td><td>%s</td></tr>',
+                htmlspecialchars($shipment->shipment_number),
+                $statusBadge,
+                htmlspecialchars($shipment->carrier_name ?? '-'),
+                htmlspecialchars($shipment->tracking_number ?? '-')
+            );
+        }
+
+        $html = '<table class="text-sm w-full"><thead><tr class="text-gray-500"><th class="text-left pr-4">Shipment #</th><th class="text-left pr-4">Status</th><th class="text-left pr-4">Carrier</th><th class="text-left">Tracking</th></tr></thead><tbody>'.implode('', $rows).'</tbody></table>';
+
+        return new HtmlString($html);
     }
 }

@@ -25,7 +25,7 @@ final class BuyerCreditLimitOverviewResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Finance';
 
-    protected static ?string $navigationLabel = 'Credit Limits';
+    protected static ?string $navigationLabel = 'Transactions';
 
     protected static ?string $pluralModelLabel = 'Credit Limits';
 
@@ -63,13 +63,13 @@ final class BuyerCreditLimitOverviewResource extends Resource
                     ->placeholder('—')
                     ->color('warning')
                     ->visible(fn (?Company $record): bool => $record !== null && $record->requested_credit_limit !== null),
-                IconColumn::make('is_on_hold')
-                    ->label('On Hold')
+                IconColumn::make('credit_status')
+                    ->label('Credit Status')
                     ->boolean()
-                    ->trueIcon('heroicon-o-exclamation-triangle')
-                    ->trueColor('danger')
-                    ->falseIcon('heroicon-o-check-circle')
-                    ->falseColor('success')
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->trueColor('success')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->falseColor('danger')
                     ->sortable(),
                 TextColumn::make('updated_at')
                     ->label('Last Updated')
@@ -78,11 +78,11 @@ final class BuyerCreditLimitOverviewResource extends Resource
                     ->toggleable(),
             ])
             ->filters([
-                SelectFilter::make('is_on_hold')
-                    ->label('On Hold')
+                SelectFilter::make('credit_status')
+                    ->label('Credit Status')
                     ->options([
-                        '1' => 'On Hold',
-                        '0' => 'Not On Hold',
+                        '1' => 'Active',
+                        '0' => 'Inactive',
                     ]),
                 SelectFilter::make('has_pending_request')
                     ->label('Has Pending Request')
