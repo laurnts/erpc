@@ -1,0 +1,12 @@
+## 1. Implementation
+- [x] 1.1 Update ViewRequest infolist method to change Grid from 2 columns to 3 columns
+- [x] 1.2 Remove "Requested Items" Section from the summary grid
+- [x] 1.3 Add helper methods to retrieve payment terms data from BuyerOrder->BuyerQuote relationship
+- [x] 1.4 Add helper method to determine payment term status (Paid/Not Paid) based on BuyerInvoice payments
+- [x] 1.5 Create Payment Terms section with:
+  - [x] Prepayment value display (format based on prepayment_type)
+  - [x] Payment terms list with due days, percentage, and status
+- [x] 1.6 Create Shipment section with:
+  - [x] Shipment list displaying shipment_number, status, carrier_name, tracking_number
+- [x] 1.7 Handle empty states (no payment terms, no shipments)
+- [ ] 1.8 Test the layout with various data scenarios

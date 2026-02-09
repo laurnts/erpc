@@ -175,18 +175,25 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         return;
                                     }
                                     
-                                    // Calculate sum of all percentages
+                                    // Calculate sum of all percentages and count payment terms
                                     $totalPercentage = 0;
+                                    $paymentTermCount = 0;
                                     if (is_array($value)) {
                                         foreach ($value as $item) {
                                             $percentage = (float) ($item['percentage'] ?? 0);
-                                            $totalPercentage += $percentage;
+                                            if ($percentage > 0) {
+                                                $totalPercentage += $percentage;
+                                                $paymentTermCount++;
+                                            }
                                         }
                                     }
                                     
-                                    // Validate sum equals 100
-                                    if (abs($totalPercentage - 100) > 0.01) { // Allow small floating point differences
-                                        $fail("The total payment terms percentage must equal 100%. Current total: " . number_format($totalPercentage, 2) . "%");
+                                    // Only validate if there are more than 1 payment term
+                                    if ($paymentTermCount > 1) {
+                                        // Validate sum equals 100
+                                        if (abs($totalPercentage - 100) > 0.01) { // Allow small floating point differences
+                                            $fail("The total payment terms percentage must equal 100%. Current total: " . number_format($totalPercentage, 2) . "%");
+                                        }
                                     }
                                 };
                             },
