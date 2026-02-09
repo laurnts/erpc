@@ -19,6 +19,8 @@
                     <th class="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400">Date</th>
                     <th class="px-3 py-2 text-center font-medium text-gray-600 dark:text-gray-400">Type</th>
                     <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-400">Amount</th>
+                    <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-400">Max Credit Limit Before</th>
+                    <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-400">Max Credit Limit After</th>
                     <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-400">Available Credit Before</th>
                     <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-400">Available Credit After</th>
                     <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-400">Credit Used Before</th>
@@ -36,8 +38,33 @@
                         </td>
                         <td class="px-3 py-2 text-center">
                             @php
-                                $typeColor = $item->transaction_type === 'used' ? 'danger' : 'success';
-                                $typeLabel = $item->transaction_type === 'used' ? 'Used' : 'Restored';
+                                // Handle 'approved' transaction type - determine if it's increase or decrease
+                                if ($item->transaction_type === 'approved') {
+                                    $maxBefore = (float) $item->max_credit_limit_before;
+                                    $maxAfter = (float) $item->max_credit_limit_after;
+                                    if ($maxAfter > $maxBefore) {
+                                        $typeLabel = 'Limit Increase';
+                                        $typeColor = 'success';
+                                    } elseif ($maxAfter < $maxBefore) {
+                                        $typeLabel = 'Limit Decrease';
+                                        $typeColor = 'warning';
+                                    } else {
+                                        $typeLabel = 'Approved';
+                                        $typeColor = 'success';
+                                    }
+                                } else {
+                                    $typeMap = [
+                                        'limit_increase' => ['label' => 'Limit Increase', 'color' => 'success'],
+                                        'limit_decrease' => ['label' => 'Limit Decrease', 'color' => 'warning'],
+                                        'credit' => ['label' => 'Credit', 'color' => 'success'],
+                                        'debit' => ['label' => 'Debit', 'color' => 'warning'],
+                                        'used' => ['label' => 'Used', 'color' => 'danger'], // Legacy
+                                        'restored' => ['label' => 'Restored', 'color' => 'success'], // Legacy
+                                    ];
+                                    $typeInfo = $typeMap[$item->transaction_type] ?? ['label' => ucfirst($item->transaction_type), 'color' => 'gray'];
+                                    $typeColor = $typeInfo['color'];
+                                    $typeLabel = $typeInfo['label'];
+                                }
                             @endphp
                             <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-{{ $typeColor }}-100 text-{{ $typeColor }}-800 dark:bg-{{ $typeColor }}-900 dark:text-{{ $typeColor }}-200">
                                 {{ $typeLabel }}
@@ -47,16 +74,55 @@
                             {{ number_format((float) $item->amount, 2) }} {{ $currencyCode }}
                         </td>
                         <td class="px-3 py-2 text-right text-gray-900 dark:text-gray-100">
-                            {{ number_format((float) $item->available_credit_before, 2) }} {{ $currencyCode }}
+                            @php
+                                $showMaxLimit = in_array($item->transaction_type, ['approved', 'limit_increase', 'limit_decrease']);
+                            @endphp
+                            @if($showMaxLimit)
+                                {{ number_format((float) $item->max_credit_limit_before, 2) }} {{ $currencyCode }}
+                            @else
+                                <span class="text-gray-400">—</span>
+                            @endif
                         </td>
                         <td class="px-3 py-2 text-right text-gray-900 dark:text-gray-100">
-                            {{ number_format((float) $item->available_credit_after, 2) }} {{ $currencyCode }}
+                            @if($showMaxLimit)
+                                {{ number_format((float) $item->max_credit_limit_after, 2) }} {{ $currencyCode }}
+                            @else
+                                <span class="text-gray-400">—</span>
+                            @endif
                         </td>
                         <td class="px-3 py-2 text-right text-gray-900 dark:text-gray-100">
-                            {{ number_format((float) $item->credit_used_before, 2) }} {{ $currencyCode }}
+                            @php
+                                $showCreditUsage = in_array($item->transaction_type, ['credit', 'debit', 'used', 'restored', 'approved']);
+                            @endphp
+                            @if($showCreditUsage)
+                                {{ number_format((float) $item->available_credit_before, 2) }} {{ $currencyCode }}
+                            @else
+                                <span class="text-gray-400">—</span>
+                            @endif
                         </td>
                         <td class="px-3 py-2 text-right text-gray-900 dark:text-gray-100">
-                            {{ number_format((float) $item->credit_used_after, 2) }} {{ $currencyCode }}
+                            @if($showCreditUsage)
+                                {{ number_format((float) $item->available_credit_after, 2) }} {{ $currencyCode }}
+                            @else
+                                <span class="text-gray-400">—</span>
+                            @endif
+                        </td>
+                        <td class="px-3 py-2 text-right text-gray-900 dark:text-gray-100">
+                            @php
+                                $showCreditUsed = in_array($item->transaction_type, ['credit', 'debit', 'used', 'restored']);
+                            @endphp
+                            @if($showCreditUsed)
+                                {{ number_format((float) $item->credit_used_before, 2) }} {{ $currencyCode }}
+                            @else
+                                <span class="text-gray-400">—</span>
+                            @endif
+                        </td>
+                        <td class="px-3 py-2 text-right text-gray-900 dark:text-gray-100">
+                            @if($showCreditUsed)
+                                {{ number_format((float) $item->credit_used_after, 2) }} {{ $currencyCode }}
+                            @else
+                                <span class="text-gray-400">—</span>
+                            @endif
                         </td>
                         <td class="px-3 py-2 text-gray-900 dark:text-gray-100">
                             {{ $item->description ?? '—' }}

@@ -199,24 +199,52 @@ final class BuyerCreditLimitRequest extends Model
                 // Update buyer's credit limit
                 $buyer = $this->buyer;
                 
-                // Calculate increase amount and update available credit
+                // Calculate change amount and update available credit
                 $currentLimit = (float) $buyer->credit_limit;
                 $requestedLimit = (float) $this->requested_limit;
-                $increaseAmount = $requestedLimit - $currentLimit;
+                $changeAmount = $requestedLimit - $currentLimit;
                 $currentAvailableCredit = (float) $buyer->available_credit;
                 
                 // Update credit_limit to requested_limit
                 $buyer->credit_limit = $this->requested_limit;
                 
-                // Increase available_credit by the increase amount (preserve existing available credit)
-                // $buyer->available_credit = $currentAvailableCredit + $increaseAmount; // not resetting credit limit
-                $buyer->available_credit = $requestedLimit;
+                // Update available_credit based on increase or decrease
+                if ($changeAmount > 0) {
+                    // Increase: add the change amount to current available credit
+                    $buyer->available_credit = $currentAvailableCredit + $changeAmount;
+                } else {
+                    // Decrease: subtract the absolute change amount (can be negative, representing debt)
+                    $buyer->available_credit = $currentAvailableCredit - abs($changeAmount);
+                }
                 
                 // Ensure available_credit doesn't exceed credit_limit (safety check)
                 $buyer->available_credit = min((float) $buyer->available_credit, $requestedLimit);
                 
                 $buyer->requested_credit_limit = null;
                 $buyer->save();
+
+                // Create credit usage history record for approved limit change
+                $isIncrease = $requestedLimit >= $currentLimit;
+                $absoluteChangeAmount = abs($changeAmount);
+                
+                BuyerCreditUsageHistory::create([
+                    'team_id' => $buyer->team_id,
+                    'buyer_id' => $buyer->id,
+                    'transaction_type' => 'approved',
+                    'amount' => $absoluteChangeAmount,
+                    'max_credit_limit_before' => $currentLimit,
+                    'max_credit_limit_after' => $requestedLimit,
+                    'available_credit_before' => $currentAvailableCredit,
+                    'available_credit_after' => $buyer->available_credit,
+                    'credit_used_before' => 0,
+                    'credit_used_after' => 0,
+                    'related_type' => self::class,
+                    'related_id' => $this->id,
+                    'description' => $isIncrease
+                        ? "Credit limit increased from " . number_format($currentLimit, 2) . " to " . number_format($requestedLimit, 2)
+                        : "Credit limit decreased from " . number_format($currentLimit, 2) . " to " . number_format($requestedLimit, 2),
+                    'created_by_id' => auth()->id(),
+                ]);
 
                 // Update request status
                 $this->status = CreditLimitRequestStatus::APPROVED;

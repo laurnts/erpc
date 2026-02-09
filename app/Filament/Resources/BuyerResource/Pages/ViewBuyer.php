@@ -66,11 +66,11 @@ final class ViewBuyer extends ViewRecord
 
         $currentLimit = (string) $buyer->credit_limit;
 
-        // Validate requested limit is greater than current
-        if ((float) $requestedLimit <= (float) $currentLimit) {
+        // Validate requested limit is not negative
+        if ((float) $requestedLimit < 0) {
             Notification::make()
                 ->title('Invalid Request')
-                ->body('Requested credit limit must be greater than the current active limit.')
+                ->body('Requested credit limit cannot be negative.')
                 ->danger()
                 ->send();
 

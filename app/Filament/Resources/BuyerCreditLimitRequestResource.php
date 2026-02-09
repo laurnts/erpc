@@ -49,7 +49,7 @@ final class BuyerCreditLimitRequestResource extends Resource
                     
                     ->sortable(),
                 TextColumn::make('current_limit')
-                    ->label('Current Limit')
+                    ->label('Max Credit Limit')
                     ->money(fn (): string => Filament::getTenant() instanceof \App\Models\Team ? Filament::getTenant()->getBaseCurrencyCode() : 'USD')
                     ->sortable(),
                 TextColumn::make('requested_limit')
@@ -59,7 +59,7 @@ final class BuyerCreditLimitRequestResource extends Resource
                     ->color('success')
                     ->weight('bold'),
                 TextColumn::make('increase_amount')
-                    ->label('Increase')
+                    ->label('Changes')
                     ->getStateUsing(fn (BuyerCreditLimitRequest $record): float => (float) $record->requested_limit - (float) $record->current_limit)
                     ->money(fn (): string => Filament::getTenant() instanceof \App\Models\Team ? Filament::getTenant()->getBaseCurrencyCode() : 'USD')
                     ->color('success'),
@@ -107,8 +107,8 @@ final class BuyerCreditLimitRequestResource extends Resource
                     ->color('success')
                     ->visible(fn (BuyerCreditLimitRequest $record): bool => $record->canBeApprovedBy(auth()->user()))
                     ->requiresConfirmation()
-                    ->modalHeading('Approve Credit Limit Increase Request')
-                    ->modalDescription(fn (BuyerCreditLimitRequest $record): string => "Are you sure you want to approve the credit limit increase request for {$record->buyer->name}?")
+                    ->modalHeading('Approve Credit Limit Request')
+                    ->modalDescription(fn (BuyerCreditLimitRequest $record): string => "Are you sure you want to approve the credit limit request for {$record->buyer->name}?")
                     ->form([
                         Textarea::make('notes')
                             ->label('Notes (Optional)')
@@ -140,8 +140,8 @@ final class BuyerCreditLimitRequestResource extends Resource
                     ->color('danger')
                     ->visible(fn (BuyerCreditLimitRequest $record): bool => $record->canBeRejectedBy(auth()->user()))
                     ->requiresConfirmation()
-                    ->modalHeading('Reject Credit Limit Increase Request')
-                    ->modalDescription(fn (BuyerCreditLimitRequest $record): string => "Are you sure you want to reject the credit limit increase request for {$record->buyer->name}?")
+                    ->modalHeading('Reject Credit Limit Request')
+                    ->modalDescription(fn (BuyerCreditLimitRequest $record): string => "Are you sure you want to reject the credit limit request for {$record->buyer->name}?")
                     ->form([
                         Textarea::make('reason')
                             ->label('Rejection Reason')
@@ -155,7 +155,7 @@ final class BuyerCreditLimitRequestResource extends Resource
 
                             Notification::make()
                                 ->title('Request Rejected')
-                                ->body('The credit limit increase request has been rejected.')
+                                ->body('The credit limit request has been rejected.')
                                 ->success()
                                 ->send();
                         } catch (\Exception $e) {

@@ -19,7 +19,7 @@
                     <th class="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400">Request Date</th>
                     <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-400">Current Limit</th>
                     <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-400">Requested Limit</th>
-                    <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-400">Increase Amount</th>
+                    <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-400">Changes</th>
                     <th class="px-3 py-2 text-center font-medium text-gray-600 dark:text-gray-400">Status</th>
                     <th class="px-3 py-2 text-center font-medium text-gray-600 dark:text-gray-400">Approvals</th>
                     <th class="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400">Requested By</th>

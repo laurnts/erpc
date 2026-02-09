@@ -186,7 +186,7 @@ final class BuyerResource extends Resource
             Section::make('Credit Settings')
                 ->schema([
                     TextInput::make('credit_limit')
-                        ->label('Active Credit Limit')
+                        ->label('Max Credit Limit')
                         ->numeric()
                         ->default(0)
                         ->disabled()
@@ -290,7 +290,7 @@ final class BuyerResource extends Resource
                     ->sortable()
                     ->toggleable(),
                 TextColumn::make('credit_limit')
-                    ->label('Active Credit Limit')
+                    ->label('Max Credit Limit')
                     ->money(fn (): string => Filament::getTenant() instanceof Team ? Filament::getTenant()->getBaseCurrencyCode() : 'USD')
                     ->sortable()
                     ->toggleable(),

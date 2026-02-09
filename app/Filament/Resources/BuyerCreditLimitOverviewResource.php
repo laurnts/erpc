@@ -46,7 +46,7 @@ final class BuyerCreditLimitOverviewResource extends Resource
                     
                     ->sortable(),
                 TextColumn::make('credit_limit')
-                    ->label('Active Credit Limit')
+                    ->label('Max Credit Limit')
                     ->money(fn (): string => Filament::getTenant() instanceof \App\Models\Team ? Filament::getTenant()->getBaseCurrencyCode() : 'USD')
                     ->sortable(),
                 TextColumn::make('available_credit')
