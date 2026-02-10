@@ -8,7 +8,7 @@
 @endphp
 
 {{-- Ensure Tailwind compiles badge classes --}}
-<div class="hidden bg-success-100 text-success-800 dark:bg-success-900 dark:text-success-200 bg-yellow-100 text-yellow-900 dark:bg-yellow-400 dark:text-yellow-900 bg-danger-100 text-danger-800 dark:bg-danger-900 dark:text-danger-200"></div>
+<div class="hidden bg-emerald-200 text-emerald-900 dark:bg-emerald-800 dark:text-emerald-100 bg-orange-200 text-orange-900 dark:bg-orange-800 dark:text-orange-100 bg-green-300 text-green-900 dark:bg-green-300 dark:text-green-900 bg-yellow-400 text-yellow-900 dark:bg-yellow-400 dark:text-yellow-900 bg-success-100 text-success-800 dark:bg-success-900 dark:text-success-200 bg-danger-100 text-danger-800 dark:bg-danger-900 dark:text-danger-200"></div>
 
 @if($history->isEmpty())
     <div class="text-sm text-gray-500 dark:text-gray-400">
@@ -45,38 +45,31 @@
                                     $maxAfter = (float) $item->max_credit_limit_after;
                                     if ($maxAfter > $maxBefore) {
                                         $typeLabel = 'Limit Increase';
-                                        $typeColor = 'success';
+                                        $badgeClass = 'bg-emerald-200 text-emerald-900 dark:bg-emerald-800 dark:text-emerald-100';
                                     } elseif ($maxAfter < $maxBefore) {
                                         $typeLabel = 'Limit Decrease';
-                                        $typeColor = 'warning';
+                                        $badgeClass = 'bg-orange-200 text-orange-900 dark:bg-orange-800 dark:text-orange-100';
                                     } else {
                                         $typeLabel = 'Approved';
-                                        $typeColor = 'success';
+                                        $badgeClass = 'bg-success-100 text-success-800 dark:bg-success-900 dark:text-success-200';
                                     }
                                 } else {
                                     $typeMap = [
-                                        'limit_increase' => ['label' => 'Limit Increase', 'color' => 'success'],
-                                        'limit_decrease' => ['label' => 'Limit Decrease', 'color' => 'warning'],
-                                        'credit' => ['label' => 'Credit', 'color' => 'success'],
-                                        'debit' => ['label' => 'Debit', 'color' => 'warning'],
-                                        'used' => ['label' => 'Used', 'color' => 'danger'], // Legacy
-                                        'restored' => ['label' => 'Restored', 'color' => 'success'], // Legacy
+                                        'limit_increase' => ['label' => 'Limit Increase', 'class' => 'bg-emerald-200 text-emerald-900 dark:bg-emerald-800 dark:text-emerald-100'],
+                                        'limit_decrease' => ['label' => 'Limit Decrease', 'class' => 'bg-orange-200 text-orange-900 dark:bg-orange-800 dark:text-orange-100'],
+                                        'credit' => ['label' => 'Credit', 'class' => 'bg-green-300 text-green-900 dark:bg-green-300 dark:text-green-900'],
+                                        'debit' => ['label' => 'Debit', 'class' => 'bg-yellow-400 text-yellow-900 dark:bg-yellow-400 dark:text-yellow-900'],
+                                        'used' => ['label' => 'Used', 'class' => 'bg-danger-100 text-danger-800 dark:bg-danger-900 dark:text-danger-200'], // Legacy
+                                        'restored' => ['label' => 'Restored', 'class' => 'bg-success-100 text-success-800 dark:bg-success-900 dark:text-success-200'], // Legacy
                                     ];
-                                    $typeInfo = $typeMap[$item->transaction_type] ?? ['label' => ucfirst($item->transaction_type), 'color' => 'gray'];
-                                    $typeColor = $typeInfo['color'];
+                                    $typeInfo = $typeMap[$item->transaction_type] ?? ['label' => ucfirst($item->transaction_type), 'class' => 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'];
+                                    $badgeClass = $typeInfo['class'];
                                     $typeLabel = $typeInfo['label'];
                                 }
-                                
                             @endphp
-                            @if($typeColor === 'warning')
-                                <span class="inline-flex items-center justify-center min-w-20 h-10 px-2 rounded-full text-xs font-medium bg-yellow-100 text-yellow-900 dark:bg-yellow-400 dark:text-yellow-900">
-                                    {{ $typeLabel }}
-                                </span>
-                            @else
-                                <span class="inline-flex items-center justify-center min-w-20 h-10 px-2 rounded-full text-xs font-medium bg-{{ $typeColor }}-100 text-{{ $typeColor }}-800 dark:bg-{{ $typeColor }}-900 dark:text-{{ $typeColor }}-200">
-                                    {{ $typeLabel }}
-                                </span>
-                            @endif
+                            <span class="inline-flex items-center justify-center min-w-[80px] h-10 px-2 rounded-full text-xs font-medium {{ $badgeClass }}">
+                                {{ $typeLabel }}
+                            </span>
                         </td>
                         <td class="px-3 py-2 text-right font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
                             {{ number_format((float) $item->amount, 2) }} {{ $currencyCode }}
