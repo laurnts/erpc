@@ -7,6 +7,9 @@
         : 'USD';
 @endphp
 
+{{-- Ensure Tailwind compiles badge classes --}}
+<div class="hidden bg-success-100 text-success-800 dark:bg-success-900 dark:text-success-200 bg-yellow-100 text-yellow-900 dark:bg-yellow-400 dark:text-yellow-900 bg-danger-100 text-danger-800 dark:bg-danger-900 dark:text-danger-200"></div>
+
 @if($history->isEmpty())
     <div class="text-sm text-gray-500 dark:text-gray-400">
         No credit usage history found.
@@ -18,15 +21,13 @@
                 <tr class="border-b border-gray-200 dark:border-gray-700">
                     <th class="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400">Date</th>
                     <th class="px-3 py-2 text-center font-medium text-gray-600 dark:text-gray-400">Type</th>
-                    <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-400">Amount</th>
+                    <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">Amount</th>
                     <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-400">Max Credit Limit Before</th>
                     <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-400">Max Credit Limit After</th>
                     <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-400">Available Credit Before</th>
                     <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-400">Available Credit After</th>
-                    <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-400">Credit Used Before</th>
-                    <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-400">Credit Used After</th>
                     <th class="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400">Description</th>
-                    <th class="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400">Related Order</th>
+                    <th class="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400">Related Entity</th>
                     <th class="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400">Created By</th>
                 </tr>
             </thead>
@@ -65,12 +66,19 @@
                                     $typeColor = $typeInfo['color'];
                                     $typeLabel = $typeInfo['label'];
                                 }
+                                
                             @endphp
-                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-{{ $typeColor }}-100 text-{{ $typeColor }}-800 dark:bg-{{ $typeColor }}-900 dark:text-{{ $typeColor }}-200">
-                                {{ $typeLabel }}
-                            </span>
+                            @if($typeColor === 'warning')
+                                <span class="inline-flex items-center justify-center min-w-20 h-10 px-2 rounded-full text-xs font-medium bg-yellow-100 text-yellow-900 dark:bg-yellow-400 dark:text-yellow-900">
+                                    {{ $typeLabel }}
+                                </span>
+                            @else
+                                <span class="inline-flex items-center justify-center min-w-20 h-10 px-2 rounded-full text-xs font-medium bg-{{ $typeColor }}-100 text-{{ $typeColor }}-800 dark:bg-{{ $typeColor }}-900 dark:text-{{ $typeColor }}-200">
+                                    {{ $typeLabel }}
+                                </span>
+                            @endif
                         </td>
-                        <td class="px-3 py-2 text-right font-semibold text-gray-900 dark:text-gray-100">
+                        <td class="px-3 py-2 text-right font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
                             {{ number_format((float) $item->amount, 2) }} {{ $currencyCode }}
                         </td>
                         <td class="px-3 py-2 text-right text-gray-900 dark:text-gray-100">
@@ -92,7 +100,7 @@
                         </td>
                         <td class="px-3 py-2 text-right text-gray-900 dark:text-gray-100">
                             @php
-                                $showCreditUsage = in_array($item->transaction_type, ['credit', 'debit', 'used', 'restored', 'approved']);
+                                $showCreditUsage = in_array($item->transaction_type, ['credit', 'debit', 'used', 'restored']);
                             @endphp
                             @if($showCreditUsage)
                                 {{ number_format((float) $item->available_credit_before, 2) }} {{ $currencyCode }}
@@ -107,23 +115,6 @@
                                 <span class="text-gray-400">—</span>
                             @endif
                         </td>
-                        <td class="px-3 py-2 text-right text-gray-900 dark:text-gray-100">
-                            @php
-                                $showCreditUsed = in_array($item->transaction_type, ['credit', 'debit', 'used', 'restored']);
-                            @endphp
-                            @if($showCreditUsed)
-                                {{ number_format((float) $item->credit_used_before, 2) }} {{ $currencyCode }}
-                            @else
-                                <span class="text-gray-400">—</span>
-                            @endif
-                        </td>
-                        <td class="px-3 py-2 text-right text-gray-900 dark:text-gray-100">
-                            @if($showCreditUsed)
-                                {{ number_format((float) $item->credit_used_after, 2) }} {{ $currencyCode }}
-                            @else
-                                <span class="text-gray-400">—</span>
-                            @endif
-                        </td>
                         <td class="px-3 py-2 text-gray-900 dark:text-gray-100">
                             {{ $item->description ?? '—' }}
                         </td>
@@ -131,7 +122,12 @@
                             @if($item->related)
                                 @php
                                     $related = $item->related;
-                                    if ($related instanceof \App\Models\BuyerOrder) {
+                                    if ($related instanceof \App\Models\BuyerCreditLimitRequest) {
+                                        // For approved credit limit requests, link to buyer
+                                        $url = \App\Filament\Resources\BuyerResource::getUrl('view', ['record' => $item->buyer_id]);
+                                        $label = $item->buyer->name ?? 'Buyer #' . $item->buyer_id;
+                                    } elseif ($related instanceof \App\Models\BuyerOrder) {
+                                        // For orders, link to request
                                         $url = \App\Filament\Resources\RequestResource::getUrl('view', ['record' => $related->request_id]);
                                         $label = $related->order_number ?? 'Order #' . $related->id;
                                     } else {
