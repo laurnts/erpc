@@ -24,6 +24,14 @@ final class ViewBuyerCreditLimit extends ViewRecord
         return [];
     }
 
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        // Eager load defaultCurrency relationship
+        $this->record->load('defaultCurrency');
+        
+        return $data;
+    }
+
     public function infolist(Schema $schema): Schema
     {
         return $schema->schema([
@@ -42,13 +50,34 @@ final class ViewBuyerCreditLimit extends ViewRecord
                     ->schema([
                         TextEntry::make('credit_limit')
                             ->label('Max Credit Limit')
-                            ->money(fn (): string => \Filament\Facades\Filament::getTenant() instanceof \App\Models\Team ? \Filament\Facades\Filament::getTenant()->getBaseCurrencyCode() : 'USD'),
+                            ->formatStateUsing(function ($state, $record): string {
+                                /** @var \App\Models\Company $record */
+                                $currency = $record->defaultCurrency 
+                                    ?? (\Filament\Facades\Filament::getTenant() instanceof \App\Models\Team 
+                                        ? \Filament\Facades\Filament::getTenant()->getBaseCurrency() 
+                                        : null);
+                                return \App\Models\Currency::formatAmount((float) $state, $currency);
+                            }),
                         TextEntry::make('available_credit')
                             ->label('Available Credit')
-                            ->money(fn (): string => \Filament\Facades\Filament::getTenant() instanceof \App\Models\Team ? \Filament\Facades\Filament::getTenant()->getBaseCurrencyCode() : 'USD'),
+                            ->formatStateUsing(function ($state, $record): string {
+                                /** @var \App\Models\Company $record */
+                                $currency = $record->defaultCurrency 
+                                    ?? (\Filament\Facades\Filament::getTenant() instanceof \App\Models\Team 
+                                        ? \Filament\Facades\Filament::getTenant()->getBaseCurrency() 
+                                        : null);
+                                return \App\Models\Currency::formatAmount((float) $state, $currency);
+                            }),
                         TextEntry::make('credit_used')
                             ->label('Credit Used')
-                            ->money(fn (): string => \Filament\Facades\Filament::getTenant() instanceof \App\Models\Team ? \Filament\Facades\Filament::getTenant()->getBaseCurrencyCode() : 'USD'),
+                            ->formatStateUsing(function ($state, $record): string {
+                                /** @var \App\Models\Company $record */
+                                $currency = $record->defaultCurrency 
+                                    ?? (\Filament\Facades\Filament::getTenant() instanceof \App\Models\Team 
+                                        ? \Filament\Facades\Filament::getTenant()->getBaseCurrency() 
+                                        : null);
+                                return \App\Models\Currency::formatAmount((float) $state, $currency);
+                            }),
                         TextEntry::make('credit_status')
                             ->label('Credit Status')
                             ->badge()
