@@ -185,7 +185,7 @@ final class BuyerOrder extends Model implements HasCustomFields
     /**
      * Confirm the order.
      */
-    public function confirm(): void
+    public function confirm(bool $useCredit = true): void
     {
         if (! $this->status->canConfirm()) {
             throw new \InvalidArgumentException('Only draft or sent orders can be confirmed.');
@@ -206,8 +206,8 @@ final class BuyerOrder extends Model implements HasCustomFields
             return;
         }
 
-        // Skip credit checks if credit_status is disabled
-        if (!$buyer->credit_status) {
+        // Skip credit checks if credit_status is disabled or useCredit is false
+        if (!$buyer->credit_status || !$useCredit) {
             $this->status = OrderStatus::CONFIRMED;
             $this->confirmed_at = now();
             $this->save();

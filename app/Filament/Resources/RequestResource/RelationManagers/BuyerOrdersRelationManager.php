@@ -24,6 +24,7 @@ use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Grid;
@@ -506,7 +507,6 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
                         ->visible(fn (BuyerOrder $record): bool => $record->status->canConfirm())
-                        ->requiresConfirmation()
                         ->modalHeading('Confirm this order?')
                         ->modalDescription(function (BuyerOrder $record): string {
                             $buyer = $record->buyer;
@@ -535,12 +535,40 @@ final class BuyerOrdersRelationManager extends RelationManager
 
                             return $message;
                         })
-                        ->action(function (BuyerOrder $record): void {
+                        ->form(function (BuyerOrder $record): array {
+                            $buyer = $record->buyer;
+                            $schema = [];
+                            
+                            // Only show toggle if buyer has credit_status enabled
+                            if ($buyer && $buyer->credit_status) {
+                                $schema[] = Toggle::make('use_credit')
+                                    ->label('Use Credit')
+                                    ->default(true)
+                                    ->helperText('When enabled, available credit will be reduced when confirming this order.');
+                            }
+                            
+                            // If credit_status is disabled, return empty schema (no toggle shown)
+                            return $schema;
+                        })
+                        ->action(function (BuyerOrder $record, array $data): void {
                             try {
-                                $record->confirm();
+                                $buyer = $record->buyer;
+                                
+                                // If buyer has credit_status enabled, use form value (defaults to true)
+                                // If credit_status is disabled, toggle wasn't shown, so default to false
+                                $useCredit = ($buyer && $buyer->credit_status) 
+                                    ? ($data['use_credit'] ?? true)  // Toggle was shown, default to true
+                                    : false;  // Toggle not shown, don't use credit
+                                
+                                $record->confirm($useCredit);
+                                
+                                $notificationBody = $useCredit 
+                                    ? 'Order has been confirmed and credit has been reduced.'
+                                    : 'Order has been confirmed without using credit.';
+                                
                                 Notification::make()
                                     ->title('Order confirmed')
-                                    ->body('Order has been confirmed and credit has been reduced.')
+                                    ->body($notificationBody)
                                     ->success()
                                     ->send();
                             } catch (\InvalidArgumentException $e) {
