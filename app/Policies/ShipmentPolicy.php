@@ -6,14 +6,28 @@ namespace App\Policies;
 
 use App\Models\Shipment;
 use App\Models\User;
+use Filament\Facades\Filament;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
 final readonly class ShipmentPolicy
 {
     use HandlesAuthorization;
 
+    /**
+     * Check if user is an administrator for the current team.
+     */
+    private function isAdmin(User $user): bool
+    {
+        $team = Filament::getTenant();
+        return $team !== null && $user->hasTeamRole($team, 'admin');
+    }
+
     public function viewAny(User $user): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        }
+
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
             && $user->hasPermissionTo('view shipments');
@@ -21,12 +35,20 @@ final readonly class ShipmentPolicy
 
     public function view(User $user, Shipment $shipment): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->belongsToTeam($shipment->team);
+        }
+
         return $user->belongsToTeam($shipment->team)
             && $user->hasPermissionTo('view shipments');
     }
 
     public function create(User $user): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        }
+
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
             && $user->hasPermissionTo('create shipments');
@@ -34,18 +56,30 @@ final readonly class ShipmentPolicy
 
     public function update(User $user, Shipment $shipment): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->belongsToTeam($shipment->team);
+        }
+
         return $user->belongsToTeam($shipment->team)
             && $user->hasPermissionTo('update shipments');
     }
 
     public function delete(User $user, Shipment $shipment): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->belongsToTeam($shipment->team);
+        }
+
         return $user->belongsToTeam($shipment->team)
             && $user->hasPermissionTo('delete shipments');
     }
 
     public function deleteAny(User $user): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        }
+
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
             && $user->hasPermissionTo('delete shipments');
@@ -53,12 +87,20 @@ final readonly class ShipmentPolicy
 
     public function restore(User $user, Shipment $shipment): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->belongsToTeam($shipment->team);
+        }
+
         return $user->belongsToTeam($shipment->team)
             && $user->hasPermissionTo('update shipments');
     }
 
     public function restoreAny(User $user): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        }
+
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
             && $user->hasPermissionTo('update shipments');
@@ -66,12 +108,20 @@ final readonly class ShipmentPolicy
 
     public function forceDelete(User $user, Shipment $shipment): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->belongsToTeam($shipment->team);
+        }
+
         return $user->belongsToTeam($shipment->team)
             && $user->hasPermissionTo('delete shipments');
     }
 
     public function forceDeleteAny(User $user): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        }
+
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
             && $user->hasPermissionTo('delete shipments');

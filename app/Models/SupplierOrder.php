@@ -417,6 +417,11 @@ final class SupplierOrder extends Model
             return false;
         }
 
+        // Administrators can approve
+        if ($user->hasTeamRole($team, 'admin')) {
+            return true;
+        }
+
         $approvalRoles = [
             CentralPurchasingRole::DEPT_HEAD_SALES,
             CentralPurchasingRole::DEPUTY_DIRECTOR,

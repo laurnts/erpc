@@ -15,10 +15,24 @@ final readonly class SupplierOrderPolicy
 {
     use HandlesAuthorization;
 
+    /**
+     * Check if user is an administrator for the current team.
+     */
+    private function isAdmin(User $user): bool
+    {
+        $team = Filament::getTenant() ?? $user->currentTeam;
+        return $team !== null && $user->hasTeamRole($team, 'admin');
+    }
+
     public function viewAny(User $user): bool
     {
         if (! $user->hasVerifiedEmail() || $user->currentTeam === null) {
             return false;
+        }
+
+        // Administrators can view all supplier orders
+        if ($this->isAdmin($user)) {
+            return true;
         }
 
         // Check if user has permission to view supplier orders
@@ -56,6 +70,11 @@ final readonly class SupplierOrderPolicy
             return false;
         }
 
+        // Administrators can view all supplier orders
+        if ($this->isAdmin($user)) {
+            return true;
+        }
+
         // Check if user has permission to view supplier orders
         if ($user->hasPermissionTo('view supplier orders')) {
             return true;
@@ -87,6 +106,10 @@ final readonly class SupplierOrderPolicy
 
     public function create(User $user): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        }
+
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
             && $user->hasPermissionTo('create supplier orders');
@@ -94,6 +117,10 @@ final readonly class SupplierOrderPolicy
 
     public function update(User $user, SupplierOrder $supplierOrder): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->belongsToTeam($supplierOrder->team) && $supplierOrder->is_editable;
+        }
+
         return $user->belongsToTeam($supplierOrder->team)
             && $user->hasPermissionTo('update supplier orders')
             && $supplierOrder->is_editable;
@@ -101,6 +128,10 @@ final readonly class SupplierOrderPolicy
 
     public function delete(User $user, SupplierOrder $supplierOrder): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->belongsToTeam($supplierOrder->team) && $supplierOrder->is_editable;
+        }
+
         return $user->belongsToTeam($supplierOrder->team)
             && $user->hasPermissionTo('delete supplier orders')
             && $supplierOrder->is_editable;
@@ -108,6 +139,10 @@ final readonly class SupplierOrderPolicy
 
     public function deleteAny(User $user): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        }
+
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
             && $user->hasPermissionTo('delete supplier orders');
@@ -115,12 +150,20 @@ final readonly class SupplierOrderPolicy
 
     public function restore(User $user, SupplierOrder $supplierOrder): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->belongsToTeam($supplierOrder->team);
+        }
+
         return $user->belongsToTeam($supplierOrder->team)
             && $user->hasPermissionTo('update supplier orders');
     }
 
     public function restoreAny(User $user): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        }
+
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
             && $user->hasPermissionTo('update supplier orders');
@@ -128,12 +171,20 @@ final readonly class SupplierOrderPolicy
 
     public function forceDelete(User $user, SupplierOrder $supplierOrder): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->belongsToTeam($supplierOrder->team);
+        }
+
         return $user->belongsToTeam($supplierOrder->team)
             && $user->hasPermissionTo('delete supplier orders');
     }
 
     public function forceDeleteAny(User $user): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        }
+
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
             && $user->hasPermissionTo('delete supplier orders');

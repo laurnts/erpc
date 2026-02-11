@@ -5,14 +5,28 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Models\User;
+use Filament\Facades\Filament;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
 final readonly class CurrencyPolicy
 {
     use HandlesAuthorization;
 
+    /**
+     * Check if user is an administrator for the current team.
+     */
+    private function isAdmin(User $user): bool
+    {
+        $team = Filament::getTenant();
+        return $team !== null && $user->hasTeamRole($team, 'admin');
+    }
+
     public function viewAny(User $user): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        }
+
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
             && $user->hasPermissionTo('view currencies');
@@ -20,6 +34,10 @@ final readonly class CurrencyPolicy
 
     public function view(User $user): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        }
+
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
             && $user->hasPermissionTo('view currencies');
@@ -27,6 +45,10 @@ final readonly class CurrencyPolicy
 
     public function create(User $user): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        }
+
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
             && $user->hasPermissionTo('create currencies');
@@ -34,6 +56,10 @@ final readonly class CurrencyPolicy
 
     public function update(User $user): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        }
+
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
             && $user->hasPermissionTo('update currencies');
@@ -41,6 +67,10 @@ final readonly class CurrencyPolicy
 
     public function delete(User $user): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        }
+
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
             && $user->hasPermissionTo('delete currencies');
@@ -48,6 +78,10 @@ final readonly class CurrencyPolicy
 
     public function deleteAny(User $user): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        }
+
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
             && $user->hasPermissionTo('delete currencies');
@@ -55,6 +89,10 @@ final readonly class CurrencyPolicy
 
     public function restore(User $user): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        }
+
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
             && $user->hasPermissionTo('update currencies');
@@ -62,6 +100,10 @@ final readonly class CurrencyPolicy
 
     public function restoreAny(User $user): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        }
+
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
             && $user->hasPermissionTo('update currencies');
@@ -69,6 +111,10 @@ final readonly class CurrencyPolicy
 
     public function forceDelete(User $user): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        }
+
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
             && $user->hasPermissionTo('delete currencies');
@@ -76,6 +122,10 @@ final readonly class CurrencyPolicy
 
     public function forceDeleteAny(User $user): bool
     {
+        if ($this->isAdmin($user)) {
+            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        }
+
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
             && $user->hasPermissionTo('delete currencies');

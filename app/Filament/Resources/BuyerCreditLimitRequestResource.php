@@ -74,8 +74,7 @@ final class BuyerCreditLimitRequestResource extends Resource
                 TextColumn::make('approvers.name')
                     ->label('Approved By')
                     ->badge()
-                    ->separator(',')
-                    ->limit(2),
+                    ->separator(','),
                 TextColumn::make('requestedBy.name')
                     ->label('Requested By')
                     ->sortable()

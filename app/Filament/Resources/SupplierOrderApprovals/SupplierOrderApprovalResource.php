@@ -246,19 +246,30 @@ final class SupplierOrderApprovalResource extends Resource
             return parent::getEloquentQuery()->whereRaw('1 = 0'); // Return empty query
         }
 
-        // Check if user has approval role
-        $approvalRoles = [
-            CentralPurchasingRole::DEPT_HEAD_SALES,
-            CentralPurchasingRole::DEPUTY_DIRECTOR,
-            CentralPurchasingRole::DIRECTOR,
-        ];
-
+        // Check if user has approval role or is admin
+        // Note: Admin check is handled in canBeApprovedBy() method
+        // This query filter shows orders to all users with approval roles or admin permissions
         $hasApprovalRole = false;
-        foreach ($approvalRoles as $role) {
-            $members = TeamMemberService::getTeamMembersByCentralPurchasingRole($team, $role);
-            if ($members->contains('id', $user->id)) {
-                $hasApprovalRole = true;
-                break;
+        
+        // Administrators can see approval orders
+        if ($user->hasTeamRole($team, 'admin')) {
+            $hasApprovalRole = true;
+        }
+        
+        // Check Central Purchasing approval roles
+        if (! $hasApprovalRole) {
+            $approvalRoles = [
+                CentralPurchasingRole::DEPT_HEAD_SALES,
+                CentralPurchasingRole::DEPUTY_DIRECTOR,
+                CentralPurchasingRole::DIRECTOR,
+            ];
+
+            foreach ($approvalRoles as $role) {
+                $members = TeamMemberService::getTeamMembersByCentralPurchasingRole($team, $role);
+                if ($members->contains('id', $user->id)) {
+                    $hasApprovalRole = true;
+                    break;
+                }
             }
         }
 
@@ -303,6 +314,11 @@ final class SupplierOrderApprovalResource extends Resource
         $user = auth()->user();
         if ($user === null) {
             return false;
+        }
+
+        // Administrators can see the approval menu
+        if ($user->hasTeamRole($team, 'admin')) {
+            return true;
         }
 
         // Check if user has one of the approval roles
