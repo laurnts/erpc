@@ -262,10 +262,6 @@ final class SupplierOrderApprovalResource extends Resource
             }
         }
 
-        if (! $hasApprovalRole) {
-            return parent::getEloquentQuery()->whereRaw('1 = 0'); // Return empty query
-        }
-
         // Show APPROVED orders (all of them) OR CONFIRMED orders that need approval
         // APPROVED orders: show all (they're fully approved but not yet sent)
         // CONFIRMED orders: show those that still need at least one approval
