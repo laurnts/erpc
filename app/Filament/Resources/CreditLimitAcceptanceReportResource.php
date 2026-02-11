@@ -46,7 +46,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('buyerCreditLimitRequest.current_limit')
-                    ->label('Current Limit')
+                    ->label('Max Credit Limit')
                     ->money(fn (): string => Filament::getTenant() instanceof \App\Models\Team ? Filament::getTenant()->getBaseCurrencyCode() : 'USD')
                     ->sortable(),
                 TextColumn::make('buyerCreditLimitRequest.requested_limit')
@@ -56,7 +56,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                     ->color('success')
                     ->weight('bold'),
                 TextColumn::make('increase_amount')
-                    ->label('Increase')
+                    ->label('Changes')
                     ->getStateUsing(function (BuyerCreditLimitRequestApproval $record): float {
                         $request = $record->buyerCreditLimitRequest;
                         return (float) $request->requested_limit - (float) $request->current_limit;

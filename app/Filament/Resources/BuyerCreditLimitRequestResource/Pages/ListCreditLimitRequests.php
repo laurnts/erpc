@@ -67,7 +67,7 @@ final class ListCreditLimitRequests extends ListRecords
                             }
                         }),
                     TextInput::make('current_limit')
-                        ->label('Current Active Limit')
+                        ->label('Max Credit Limit')
                         ->numeric()
                         ->disabled()
                         ->dehydrated(false)
@@ -90,10 +90,7 @@ final class ListCreditLimitRequests extends ListRecords
                         ->label('Requested Credit Limit')
                         ->numeric()
                         ->required()
-                        ->minValue(function ($get): float {
-                            $currentLimit = $get('current_limit');
-                            return $currentLimit ? (float) $currentLimit + 0.01 : 0.01;
-                        })
+                        ->minValue(0)
                         ->prefix(function (): string {
                             /** @var \App\Models\Team|null $team */
                             $team = Filament::getTenant();
@@ -111,9 +108,9 @@ final class ListCreditLimitRequests extends ListRecords
                         ->helperText(function ($get): string {
                             $currentLimit = $get('current_limit');
                             if ($currentLimit) {
-                                return 'Current active limit: ' . number_format((float) $currentLimit, 2);
+                                return 'Current Credit Limit: ' . number_format((float) $currentLimit, 2) . '. You can request an increase or decrease (minimum: 0).';
                             }
-                            return 'Select a buyer first to see the current active limit.';
+                            return 'Select a buyer first to see the Current Credit Limit.';
                         })
                         ->visible(fn ($get): bool => $get('buyer_id') !== null),
                 ])
@@ -147,11 +144,11 @@ final class ListCreditLimitRequests extends ListRecords
                     $requestedLimit = (string) $data['requested_limit'];
                     $currentLimit = (string) $buyer->credit_limit;
 
-                    // Validate requested limit is greater than current
-                    if ((float) $requestedLimit <= (float) $currentLimit) {
+                    // Validate requested limit is not negative
+                    if ((float) $requestedLimit < 0) {
                         Notification::make()
                             ->title('Invalid Request')
-                            ->body('Requested credit limit must be greater than the current active limit.')
+                            ->body('Requested credit limit cannot be negative.')
                             ->danger()
                             ->send();
 

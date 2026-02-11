@@ -254,6 +254,7 @@ final class BuyerOrder extends Model implements HasCustomFields
             $this->save();
 
             // Reduce available credit and increase credit used
+            // Note: Credit check above ensures this won't go negative
             $buyer->available_credit = max(0, $currentAvailableCredit - $orderTotal);
             $buyer->credit_used = $currentCreditUsed + $orderTotal;
             $buyer->save();
@@ -262,8 +263,10 @@ final class BuyerOrder extends Model implements HasCustomFields
             BuyerCreditUsageHistory::create([
                 'team_id' => $buyer->team_id,
                 'buyer_id' => $buyer->id,
-                'transaction_type' => 'used',
+                'transaction_type' => 'debit',
                 'amount' => $orderTotal,
+                'max_credit_limit_before' => 0,
+                'max_credit_limit_after' => 0,
                 'available_credit_before' => $currentAvailableCredit,
                 'available_credit_after' => $buyer->available_credit,
                 'credit_used_before' => $currentCreditUsed,
@@ -371,8 +374,10 @@ final class BuyerOrder extends Model implements HasCustomFields
                 BuyerCreditUsageHistory::create([
                     'team_id' => $buyer->team_id,
                     'buyer_id' => $buyer->id,
-                    'transaction_type' => 'restored',
+                    'transaction_type' => 'credit',
                     'amount' => $orderTotal,
+                    'max_credit_limit_before' => 0,
+                    'max_credit_limit_after' => 0,
                     'available_credit_before' => $currentAvailableCredit,
                     'available_credit_after' => $buyer->available_credit,
                     'credit_used_before' => $currentCreditUsed,

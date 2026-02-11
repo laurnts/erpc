@@ -20,7 +20,7 @@
                     <td style="padding: 8px 0;">{{ $buyer->name }} ({{ $buyer->code }})</td>
                 </tr>
                 <tr>
-                    <td style="padding: 8px 0; font-weight: bold;">Current Active Limit:</td>
+                    <td style="padding: 8px 0; font-weight: bold;">Max Credit Limit:</td>
                     <td style="padding: 8px 0;">{{ $currentLimit }}</td>
                 </tr>
                 <tr>

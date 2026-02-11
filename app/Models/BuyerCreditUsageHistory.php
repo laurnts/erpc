@@ -19,6 +19,8 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property string $available_credit_after
  * @property string $credit_used_before
  * @property string $credit_used_after
+ * @property string $max_credit_limit_before
+ * @property string $max_credit_limit_after
  * @property string|null $related_type
  * @property int|null $related_id
  * @property string|null $description
@@ -45,6 +47,8 @@ final class BuyerCreditUsageHistory extends Model
         'available_credit_after',
         'credit_used_before',
         'credit_used_after',
+        'max_credit_limit_before',
+        'max_credit_limit_after',
         'related_type',
         'related_id',
         'description',
@@ -62,6 +66,8 @@ final class BuyerCreditUsageHistory extends Model
             'available_credit_after' => 'decimal:2',
             'credit_used_before' => 'decimal:2',
             'credit_used_after' => 'decimal:2',
+            'max_credit_limit_before' => 'decimal:2',
+            'max_credit_limit_after' => 'decimal:2',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];

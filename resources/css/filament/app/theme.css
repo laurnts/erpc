@@ -114,7 +114,7 @@
 .fi-fo-select button[type="button"]:has(svg[class*="heroicon-x"]),
 .fi-fo-select button[aria-label*="Clear"],
 .fi-fo-select .fi-select-clear-button {
-    @apply hidden !important;
+    @apply !hidden;
 }
 
 /* Tables */
