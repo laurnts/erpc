@@ -222,7 +222,7 @@ final class ShipmentsRelationManager extends RelationManager
                         ->label('Items')
                         ->content(new HtmlString($this->formatShipmentItems($shipment))),
                     Placeholder::make("actions_{$shipment->id}")
-                        ->label('')
+                        ->label('Actions')
                         ->content(view('filament.components.shipment-actions', ['shipment' => $shipment]))
                         ->visible(fn () => $shipmentType === ShipmentType::INBOUND),
                 ])
@@ -569,23 +569,41 @@ final class ShipmentsRelationManager extends RelationManager
                         ->visible(fn (SupplierOrder $record): bool => $record->shipments()
                             ->where('status', ShipmentStatus::PENDING)
                             ->exists())
-                        ->form([
-                            Select::make('shipment_id')
-                                ->label('Select Shipment')
-                                ->options(fn (SupplierOrder $record): array => $record->shipments()
-                                    ->where('status', ShipmentStatus::PENDING)
-                                    ->get()
-                                    ->mapWithKeys(fn (Shipment $s): array => [
-                                        $s->getKey() => $s->shipment_number,
-                                    ])
-                                    ->all())
-                                ->required()
-                                ->selectablePlaceholder(false),
-                            TextInput::make('tracking_number')
-                                ->label('Tracking Number'),
-                            DateTimePicker::make('expected_delivery_at')
-                                ->label('Expected Delivery'),
-                        ])
+                        ->form(function (SupplierOrder $record): array {
+                            $shipmentsCollection = $record->shipments()
+                                ->where('status', ShipmentStatus::PENDING)
+                                ->get();
+
+                            $shipments = $shipmentsCollection
+                                ->mapWithKeys(fn (Shipment $s): array => [
+                                    $s->getKey() => $s->shipment_number,
+                                ])
+                                ->all();
+
+                            return [
+                                Select::make('shipment_id')
+                                    ->label('Select Shipment')
+                                    ->options($shipments)
+                                    ->required()
+                                    ->selectablePlaceholder(false)
+                                    ->searchable()
+                                    ->live()
+                                    ->afterStateUpdated(function (Set $set, ?int $state) use ($shipmentsCollection): void {
+                                        if ($state === null) {
+                                            return;
+                                        }
+
+                                        $selectedShipment = $shipmentsCollection->firstWhere('id', $state);
+                                        if ($selectedShipment && $selectedShipment->tracking_number) {
+                                            $set('tracking_number', $selectedShipment->tracking_number);
+                                        }
+                                    }),
+                                TextInput::make('tracking_number')
+                                    ->label('Tracking Number'),
+                                DateTimePicker::make('expected_delivery_at')
+                                    ->label('Expected Delivery'),
+                            ];
+                        })
                         ->action(function (array $data): void {
                             /** @var Shipment $shipment */
                             $shipment = Shipment::findOrFail($data['shipment_id']);
@@ -607,22 +625,27 @@ final class ShipmentsRelationManager extends RelationManager
                         ->visible(fn (SupplierOrder $record): bool => $record->shipments()
                             ->whereIn('status', [ShipmentStatus::IN_TRANSIT, ShipmentStatus::PARTIAL])
                             ->exists())
-                        ->form([
-                            Select::make('shipment_id')
-                                ->label('Select Shipment')
-                                ->options(fn (SupplierOrder $record): array => $record->shipments()
-                                    ->whereIn('status', [ShipmentStatus::IN_TRANSIT, ShipmentStatus::PARTIAL])
-                                    ->get()
-                                    ->mapWithKeys(fn (Shipment $s): array => [
-                                        $s->getKey() => $s->shipment_number,
-                                    ])
-                                    ->all())
-                                ->required()
-                                ->selectablePlaceholder(false),
-                            DateTimePicker::make('delivered_at')
-                                ->label('Delivered At')
-                                ->default(now()),
-                        ])
+                        ->form(function (SupplierOrder $record): array {
+                            $shipments = $record->shipments()
+                                ->whereIn('status', [ShipmentStatus::IN_TRANSIT, ShipmentStatus::PARTIAL])
+                                ->get()
+                                ->mapWithKeys(fn (Shipment $s): array => [
+                                    $s->getKey() => $s->shipment_number,
+                                ])
+                                ->all();
+
+                            return [
+                                Select::make('shipment_id')
+                                    ->label('Select Shipment')
+                                    ->options($shipments)
+                                    ->required()
+                                    ->selectablePlaceholder(false)
+                                    ->searchable(),
+                                DateTimePicker::make('delivered_at')
+                                    ->label('Delivered At')
+                                    ->default(now()),
+                            ];
+                        })
                         ->action(function (array $data): void {
                             /** @var Shipment $shipment */
                             $shipment = Shipment::findOrFail($data['shipment_id']);
