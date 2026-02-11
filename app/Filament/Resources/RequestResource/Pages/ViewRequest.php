@@ -12,6 +12,7 @@ use App\Filament\Resources\ProjectResource;
 use App\Filament\Resources\RequestResource;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerOrdersRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerQuotesRelationManager;
+use App\Filament\Resources\RequestResource\RelationManagers\CompletionReportsRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\ItemsRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\ShipmentsRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierOrdersRelationManager;
@@ -51,6 +52,7 @@ final class ViewRequest extends ViewRecord
         'buyerOrders' => 3,
         'supplierOrders' => 4,
         'shipments' => 5,
+        'completionReports' => 6,
     ];
 
     public function getMaxWidth(): \Filament\Support\Enums\Width
@@ -299,6 +301,7 @@ final class ViewRequest extends ViewRecord
             BuyerOrdersRelationManager::class,
             SupplierOrdersRelationManager::class,
             ShipmentsRelationManager::class,
+            CompletionReportsRelationManager::class,
         ];
     }
 

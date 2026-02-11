@@ -34,14 +34,25 @@
                         Select Best Prices
                     </x-filament::button>
 
-                    <x-filament::button
-                        size="sm"
-                        color="gray"
-                        x-on:click="$dispatch('open-modal', { id: 'create-qe-modal' })"
-                        icon="heroicon-o-document-check"
-                    >
-                        Create QE
-                    </x-filament::button>
+                    @if($this->hasQuotationEvaluation)
+                        <x-filament::button
+                            size="sm"
+                            color="gray"
+                            wire:click="viewQuotationEvaluation"
+                            icon="heroicon-o-eye"
+                        >
+                            View QE
+                        </x-filament::button>
+                    @else
+                        <x-filament::button
+                            size="sm"
+                            color="gray"
+                            x-on:click="$dispatch('open-modal', { id: 'create-qe-modal' })"
+                            icon="heroicon-o-document-check"
+                        >
+                            Create QE
+                        </x-filament::button>
+                    @endif
                 @endif
 
                 @if($this->selectedSuppliersCount > 0)

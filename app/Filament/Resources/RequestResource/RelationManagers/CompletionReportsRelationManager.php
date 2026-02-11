@@ -1,0 +1,209 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Filament\Resources\RequestResource\RelationManagers;
+
+use App\Enums\RequestStage;
+use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
+use App\Models\Request;
+use Filament\Actions\Action;
+use Filament\Actions\CreateAction;
+use Filament\Actions\DeleteAction;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
+use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
+
+final class CompletionReportsRelationManager extends RelationManager
+{
+    use HasRequestStageTab;
+
+    protected static string $relationship = 'media';
+
+    protected static ?string $title = 'Completion Report';
+
+    protected static string|\BackedEnum|null $icon = 'heroicon-o-document-check';
+
+    protected static function getAssociatedStage(): RequestStage
+    {
+        return RequestStage::DELIVERED;
+    }
+
+    protected static function getBaseTabTitle(): string
+    {
+        return 'Completion Report';
+    }
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->modifyQueryUsing(function ($query) {
+                $query->where('collection_name', 'completion_reports');
+            })
+            ->columns([
+                TextColumn::make('name')
+                    ->label('File Name')
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('file_name')
+                    ->label('Original Name')
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('mime_type')
+                    ->label('Type')
+                    ->sortable(),
+                TextColumn::make('size')
+                    ->label('Size')
+                    ->formatStateUsing(fn ($state): string => $this->formatFileSize($state))
+                    ->sortable(),
+                TextColumn::make('created_at')
+                    ->label('Uploaded At')
+                    ->dateTime()
+                    ->sortable(),
+            ])
+            ->filters([
+                //
+            ])
+            ->headerActions([
+                CreateAction::make()
+                    ->label('Upload Document')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->form([
+                        FileUpload::make('document')
+                            ->label('Document')
+                            ->helperText('Upload completion report documentation (PDF, Excel, Word, Images)')
+                            ->hint('Maximum file size: 10MB')
+                            ->hintColor('warning')
+                            ->acceptedFileTypes([
+                                'application/pdf',
+                                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
+                                'application/vnd.ms-excel', // xls
+                                'image/png',
+                                'image/jpeg',
+                                'image/jpg',
+                                'application/msword', // doc
+                                'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // docx
+                            ])
+                            ->disk('local')
+                            ->directory('completion-reports')
+                            ->visibility('private')
+                            ->downloadable()
+                            ->openable()
+                            ->previewable()
+                            ->required()
+                            ->maxSize(10240) // 10MB in KB
+                            ->validationMessages([
+                                'max' => 'The file size must not exceed 10MB. Please compress or resize your file before uploading.',
+                            ]),
+                        TextInput::make('name')
+                            ->label('Document Name')
+                            ->helperText('Optional: Provide a descriptive name for this document')
+                            ->maxLength(255),
+                    ])
+                    ->using(function (array $data): Media {
+                        /** @var Request $request */
+                        $request = $this->getOwnerRecord();
+                        $createdMedia = null;
+
+                        if (isset($data['document']) && is_array($data['document']) && ! empty($data['document'])) {
+                            foreach ($data['document'] as $file) {
+                                if (is_string($file)) {
+                                    $filePath = storage_path('app/'.ltrim($file, '/'));
+
+                                    if (file_exists($filePath)) {
+                                        $media = $request->addMedia($filePath)
+                                            ->usingName($data['name'] ?? basename($filePath))
+                                            ->toMediaCollection('completion_reports');
+
+                                        // Store the first created media for return value
+                                        if ($createdMedia === null) {
+                                            $createdMedia = $media;
+                                        }
+                                    }
+                                }
+                            }
+                        } elseif (isset($data['document']) && is_string($data['document'])) {
+                            $filePath = storage_path('app/'.ltrim($data['document'], '/'));
+
+                            if (file_exists($filePath)) {
+                                $createdMedia = $request->addMedia($filePath)
+                                    ->usingName($data['name'] ?? basename($filePath))
+                                    ->toMediaCollection('completion_reports');
+                            }
+                        }
+
+                        // If no media was created, throw an error to prevent form from closing silently
+                        if ($createdMedia === null) {
+                            Notification::make()
+                                ->title('Upload failed')
+                                ->body('No document was uploaded. Please select a file to upload.')
+                                ->danger()
+                                ->send();
+                            
+                            throw new \Filament\Support\Exceptions\Halt();
+                        }
+
+                        return $createdMedia;
+                    })
+                    ->after(function (Media $media, array $data): void {
+                        Notification::make()
+                            ->title('Document uploaded')
+                            ->body('Completion report document has been uploaded successfully.')
+                            ->success()
+                            ->send();
+                    })
+                    ->successNotificationTitle('Document uploaded successfully'),
+            ])
+            ->recordActions([
+                Action::make('download')
+                    ->label('Download')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('info')
+                    ->url(fn ($record): string => $record->getUrl())
+                    ->openUrlInNewTab(),
+                Action::make('view')
+                    ->label('View')
+                    ->icon('heroicon-o-eye')
+                    ->color('info')
+                    ->url(fn ($record): string => $record->getUrl())
+                    ->openUrlInNewTab(),
+                DeleteAction::make()
+                    ->label('Delete')
+                    ->icon('heroicon-o-trash')
+                    ->requiresConfirmation()
+                    ->action(function ($record): void {
+                        $record->delete();
+
+                        Notification::make()
+                            ->title('Document deleted')
+                            ->body('Completion report document has been deleted.')
+                            ->success()
+                            ->send();
+                    }),
+            ])
+            ->bulkActions([
+                //
+            ])
+            ->emptyStateHeading('No completion reports uploaded')
+            ->emptyStateDescription('Upload completion report documents to track project completion.')
+            ->emptyStateIcon('heroicon-o-document-check');
+    }
+
+    /**
+     * Format file size in human-readable format.
+     */
+    private function formatFileSize(int $bytes): string
+    {
+        $units = ['B', 'KB', 'MB', 'GB'];
+        $bytes = max($bytes, 0);
+        $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
+        $pow = min($pow, count($units) - 1);
+        $bytes /= (1 << (10 * $pow));
+
+        return round($bytes, 2).' '.$units[$pow];
+    }
+}

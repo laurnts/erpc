@@ -61,6 +61,7 @@ final class RequestInformationFlowWidget extends Widget
             'invoices' => $this->getBuyerOrdersInformationFlow(),
             'purchases' => $this->getSupplierOrdersInformationFlow(),
             'shipments' => $this->getShipmentsInformationFlow(),
+            'completionReports' => $this->getCompletionReportsInformationFlow(),
             default => '',
         };
     }
@@ -77,6 +78,7 @@ final class RequestInformationFlowWidget extends Widget
             'invoices' => 3,
             'purchases' => 4,
             'shipments' => 5,
+            'completionReports' => 6,
         ];
 
         // If it's already a string key, return it
@@ -166,6 +168,19 @@ MARKDOWN;
 Create shipment and set the detail before submit it.
 The shipment can be multiple depend on shipment aggrement.
 Send delivery order email to buyer once status shipment is In Transit.
+MARKDOWN;
+    }
+
+    /**
+     * Get information flow text for Completion Report tab.
+     */
+    public function getCompletionReportsInformationFlow(): string
+    {
+        return <<<'MARKDOWN'
+**Step 8: Completion Report**
+Upload completion report documentation after shipments are delivered.
+Documentation may include delivery confirmations, inspection reports, certificates, or other project completion documents.
+All uploaded documents are stored securely and can be downloaded or viewed at any time.
 MARKDOWN;
     }
 }

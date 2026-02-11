@@ -1049,67 +1049,84 @@ final class BuyerQuotesRelationManager extends RelationManager
                         }
                     }),
                 Action::make('createPnl')
-                    ->label('Create PNL')
+                    ->label(function () use ($request): string {
+                        return $request->profitAndLosses()->exists() ? 'View PNL' : 'Create PNL';
+                    })
                     ->icon('heroicon-o-chart-bar')
                     ->size(Size::Small)
                     ->color('success')
                     ->visible(fn () => $request->buyerQuotes()->exists())
+                    ->url(function () use ($request): ?string {
+                        // If PNL exists, return URL to view page
+                        if ($request->profitAndLosses()->exists()) {
+                            $pnl = $request->profitAndLosses()->latest()->first();
+                            return ProfitAndLossResource::getUrl('view', ['record' => $pnl]);
+                        }
+                        return null;
+                    })
                     ->modalWidth('xl')
-                    ->form([
-                        Section::make('PNL Information')
-                            ->schema([
-                                Placeholder::make('pnl_number_placeholder')
-                                    ->label('PNL Number')
-                                    ->content('Auto-generated after save'),
-                                DatePicker::make('pnl_date')
-                                    ->label('Date')
-                                    ->required()
-                                    ->default(now()),
-                                TextInput::make('request_number')
-                                    ->label('Request')
-                                    ->default($request->request_number)
-                                    ->disabled()
-                                    ->dehydrated(false),
-                                Textarea::make('description')
-                                    ->label('Description')
-                                    ->rows(2)
-                                    ->columnSpanFull(),
-                            ])
-                            ->columns(3),
-                        Section::make('Central Purchasing')
-                            ->description('Approval workflow personnel')
-                            ->schema([
-                                KeyAccountSelect::makeWithRelationship(
-                                    'prepared_by_id',
-                                    'Prepared By',
-                                    'preparedBy',
-                                    CentralPurchasingRole::KEY_ACCOUNT,
-                                    fn () => $request->buyer_id
-                                ),
-                                KeyAccountSelect::makeWithRelationship(
-                                    'dept_head_sales_id',
-                                    'Dept Head of Sales',
-                                    'deptHeadSales',
-                                    CentralPurchasingRole::DEPT_HEAD_SALES,
-                                    null
-                                ),
-                                KeyAccountSelect::makeWithRelationship(
-                                    'deputy_director_id',
-                                    'Deputy Director',
-                                    'deputyDirector',
-                                    CentralPurchasingRole::DEPUTY_DIRECTOR,
-                                    null
-                                ),
-                                KeyAccountSelect::makeWithRelationship(
-                                    'approved_by_id',
-                                    'Approved By',
-                                    'approvedBy',
-                                    CentralPurchasingRole::DIRECTOR,
-                                    null
-                                ),
-                            ])
-                            ->columns(2),
-                    ])
+                    ->form(function () use ($request): array {
+                        // Only show form if PNL doesn't exist
+                        if ($request->profitAndLosses()->exists()) {
+                            return [];
+                        }
+
+                        return [
+                            Section::make('PNL Information')
+                                ->schema([
+                                    Placeholder::make('pnl_number_placeholder')
+                                        ->label('PNL Number')
+                                        ->content('Auto-generated after save'),
+                                    DatePicker::make('pnl_date')
+                                        ->label('Date')
+                                        ->required()
+                                        ->default(now()),
+                                    TextInput::make('request_number')
+                                        ->label('Request')
+                                        ->default($request->request_number)
+                                        ->disabled()
+                                        ->dehydrated(false),
+                                    Textarea::make('description')
+                                        ->label('Description')
+                                        ->rows(2)
+                                        ->columnSpanFull(),
+                                ])
+                                ->columns(3),
+                            Section::make('Central Purchasing')
+                                ->description('Approval workflow personnel')
+                                ->schema([
+                                    KeyAccountSelect::makeWithRelationship(
+                                        'prepared_by_id',
+                                        'Prepared By',
+                                        'preparedBy',
+                                        CentralPurchasingRole::KEY_ACCOUNT,
+                                        fn () => $request->buyer_id
+                                    ),
+                                    KeyAccountSelect::makeWithRelationship(
+                                        'dept_head_sales_id',
+                                        'Dept Head of Sales',
+                                        'deptHeadSales',
+                                        CentralPurchasingRole::DEPT_HEAD_SALES,
+                                        null
+                                    ),
+                                    KeyAccountSelect::makeWithRelationship(
+                                        'deputy_director_id',
+                                        'Deputy Director',
+                                        'deputyDirector',
+                                        CentralPurchasingRole::DEPUTY_DIRECTOR,
+                                        null
+                                    ),
+                                    KeyAccountSelect::makeWithRelationship(
+                                        'approved_by_id',
+                                        'Approved By',
+                                        'approvedBy',
+                                        CentralPurchasingRole::DIRECTOR,
+                                        null
+                                    ),
+                                ])
+                                ->columns(2),
+                        ];
+                    })
                     ->action(function (array $data) use ($request): void {
                         // Find the latest valid buyer quote (not rejected/superseded)
                         $buyerQuote = $request->buyerQuotes()

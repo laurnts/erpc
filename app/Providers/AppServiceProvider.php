@@ -14,6 +14,7 @@ use App\Models\Task;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\GitHubService;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\Model;
@@ -53,6 +54,9 @@ final class AppServiceProvider extends ServiceProvider
 
     private function configurePolicies(): void
     {
+        // Manually register Media policy for Spatie Media Library
+        Gate::policy(Media::class, \App\Policies\MediaPolicy::class);
+
         Gate::guessPolicyNamesUsing(function (string $modelClass): ?string {
             try {
                 $currentPanelId = Filament::getCurrentPanel()?->getId();

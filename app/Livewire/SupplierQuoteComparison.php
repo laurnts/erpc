@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Livewire;
 
 use App\Enums\SupplierQuoteStatus;
+use App\Filament\Resources\QuotationEvaluationResource;
 use App\Livewire\Concerns\AuthorizesLivewireActions;
+use App\Models\QuotationEvaluation;
 use App\Models\Request;
 use App\Models\RequestItem;
 use App\Models\SupplierQuote;
@@ -404,6 +406,37 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
     public function hasQuotes(): bool
     {
         return $this->quotes->isNotEmpty();
+    }
+
+    /**
+     * Check if QE exists for this request.
+     */
+    #[Computed]
+    public function hasQuotationEvaluation(): bool
+    {
+        return $this->request->quotationEvaluations()->exists();
+    }
+
+    /**
+     * Get the latest QE for this request.
+     */
+    #[Computed]
+    public function latestQuotationEvaluation(): ?QuotationEvaluation
+    {
+        return $this->request->quotationEvaluations()->latest()->first();
+    }
+
+    /**
+     * Redirect to view QE page.
+     */
+    public function viewQuotationEvaluation(): void
+    {
+        $qe = $this->latestQuotationEvaluation;
+        if ($qe === null) {
+            return;
+        }
+
+        $this->redirect(QuotationEvaluationResource::getUrl('view', ['record' => $qe]));
     }
 
     /**
