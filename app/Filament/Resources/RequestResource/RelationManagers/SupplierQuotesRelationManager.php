@@ -1157,6 +1157,109 @@ final class SupplierQuotesRelationManager extends RelationManager
                             return $record->getMedia('quotation')->isNotEmpty();
                         })
                         ->mutateFormDataUsing(function (array $data, SupplierQuote $record): array {
+                            $request = $record->request;
+                            if ($request === null) {
+                                return $data;
+                            }
+
+                            // Get items from the record (they were saved by the relationship repeater)
+                            // Only get main items (not child items)
+                            $mainItems = $record->items()
+                                ->whereHas('requestItem', function ($q) {
+                                    $q->whereNull('parent_id');
+                                })
+                                ->get();
+
+                            foreach ($mainItems as $mainQuoteItem) {
+                                $itemId = $mainQuoteItem->id;
+                                $childItemsData = $itemId !== null && isset($this->storedChildItemsData[$itemId])
+                                    ? $this->storedChildItemsData[$itemId]
+                                    : null;
+
+                                if (empty($childItemsData)) {
+                                    continue;
+                                }
+
+                                $requestItemId = $mainQuoteItem->request_item_id;
+                                if ($requestItemId === null) {
+                                    continue;
+                                }
+
+                                $requestItem = $request->items()->find($requestItemId);
+                                if ($requestItem === null || ! $requestItem->isMainItem()) {
+                                    continue;
+                                }
+
+                                $childRequestItems = $requestItem->children()->orderBy('sort_order')->get();
+                                $childRequestItemIds = $childRequestItems->pluck('id')->toArray();
+
+                                foreach ($childItemsData as $childItemData) {
+                                    $childRequestItemId = $childItemData['request_item_id'] ?? null;
+                                    if ($childRequestItemId === null || ! in_array($childRequestItemId, $childRequestItemIds, true)) {
+                                        continue;
+                                    }
+
+                                    $childQuoteItem = $record->items()
+                                        ->where('request_item_id', $childRequestItemId)
+                                        ->first();
+
+                                    $unitPrice = isset($childItemData['unit_price']) && $childItemData['unit_price'] !== '' && $childItemData['unit_price'] !== null
+                                        ? (float) $childItemData['unit_price']
+                                        : ($childQuoteItem?->unit_price ? (float) $childQuoteItem->unit_price : 0);
+                                    $quantity = isset($childItemData['quantity']) && $childItemData['quantity'] !== '' && $childItemData['quantity'] !== null
+                                        ? (float) $childItemData['quantity']
+                                        : ($childQuoteItem?->quantity ? (float) $childQuoteItem->quantity : 1);
+                                    $taxRate = isset($childItemData['tax_rate']) && $childItemData['tax_rate'] !== '' && $childItemData['tax_rate'] !== null
+                                        ? (float) $childItemData['tax_rate']
+                                        : ($childQuoteItem?->tax_rate ? (float) $childQuoteItem->tax_rate : 0);
+                                    $lineSubtotal = isset($childItemData['line_subtotal']) && $childItemData['line_subtotal'] !== '' && $childItemData['line_subtotal'] !== null
+                                        ? (float) $childItemData['line_subtotal']
+                                        : ($childQuoteItem?->line_subtotal ? (float) $childQuoteItem->line_subtotal : 0);
+                                    $lineTax = isset($childItemData['line_tax']) && $childItemData['line_tax'] !== '' && $childItemData['line_tax'] !== null
+                                        ? (float) $childItemData['line_tax']
+                                        : ($childQuoteItem?->line_tax ? (float) $childQuoteItem->line_tax : 0);
+                                    $lineTotal = isset($childItemData['line_total']) && $childItemData['line_total'] !== '' && $childItemData['line_total'] !== null
+                                        ? (float) $childItemData['line_total']
+                                        : ($childQuoteItem?->line_total ? (float) $childQuoteItem->line_total : 0);
+
+                                    if ($childQuoteItem === null) {
+                                        $taxCodeId = $childItemData['tax_code_id'] ?? $requestItem->article?->default_tax_code_id;
+                                        $taxCode = $taxCodeId ? TaxCode::find($taxCodeId) : ($requestItem->article?->defaultTaxCode);
+                                        SupplierQuoteItem::create([
+                                            'supplier_quote_id' => $record->id,
+                                            'request_item_id' => $childRequestItemId,
+                                            'article_id' => null,
+                                            'description' => $childItemData['description'] ?? '',
+                                            'quantity' => (string) $quantity,
+                                            'unit_of_measure_id' => $childItemData['unit_of_measure_id'] ?? null,
+                                            'unit_price' => (string) $unitPrice,
+                                            'tax_code_id' => $taxCodeId,
+                                            'tax_rate' => (string) ($taxRate > 0 ? $taxRate : ($taxCode?->rate ?? 0)),
+                                            'is_tax_inclusive' => $childItemData['is_tax_inclusive'] ?? $taxCode?->is_inclusive_default ?? false,
+                                            'line_subtotal' => (string) $lineSubtotal,
+                                            'line_tax' => (string) $lineTax,
+                                            'line_total' => (string) $lineTotal,
+                                            'sort_order' => $mainQuoteItem->sort_order + 1,
+                                        ]);
+                                    } else {
+                                        $childQuoteItem->update([
+                                            'description' => $childItemData['description'] ?? $childQuoteItem->description,
+                                            'quantity' => (string) $quantity,
+                                            'unit_of_measure_id' => $childItemData['unit_of_measure_id'] ?? $childQuoteItem->unit_of_measure_id,
+                                            'unit_price' => (string) $unitPrice,
+                                            'tax_code_id' => $childItemData['tax_code_id'] ?? $childQuoteItem->tax_code_id,
+                                            'tax_rate' => (string) $taxRate,
+                                            'is_tax_inclusive' => $childItemData['is_tax_inclusive'] ?? $childQuoteItem->is_tax_inclusive,
+                                            'line_subtotal' => (string) $lineSubtotal,
+                                            'line_tax' => (string) $lineTax,
+                                            'line_total' => (string) $lineTotal,
+                                        ]);
+                                    }
+                                }
+                            }
+
+                            $this->storedChildItemsData = null;
+
                             $hasPrices = false;
                             if (isset($data['items']) && is_array($data['items'])) {
                                 foreach ($data['items'] as $item) {

@@ -641,8 +641,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                     TextInput::make('quantity')
                                                         ->numeric()
                                                         ->required()
-                                                        ->default(1)
-                                                        ->step(0.0001)
+
                                                         ->columnSpan(1)
                                                         ->live(onBlur: true)
                                                         ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
