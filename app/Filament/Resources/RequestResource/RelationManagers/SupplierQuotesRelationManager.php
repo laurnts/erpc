@@ -660,6 +660,10 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                             ->numeric()
                                                             ->required()
                                                             ->default(1)
+                                                            ->step(1) // No decimals for child items
+                                                            ->extraInputAttributes(['inputmode' => 'numeric'])
+                                                            ->formatStateUsing(fn ($state) => $state !== null ? (string) (int) (float) $state : '1')
+                                                            ->dehydrateStateUsing(fn ($state) => $state !== null ? (int) (float) $state : 1)
                                                             ->columnSpan(2)
                                                             ->live(onBlur: true)
                                                             ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
@@ -683,6 +687,9 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                             ->required()
                                                             ->default(0)
                                                             ->step(1) // No decimals for child items
+                                                            ->extraInputAttributes(['inputmode' => 'numeric'])
+                                                            ->formatStateUsing(fn ($state) => $state !== null ? (string) (int) (float) $state : '0')
+                                                            ->dehydrateStateUsing(fn ($state) => $state !== null ? (int) (float) $state : 0)
                                                             ->columnSpan(4)
                                                             ->live(onBlur: true)
                                                             ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
@@ -739,6 +746,9 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                             ->label('Line Total')
                                                             ->numeric()
                                                             ->step(1) // No decimals for child items
+                                                            ->extraInputAttributes(['inputmode' => 'numeric'])
+                                                            ->formatStateUsing(fn ($state) => $state !== null ? (string) (int) (float) $state : '0')
+                                                            ->dehydrateStateUsing(fn ($state) => $state !== null ? (int) (float) $state : 0)
                                                             ->disabled()
                                                             ->dehydrated()
                                                             ->columnSpan(6),

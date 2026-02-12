@@ -188,9 +188,7 @@ final class ItemsRelationManager extends RelationManager
                             ->helperText('Detail description of the child item'),
                         TextInput::make('quantity')
                             ->required()
-                            ->numeric()
-                            ->minValue(0.0001)
-                            ->default(1),
+                            ->numeric(),
                         Select::make('unit_of_measure_id')
                             ->label('Unit of Measure')
                             ->options(

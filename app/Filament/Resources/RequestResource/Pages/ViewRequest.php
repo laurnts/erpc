@@ -291,7 +291,7 @@ final class ViewRequest extends ViewRecord
             // Approvals Information Section
             Section::make('Approvals Information')
                 ->icon('heroicon-o-check-badge')
-                ->visible(fn (Request $record): bool => 
+                ->visible(fn (Request $record): bool =>
                     $record->quotationEvaluations()->exists() ||
                     $record->profitAndLosses()->exists() ||
                     $record->supplierOrders()->exists()

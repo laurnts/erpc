@@ -551,8 +551,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                     TextInput::make('quantity')
                                                         ->numeric()
                                                         ->required()
-                                                        ->default(1)
-                                                        ->step(0.0001)
+
                                                         ->columnSpan(1)
                                                         ->live(onBlur: true)
                                                         ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
@@ -641,7 +640,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                             ->value('id'))
                                                         ->selectablePlaceholder(false)
                                                         ->columnSpan(3)
-                                                        ->live()
+                                                        ->searchable()
+                                                        ->live(onBlur: false)
                                                         ->afterStateUpdated(function (Set $set, Get $get, ?int $state): void {
                                                             if ($state === null) {
                                                                 $set('tax_rate', 0);
@@ -659,7 +659,13 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                         ->inline(false)
                                                         ->columnSpan(1)
                                                         ->live()
-                                                        ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
+                                                        ->afterStateUpdated(function (Set $set, Get $get, $state): void {
+                                                            // Explicitly set the state and pass it directly to calculation
+                                                            // This ensures correct behavior in nested Repeaters
+                                                            $isTaxInclusive = (bool) $state;
+                                                            $set('is_tax_inclusive', $isTaxInclusive);
+                                                            $this->calculateItemTotals($set, $get, $isTaxInclusive);
+                                                        }),
                                                     TextInput::make('tax_rate')
                                                         ->label('Tax %')
                                                         ->numeric()
@@ -667,7 +673,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                         ->step(0.01)
                                                         ->columnSpan(1)
                                                         ->disabled()
-                                                        ->dehydrated(),
+                                                        ->dehydrated()
+                                                        ->live(onBlur: false),
                                                     TextInput::make('line_total')
                                                         ->label('Line Total')
                                                         ->numeric()
@@ -1145,6 +1152,27 @@ final class BuyerQuotesRelationManager extends RelationManager
 
                         $defaultPaymentTermsDays = $settings->default_payment_terms_days ?? 30;
 
+                        // Ensure all child items have tax_rate populated from tax_code_id
+                        // This handles cases where tax_rate might be 0 but tax_code_id is set
+                        foreach ($items as &$item) {
+                            if (isset($item['child_items']) && is_array($item['child_items'])) {
+                                foreach ($item['child_items'] as &$childItem) {
+                                    if (isset($childItem['tax_code_id']) && $childItem['tax_code_id'] !== null) {
+                                        $taxCode = TaxCode::find($childItem['tax_code_id']);
+                                        if ($taxCode !== null) {
+                                            // Always populate tax_rate from tax_code_id
+                                            $childItem['tax_rate'] = (string) $taxCode->rate;
+                                            // Also ensure is_tax_inclusive is set if not already set
+                                            if (!isset($childItem['is_tax_inclusive'])) {
+                                                $childItem['is_tax_inclusive'] = $taxCode->is_inclusive_default;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        unset($item, $childItem); // Clean up references
+
                         return [
                             'status' => BuyerQuoteStatus::DRAFT,
                             'currency_id' => $currencyId,
@@ -1182,9 +1210,6 @@ final class BuyerQuotesRelationManager extends RelationManager
                         return $data;
                     })
                     ->after(function (BuyerQuote $record, array $data) use ($request): void {
-                        // Process uploaded Buyer PO files for new records (create mode)
-                        // For edit mode, files are processed in afterStateUpdated hook
-                        // Note: Since dehydrated(false), files won't be in $data, but they're processed immediately on upload
 
                         // Refresh media relationship to ensure it's loaded
                         $record->load('media');
@@ -2032,15 +2057,17 @@ final class BuyerQuotesRelationManager extends RelationManager
      *
      * When is_tax_inclusive is true, unit_price includes tax.
      * When is_tax_inclusive is false, unit_price is net price and tax is added on top.
+     *
+     * @param bool|null $isTaxInclusiveOverride Optional override for is_tax_inclusive value (useful for nested Repeaters)
      */
-    private function calculateItemTotals(Set $set, Get $get): void
+    private function calculateItemTotals(Set $set, Get $get, ?bool $isTaxInclusiveOverride = null): void
     {
         $quantity = (float) ($get('quantity') ?? 0);
         $unitPrice = (float) ($get('unit_price') ?? 0);
         $unitPriceExcTaxStored = (float) ($get('unit_price_exc_tax') ?? 0);
         $costPrice = (float) ($get('cost_price') ?? 0);
         $taxRate = (float) ($get('tax_rate') ?? 0);
-        $isTaxInclusive = (bool) ($get('is_tax_inclusive') ?? false);
+        $isTaxInclusive = $isTaxInclusiveOverride !== null ? $isTaxInclusiveOverride : (bool) ($get('is_tax_inclusive') ?? false);
 
         // unit_price always represents the net price (Selling Price Net), regardless of tax checkbox
         // unit_price_exc_tax should always equal unit_price (they're the same - net price before tax)
