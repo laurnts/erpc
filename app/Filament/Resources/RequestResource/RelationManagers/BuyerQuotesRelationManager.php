@@ -236,7 +236,16 @@ final class BuyerQuotesRelationManager extends RelationManager
             Section::make('Line Items')
                 ->schema([
                     Repeater::make('items')
-                        ->relationship()
+                        ->relationship(
+                            'items',
+                            function ($query) use ($request) {
+                                // Only show main items (exclude child items) in the main items list
+                                // Child items will be nested within their parent items' Detail Items section
+                                $query->whereHas('requestItem', function ($q) {
+                                    $q->whereNull('parent_id');
+                                })->orWhereNull('request_item_id'); // Include items without request_item_id
+                            }
+                        )
                         ->mutateRelationshipDataBeforeFillUsing(function (array $data, $record) use ($request): array {
                             // Add child_items to each MAIN item when loading from relationship
                             // $record here is the BuyerQuoteItem, we need to check if it's a main item
