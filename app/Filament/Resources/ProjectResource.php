@@ -6,11 +6,15 @@ namespace App\Filament\Resources;
 
 use App\Enums\ProjectStatus;
 use App\Filament\Resources\ProjectResource\Pages\CreateProject;
+use App\Filament\Resources\ProjectResource\Pages\EditProject;
 use App\Filament\Resources\ProjectResource\Pages\ListProjects;
 use App\Models\Project;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Facades\Filament;
@@ -199,6 +203,7 @@ final class ProjectResource extends Resource
                     ->toggledHiddenByDefault(),
             ])
             ->defaultSort('project_number', 'desc')
+            ->recordUrl(fn (Project $record): string => ProjectResource::getUrl('edit', ['record' => $record]))
             ->filters([
                 SelectFilter::make('status')
                     ->options(ProjectStatus::class),
@@ -214,6 +219,12 @@ final class ProjectResource extends Resource
                     ->preload(),
                 TrashedFilter::make(),
             ])
+            ->actions([
+                ActionGroup::make([
+                    EditAction::make(),
+                    DeleteAction::make(),
+                ]),
+            ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
@@ -228,6 +239,7 @@ final class ProjectResource extends Resource
         return [
             'index' => ListProjects::route('/'),
             'create' => CreateProject::route('/create'),
+            'edit' => EditProject::route('/{record}/edit'),
         ];
     }
 
