@@ -355,6 +355,114 @@ final class ShipmentsRelationManager extends RelationManager
     }
 
     /**
+     * Mark a shipment as in transit (Ship action).
+     */
+    public function shipShipment(int $shipmentId): void
+    {
+        $shipment = Shipment::find($shipmentId);
+        
+        if (!$shipment) {
+            Notification::make()
+                ->title('Shipment not found')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        // Verify shipment belongs to current team
+        /** @var \App\Models\Team $team */
+        $team = \Filament\Facades\Filament::getTenant();
+        if ($shipment->team_id !== $team->id) {
+            Notification::make()
+                ->title('Unauthorized')
+                ->body('You do not have access to this shipment.')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        // Verify shipment is pending
+        if ($shipment->status !== ShipmentStatus::PENDING) {
+            Notification::make()
+                ->title('Invalid shipment status')
+                ->body('Only pending shipments can be marked as shipped.')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        try {
+            $shipment->markAsInTransit();
+            
+            Notification::make()
+                ->title('Shipment marked as shipped')
+                ->body("Shipment {$shipment->shipment_number} has been marked as in transit.")
+                ->success()
+                ->send();
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title('Failed to ship')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    /**
+     * Mark a shipment as delivered (Deliver action).
+     */
+    public function deliverShipment(int $shipmentId): void
+    {
+        $shipment = Shipment::find($shipmentId);
+        
+        if (!$shipment) {
+            Notification::make()
+                ->title('Shipment not found')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        // Verify shipment belongs to current team
+        /** @var \App\Models\Team $team */
+        $team = \Filament\Facades\Filament::getTenant();
+        if ($shipment->team_id !== $team->id) {
+            Notification::make()
+                ->title('Unauthorized')
+                ->body('You do not have access to this shipment.')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        // Verify shipment is in transit or partial
+        if (!in_array($shipment->status, [ShipmentStatus::IN_TRANSIT, ShipmentStatus::PARTIAL])) {
+            Notification::make()
+                ->title('Invalid shipment status')
+                ->body('Only shipments in transit or partial can be marked as delivered.')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        try {
+            $shipment->markAsDelivered();
+            
+            Notification::make()
+                ->title('Shipment delivered')
+                ->body("Shipment {$shipment->shipment_number} has been marked as delivered.")
+                ->success()
+                ->send();
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title('Failed to deliver')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    /**
      * Format shipment items as HTML table.
      */
     private function formatShipmentItems(Shipment $shipment): string
@@ -594,103 +702,6 @@ final class ShipmentsRelationManager extends RelationManager
                         ->modalSubmitAction(false)
                         ->modalCancelActionLabel('Close')
                         ->form(fn (SupplierOrder $record): array => $this->getViewShipmentsSchema($record)),
-                    Action::make('mark_in_transit')
-                        ->label('Ship')
-                        ->icon('heroicon-o-truck')
-                        ->color('info')
-                        ->size(Size::Small)
-                        ->visible(fn (SupplierOrder $record): bool => $record->shipments()
-                            ->where('status', ShipmentStatus::PENDING)
-                            ->exists())
-                        ->form(function (SupplierOrder $record): array {
-                            $shipmentsCollection = $record->shipments()
-                                ->where('status', ShipmentStatus::PENDING)
-                                ->get();
-
-                            $shipments = $shipmentsCollection
-                                ->mapWithKeys(fn (Shipment $s): array => [
-                                    $s->getKey() => $s->shipment_number,
-                                ])
-                                ->all();
-
-                            return [
-                                Select::make('shipment_id')
-                                    ->label('Select Shipment')
-                                    ->options($shipments)
-                                    ->required()
-                                    ->selectablePlaceholder(false)
-                                    ->searchable()
-                                    ->live()
-                                    ->afterStateUpdated(function (Set $set, ?int $state) use ($shipmentsCollection): void {
-                                        if ($state === null) {
-                                            return;
-                                        }
-
-                                        $selectedShipment = $shipmentsCollection->firstWhere('id', $state);
-                                        if ($selectedShipment && $selectedShipment->tracking_number) {
-                                            $set('tracking_number', $selectedShipment->tracking_number);
-                                        }
-                                    }),
-                                TextInput::make('tracking_number')
-                                    ->label('Tracking Number'),
-                                DateTimePicker::make('expected_delivery_at')
-                                    ->label('Expected Delivery'),
-                            ];
-                        })
-                        ->action(function (array $data): void {
-                            /** @var Shipment $shipment */
-                            $shipment = Shipment::findOrFail($data['shipment_id']);
-                            $shipment->markAsInTransit(
-                                $data['tracking_number'] ?? null,
-                                $data['expected_delivery_at'] !== null ? \Illuminate\Support\Carbon::parse($data['expected_delivery_at']) : null
-                            );
-
-                            Notification::make()
-                                ->title('Shipment in transit')
-                                ->success()
-                                ->send();
-                        }),
-                    Action::make('mark_delivered')
-                        ->label('Deliver')
-                        ->icon('heroicon-o-check-circle')
-                        ->color('success')
-                        ->size(Size::Small)
-                        ->visible(fn (SupplierOrder $record): bool => $record->shipments()
-                            ->whereIn('status', [ShipmentStatus::IN_TRANSIT, ShipmentStatus::PARTIAL])
-                            ->exists())
-                        ->form(function (SupplierOrder $record): array {
-                            $shipments = $record->shipments()
-                                ->whereIn('status', [ShipmentStatus::IN_TRANSIT, ShipmentStatus::PARTIAL])
-                                ->get()
-                                ->mapWithKeys(fn (Shipment $s): array => [
-                                    $s->getKey() => $s->shipment_number,
-                                ])
-                                ->all();
-
-                            return [
-                                Select::make('shipment_id')
-                                    ->label('Select Shipment')
-                                    ->options($shipments)
-                                    ->required()
-                                    ->selectablePlaceholder(false)
-                                    ->searchable(),
-                                DateTimePicker::make('delivered_at')
-                                    ->label('Delivered At')
-                                    ->default(now()),
-                            ];
-                        })
-                        ->action(function (array $data): void {
-                            /** @var Shipment $shipment */
-                            $shipment = Shipment::findOrFail($data['shipment_id']);
-                            $shipment->markAsDelivered(
-                                $data['delivered_at'] !== null ? \Illuminate\Support\Carbon::parse($data['delivered_at']) : null
-                            );
-
-                            Notification::make()
-                                ->title('Shipment delivered')
-                                ->success()
-                                ->send();
-                        }),
                 ]),
             ])
             ->emptyStateHeading('No sent supplier orders')
