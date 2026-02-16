@@ -298,4 +298,32 @@ final class SupplierOrderItem extends Model
             $this->tax_amount = (string) round($unitPrice * $taxRate / 100, 4);
         }
     }
+
+    /**
+     * Get total quantity shipped across all shipments for this order item.
+     *
+     * @return float Total quantity shipped
+     */
+    public function getTotalShippedQuantity(): float
+    {
+        return (float) \App\Models\ShipmentItem::query()
+            ->where('supplier_order_item_id', $this->getKey())
+            ->whereHas('shipment', function ($query): void {
+                $query->where('supplier_order_id', $this->supplier_order_id);
+            })
+            ->sum('quantity_shipped');
+    }
+
+    /**
+     * Get remaining quantity to be shipped.
+     *
+     * @return float Remaining quantity
+     */
+    public function getRemainingQuantity(): float
+    {
+        $orderedQuantity = (float) $this->quantity;
+        $shippedQuantity = $this->getTotalShippedQuantity();
+
+        return max(0, $orderedQuantity - $shippedQuantity);
+    }
 }

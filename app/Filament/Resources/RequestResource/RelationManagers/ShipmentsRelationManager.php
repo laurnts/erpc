@@ -118,13 +118,9 @@ final class ShipmentsRelationManager extends RelationManager
                                         ->options(
                                             $supplierOrder->items()
                                                 ->get()
+                                                ->filter(fn ($item): bool => $item->getRemainingQuantity() > 0)
                                                 ->mapWithKeys(fn ($item): array => [
-                                                    $item->getKey() => sprintf(
-                                                        '%s (%s %s)',
-                                                        $item->description,
-                                                        $item->quantity,
-                                                        $item->unit_label ?? ($item->unit instanceof \App\Enums\Unit ? $item->unit->value : ($item->unit ?? 'N/A'))
-                                                    ),
+                                                    $item->getKey() => $item->description,
                                                 ])
                                                 ->all()
                                         )
@@ -138,8 +134,9 @@ final class ShipmentsRelationManager extends RelationManager
                                             }
                                             $orderItem = $supplierOrder->items()->find($state);
                                             if ($orderItem !== null) {
-                                                // Prefill quantity_shipped with the order item quantity
-                                                $set('quantity_shipped', (string) $orderItem->quantity);
+                                                // Prefill quantity_shipped with the remaining quantity
+                                                $remainingQty = $orderItem->getRemainingQuantity();
+                                                $set('quantity_shipped', (string) $remainingQty);
                                             }
                                         })
                                         ->columnSpan(6),
@@ -148,6 +145,30 @@ final class ShipmentsRelationManager extends RelationManager
                                         ->numeric()
                                         ->required()
                                         ->step(0.0001)
+                                        ->helperText(function ($get) use ($supplierOrder): ?string {
+                                            $orderItemId = $get('supplier_order_item_id');
+                                            if ($orderItemId === null) {
+                                                return null;
+                                            }
+                                            $orderItem = $supplierOrder->items()->find($orderItemId);
+                                            if ($orderItem === null) {
+                                                return null;
+                                            }
+                                            $totalShipped = $orderItem->getTotalShippedQuantity();
+                                            $orderedQty = (float) $orderItem->quantity;
+                                            $remainingQty = $orderItem->getRemainingQuantity();
+                                            
+                                            if ($totalShipped > 0) {
+                                                return sprintf(
+                                                    '%s out of %s shipped. %s remaining.',
+                                                    number_format($totalShipped, 0),
+                                                    number_format($orderedQty, 0),
+                                                    number_format($remainingQty, 0)
+                                                );
+                                            }
+                                            
+                                            return sprintf('Total ordered: %s', number_format($orderedQty, 0));
+                                        })
                                         ->columnSpan(3),
                                     Select::make('condition')
                                         ->options(ItemCondition::class)
@@ -345,11 +366,22 @@ final class ShipmentsRelationManager extends RelationManager
         $rows = $shipment->items->map(function ($item): string {
             $orderItem = $item->supplierOrderItem;
             $description = $orderItem !== null ? $orderItem->description : 'Unknown item';
-            $qtyShipped = number_format((float) $item->quantity_shipped, 2);
-            $qtyReceived = $item->quantity_received !== null ? number_format((float) $item->quantity_received, 2) : '-';
+            $qtyShipped = (float) $item->quantity_shipped;
+            $qtyReceived = $item->quantity_received !== null ? (float) $item->quantity_received : null;
             $condition = $item->condition->getLabel();
 
-            return "<tr><td class='pr-4'>{$description}</td><td class='pr-4 text-right'>{$qtyShipped}</td><td class='pr-4 text-right'>{$qtyReceived}</td><td>{$condition}</td></tr>";
+            // Calculate total ordered quantity
+            $orderedQty = $orderItem !== null ? (float) $orderItem->quantity : 0;
+
+            // Always format shipped quantity as "X out of Y" when order item exists
+            $shippedDisplay = number_format($qtyShipped, 2);
+            if ($orderItem !== null && $orderedQty > 0) {
+                $shippedDisplay = sprintf('%s out of %s', number_format($qtyShipped, 0), number_format($orderedQty, 0));
+            }
+
+            $receivedDisplay = $qtyReceived !== null ? number_format($qtyReceived, 2) : '-';
+
+            return "<tr><td class='pr-4'>{$description}</td><td class='pr-4 text-right'>{$shippedDisplay}</td><td class='pr-4 text-right'>{$receivedDisplay}</td><td>{$condition}</td></tr>";
         })->join('');
 
         return "<table class='text-sm w-full'><thead><tr class='text-gray-500'><th class='text-left pr-4'>Item</th><th class='text-right pr-4'>Shipped</th><th class='text-right pr-4'>Received</th><th class='text-left'>Condition</th></tr></thead><tbody>{$rows}</tbody></table>";
@@ -493,13 +525,14 @@ final class ShipmentsRelationManager extends RelationManager
                         ->modalWidth('4xl')
                         ->form(fn (SupplierOrder $record): array => $this->getShipmentFormSchema($record))
                         ->fillForm(function (SupplierOrder $record): array {
-                            // Prefill shipment items with all items from the supplier order
+                            // Prefill shipment items with items that have remaining quantity
                             $shipmentItems = $record->items()
                                 ->orderBy('sort_order')
                                 ->get()
+                                ->filter(fn ($item): bool => $item->getRemainingQuantity() > 0)
                                 ->map(fn ($item): array => [
                                     'supplier_order_item_id' => $item->getKey(),
-                                    'quantity_shipped' => (string) $item->quantity,
+                                    'quantity_shipped' => (string) $item->getRemainingQuantity(),
                                     'condition' => ItemCondition::GOOD->value,
                                 ])
                                 ->toArray();

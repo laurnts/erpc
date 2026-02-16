@@ -276,11 +276,18 @@ final class SupplierOrderApprovalResource extends Resource
         // Show APPROVED orders (all of them) OR CONFIRMED orders that need approval
         // APPROVED orders: show all (they're fully approved but not yet sent)
         // CONFIRMED orders: show those that still need at least one approval
+        // SENT orders: show those that are fully approved (both approvers set)
         // This ensures approved orders stay visible and show approver names
         return parent::getEloquentQuery()
             ->where(function (Builder $query) use ($user): void {
                 // Always show APPROVED orders (fully approved, ready to send)
                 $query->where('status', OrderStatus::APPROVED)
+                    // OR show SENT orders that are fully approved (both approvers set)
+                    ->orWhere(function (Builder $q): void {
+                        $q->where('status', OrderStatus::SENT)
+                            ->whereNotNull('approver_1_id')
+                            ->whereNotNull('approver_2_id');
+                    })
                     // OR show CONFIRMED orders that still need at least one approval
                     ->orWhere(function (Builder $q): void {
                         $q->where('status', OrderStatus::CONFIRMED)
