@@ -138,6 +138,10 @@ final class ViewRequest extends ViewRecord
         $record->stage = $targetStage;
         $record->save();
 
+        // Refresh the record from database to ensure all computed properties are updated
+        // This ensures tab badges reflect the updated stage immediately
+        $this->record->refresh();
+
         // Show success notification
         Notification::make()
             ->title('Stage updated')
@@ -145,7 +149,7 @@ final class ViewRequest extends ViewRecord
             ->success()
             ->send();
 
-        // Refresh the record to update the UI
+        // Refresh the form data to update the UI
         $this->refreshFormData(['stage']);
     }
 

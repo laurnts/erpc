@@ -1052,7 +1052,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                         ->label('Confirm')
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
-                        ->visible(fn (SupplierOrder $record): bool => $record->status->canConfirm())
+                        ->visible(fn (SupplierOrder $record): bool => $record->status->canConfirm() && $record->status !== OrderStatus::SENT)
                         ->requiresConfirmation()
                         ->modalHeading('Confirm this order?')
                         ->modalDescription('This will confirm the purchase order, lock it for editing, and notify approvers.')
@@ -1064,7 +1064,10 @@ final class SupplierOrdersRelationManager extends RelationManager
                                 ->success()
                                 ->send();
                         }),
-                    DownloadPdfAction::make()
+                    DownloadPdfAction::make('downloadPdfSent')
+                        ->label('PDF')
+                        ->visible(fn (SupplierOrder $record): bool => $record->status === OrderStatus::SENT),
+                    DownloadPdfAction::make('downloadPdfApproved')
                         ->label('PDF')
                         ->visible(fn (?SupplierOrder $record): bool => $record !== null && $record->status === OrderStatus::APPROVED),
                     Action::make('send')

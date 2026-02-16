@@ -230,6 +230,7 @@ final class ItemsRelationManager extends RelationManager
                     ->icon('heroicon-o-paper-airplane')
                     ->color('primary')
                     ->size(Size::Small)
+                    ->visible(fn () => $request->items()->count() > 0)
                     ->requiresConfirmation()
                     ->modalHeading(fn (): string => count($this->getSelectedTableRecords()) > 0
                         ? 'Send Selected Items to Suppliers'

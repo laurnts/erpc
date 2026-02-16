@@ -1047,7 +1047,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 ]);
                             }
                         }
-                    }),
+                    })
+                    ->createAnother(false),
                 Action::make('createPnl')
                     ->label(function () use ($request): string {
                         return $request->profitAndLosses()->exists() ? 'View PNL' : 'Create PNL';

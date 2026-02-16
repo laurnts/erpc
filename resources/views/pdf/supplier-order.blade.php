@@ -145,8 +145,8 @@
         </div>
     @endif
 
-    {{-- Approval Section (only show when approved) --}}
-    @if($order->status === \App\Enums\OrderStatus::APPROVED)
+    {{-- Approval Section (only show when approved or sent) --}}
+    @if(in_array($order->status, [\App\Enums\OrderStatus::APPROVED, \App\Enums\OrderStatus::SENT]))
         <div style="margin-top: 40px;">
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
