@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\RequestResource\RelationManagers;
 
+use App\Enums\QEStatus;
 use App\Enums\RequestStage;
 use App\Enums\SupplierQuoteStatus;
+use App\Filament\Resources\QuotationEvaluationResource;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Models\Company;
 use App\Models\Currency;
+use App\Models\QuotationEvaluation;
 use App\Models\Request;
 use App\Models\SupplierQuote;
 use App\Models\TaxCode;
@@ -610,6 +613,111 @@ final class SupplierQuotesRelationManager extends RelationManager
                         return $request->supplierQuotes()
                             ->whereIn('status', [SupplierQuoteStatus::RECEIVED, SupplierQuoteStatus::SELECTED])
                             ->count() >= 2;
+                    }),
+                Action::make('viewQE')
+                    ->label('View QE')
+                    ->icon('heroicon-o-eye')
+                    ->color('success')
+                    ->url(function (): ?string {
+                        /** @var Request $request */
+                        $request = $this->getOwnerRecord();
+                        $latestQE = $request->quotationEvaluations()->latest()->first();
+
+                        return $latestQE !== null
+                            ? QuotationEvaluationResource::getUrl('view', ['record' => $latestQE])
+                            : null;
+                    })
+                    ->openUrlInNewTab()
+                    ->visible(function (): bool {
+                        /** @var Request $request */
+                        $request = $this->getOwnerRecord();
+
+                        return $request->quotationEvaluations()->exists();
+                    }),
+                Action::make('createQE')
+                    ->label('Create QE')
+                    ->icon('heroicon-o-document-check')
+                    ->color('success')
+                    ->modalHeading('Create Quotation Evaluation')
+                    ->modalDescription('Generate an internal QE document from this quote comparison')
+                    ->modalWidth('xl')
+                    ->modalContent(fn (): View => view('filament.modals.create-quotation-evaluation', [
+                        'request' => $this->getOwnerRecord(),
+                    ]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close')
+                    ->visible(function (): bool {
+                        /** @var Request $request */
+                        $request = $this->getOwnerRecord();
+
+                        // Only show Create QE if no QE exists
+                        if ($request->quotationEvaluations()->exists()) {
+                            return false;
+                        }
+
+                        // Check if there are supplier quotes with prices entered
+                        // Similar to Compare Quotes button - need quotes with RECEIVED or SELECTED status
+                        $quotesWithPrices = $request->supplierQuotes()
+                            ->whereIn('status', [SupplierQuoteStatus::RECEIVED, SupplierQuoteStatus::SELECTED])
+                            ->whereHas('items', function ($query): void {
+                                $query->where('unit_price', '>', 0);
+                            })
+                            ->exists();
+
+                        return $quotesWithPrices;
+                    })
+                    ->disabled(function (): bool {
+                        /** @var Request $request */
+                        $request = $this->getOwnerRecord();
+
+                        return ! $request->supplierQuotes()
+                            ->where('status', SupplierQuoteStatus::SELECTED)
+                            ->exists();
+                    })
+                    ->tooltip(function (): ?string {
+                        /** @var Request $request */
+                        $request = $this->getOwnerRecord();
+
+                        $hasSelected = $request->supplierQuotes()
+                            ->where('status', SupplierQuoteStatus::SELECTED)
+                            ->exists();
+
+                        return $hasSelected ? null : 'Please apply selected supplier quotes first';
+                    }),
+                Action::make('qeStatus')
+                    ->label(function (): \Illuminate\Contracts\Support\Htmlable {
+                        /** @var Request $request */
+                        $request = $this->getOwnerRecord();
+                        if ($request === null) {
+                            return new \Illuminate\Support\HtmlString('');
+                        }
+
+                        /** @var QuotationEvaluation|null $latestQE */
+                        $latestQE = $request->quotationEvaluations()->latest()->first();
+                        if ($latestQE === null) {
+                            return new \Illuminate\Support\HtmlString('');
+                        }
+
+                        $statusLabel = $latestQE->status->getLabel();
+                        $statusColor = $latestQE->status === QEStatus::APPROVED ? '#10b981' : '#ef4444';
+                        
+                        return new \Illuminate\Support\HtmlString(
+                            '<span style="texbackground: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; color: #000 !important;">QE Status: <span style="color: ' . $statusColor . ';">' . htmlspecialchars($statusLabel) . '</span></span>'
+                        );
+                    })
+                    ->disabled()
+                    ->extraAttributes([
+                        'class' => 'cursor-default !bg-transparent !border-0 !shadow-none !px-0 hover:!bg-transparent active:!bg-transparent focus:!bg-transparent',
+                        'style' => 'background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; min-height: auto !important;',
+                    ])
+                    ->visible(function (): bool {
+                        /** @var Request $request */
+                        $request = $this->getOwnerRecord();
+                        if ($request === null) {
+                            return false;
+                        }
+
+                        return $request->quotationEvaluations()->exists();
                     }),
             ])
             ->recordAction('edit')

@@ -6,6 +6,7 @@ namespace App\Filament\Resources\RequestResource\Pages;
 
 use App\Enums\InvoiceStatus;
 use App\Enums\PrepaymentType;
+use App\Enums\QEStatus;
 use App\Enums\RequestStage;
 use App\Filament\Resources\BuyerResource;
 use App\Filament\Resources\ProjectResource;
@@ -20,6 +21,7 @@ use App\Filament\Resources\RequestResource\RelationManagers\SupplierQuotesRelati
 use App\Models\BuyerInvoice;
 use App\Models\BuyerOrder;
 use App\Models\Currency;
+use App\Models\QuotationEvaluation;
 use App\Models\Request;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -307,6 +309,11 @@ final class ViewRequest extends ViewRecord
             ShipmentsRelationManager::class,
             CompletionReportsRelationManager::class,
         ];
+    }
+
+    public function mount(int | string $record): void
+    {
+        parent::mount($record);
     }
 
     /**

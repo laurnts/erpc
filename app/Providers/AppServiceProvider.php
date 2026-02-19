@@ -17,6 +17,8 @@ use App\Services\GitHubService;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
+use Filament\Support\Assets\Css;
+use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades;
@@ -174,6 +176,11 @@ final class AppServiceProvider extends ServiceProvider
 
             return $action;
         });
+
+        // Register CSS for disabled QE tabs
+        FilamentAsset::register([
+            Css::make('qe-disabled-tabs', resource_path('css/qe-disabled-tabs.css')),
+        ], 'app');
     }
 
     /**

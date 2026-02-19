@@ -196,6 +196,7 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
             ->success()
             ->send();
 
+        // Trigger a Livewire event that Alpine.js can listen to
         $this->dispatch('selections-applied');
     }
 

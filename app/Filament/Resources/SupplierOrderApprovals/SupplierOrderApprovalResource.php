@@ -40,7 +40,7 @@ final class SupplierOrderApprovalResource extends Resource
 
     protected static ?string $navigationLabel = 'Supplier Orders';
 
-    protected static ?string $pluralModelLabel = 'Supplier Order Approvals';
+    protected static ?string $pluralModelLabel = 'Supplier Orders';
 
     protected static ?string $modelLabel = 'Supplier Order Approval';
 

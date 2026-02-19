@@ -4,126 +4,108 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use App\Enums\CentralPurchasingRole;
 use App\Models\QuotationEvaluation;
 use App\Models\User;
+use App\Services\TeamMemberService;
 use Filament\Facades\Filament;
-use Illuminate\Auth\Access\HandlesAuthorization;
 
-final readonly class QuotationEvaluationPolicy
+final class QuotationEvaluationPolicy
 {
-    use HandlesAuthorization;
-
     /**
-     * Check if user is an administrator for the current team.
+     * Determine whether the user can view any models.
      */
-    private function isAdmin(User $user): bool
-    {
-        $team = Filament::getTenant();
-        return $team !== null && $user->hasTeamRole($team, 'admin');
-    }
-
     public function viewAny(User $user): bool
     {
-        if ($this->isAdmin($user)) {
-            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        /** @var \App\Models\Team|null $team */
+        $team = Filament::getTenant();
+
+        if ($team === null) {
+            return false;
         }
 
-        return $user->hasVerifiedEmail()
-            && $user->currentTeam !== null
-            && $user->hasPermissionTo('view quotation evaluations');
+        // Administrators can see the menu
+        if ($user->hasTeamRole($team, 'admin')) {
+            return true;
+        }
+
+        // Check if user has one of the approval roles
+        $approvalRoles = [
+            CentralPurchasingRole::DEPT_HEAD_SALES,
+            CentralPurchasingRole::DEPUTY_DIRECTOR,
+            CentralPurchasingRole::DIRECTOR,
+        ];
+
+        foreach ($approvalRoles as $role) {
+            $members = TeamMemberService::getTeamMembersByCentralPurchasingRole($team, $role);
+            if ($members->contains('id', $user->id)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
+    /**
+     * Determine whether the user can view the model.
+     */
     public function view(User $user, QuotationEvaluation $quotationEvaluation): bool
     {
-        if ($this->isAdmin($user)) {
-            return $user->belongsToTeam($quotationEvaluation->team);
-        }
-
-        return $user->belongsToTeam($quotationEvaluation->team)
-            && $user->hasPermissionTo('view quotation evaluations');
+        return $this->viewAny($user);
     }
 
+    /**
+     * Determine whether the user can create models.
+     */
     public function create(User $user): bool
     {
-        if ($this->isAdmin($user)) {
+        /** @var \App\Models\Team|null $team */
+        $team = Filament::getTenant();
+
+        if ($team === null) {
+            return false;
+        }
+
+        // Administrators can create QEs
+        if ($user->hasTeamRole($team, 'admin')) {
             return $user->hasVerifiedEmail() && $user->currentTeam !== null;
         }
 
+        // Users who can view supplier quotes can create QEs (as part of the workflow)
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
-            && $user->hasPermissionTo('create quotation evaluations');
+            && $user->hasPermissionTo('view supplier quotes');
     }
 
+    /**
+     * Determine whether the user can update the model.
+     */
     public function update(User $user, QuotationEvaluation $quotationEvaluation): bool
     {
-        if ($this->isAdmin($user)) {
-            return $user->belongsToTeam($quotationEvaluation->team);
-        }
-
-        return $user->belongsToTeam($quotationEvaluation->team)
-            && $user->hasPermissionTo('update quotation evaluations');
+        return false; // QEs are updated via workflow, not directly
     }
 
+    /**
+     * Determine whether the user can delete the model.
+     */
     public function delete(User $user, QuotationEvaluation $quotationEvaluation): bool
     {
-        if ($this->isAdmin($user)) {
-            return $user->belongsToTeam($quotationEvaluation->team);
-        }
-
-        return $user->belongsToTeam($quotationEvaluation->team)
-            && $user->hasPermissionTo('delete quotation evaluations');
+        return false; // QEs cannot be deleted
     }
 
-    public function deleteAny(User $user): bool
-    {
-        if ($this->isAdmin($user)) {
-            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
-        }
-
-        return $user->hasVerifiedEmail()
-            && $user->currentTeam !== null
-            && $user->hasPermissionTo('delete quotation evaluations');
-    }
-
+    /**
+     * Determine whether the user can restore the model.
+     */
     public function restore(User $user, QuotationEvaluation $quotationEvaluation): bool
     {
-        if ($this->isAdmin($user)) {
-            return $user->belongsToTeam($quotationEvaluation->team);
-        }
-
-        return $user->belongsToTeam($quotationEvaluation->team)
-            && $user->hasPermissionTo('update quotation evaluations');
+        return false;
     }
 
-    public function restoreAny(User $user): bool
-    {
-        if ($this->isAdmin($user)) {
-            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
-        }
-
-        return $user->hasVerifiedEmail()
-            && $user->currentTeam !== null
-            && $user->hasPermissionTo('update quotation evaluations');
-    }
-
+    /**
+     * Determine whether the user can permanently delete the model.
+     */
     public function forceDelete(User $user, QuotationEvaluation $quotationEvaluation): bool
     {
-        if ($this->isAdmin($user)) {
-            return $user->belongsToTeam($quotationEvaluation->team);
-        }
-
-        return $user->belongsToTeam($quotationEvaluation->team)
-            && $user->hasPermissionTo('delete quotation evaluations');
-    }
-
-    public function forceDeleteAny(User $user): bool
-    {
-        if ($this->isAdmin($user)) {
-            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
-        }
-
-        return $user->hasVerifiedEmail()
-            && $user->currentTeam !== null
-            && $user->hasPermissionTo('delete quotation evaluations');
+        return false;
     }
 }

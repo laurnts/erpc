@@ -6,6 +6,7 @@ namespace App\Filament\Resources\RequestResource\RelationManagers;
 
 use App\Enums\BuyerQuoteStatus;
 use App\Enums\CentralPurchasingRole;
+use App\Enums\PNLStatus;
 use App\Enums\PrepaymentType;
 use App\Enums\RequestStage;
 use App\Enums\SupplierQuoteStatus;
@@ -1155,15 +1156,30 @@ final class BuyerQuotesRelationManager extends RelationManager
 
                         redirect(ProfitAndLossResource::getUrl('view', ['record' => $pnl]));
                     }),
-                Action::make('send')
+                    Action::make('send')
                     ->label('Send')
                     ->icon('heroicon-o-paper-airplane')
                     ->size(Size::Small)
                     ->color('info')
-                    ->visible(fn () => $request->buyerQuotes()->exists())
-                    ->disabled(function () use ($request): bool {
-                        // Disable if PNL is not created
-                        return ! $request->profitAndLosses()->exists();
+                    ->visible(function () use ($request): bool {
+                        // Hide if buyer quotes don't exist
+                        if (! $request->buyerQuotes()->exists()) {
+                            return false;
+                        }
+                        
+                        // Hide if PNL is not created
+                        if (! $request->profitAndLosses()->exists()) {
+                            return false;
+                        }
+                        
+                        // Hide if PNL is not approved
+                        /** @var ProfitAndLoss|null $latestPNL */
+                        $latestPNL = $request->profitAndLosses()->latest()->first();
+                        if ($latestPNL === null) {
+                            return false;
+                        }
+                        
+                        return $latestPNL->status->isApproved();
                     })
                     ->requiresConfirmation()
                     ->modalHeading('Send this quote?')
@@ -1262,6 +1278,29 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 ->danger()
                                 ->send();
                         }
+                    }),
+                Action::make('pnlStatus')
+                    ->label(function () use ($request): \Illuminate\Contracts\Support\Htmlable {
+                        /** @var ProfitAndLoss|null $latestPNL */
+                        $latestPNL = $request->profitAndLosses()->latest()->first();
+                        if ($latestPNL === null) {
+                            return new \Illuminate\Support\HtmlString('');
+                        }
+
+                        $statusLabel = $latestPNL->status->getLabel();
+                        $statusColor = $latestPNL->status === PNLStatus::APPROVED ? '#10b981' : '#ef4444';
+                        
+                        return new \Illuminate\Support\HtmlString(
+                            '<span style="background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; color: #000 !important;">PNL Status: <span style="color: ' . $statusColor . ';">' . htmlspecialchars($statusLabel) . '</span></span>'
+                        );
+                    })
+                    ->disabled()
+                    ->extraAttributes([
+                        'class' => 'cursor-default !bg-transparent !border-0 !shadow-none !px-0 hover:!bg-transparent active:!bg-transparent focus:!bg-transparent',
+                        'style' => 'background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; min-height: auto !important;',
+                    ])
+                    ->visible(function () use ($request): bool {
+                        return $request->profitAndLosses()->exists();
                     }),
             ])
             ->recordActions([

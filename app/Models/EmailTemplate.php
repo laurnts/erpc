@@ -30,6 +30,8 @@ final class EmailTemplate extends Model
     public const TYPE_BUYER_ORDER = 'buyer_order';
     public const TYPE_SUPPLIER_ORDER = 'supplier_order';
     public const TYPE_DELIVERY_ORDER = 'delivery_order';
+    public const TYPE_QUOTATION_EVALUATION = 'quotation_evaluation';
+    public const TYPE_PROFIT_AND_LOSS = 'profit_and_loss';
 
     /**
      * The attributes that are mass assignable.
@@ -110,6 +112,8 @@ final class EmailTemplate extends Model
             self::TYPE_BUYER_ORDER,
             self::TYPE_SUPPLIER_ORDER,
             self::TYPE_DELIVERY_ORDER,
+            self::TYPE_QUOTATION_EVALUATION,
+            self::TYPE_PROFIT_AND_LOSS,
         ];
     }
 }

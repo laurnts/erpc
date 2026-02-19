@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Enums\CentralPurchasingRole;
 use App\Filament\Forms\Components\ApprovalPersonnelSchema;
 use App\Filament\Resources\QuotationEvaluationResource\Pages\ListQuotationEvaluations;
 use App\Filament\Resources\QuotationEvaluationResource\Pages\ViewQuotationEvaluation;
 use App\Models\QuotationEvaluation;
+use App\Policies\QuotationEvaluationPolicy;
+use App\Services\TeamMemberService;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -21,6 +24,8 @@ use Illuminate\Database\Eloquent\Builder;
 final class QuotationEvaluationResource extends Resource
 {
     protected static ?string $model = QuotationEvaluation::class;
+
+    protected static ?string $policy = QuotationEvaluationPolicy::class;
 
     protected static ?string $recordTitleAttribute = 'qe_number';
 
@@ -107,6 +112,9 @@ final class QuotationEvaluationResource extends Resource
                     
                     ->sortable()
                     ->weight('bold'),
+                TextColumn::make('status')
+                    ->badge()
+                    ->sortable(),
                 TextColumn::make('request.request_number')
                     ->label('Request')
                     
@@ -149,6 +157,15 @@ final class QuotationEvaluationResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         return null;
+    }
+
+    /**
+     * Control navigation visibility - show only to users with approval roles.
+     * Navigation visibility is controlled by the policy's viewAny method.
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return true; // Policy handles authorization
     }
 
     /**

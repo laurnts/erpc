@@ -1,4 +1,51 @@
-<div class="space-y-4">
+<div 
+    class="space-y-4"
+    x-data="{ closingModal: false }"
+    @selections-applied.window="
+        if (!closingModal) {
+            closingModal = true;
+            setTimeout(() => {
+                let current = $el;
+                let modal = null;
+                
+                while (current && current !== document.body) {
+                    if (current.getAttribute && current.getAttribute('role') === 'dialog') {
+                        modal = current;
+                        break;
+                    }
+                    if (current.classList) {
+                        if (current.classList.contains('fi-modal') || 
+                            current.id?.includes('modal') || 
+                            current.id?.includes('action')) {
+                            modal = current;
+                            break;
+                        }
+                    }
+                    current = current.parentElement;
+                }
+                
+                if (modal) {
+                    // Find close button by checking aria-label attribute directly
+                    const buttons = modal.querySelectorAll('button');
+                    for (let btn of buttons) {
+                        const ariaLabel = btn.getAttribute('aria-label');
+                        if (ariaLabel && ariaLabel.toLowerCase().includes('close')) {
+                            btn.click();
+                            closingModal = false;
+                            return;
+                        }
+                    }
+                    // Fallback: try fi-icon-button class
+                    const iconBtn = modal.querySelector('button.fi-icon-button');
+                    if (iconBtn) {
+                        iconBtn.click();
+                    }
+                }
+                closingModal = false;
+            }, 500);
+        }
+    "
+>
     @if($this->hasQuotes)
         {{-- Header with Quick Actions --}}
         <div class="flex items-center justify-between gap-4">
@@ -33,26 +80,6 @@
                     >
                         Select Best Prices
                     </x-filament::button>
-
-                    @if($this->hasQuotationEvaluation)
-                        <x-filament::button
-                            size="sm"
-                            color="gray"
-                            wire:click="viewQuotationEvaluation"
-                            icon="heroicon-o-eye"
-                        >
-                            View QE
-                        </x-filament::button>
-                    @else
-                        <x-filament::button
-                            size="sm"
-                            color="gray"
-                            x-on:click="$dispatch('open-modal', { id: 'create-qe-modal' })"
-                            icon="heroicon-o-document-check"
-                        >
-                            Create QE
-                        </x-filament::button>
-                    @endif
                 @endif
 
                 @if($this->selectedSuppliersCount > 0)
@@ -247,15 +274,4 @@
             </div>
         </x-filament::section>
     @endif
-
-    {{-- Create QE Modal --}}
-    <x-filament::modal
-        id="create-qe-modal"
-        slide-over
-        width="xl"
-        :heading="__('Create Quotation Evaluation')"
-        :description="__('Generate an internal QE document from this quote comparison')"
-    >
-        @livewire(\App\Livewire\QuotationEvaluationForm::class, ['request' => $this->request], key('qe-form-' . $this->request->id))
-    </x-filament::modal>
 </div>

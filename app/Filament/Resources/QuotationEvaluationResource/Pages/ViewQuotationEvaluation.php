@@ -17,10 +17,12 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Flex;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\HtmlString;
 
 final class ViewQuotationEvaluation extends ViewRecord
 {
@@ -69,6 +71,37 @@ final class ViewQuotationEvaluation extends ViewRecord
                         ],
                     );
                 }),
+            Action::make('approve')
+                ->label('Approve')
+                ->icon('heroicon-o-check-badge')
+                ->color('success')
+                ->requiresConfirmation()
+                ->modalHeading('Approve Quotation Evaluation?')
+                ->modalDescription(fn (QuotationEvaluation $record): string => 'Are you sure you want to approve this Quotation Evaluation?')
+                ->action(function (QuotationEvaluation $record): void {
+                    /** @var \App\Models\User $user */
+                    $user = auth()->user();
+
+                    try {
+                        $record->approve($user);
+
+                        Notification::make()
+                            ->title('Quotation Evaluation approved')
+                            ->body('Your approval has been recorded.')
+                            ->success()
+                            ->send();
+
+                        // Refresh the page to show updated status
+                        $this->redirect(QuotationEvaluationResource::getUrl('view', ['record' => $record]));
+                    } catch (\InvalidArgumentException $e) {
+                        Notification::make()
+                            ->title('Cannot approve')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
+                })
+                ->visible(fn (QuotationEvaluation $record): bool => $record->canBeApprovedBy(auth()->user())),
             ActionGroup::make([
                 EditAction::make()
                     ->slideOver()
@@ -103,8 +136,10 @@ final class ViewQuotationEvaluation extends ViewRecord
                                 ->color('primary'),
                             TextEntry::make('description')
                                 ->label('Description')
-                                ->placeholder('—')
-                                ->columnSpanFull(),
+                                ->placeholder('—'),
+                            TextEntry::make('status')
+                                ->label('Status QE')
+                                ->badge(),
                         ])
                         ->columns(3),
                     Section::make('Status')
@@ -183,6 +218,20 @@ final class ViewQuotationEvaluation extends ViewRecord
                                 
                                 return $membership ? $record->deptHeadSales->name : null;
                             })
+                            ->formatStateUsing(function (?string $state, ?QuotationEvaluation $record): HtmlString|string|null {
+                                if ($state === null || $record === null) {
+                                    return $state;
+                                }
+                                
+                                // Add approved badge if approved
+                                if ($record->hasDeptHeadSalesApproved()) {
+                                    return new HtmlString(
+                                        $state . ' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span>'
+                                    );
+                                }
+                                
+                                return $state;
+                            })
                             ->placeholder('—')
                             ->url(function (QuotationEvaluation $record): ?string {
                                 if (! $record->dept_head_sales_id) {
@@ -211,6 +260,20 @@ final class ViewQuotationEvaluation extends ViewRecord
                                 
                                 return $membership ? $record->deputyDirector->name : null;
                             })
+                            ->formatStateUsing(function (?string $state, ?QuotationEvaluation $record): HtmlString|string|null {
+                                if ($state === null || $record === null) {
+                                    return $state;
+                                }
+                                
+                                // Add approved badge if approved
+                                if ($record->hasDeputyDirectorApproved()) {
+                                    return new HtmlString(
+                                        $state . ' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span>'
+                                    );
+                                }
+                                
+                                return $state;
+                            })
                             ->placeholder('—')
                             ->url(function (QuotationEvaluation $record): ?string {
                                 if (! $record->deputy_director_id) {
@@ -238,6 +301,20 @@ final class ViewQuotationEvaluation extends ViewRecord
                                     ->first();
                                 
                                 return $membership ? $record->approvedBy->name : null;
+                            })
+                            ->formatStateUsing(function (?string $state, ?QuotationEvaluation $record): HtmlString|string|null {
+                                if ($state === null || $record === null) {
+                                    return $state;
+                                }
+                                
+                                // Add approved badge if approved
+                                if ($record->hasDirectorApproved()) {
+                                    return new HtmlString(
+                                        $state . ' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span>'
+                                    );
+                                }
+                                
+                                return $state;
                             })
                             ->placeholder('—')
                             ->url(function (QuotationEvaluation $record): ?string {

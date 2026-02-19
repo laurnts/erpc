@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire;
 
 use App\Enums\CentralPurchasingRole;
+use App\Enums\QEStatus;
 use App\Enums\SupplierQuoteStatus;
 use App\Filament\Resources\QuotationEvaluationResource;
 use App\Livewire\Concerns\AuthorizesLivewireActions;
@@ -324,6 +325,7 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
                 'dept_head_sales_id' => $this->deptHeadSalesId,
                 'deputy_director_id' => $this->deputyDirectorId,
                 'approved_by_id' => $this->approvedById,
+                'status' => QEStatus::NEED_APPROVAL,
                 'data' => $snapshotData,
                 'creator_id' => auth()->id(),
             ]);

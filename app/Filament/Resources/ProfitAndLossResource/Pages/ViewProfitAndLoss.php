@@ -17,10 +17,12 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Flex;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\HtmlString;
 
 final class ViewProfitAndLoss extends ViewRecord
 {
@@ -69,6 +71,37 @@ final class ViewProfitAndLoss extends ViewRecord
                         ],
                     );
                 }),
+            Action::make('approve')
+                ->label('Approve')
+                ->icon('heroicon-o-check-badge')
+                ->color('success')
+                ->requiresConfirmation()
+                ->modalHeading('Approve Profit & Loss?')
+                ->modalDescription(fn (ProfitAndLoss $record): string => 'Are you sure you want to approve this Profit & Loss document?')
+                ->action(function (ProfitAndLoss $record): void {
+                    /** @var \App\Models\User $user */
+                    $user = auth()->user();
+
+                    try {
+                        $record->approve($user);
+
+                        Notification::make()
+                            ->title('Profit & Loss approved')
+                            ->body('Your approval has been recorded.')
+                            ->success()
+                            ->send();
+
+                        // Refresh the page to show updated status
+                        $this->redirect(ProfitAndLossResource::getUrl('view', ['record' => $record]));
+                    } catch (\InvalidArgumentException $e) {
+                        Notification::make()
+                            ->title('Cannot approve')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
+                })
+                ->visible(fn (ProfitAndLoss $record): bool => $record->canBeApprovedBy(auth()->user())),
             ActionGroup::make([
                 EditAction::make()
                     ->slideOver()
@@ -102,7 +135,7 @@ final class ViewProfitAndLoss extends ViewRecord
                                     : null)
                                 ->color('primary'),
                             TextEntry::make('status')
-                                ->label('Status')
+                                ->label('Status PNL')
                                 ->badge(),
                             TextEntry::make('description')
                                 ->label('Description')
@@ -177,6 +210,19 @@ final class ViewProfitAndLoss extends ViewRecord
                                 
                                 return $membership ? $record->deptHeadSales->name : null;
                             })
+                            ->formatStateUsing(function (?string $state, ?\App\Models\ProfitAndLoss $record): HtmlString|string|null {
+                                if ($state === null || $record === null) {
+                                    return $state;
+                                }
+                                
+                                if ($record->hasDeptHeadSalesApproved()) {
+                                    return new HtmlString(
+                                        $state . ' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span>'
+                                    );
+                                }
+                                
+                                return $state;
+                            })
                             ->placeholder('—')
                             ->url(function (\App\Models\ProfitAndLoss $record): ?string {
                                 if (! $record->dept_head_sales_id) {
@@ -205,6 +251,19 @@ final class ViewProfitAndLoss extends ViewRecord
                                 
                                 return $membership ? $record->deputyDirector->name : null;
                             })
+                            ->formatStateUsing(function (?string $state, ?\App\Models\ProfitAndLoss $record): HtmlString|string|null {
+                                if ($state === null || $record === null) {
+                                    return $state;
+                                }
+                                
+                                if ($record->hasDeputyDirectorApproved()) {
+                                    return new HtmlString(
+                                        $state . ' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span>'
+                                    );
+                                }
+                                
+                                return $state;
+                            })
                             ->placeholder('—')
                             ->url(function (\App\Models\ProfitAndLoss $record): ?string {
                                 if (! $record->deputy_director_id) {
@@ -232,6 +291,19 @@ final class ViewProfitAndLoss extends ViewRecord
                                     ->first();
                                 
                                 return $membership ? $record->approvedBy->name : null;
+                            })
+                            ->formatStateUsing(function (?string $state, ?\App\Models\ProfitAndLoss $record): HtmlString|string|null {
+                                if ($state === null || $record === null) {
+                                    return $state;
+                                }
+                                
+                                if ($record->hasDirectorApproved()) {
+                                    return new HtmlString(
+                                        $state . ' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span>'
+                                    );
+                                }
+                                
+                                return $state;
                             })
                             ->placeholder('—')
                             ->url(function (\App\Models\ProfitAndLoss $record): ?string {

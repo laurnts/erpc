@@ -8,20 +8,16 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasIcon;
 use Filament\Support\Contracts\HasLabel;
 
-enum PNLStatus: string implements HasColor, HasIcon, HasLabel
+enum QEStatus: string implements HasColor, HasIcon, HasLabel
 {
     case NEED_APPROVAL = 'need_approval';
     case APPROVED = 'approved';
-    case PENDING = 'pending';
-    case ORDERED = 'ordered';
 
     public function getLabel(): string
     {
         return match ($this) {
             self::NEED_APPROVAL => 'Not Approved yet',
             self::APPROVED => 'Approved',
-            self::PENDING => 'Pending',
-            self::ORDERED => 'Ordered',
         };
     }
 
@@ -30,8 +26,6 @@ enum PNLStatus: string implements HasColor, HasIcon, HasLabel
         return match ($this) {
             self::NEED_APPROVAL => 'warning',
             self::APPROVED => 'success',
-            self::PENDING => 'gray',
-            self::ORDERED => 'info',
         };
     }
 
@@ -40,13 +34,11 @@ enum PNLStatus: string implements HasColor, HasIcon, HasLabel
         return match ($this) {
             self::NEED_APPROVAL => 'heroicon-o-clock',
             self::APPROVED => 'heroicon-o-check-badge',
-            self::PENDING => 'heroicon-o-clock',
-            self::ORDERED => 'heroicon-o-shopping-cart',
         };
     }
 
     /**
-     * Check if PNL can be approved.
+     * Check if QE can be approved.
      */
     public function canApprove(): bool
     {
@@ -54,7 +46,7 @@ enum PNLStatus: string implements HasColor, HasIcon, HasLabel
     }
 
     /**
-     * Check if PNL is approved.
+     * Check if QE is approved.
      */
     public function isApproved(): bool
     {
