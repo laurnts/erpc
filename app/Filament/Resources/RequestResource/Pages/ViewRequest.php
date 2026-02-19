@@ -229,8 +229,9 @@ final class ViewRequest extends ViewRecord
             // Financial Summary, Payment Terms & Shipment (three columns)
             Grid::make(3)
                 ->schema([
-                    Section::make('Financial Summary')
+                    Section::make('Financials')
                         ->icon('heroicon-o-banknotes')
+                        ->extraAttributes(['class' => 'three-column-section'])
                         ->schema([
                             Grid::make(2)
                                 ->schema([
@@ -253,8 +254,9 @@ final class ViewRequest extends ViewRecord
                                         ->color(fn (Request $record): string => $this->getMarginPercentColor($record)),
                                 ]),
                         ]),
-                    Section::make('Payment Terms')
+                    Section::make('Payments')
                         ->icon('heroicon-o-credit-card')
+                        ->extraAttributes(['class' => 'three-column-section'])
                         ->schema([
                             TextEntry::make('prepayment_display')
                                 ->label('Prepayment')
@@ -267,11 +269,11 @@ final class ViewRequest extends ViewRecord
                                 ->placeholder('No payment terms')
                                 ->columnSpanFull(),
                         ]),
-                    Section::make('Shipment')
+                    Section::make('Shipments')
                         ->icon('heroicon-o-truck')
+                        ->extraAttributes(['class' => 'three-column-section'])
                         ->schema([
                             TextEntry::make('shipments_list')
-                                ->label('Shipments')
                                 ->state(fn (Request $record): HtmlString => $this->getShipmentsList($record))
                                 ->placeholder('No shipments')
                                 ->columnSpanFull(),
@@ -638,14 +640,14 @@ final class ViewRequest extends ViewRecord
             );
 
             $rows[] = sprintf(
-                '<tr><td class="pr-4">%d days</td><td class="pr-4 text-right">%d%%</td><td>%s</td></tr>',
+                '<tr><td class="pr-4">%d days</td><td class="pr-4 text-left">%d%%</td><td>%s</td></tr>',
                 $term->due_days,
                 $term->percentage,
                 $statusBadge
             );
         }
 
-        $html = '<table class="text-sm w-full"><thead><tr class="text-gray-500"><th class="text-left pr-4">Due Days</th><th class="text-right pr-4">Percentage</th><th class="text-left">Status</th></tr></thead><tbody>'.implode('', $rows).'</tbody></table>';
+        $html = '<table class="text-sm w-full"><thead><tr class="text-gray-500"><th class="text-left pr-4">Due Days</th><th class="text-left pr-4">Percentage</th><th class="text-left">Status</th></tr></thead><tbody>'.implode('', $rows).'</tbody></table>';
 
         return new HtmlString($html);
     }

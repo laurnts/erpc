@@ -180,6 +180,7 @@ final class AppServiceProvider extends ServiceProvider
         // Register CSS for disabled QE tabs
         FilamentAsset::register([
             Css::make('qe-disabled-tabs', resource_path('css/qe-disabled-tabs.css')),
+            Css::make('equal-height-grid', resource_path('css/equal-height-grid.css')),
         ], 'app');
     }
 
