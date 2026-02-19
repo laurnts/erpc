@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\CentralPurchasingRole;
 use App\Enums\QEStatus;
+use App\Enums\SupplierQuoteStatus;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use App\Observers\QuotationEvaluationObserver;
@@ -17,6 +18,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Quotation Evaluation document for internal procurement documentation.
@@ -323,5 +325,143 @@ final class QuotationEvaluation extends Model
     public function hasDirectorApproved(): bool
     {
         return $this->director_approved_at !== null;
+    }
+
+    /**
+     * Sync snapshot data from supplier quotes.
+     * Only syncs if QE is not yet approved to preserve historical snapshots.
+     *
+     * @return bool True if data was synced, false otherwise
+     */
+    public function syncSnapshotData(): bool
+    {
+        // Don't sync if already approved - preserve historical snapshot
+        if ($this->status === QEStatus::APPROVED) {
+            return false;
+        }
+
+        // Ensure request relationship is loaded
+        if ($this->request === null) {
+            return false;
+        }
+
+        // Get all active quotes
+        $quotes = $this->request->supplierQuotes()
+            ->whereIn('status', [SupplierQuoteStatus::RECEIVED, SupplierQuoteStatus::SELECTED])
+            ->with(['supplier', 'currency', 'items.requestItem'])
+            ->orderBy('total_base')
+            ->get();
+
+        // Get request items
+        $requestItems = $this->request->items()->with('article')->orderBy('sort_order')->get();
+
+        // Build price matrix and find best prices
+        $bestPrices = $this->findBestPrices($requestItems, $quotes);
+
+        // Build items array
+        $items = [];
+        foreach ($requestItems as $requestItem) {
+            $itemData = [
+                'id' => $requestItem->getKey(),
+                'description' => $requestItem->article?->name ?? $requestItem->description,
+                'quantity' => (float) $requestItem->quantity,
+                'unit' => $requestItem->unit ?? 'pcs',
+                'prices' => [],
+            ];
+
+            foreach ($quotes as $quote) {
+                $quoteItem = $quote->items->first(
+                    fn (\App\Models\SupplierQuoteItem $item): bool => $item->request_item_id === $requestItem->getKey()
+                );
+
+                if ($quoteItem !== null) {
+                    $isBestPrice = ($bestPrices[$requestItem->getKey()] ?? null) === $quote->getKey();
+
+                    $itemData['prices'][(string) $quote->getKey()] = [
+                        'supplier_id' => $quote->supplier_id,
+                        'unit_price' => (float) $quoteItem->unit_price_exc_tax,
+                        'line_subtotal' => (float) $quoteItem->line_subtotal,
+                        'line_tax' => (float) $quoteItem->line_tax,
+                        'line_total' => (float) $quoteItem->line_total,
+                        'is_best_price' => $isBestPrice,
+                        'is_selected' => $quoteItem->is_selected,
+                    ];
+                }
+            }
+
+            $items[] = $itemData;
+        }
+
+        // Build suppliers array
+        $suppliers = [];
+        foreach ($quotes as $quote) {
+            $suppliers[] = [
+                'id' => $quote->getKey(),
+                'name' => $quote->supplier?->name ?? 'Unknown',
+                'currency_code' => $quote->currency?->code ?? 'USD',
+                'delivery_type' => $quote->supplier?->delivery_type ?? null,
+                'delivery_type_details' => $quote->supplier?->delivery_type_details ?? null,
+                'is_taxable' => $quote->supplier?->is_taxable ?? false,
+                'delivery_term' => $quote->supplier?->delivery_term ?? null,
+                'payment_terms_days' => $quote->supplier?->payment_terms ?? null,
+                'subtotal' => (float) $quote->subtotal,
+                'tax_total' => (float) $quote->tax_total,
+                'grand_total' => (float) $quote->total,
+            ];
+        }
+
+        // Update the data field
+        $this->data = [
+            'request' => [
+                'id' => $this->request->getKey(),
+                'request_number' => $this->request->request_number,
+                'title' => $this->request->title,
+            ],
+            'items' => $items,
+            'suppliers' => $suppliers,
+        ];
+
+        $this->saveQuietly();
+
+        return true;
+    }
+
+    /**
+     * Find the best price (lowest unit price in base currency) for each request item.
+     *
+     * @param  Collection<int, \App\Models\RequestItem>  $requestItems
+     * @param  Collection<int, \App\Models\SupplierQuote>  $quotes
+     * @return array<int, int|null>
+     */
+    private function findBestPrices(Collection $requestItems, Collection $quotes): array
+    {
+        $bestPrices = [];
+
+        foreach ($requestItems as $requestItem) {
+            $bestQuoteId = null;
+            $bestUnitPriceBase = null;
+
+            foreach ($quotes as $quote) {
+                $quoteItem = $quote->items->first(
+                    fn (\App\Models\SupplierQuoteItem $item): bool => $item->request_item_id === $requestItem->getKey()
+                );
+
+                if ($quoteItem === null) {
+                    continue;
+                }
+
+                // Compare unit price in base currency
+                $unitPriceBase = (float) $quoteItem->unit_price_exc_tax * (float) $quote->exchange_rate;
+
+                if ($bestUnitPriceBase === null || $unitPriceBase < $bestUnitPriceBase) {
+                    $bestUnitPriceBase = $unitPriceBase;
+                    $bestQuoteId = $quote->getKey();
+                }
+            }
+
+            $bestPrices[$requestItem->getKey()] = $bestQuoteId;
+        }
+
+        return $bestPrices;
     }
 }

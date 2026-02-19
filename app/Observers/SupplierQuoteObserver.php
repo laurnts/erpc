@@ -6,6 +6,7 @@ namespace App\Observers;
 
 use App\Data\TeamErpSettings;
 use App\Enums\SupplierQuoteStatus;
+use App\Models\QuotationEvaluation;
 use App\Models\SupplierQuote;
 use App\Models\Team;
 use App\Models\User;
@@ -90,6 +91,45 @@ final readonly class SupplierQuoteObserver
                 $supplierQuote->status = SupplierQuoteStatus::RECEIVED;
                 $supplierQuote->saveQuietly();
             }
+        }
+
+        // Sync related QuotationEvaluations when quote status changes
+        // This ensures QEs reflect the current active quotes (RECEIVED/SELECTED)
+        if ($supplierQuote->wasChanged('status') && $supplierQuote->request_id !== null) {
+            $this->syncRelatedQuotationEvaluations($supplierQuote);
+        }
+    }
+
+    /**
+     * Handle the SupplierQuote "deleted" event.
+     */
+    public function deleted(SupplierQuote $supplierQuote): void
+    {
+        // Sync related QuotationEvaluations when quote is deleted
+        // This ensures QEs no longer include deleted quotes
+        if ($supplierQuote->request_id !== null) {
+            $this->syncRelatedQuotationEvaluations($supplierQuote);
+        }
+    }
+
+    /**
+     * Sync related QuotationEvaluations when supplier quote changes.
+     */
+    private function syncRelatedQuotationEvaluations(SupplierQuote $quote): void
+    {
+        if ($quote->request_id === null) {
+            return;
+        }
+
+        // Find all QuotationEvaluations for this request that are not yet approved
+        $quotationEvaluations = QuotationEvaluation::query()
+            ->where('request_id', $quote->request_id)
+            ->where('status', '!=', \App\Enums\QEStatus::APPROVED)
+            ->get();
+
+        // Sync each QE's snapshot data
+        foreach ($quotationEvaluations as $qe) {
+            $qe->syncSnapshotData();
         }
     }
 

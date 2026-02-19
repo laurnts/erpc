@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Observers;
 
 use App\Enums\SupplierQuoteStatus;
+use App\Models\QuotationEvaluation;
 use App\Models\SupplierQuoteItem;
 use App\Models\TaxCode;
 use App\Models\UnitOfMeasure;
@@ -59,6 +60,11 @@ final readonly class SupplierQuoteItemObserver
         // Recalculate quote header totals when line totals change
         if ($item->wasChanged(['line_subtotal', 'line_tax', 'line_total'])) {
             $this->recalculateQuoteTotals($item);
+        }
+
+        // Sync related QuotationEvaluations when unit price or related pricing fields change
+        if ($item->wasChanged(['unit_price', 'unit_price_exc_tax', 'line_subtotal', 'line_tax', 'line_total', 'is_selected'])) {
+            $this->syncRelatedQuotationEvaluations($item);
         }
     }
 
@@ -158,6 +164,28 @@ final readonly class SupplierQuoteItemObserver
                 $quote->status = SupplierQuoteStatus::RECEIVED;
                 $quote->saveQuietly();
             }
+        }
+    }
+
+    /**
+     * Sync related QuotationEvaluations when supplier quote item prices change.
+     */
+    private function syncRelatedQuotationEvaluations(SupplierQuoteItem $item): void
+    {
+        $quote = $item->supplierQuote;
+        if ($quote === null || $quote->request_id === null) {
+            return;
+        }
+
+        // Find all QuotationEvaluations for this request that are not yet approved
+        $quotationEvaluations = QuotationEvaluation::query()
+            ->where('request_id', $quote->request_id)
+            ->where('status', '!=', \App\Enums\QEStatus::APPROVED)
+            ->get();
+
+        // Sync each QE's snapshot data
+        foreach ($quotationEvaluations as $qe) {
+            $qe->syncSnapshotData();
         }
     }
 }

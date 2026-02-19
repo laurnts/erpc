@@ -216,8 +216,10 @@ final class ViewProfitAndLoss extends ViewRecord
                                 }
                                 
                                 if ($record->hasDeptHeadSalesApproved()) {
+                                    $approvedDate = $record->dept_head_sales_approved_at?->format('M j, Y');
                                     return new HtmlString(
-                                        $state . ' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span>'
+                                        $state . ' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span><br/>' . 
+                                        ($approvedDate ? ' <span style="font-size: 0.75rem; color: #6b7280;">(' . $approvedDate . ')</span>' : '')
                                     );
                                 }
                                 
@@ -257,8 +259,10 @@ final class ViewProfitAndLoss extends ViewRecord
                                 }
                                 
                                 if ($record->hasDeputyDirectorApproved()) {
+                                    $approvedDate = $record->deputy_director_approved_at?->format('M j, Y');
                                     return new HtmlString(
-                                        $state . ' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span>'
+                                        $state . ' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span><br/>' . 
+                                        ($approvedDate ? ' <span style="font-size: 0.75rem; color: #6b7280;">(' . $approvedDate . ')</span>' : '')
                                     );
                                 }
                                 
@@ -298,8 +302,10 @@ final class ViewProfitAndLoss extends ViewRecord
                                 }
                                 
                                 if ($record->hasDirectorApproved()) {
+                                    $approvedDate = $record->director_approved_at?->format('M j, Y');
                                     return new HtmlString(
-                                        $state . ' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span>'
+                                        $state . ' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span><br/>' . 
+                                        ($approvedDate ? ' <span style="font-size: 0.75rem; color: #6b7280;">(' . $approvedDate . ')</span>' : '')
                                     );
                                 }
                                 
