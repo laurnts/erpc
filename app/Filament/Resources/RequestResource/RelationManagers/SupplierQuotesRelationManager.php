@@ -312,6 +312,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                         TextInput::make('quantity')
                                             ->numeric()
                                             ->required()
+                                            ->disabled()
                                             ->default(1)
                                             ->step(0.0001)
                                             ->columnSpan(2)

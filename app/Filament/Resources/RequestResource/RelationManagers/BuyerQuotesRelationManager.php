@@ -525,7 +525,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->collapsible()
                         ->live()
                         ->deletable(fn (?BuyerQuote $record): bool => ! $record instanceof \App\Models\BuyerQuote || $record->status->canEdit())
-                        ->addable(fn (?BuyerQuote $record): bool => ! $record instanceof \App\Models\BuyerQuote || $record->status->canEdit())
+                        ->addable(false)
                         ->itemLabel(fn (array $state): ?string => $state['description'] ?? null),
                 ]),
 

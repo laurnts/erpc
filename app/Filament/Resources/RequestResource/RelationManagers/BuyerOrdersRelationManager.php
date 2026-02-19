@@ -35,6 +35,8 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Filament\Support\Enums\Width;
+use Illuminate\Support\HtmlString;
 
 final class BuyerOrdersRelationManager extends RelationManager
 {
@@ -508,7 +510,8 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->color('success')
                         ->visible(fn (BuyerOrder $record): bool => $record->status->canConfirm())
                         ->modalHeading('Confirm this order?')
-                        ->modalDescription(function (BuyerOrder $record): string {
+                        ->modalWidth(Width::Large)
+                        ->modalDescription(function (BuyerOrder $record): HtmlString {
                             $buyer = $record->buyer;
                             $orderTotal = (float) $record->total;
                             
@@ -533,7 +536,7 @@ final class BuyerOrdersRelationManager extends RelationManager
                                 $message .= "\n\n".$warning;
                             }
 
-                            return $message;
+                            return new HtmlString(nl2br($message));
                         })
                         ->form(function (BuyerOrder $record): array {
                             $buyer = $record->buyer;
