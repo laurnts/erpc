@@ -1796,6 +1796,29 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 ->send();
                         }
                     }),
+                Action::make('pnlStatus')
+                    ->label(function () use ($request): \Illuminate\Contracts\Support\Htmlable {
+                        /** @var ProfitAndLoss|null $latestPNL */
+                        $latestPNL = $request->profitAndLosses()->latest()->first();
+                        if ($latestPNL === null) {
+                            return new \Illuminate\Support\HtmlString('');
+                        }
+
+                        $statusLabel = $latestPNL->status->getLabel();
+                        $statusColor = $latestPNL->status === PNLStatus::APPROVED ? '#10b981' : '#ef4444';
+                        
+                        return new \Illuminate\Support\HtmlString(
+                            '<span style="background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; color: #000 !important;">PNL Status: <span style="color: ' . $statusColor . ';">' . htmlspecialchars($statusLabel) . '</span></span>'
+                        );
+                    })
+                    ->disabled()
+                    ->extraAttributes([
+                        'class' => 'cursor-default !bg-transparent !border-0 !shadow-none !px-0 hover:!bg-transparent active:!bg-transparent focus:!bg-transparent',
+                        'style' => 'background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; min-height: auto !important;',
+                    ])
+                    ->visible(function () use ($request): bool {
+                        return $request->profitAndLosses()->exists();
+                    }),
             ])
             ->recordActions([
                 ActionGroup::make([

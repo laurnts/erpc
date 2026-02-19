@@ -18,7 +18,7 @@ enum PNLStatus: string implements HasColor, HasIcon, HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::NEED_APPROVAL => 'Pending',
+            self::NEED_APPROVAL => 'Not Approved yet',
             self::APPROVED => 'Approved',
             self::PENDING => 'Pending',
             self::ORDERED => 'Ordered',

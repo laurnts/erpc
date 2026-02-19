@@ -82,7 +82,7 @@ final class QuotationEvaluationPolicy
      */
     public function update(User $user, QuotationEvaluation $quotationEvaluation): bool
     {
-        return $this->viewAny($user);
+        return false; // QEs are updated via workflow, not directly
     }
 
     /**
