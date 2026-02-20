@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Profit and Loss document for internal tracking.
@@ -321,5 +322,67 @@ final class ProfitAndLoss extends Model
     public function hasDirectorApproved(): bool
     {
         return $this->director_approved_at !== null;
+    }
+
+    /**
+     * Get the current approval count (number of approvers who have approved).
+     */
+    public function approvalCount(): int
+    {
+        $count = 0;
+        
+        if ($this->dept_head_sales_id !== null && $this->dept_head_sales_approved_at !== null) {
+            $count++;
+        }
+        if ($this->deputy_director_id !== null && $this->deputy_director_approved_at !== null) {
+            $count++;
+        }
+        if ($this->approved_by_id !== null && $this->director_approved_at !== null) {
+            $count++;
+        }
+        
+        return $count;
+    }
+
+    /**
+     * Get the total number of required approvers.
+     */
+    public function totalApproversCount(): int
+    {
+        $count = 0;
+        
+        if ($this->dept_head_sales_id !== null) {
+            $count++;
+        }
+        if ($this->deputy_director_id !== null) {
+            $count++;
+        }
+        if ($this->approved_by_id !== null) {
+            $count++;
+        }
+        
+        return $count;
+    }
+
+    /**
+     * Get collection of approvers who have approved.
+     *
+     * @return Collection<int, User>
+     */
+    public function getApprovers(): Collection
+    {
+        $approvers = collect();
+        
+        if ($this->dept_head_sales_id !== null && $this->dept_head_sales_approved_at !== null && $this->deptHeadSales) {
+            $approvers->push($this->deptHeadSales);
+        }
+        if ($this->deputy_director_id !== null && $this->deputy_director_approved_at !== null && $this->deputyDirector) {
+            $approvers->push($this->deputyDirector);
+        }
+        if ($this->approved_by_id !== null && $this->director_approved_at !== null && $this->approvedBy) {
+            $approvers->push($this->approvedBy);
+        }
+        
+        return $approvers;
     }
 }

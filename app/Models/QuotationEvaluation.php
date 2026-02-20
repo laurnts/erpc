@@ -328,6 +328,68 @@ final class QuotationEvaluation extends Model
     }
 
     /**
+     * Get the current approval count (number of approvers who have approved).
+     */
+    public function approvalCount(): int
+    {
+        $count = 0;
+        
+        if ($this->dept_head_sales_id !== null && $this->dept_head_sales_approved_at !== null) {
+            $count++;
+        }
+        if ($this->deputy_director_id !== null && $this->deputy_director_approved_at !== null) {
+            $count++;
+        }
+        if ($this->approved_by_id !== null && $this->director_approved_at !== null) {
+            $count++;
+        }
+        
+        return $count;
+    }
+
+    /**
+     * Get the total number of required approvers.
+     */
+    public function totalApproversCount(): int
+    {
+        $count = 0;
+        
+        if ($this->dept_head_sales_id !== null) {
+            $count++;
+        }
+        if ($this->deputy_director_id !== null) {
+            $count++;
+        }
+        if ($this->approved_by_id !== null) {
+            $count++;
+        }
+        
+        return $count;
+    }
+
+    /**
+     * Get collection of approvers who have approved.
+     *
+     * @return Collection<int, User>
+     */
+    public function getApprovers(): Collection
+    {
+        $approvers = collect();
+        
+        if ($this->dept_head_sales_id !== null && $this->dept_head_sales_approved_at !== null && $this->deptHeadSales) {
+            $approvers->push($this->deptHeadSales);
+        }
+        if ($this->deputy_director_id !== null && $this->deputy_director_approved_at !== null && $this->deputyDirector) {
+            $approvers->push($this->deputyDirector);
+        }
+        if ($this->approved_by_id !== null && $this->director_approved_at !== null && $this->approvedBy) {
+            $approvers->push($this->approvedBy);
+        }
+        
+        return $approvers;
+    }
+
+    /**
      * Sync snapshot data from supplier quotes.
      * Only syncs if QE is not yet approved to preserve historical snapshots.
      *

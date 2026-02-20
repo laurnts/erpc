@@ -115,6 +115,16 @@ final class QuotationEvaluationResource extends Resource
                 TextColumn::make('status')
                     ->badge()
                     ->sortable(),
+                TextColumn::make('approval_count')
+                    ->label('Approvals')
+                    ->getStateUsing(fn (\App\Models\QuotationEvaluation $record): string => $record->approvalCount() . '/' . $record->totalApproversCount())
+                    ->badge()
+                    ->color(fn (\App\Models\QuotationEvaluation $record): string => $record->approvalCount() >= $record->totalApproversCount() ? 'success' : 'warning'),
+                TextColumn::make('approvers.name')
+                    ->label('Approved By')
+                    ->getStateUsing(fn (\App\Models\QuotationEvaluation $record): \Illuminate\Support\Collection => $record->getApprovers()->pluck('name'))
+                    ->badge()
+                    ->separator(','),
                 TextColumn::make('request.request_number')
                     ->label('Request')
                     

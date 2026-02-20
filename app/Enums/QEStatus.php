@@ -16,7 +16,7 @@ enum QEStatus: string implements HasColor, HasIcon, HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::NEED_APPROVAL => 'Not Approved yet',
+            self::NEED_APPROVAL => 'Pending',
             self::APPROVED => 'Approved',
         };
     }
