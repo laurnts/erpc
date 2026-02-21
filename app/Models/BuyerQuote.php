@@ -298,7 +298,38 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
     }
 
     /**
-     * Create a new version of this quote.
+     * Check if there are additional request items with selected supplier quotes
+     * that are not yet included in this buyer quote.
+     */
+    public function hasAdditionalItems(): bool
+    {
+        if ($this->request_id === null) {
+            return false;
+        }
+
+        // Get request item IDs already in this buyer quote
+        $existingRequestItemIds = $this->items()
+            ->whereNotNull('request_item_id')
+            ->pluck('request_item_id')
+            ->toArray();
+
+        // Get all request items with selected supplier quotes for this request
+        $selectedSupplierQuoteItems = \App\Models\SupplierQuoteItem::query()
+            ->whereHas('supplierQuote', fn ($q) => $q->where('request_id', $this->request_id)
+                ->where('status', \App\Enums\SupplierQuoteStatus::SELECTED))
+            ->whereNotNull('request_item_id')
+            ->pluck('request_item_id')
+            ->unique()
+            ->toArray();
+
+        // Check if there are any request items with selected quotes that aren't in this buyer quote
+        $additionalItemIds = array_diff($selectedSupplierQuoteItems, $existingRequestItemIds);
+
+        return !empty($additionalItemIds);
+    }
+
+    /**
+     * Create a new version of this quote, including any additional items.
      */
     public function createNewVersion(): self
     {
@@ -316,12 +347,15 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
         $newQuote->quote_number = self::generateNextNumber($this->team_id);
         $newQuote->save();
 
-        // Copy items to new quote
+        // Copy existing items to new quote
         foreach ($this->items as $item) {
             $newItem = $item->replicate();
             $newItem->buyer_quote_id = $newQuote->getKey();
             $newItem->save();
         }
+
+        // Add additional items from selected supplier quotes
+        $this->addAdditionalItemsToQuote($newQuote);
 
         // Copy payment terms to new quote
         foreach ($this->paymentTerms as $paymentTerm) {
@@ -334,7 +368,152 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
         $this->status = BuyerQuoteStatus::SUPERSEDED;
         $this->save();
 
+        // Reset PNL status to pending for this request
+        $this->resetPnlStatusForRequest();
+
         return $newQuote;
+    }
+
+    /**
+     * Add additional items from selected supplier quotes to the buyer quote.
+     */
+    private function addAdditionalItemsToQuote(BuyerQuote $newQuote): void
+    {
+        if ($this->request_id === null) {
+            return;
+        }
+
+        // Get request item IDs already in the original buyer quote
+        $existingRequestItemIds = $this->items()
+            ->whereNotNull('request_item_id')
+            ->pluck('request_item_id')
+            ->toArray();
+
+        // Get team settings for defaults
+        $team = $this->team;
+        $settings = $team?->getErpSettings() ?? new \App\Data\TeamErpSettings;
+        $defaultMarginPercent = $settings->default_margin_percent ?? 3.0;
+
+        // Get default tax code
+        $defaultTaxCode = \App\Models\TaxCode::query()
+            ->where('team_id', $this->team_id)
+            ->where('is_default', true)
+            ->where('is_active', true)
+            ->first();
+
+        // Get all selected supplier quote items for this request
+        $selectedSupplierQuoteItems = \App\Models\SupplierQuoteItem::query()
+            ->whereHas('supplierQuote', fn ($q) => $q->where('request_id', $this->request_id)
+                ->where('status', \App\Enums\SupplierQuoteStatus::SELECTED))
+            ->whereNotNull('request_item_id')
+            ->whereNotIn('request_item_id', $existingRequestItemIds)
+            ->with(['requestItem.article', 'requestItem.unitOfMeasure'])
+            ->get();
+
+        // Get the highest sort_order from existing items
+        $maxSortOrder = $newQuote->items()->max('sort_order') ?? -1;
+        $sortOrder = $maxSortOrder + 1;
+
+        foreach ($selectedSupplierQuoteItems as $supplierQuoteItem) {
+            $requestItem = $supplierQuoteItem->requestItem;
+            if ($requestItem === null) {
+                continue;
+            }
+
+            $costPrice = (float) $supplierQuoteItem->unit_price_exc_tax;
+            $supplierQuoteItemId = $supplierQuoteItem->getKey();
+
+            // Calculate tax-related values
+            $taxRate = $defaultTaxCode !== null ? (float) $defaultTaxCode->rate : 0.0;
+            $addTax = $defaultTaxCode !== null && $defaultTaxCode->is_inclusive_default;
+            $quantity = (float) $requestItem->quantity;
+
+            // Calculate selling price with default margin on selling (NET price)
+            // Formula: margin% = (selling - cost) / selling × 100
+            // Solving for selling: selling = cost / (1 - margin%/100)
+            $unitPriceExcTax = $costPrice > 0 && $defaultMarginPercent < 100
+                ? round($costPrice / (1 - $defaultMarginPercent / 100), 4)
+                : 0.0;
+
+            // If tax is inclusive, unit_price should include tax; otherwise unit_price = net price
+            if ($addTax && $taxRate > 0) {
+                $unitPrice = round($unitPriceExcTax * (1 + $taxRate / 100), 4);
+            } else {
+                $unitPrice = $unitPriceExcTax;
+            }
+
+            // Line subtotal is quantity * net price (amount before tax)
+            $lineSubtotal = $quantity * $unitPriceExcTax;
+
+            // Calculate tax if tax rate > 0
+            if ($taxRate > 0) {
+                if ($addTax) {
+                    // Tax is inclusive - line_total includes tax, line_subtotal is extracted
+                    $lineTotal = $quantity * $unitPrice;
+                    $lineTax = $lineTotal - $lineSubtotal;
+                } else {
+                    // Tax is exclusive - add tax on top
+                    $lineTax = $lineSubtotal * $taxRate / 100;
+                    $lineTotal = $lineSubtotal + $lineTax;
+                }
+            } else {
+                $lineTax = 0;
+                $lineTotal = $lineSubtotal;
+            }
+
+            // Calculate margin: ((selling_price - cost_price) / selling_price) * 100
+            $marginAmount = $unitPriceExcTax - $costPrice;
+            $marginPercent = $unitPriceExcTax > 0 ? ($marginAmount / $unitPriceExcTax) * 100 : 0;
+
+            $newQuote->items()->create([
+                'request_item_id' => $requestItem->getKey(),
+                'article_id' => $requestItem->article_id,
+                'supplier_quote_item_id' => $supplierQuoteItemId,
+                'description' => $requestItem->article !== null ? $requestItem->article->name : $requestItem->description,
+                'quantity' => $requestItem->quantity,
+                'unit_of_measure_id' => $requestItem->unit_of_measure_id,
+                'unit' => $requestItem->unitOfMeasure?->code ?? $requestItem->unit?->value ?? 'pcs',
+                'cost_price' => $costPrice,
+                'unit_price' => $unitPrice,
+                'unit_price_exc_tax' => round($unitPriceExcTax, 0),
+                'tax_code_id' => $defaultTaxCode?->getKey(),
+                'tax_rate' => $taxRate,
+                'tax_amount' => round($lineTax / max($quantity, 0.0001), 4),
+                'is_tax_inclusive' => $addTax,
+                'line_subtotal' => round($lineSubtotal, 4),
+                'line_tax' => round($lineTax, 4),
+                'line_total' => round($lineTotal, 0),
+                'margin_amount' => round($marginAmount, 4),
+                'margin_percent' => round($marginPercent, 4),
+                'sort_order' => $sortOrder++,
+            ]);
+        }
+
+        // Recalculate totals after adding items
+        $newQuote->recalculateTotals();
+    }
+
+    /**
+     * Reset PNL status to pending for this request when new version is created.
+     */
+    private function resetPnlStatusForRequest(): void
+    {
+        if ($this->request_id === null) {
+            return;
+        }
+
+        $profitAndLosses = \App\Models\ProfitAndLoss::query()
+            ->where('request_id', $this->request_id)
+            ->where('status', \App\Enums\PNLStatus::APPROVED)
+            ->get();
+
+        foreach ($profitAndLosses as $pnl) {
+            $pnl->status = \App\Enums\PNLStatus::NEED_APPROVAL;
+            $pnl->dept_head_sales_approved_at = null;
+            $pnl->deputy_director_approved_at = null;
+            $pnl->director_approved_at = null;
+            $pnl->saveQuietly();
+        }
     }
 
     /**

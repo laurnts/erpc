@@ -6,7 +6,9 @@ namespace App\Models;
 
 use App\Casts\SafeUnitCast;
 use App\Enums\Unit;
+use App\Observers\RequestItemObserver;
 use Database\Factories\RequestItemFactory;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read \Illuminate\Database\Eloquent\Collection<int, SupplierQuoteItem> $supplierQuoteItems
  * @property-read int $supplier_quote_items_count
  */
+#[ObservedBy(RequestItemObserver::class)]
 final class RequestItem extends Model
 {
     /** @use HasFactory<RequestItemFactory> */

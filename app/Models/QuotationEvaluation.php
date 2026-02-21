@@ -391,20 +391,25 @@ final class QuotationEvaluation extends Model
 
     /**
      * Sync snapshot data from supplier quotes.
-     * Only syncs if QE is not yet approved to preserve historical snapshots.
+     * If QE is approved, resets status to NEED_APPROVAL and clears approval timestamps
+     * to restart the approval workflow when new quotes/items are added.
      *
      * @return bool True if data was synced, false otherwise
      */
     public function syncSnapshotData(): bool
     {
-        // Don't sync if already approved - preserve historical snapshot
-        if ($this->status === QEStatus::APPROVED) {
-            return false;
-        }
-
         // Ensure request relationship is loaded
         if ($this->request === null) {
             return false;
+        }
+
+        // If QE is approved, reset to pending and clear approval timestamps
+        // This allows the QE to be updated when new quotes/items are added
+        if ($this->status === QEStatus::APPROVED) {
+            $this->status = QEStatus::NEED_APPROVAL;
+            $this->dept_head_sales_approved_at = null;
+            $this->deputy_director_approved_at = null;
+            $this->director_approved_at = null;
         }
 
         // Get all active quotes

@@ -190,6 +190,16 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
             }
         }
 
+        // Manually sync QE snapshot data since bulk updates don't trigger model events
+        // This ensures the QE view page shows the correct selected items
+        $quotationEvaluations = QuotationEvaluation::query()
+            ->where('request_id', $this->request->getKey())
+            ->get();
+
+        foreach ($quotationEvaluations as $qe) {
+            $qe->syncSnapshotData();
+        }
+
         Notification::make()
             ->title('Selections applied')
             ->body('Quote statuses have been updated.')

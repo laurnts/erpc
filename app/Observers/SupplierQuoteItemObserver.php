@@ -169,6 +169,7 @@ final readonly class SupplierQuoteItemObserver
 
     /**
      * Sync related QuotationEvaluations when supplier quote item prices change.
+     * Includes approved QEs which will be reset to pending status.
      */
     private function syncRelatedQuotationEvaluations(SupplierQuoteItem $item): void
     {
@@ -177,10 +178,10 @@ final readonly class SupplierQuoteItemObserver
             return;
         }
 
-        // Find all QuotationEvaluations for this request that are not yet approved
+        // Find all QuotationEvaluations for this request
+        // Approved QEs will be reset to pending when synced
         $quotationEvaluations = QuotationEvaluation::query()
             ->where('request_id', $quote->request_id)
-            ->where('status', '!=', \App\Enums\QEStatus::APPROVED)
             ->get();
 
         // Sync each QE's snapshot data

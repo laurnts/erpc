@@ -114,6 +114,7 @@ final readonly class SupplierQuoteObserver
 
     /**
      * Sync related QuotationEvaluations when supplier quote changes.
+     * Includes approved QEs which will be reset to pending status.
      */
     private function syncRelatedQuotationEvaluations(SupplierQuote $quote): void
     {
@@ -121,10 +122,10 @@ final readonly class SupplierQuoteObserver
             return;
         }
 
-        // Find all QuotationEvaluations for this request that are not yet approved
+        // Find all QuotationEvaluations for this request
+        // Approved QEs will be reset to pending when synced
         $quotationEvaluations = QuotationEvaluation::query()
             ->where('request_id', $quote->request_id)
-            ->where('status', '!=', \App\Enums\QEStatus::APPROVED)
             ->get();
 
         // Sync each QE's snapshot data

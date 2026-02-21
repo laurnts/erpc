@@ -1554,15 +1554,32 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->label('New Version')
                         ->icon('heroicon-o-document-duplicate')
                         ->color('primary')
-                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && ! $record->status->canEdit())
+                        ->visible(function (?BuyerQuote $record): bool {
+                            if ($record === null) {
+                                return false;
+                            }
+                            // Don't show for superseded quotes
+                            if ($record->status === BuyerQuoteStatus::SUPERSEDED) {
+                                return false;
+                            }
+                            // Only show if there are additional items available
+                            return $record->hasAdditionalItems();
+                        })
                         ->requiresConfirmation()
-                        ->modalHeading('Create new version?')
-                        ->modalDescription('This will create a new draft version of this quote and mark the current one as superseded.')
+                        ->modalHeading('Create new version with additional items?')
+                        ->modalDescription('This will create a new draft version of this quote including any additional items that have been added to the request. The current quote will be marked as superseded, and any approved PNL will be reset to pending.')
                         ->action(function (BuyerQuote $record): void {
                             $newQuote = $record->createNewVersion();
+                            $additionalItemsCount = $newQuote->items()->count() - $record->items()->count();
+                            
+                            $message = "Version {$newQuote->version} has been created as a draft.";
+                            if ($additionalItemsCount > 0) {
+                                $message .= " {$additionalItemsCount} additional item(s) have been added.";
+                            }
+                            
                             Notification::make()
                                 ->title('New version created')
-                                ->body("Version {$newQuote->version} has been created as a draft.")
+                                ->body($message)
                                 ->success()
                                 ->send();
                         }),
