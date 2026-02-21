@@ -9,8 +9,11 @@ use App\Enums\PrepaymentType;
 use App\Enums\QEStatus;
 use App\Enums\RequestStage;
 use App\Filament\Resources\BuyerResource;
+use App\Filament\Resources\ProfitAndLossResource;
 use App\Filament\Resources\ProjectResource;
+use App\Filament\Resources\QuotationEvaluationResource;
 use App\Filament\Resources\RequestResource;
+use App\Filament\Resources\SupplierOrderResource;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerOrdersRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerQuotesRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\CompletionReportsRelationManager;
@@ -774,9 +777,13 @@ final class ViewRequest extends ViewRecord
             $style = 'background-color: rgb(255 237 213); color: rgb(154 52 18); border-color: rgb(253 186 116);'; // orange
         }
 
+        $qeUrl = QuotationEvaluationResource::getUrl('view', ['record' => $qe]);
+        $qeNumber = htmlspecialchars($qe->qe_number);
+
         $html = sprintf(
-            '<div class="space-y-1"><div class="font-medium">%s</div><div class="flex items-center gap-2"><span class="text-sm text-gray-600">Approval: %d/%d</span><span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border" style="%s">%s %s</span></div></div>',
-            htmlspecialchars($qe->qe_number),
+            '<div class="space-y-1"><div class="font-medium"><a href="%s" class="text-primary-600 hover:text-primary-700 hover:underline">%s</a></div><div class="flex items-center gap-2"><span class="text-sm text-gray-600">Approval: %d/%d</span><span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border" style="%s">%s %s</span></div></div>',
+            htmlspecialchars($qeUrl),
+            $qeNumber,
             $approvalCount,
             $totalApprovers,
             $style,
@@ -820,9 +827,13 @@ final class ViewRequest extends ViewRecord
             $style = 'background-color: rgb(243 244 246); color: rgb(31 41 55); border-color: rgb(209 213 219);'; // gray
         }
 
+        $pnlUrl = ProfitAndLossResource::getUrl('view', ['record' => $pnl]);
+        $pnlNumber = htmlspecialchars($pnl->pnl_number);
+
         $html = sprintf(
-            '<div class="space-y-1"><div class="font-medium">%s</div><div class="flex items-center gap-2"><span class="text-sm text-gray-600">Approval: %d/%d</span><span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border" style="%s">%s %s</span></div></div>',
-            htmlspecialchars($pnl->pnl_number),
+            '<div class="space-y-1"><div class="font-medium"><a href="%s" class="text-primary-600 hover:text-primary-700 hover:underline">%s</a></div><div class="flex items-center gap-2"><span class="text-sm text-gray-600">Approval: %d/%d</span><span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border" style="%s">%s %s</span></div></div>',
+            htmlspecialchars($pnlUrl),
+            $pnlNumber,
             $approvalCount,
             $totalApprovers,
             $style,
@@ -845,6 +856,8 @@ final class ViewRequest extends ViewRecord
         }
 
         $rows = [];
+        $supplierOrdersUrl = RequestResource::getUrl('view', ['record' => $record]) . '?activeRelationManager=supplierOrders';
+        
         foreach ($supplierOrders as $order) {
             // Calculate approval count (0, 1, or 2)
             $approvalCount = 0;
@@ -858,10 +871,12 @@ final class ViewRequest extends ViewRecord
             $totalApprovers = 2; // Supplier orders always require 2 approvers
             $status = $order->status;
             $statusColor = $order->is_approved ? 'success' : ($approvalCount > 0 ? 'warning' : 'gray');
+            $poNumber = htmlspecialchars($order->po_number ?? 'N/A');
 
             $rows[] = sprintf(
-                '<tr><td class="pr-4 font-medium">%s</td><td class="pr-4 text-sm text-gray-600">Approval: %d/%d</td><td><span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-%s-100 text-%s-800">%s</span></td></tr>',
-                htmlspecialchars($order->po_number ?? 'N/A'),
+                '<tr><td class="pr-4 font-medium"><a href="%s" class="text-primary-600 hover:text-primary-700 hover:underline">%s</a></td><td class="pr-4 text-sm text-gray-600">Approval: %d/%d</td><td><span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-%s-100 text-%s-800">%s</span></td></tr>',
+                htmlspecialchars($supplierOrdersUrl),
+                $poNumber,
                 $approvalCount,
                 $totalApprovers,
                 $statusColor,

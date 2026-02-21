@@ -685,41 +685,6 @@ final class SupplierQuotesRelationManager extends RelationManager
 
                         return $hasSelected ? null : 'Please apply selected supplier quotes first';
                     }),
-                Action::make('qeStatus')
-                    ->label(function (): \Illuminate\Contracts\Support\Htmlable {
-                        /** @var Request $request */
-                        $request = $this->getOwnerRecord();
-                        if ($request === null) {
-                            return new \Illuminate\Support\HtmlString('');
-                        }
-
-                        /** @var QuotationEvaluation|null $latestQE */
-                        $latestQE = $request->quotationEvaluations()->latest()->first();
-                        if ($latestQE === null) {
-                            return new \Illuminate\Support\HtmlString('');
-                        }
-
-                        $statusLabel = $latestQE->status->getLabel();
-                        $statusColor = $latestQE->status === QEStatus::APPROVED ? '#10b981' : '#ef4444';
-                        
-                        return new \Illuminate\Support\HtmlString(
-                            '<span style="texbackground: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; color: #000 !important;">QE Status: <span style="color: ' . $statusColor . ';">' . htmlspecialchars($statusLabel) . '</span></span>'
-                        );
-                    })
-                    ->disabled()
-                    ->extraAttributes([
-                        'class' => 'cursor-default !bg-transparent !border-0 !shadow-none !px-0 hover:!bg-transparent active:!bg-transparent focus:!bg-transparent',
-                        'style' => 'background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; min-height: auto !important;',
-                    ])
-                    ->visible(function (): bool {
-                        /** @var Request $request */
-                        $request = $this->getOwnerRecord();
-                        if ($request === null) {
-                            return false;
-                        }
-
-                        return $request->quotationEvaluations()->exists();
-                    }),
             ])
             ->recordAction('edit')
             ->recordActions([
