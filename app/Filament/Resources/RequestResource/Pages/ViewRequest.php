@@ -281,6 +281,31 @@ final class ViewRequest extends ViewRecord
                 ])
                 ->columnSpanFull(),
 
+            // Approvals Information Section
+            Section::make('Approvals Information')
+                ->icon('heroicon-o-check-badge')
+                ->schema([
+                    Grid::make(3)
+                        ->schema([
+                            // Quotation Evaluation
+                            TextEntry::make('qe_approval_info')
+                                ->label('Quotation Evaluation')
+                                ->state(fn (Request $record): HtmlString => $this->getQuotationEvaluationApprovalInfo($record))
+                                ->placeholder('No quotation evaluation'),
+                            // Profit and Loss
+                            TextEntry::make('pnl_approval_info')
+                                ->label('Profit and Loss')
+                                ->state(fn (Request $record): HtmlString => $this->getProfitAndLossApprovalInfo($record))
+                                ->placeholder('No profit and loss'),
+                            // Supplier Order
+                            TextEntry::make('supplier_order_approval_info')
+                                ->label('Supplier Order')
+                                ->state(fn (Request $record): HtmlString => $this->getSupplierOrderApprovalInfo($record))
+                                ->placeholder('No supplier order'),
+                        ]),
+                ])
+                ->columnSpanFull(),
+
             // Description (if exists)
             Section::make('Description')
                 ->schema([
@@ -718,5 +743,150 @@ final class ViewRequest extends ViewRecord
         $html = '<table class="text-sm w-full"><thead><tr class="text-gray-500"><th class="text-left pr-4">Shipment #</th><th class="text-left pr-4">Status</th><th class="text-left pr-4">Carrier</th><th class="text-left">Tracking</th></tr></thead><tbody>'.implode('', $rows).'</tbody></table>';
 
         return new HtmlString($html);
+    }
+
+    /**
+     * Get Quotation Evaluation approval information.
+     */
+    private function getQuotationEvaluationApprovalInfo(Request $record): HtmlString
+    {
+        $qe = $record->quotationEvaluations()->latest()->first();
+
+        if ($qe === null) {
+            return new HtmlString('<span class="text-gray-400">No quotation evaluation</span>');
+        }
+
+        $approvalCount = $qe->approvalCount();
+        $totalApprovers = $qe->totalApproversCount();
+        $status = $qe->status;
+        $isApproved = $status === QEStatus::APPROVED;
+        $statusIcon = $status->getIcon();
+        $statusLabel = htmlspecialchars($status->getLabel());
+
+        // Build icon SVG based on heroicon name
+        $iconSvg = $this->getIconSvg($statusIcon);
+
+        // Set colors based on status using inline styles
+        if ($isApproved) {
+            $style = 'background-color: rgb(220 252 231); color: rgb(22 101 52); border-color: rgb(187 247 208);'; // green
+        } else {
+            // Pending - orange/cream color scheme
+            $style = 'background-color: rgb(255 237 213); color: rgb(154 52 18); border-color: rgb(253 186 116);'; // orange
+        }
+
+        $html = sprintf(
+            '<div class="space-y-1"><div class="font-medium">%s</div><div class="flex items-center gap-2"><span class="text-sm text-gray-600">Approval: %d/%d</span><span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border" style="%s">%s %s</span></div></div>',
+            htmlspecialchars($qe->qe_number),
+            $approvalCount,
+            $totalApprovers,
+            $style,
+            $iconSvg,
+            $statusLabel
+        );
+
+        return new HtmlString($html);
+    }
+
+    /**
+     * Get Profit and Loss approval information.
+     */
+    private function getProfitAndLossApprovalInfo(Request $record): HtmlString
+    {
+        $pnl = $record->profitAndLosses()->latest()->first();
+
+        if ($pnl === null) {
+            return new HtmlString('<span class="text-gray-400">No profit and loss</span>');
+        }
+
+        $approvalCount = $pnl->approvalCount();
+        $totalApprovers = $pnl->totalApproversCount();
+        $status = $pnl->status;
+        $isApproved = $status === \App\Enums\PNLStatus::APPROVED;
+        $isPending = $status === \App\Enums\PNLStatus::NEED_APPROVAL || $status === \App\Enums\PNLStatus::PENDING;
+        $statusIcon = $status->getIcon();
+        $statusLabel = htmlspecialchars($status->getLabel());
+
+        // Build icon SVG based on heroicon name
+        $iconSvg = $this->getIconSvg($statusIcon);
+
+        // Set colors based on status using inline styles
+        if ($isApproved) {
+            $style = 'background-color: rgb(220 252 231); color: rgb(22 101 52); border-color: rgb(187 247 208);'; // green
+        } elseif ($isPending) {
+            // Pending - orange/cream color scheme
+            $style = 'background-color: rgb(255 237 213); color: rgb(154 52 18); border-color: rgb(253 186 116);'; // orange
+        } else {
+            // Other statuses - gray
+            $style = 'background-color: rgb(243 244 246); color: rgb(31 41 55); border-color: rgb(209 213 219);'; // gray
+        }
+
+        $html = sprintf(
+            '<div class="space-y-1"><div class="font-medium">%s</div><div class="flex items-center gap-2"><span class="text-sm text-gray-600">Approval: %d/%d</span><span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border" style="%s">%s %s</span></div></div>',
+            htmlspecialchars($pnl->pnl_number),
+            $approvalCount,
+            $totalApprovers,
+            $style,
+            $iconSvg,
+            $statusLabel
+        );
+
+        return new HtmlString($html);
+    }
+
+    /**
+     * Get Supplier Order approval information.
+     */
+    private function getSupplierOrderApprovalInfo(Request $record): HtmlString
+    {
+        $supplierOrders = $record->supplierOrders()->get();
+
+        if ($supplierOrders->isEmpty()) {
+            return new HtmlString('<span class="text-gray-400">No supplier order</span>');
+        }
+
+        $rows = [];
+        foreach ($supplierOrders as $order) {
+            // Calculate approval count (0, 1, or 2)
+            $approvalCount = 0;
+            if ($order->approver_1_id !== null) {
+                $approvalCount++;
+            }
+            if ($order->approver_2_id !== null) {
+                $approvalCount++;
+            }
+
+            $totalApprovers = 2; // Supplier orders always require 2 approvers
+            $status = $order->status;
+            $statusColor = $order->is_approved ? 'success' : ($approvalCount > 0 ? 'warning' : 'gray');
+
+            $rows[] = sprintf(
+                '<tr><td class="pr-4 font-medium">%s</td><td class="pr-4 text-sm text-gray-600">Approval: %d/%d</td><td><span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-%s-100 text-%s-800">%s</span></td></tr>',
+                htmlspecialchars($order->po_number ?? 'N/A'),
+                $approvalCount,
+                $totalApprovers,
+                $statusColor,
+                $statusColor,
+                htmlspecialchars($status->getLabel())
+            );
+        }
+
+        $html = '<table class="text-sm w-full"><thead><tr class="text-gray-500"><th class="text-left pr-4">PO Number</th><th class="text-left pr-4">Approval</th><th class="text-left">Status</th></tr></thead><tbody>'.implode('', $rows).'</tbody></table>';
+
+        return new HtmlString($html);
+    }
+
+    /**
+     * Get icon SVG markup for heroicon names.
+     */
+    private function getIconSvg(string $heroiconName): string
+    {
+        // Map heroicon names to their SVG paths (using heroicon v1 outline style)
+        $icons = [
+            'heroicon-o-check-badge' => '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+            'heroicon-o-clock' => '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+            'heroicon-s-check-circle' => '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>',
+        ];
+
+        return $icons[$heroiconName] ?? '';
     }
 }
