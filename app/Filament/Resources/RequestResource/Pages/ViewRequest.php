@@ -896,9 +896,8 @@ final class ViewRequest extends ViewRecord
             }
 
             $totalApprovers = 2; // Supplier orders always require 2 approvers
-            $bothApproved = $order->approver_1_id !== null && $order->approver_2_id !== null;
-            $statusColor = $bothApproved ? 'success' : ($approvalCount > 0 ? 'warning' : 'gray');
-            $statusLabel = $bothApproved ? 'Approved' : 'Pending';
+            $statusColor = $order->is_approved ? 'success' : ($approvalCount > 0 ? 'warning' : 'gray');
+            $statusLabel = $order->is_approved ? 'Approved' : 'Pending';
             $poNumber = htmlspecialchars($order->po_number ?? 'N/A');
 
             $rows[] = sprintf(
