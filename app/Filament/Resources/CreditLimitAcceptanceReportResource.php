@@ -159,6 +159,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                         }
                         $paymentTerms = $record->getCustomProperty('payment_terms');
                         if ($paymentTerms) {
+                            // Format: "30-100" -> "30 days - 100%"
                             $parts = explode('-', $paymentTerms);
                             if (count($parts) === 2) {
                                 return "{$parts[0]} days - {$parts[1]}%";
