@@ -182,15 +182,7 @@
     x-cloak
 >
     <x-filament::section>
-        <x-slot name="heading">
-            <div class="flex items-center gap-2">
-                <x-filament::icon
-                    icon="heroicon-o-information-circle"
-                    class="h-5 w-5"
-                />
-                <span>Information Flow</span>
-            </div>
-        </x-slot>
+        
         
         <div x-show="hasContent()" class="prose prose-sm max-w-none dark:prose-invert" x-html="content"></div>
         <div x-show="!hasContent()" class="text-gray-500 dark:text-gray-400 text-sm">

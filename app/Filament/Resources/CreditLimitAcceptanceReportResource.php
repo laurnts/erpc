@@ -4,21 +4,25 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
-use App\Enums\CreditLimitRequestStatus;
+use App\Enums\CentralPurchasingRole;
 use App\Filament\Resources\CreditLimitAcceptanceReportResource\Pages\ListAcceptanceReports;
-use App\Models\BuyerCreditLimitRequestApproval;
+use App\Models\PaymentDocumentApproval;
 use Filament\Facades\Filament;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Resources\Resource;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class CreditLimitAcceptanceReportResource extends Resource
 {
-    protected static ?string $model = BuyerCreditLimitRequestApproval::class;
+    protected static ?string $model = Media::class;
 
-    protected static ?string $tenantOwnershipRelationshipName = 'team';
+    protected static bool $isScopedToTenant = false;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-check';
 
@@ -28,65 +32,95 @@ final class CreditLimitAcceptanceReportResource extends Resource
 
     protected static ?string $navigationLabel = 'Acceptance Report';
 
-    protected static ?string $pluralModelLabel = 'Credit Limit Acceptances';
+    protected static ?string $pluralModelLabel = 'Acceptance Reports';
 
-    protected static ?string $modelLabel = 'Credit Limit Acceptance';
+    protected static ?string $modelLabel = 'Acceptance Report';
 
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
-                TextColumn::make('buyerCreditLimitRequest.buyer.name')
-                    ->label('Buyer')
+                TextColumn::make('name')
+                    ->label('Document Name')
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
-                TextColumn::make('buyerCreditLimitRequest.buyer.code')
-                    ->label('Code')
-                    ->searchable()
-                    ->sortable(),
-                TextColumn::make('buyerCreditLimitRequest.current_limit')
-                    ->label('Max Credit Limit')
-                    ->money(fn (): string => Filament::getTenant() instanceof \App\Models\Team ? Filament::getTenant()->getBaseCurrencyCode() : 'USD')
-                    ->sortable(),
-                TextColumn::make('buyerCreditLimitRequest.requested_limit')
-                    ->label('Requested Limit')
-                    ->money(fn (): string => Filament::getTenant() instanceof \App\Models\Team ? Filament::getTenant()->getBaseCurrencyCode() : 'USD')
-                    ->sortable()
-                    ->color('success')
-                    ->weight('bold'),
-                TextColumn::make('increase_amount')
-                    ->label('Changes')
-                    ->getStateUsing(function (BuyerCreditLimitRequestApproval $record): float {
-                        $request = $record->buyerCreditLimitRequest;
-                        return (float) $request->requested_limit - (float) $request->current_limit;
+                TextColumn::make('request_number')
+                    ->label('Request Number')
+                    ->getStateUsing(function (Media $record): ?string {
+                        return $record->model instanceof \App\Models\Request ? $record->model->request_number : null;
                     })
-                    ->money(fn (): string => Filament::getTenant() instanceof \App\Models\Team ? Filament::getTenant()->getBaseCurrencyCode() : 'USD')
-                    ->color('success'),
-                TextColumn::make('buyerCreditLimitRequest.status')
-                    ->label('Request Status')
-                    ->badge()
+                    ->searchable()
                     ->sortable(),
-                TextColumn::make('user.name')
+                TextColumn::make('buyer_name')
+                    ->label('Buyer')
+                    ->getStateUsing(function (Media $record): ?string {
+                        return $record->model instanceof \App\Models\Request ? $record->model->buyer?->name : null;
+                    })
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('payment_terms_display')
+                    ->label('Payment Terms')
+                    ->getStateUsing(function (Media $record): string {
+                        $paymentTerms = $record->getCustomProperty('payment_terms');
+                        if ($paymentTerms) {
+                            // Format: "30-100" -> "30 days - 100%"
+                            $parts = explode('-', $paymentTerms);
+                            if (count($parts) === 2) {
+                                return "{$parts[0]} days - {$parts[1]}%";
+                            }
+                            return $paymentTerms;
+                        }
+                        return '-';
+                    })
+                    ->sortable(),
+                TextColumn::make('created_at')
+                    ->label('Uploaded At')
+                    ->dateTime()
+                    ->sortable(),
+                TextColumn::make('approval_status')
+                    ->label('Status')
+                    ->getStateUsing(function (Media $record): string {
+                        $hasApproval = PaymentDocumentApproval::where('media_id', $record->id)
+                            ->where('team_id', Filament::getTenant()?->id)
+                            ->exists();
+                        return $hasApproval ? 'Approved' : 'Pending';
+                    })
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Approved' => 'success',
+                        'Pending' => 'warning',
+                        default => 'gray',
+                    })
+                    ->sortable(),
+                TextColumn::make('approved_by')
                     ->label('Approved By')
+                    ->getStateUsing(function (Media $record): ?string {
+                        $approval = PaymentDocumentApproval::where('media_id', $record->id)
+                            ->where('team_id', Filament::getTenant()?->id)
+                            ->with('user')
+                            ->first();
+                        return $approval?->user?->name;
+                    })
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('approved_at')
                     ->label('Approved At')
+                    ->getStateUsing(function (Media $record): ?string {
+                        $approval = PaymentDocumentApproval::where('media_id', $record->id)
+                            ->where('team_id', Filament::getTenant()?->id)
+                            ->first();
+                        return $approval?->approved_at?->format('Y-m-d H:i:s');
+                    })
                     ->dateTime()
                     ->sortable(),
-                TextColumn::make('notes')
-                    ->label('Notes')
-                    ->wrap()
-                    ->toggleable()
-                    ->placeholder('—'),
             ])
             ->filters([
                 SelectFilter::make('buyer_id')
                     ->label('Buyer')
                     ->query(function (Builder $query, array $data): Builder {
                         if (! empty($data['value'])) {
-                            return $query->whereHas('buyerCreditLimitRequest', function ($q) use ($data): void {
+                            return $query->whereHasMorph('model', \App\Models\Request::class, function ($q) use ($data): void {
                                 $q->where('buyer_id', $data['value']);
                             });
                         }
@@ -110,26 +144,69 @@ final class CreditLimitAcceptanceReportResource extends Resource
                     })
                     ->searchable()
                     ->preload(),
-                SelectFilter::make('user_id')
-                    ->label('Approved By')
-                    ->relationship('user', 'name')
-                    ->searchable()
-                    ->preload(),
-                SelectFilter::make('status')
-                    ->label('Request Status')
+                SelectFilter::make('approval_status')
+                    ->label('Approval Status')
+                    ->options([
+                        'pending' => 'Pending',
+                        'approved' => 'Approved',
+                    ])
                     ->query(function (Builder $query, array $data): Builder {
                         if (! empty($data['value'])) {
-                            return $query->whereHas('buyerCreditLimitRequest', function ($q) use ($data): void {
-                                $q->whereIn('status', (array) $data['value']);
-                            });
+                            $teamId = Filament::getTenant()?->id;
+                            $approvedMediaIds = PaymentDocumentApproval::where('team_id', $teamId)
+                                ->pluck('media_id')
+                                ->toArray();
+                            
+                            if ($data['value'] === 'pending') {
+                                return $query->whereNotIn('id', $approvedMediaIds);
+                            } elseif ($data['value'] === 'approved') {
+                                return $query->whereIn('id', $approvedMediaIds);
+                            }
                         }
 
                         return $query;
-                    })
-                    ->options(CreditLimitRequestStatus::class)
-                    ->multiple(),
+                    }),
             ])
-            ->defaultSort('approved_at', 'desc');
+            ->actions([
+                ActionGroup::make([
+                    Action::make('view')
+                        ->label('View Document')
+                        ->icon('heroicon-o-eye')
+                        ->color('info')
+                        ->url(fn (Media $record): string => $record->getUrl())
+                        ->openUrlInNewTab(),
+                    Action::make('approve')
+                        ->label('Approve')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->visible(fn (Media $record): bool => static::canApprove($record))
+                        ->requiresConfirmation()
+                        ->form([
+                            \Filament\Forms\Components\Textarea::make('notes')
+                                ->label('Notes')
+                                ->rows(3),
+                        ])
+                        ->action(function (Media $record, array $data): void {
+                            $team = Filament::getTenant();
+                            $user = Auth::user();
+
+                            PaymentDocumentApproval::create([
+                                'team_id' => $team->id,
+                                'media_id' => $record->id,
+                                'user_id' => $user->id,
+                                'approved_at' => now(),
+                                'notes' => $data['notes'] ?? null,
+                            ]);
+
+                            \Filament\Notifications\Notification::make()
+                                ->title('Document approved')
+                                ->body('Payment document has been approved successfully.')
+                                ->success()
+                                ->send();
+                        }),
+                ]),
+            ])
+            ->defaultSort('created_at', 'desc');
     }
 
     public static function getPages(): array
@@ -142,24 +219,57 @@ final class CreditLimitAcceptanceReportResource extends Resource
     public static function getGloballySearchableAttributes(): array
     {
         return [
-            'buyerCreditLimitRequest.buyer.name',
-            'buyerCreditLimitRequest.buyer.code',
-            'user.name',
+            'name',
+            'file_name',
         ];
     }
 
     /**
-     * @return Builder<BuyerCreditLimitRequestApproval>
+     * @return Builder<Media>
      */
     public static function getEloquentQuery(): Builder
     {
         $team = Filament::getTenant();
 
-        return parent::getEloquentQuery()
-            ->whereHas('buyerCreditLimitRequest', function ($query) use ($team): void {
+        // Build query without parent tenant filtering since Media doesn't have team relationship
+        $query = Media::query()
+            ->where('collection_name', 'completion_reports')
+            ->where('custom_properties->is_payment_document', true)
+            ->whereHasMorph('model', \App\Models\Request::class, function ($query) use ($team): void {
                 $query->where('team_id', $team?->getKey());
             })
-            ->with(['buyerCreditLimitRequest.buyer', 'buyerCreditLimitRequest.team', 'user'])
-            ->orderBy('approved_at', 'desc');
+            ->with(['model.buyer', 'model']);
+
+        return $query;
+    }
+
+    /**
+     * Approve button only for central purchasing finance team members (with is_approver).
+     */
+    protected static function canApprove(Media $record): bool
+    {
+        $user = Auth::user();
+        $team = Filament::getTenant();
+
+        if (! $user || ! $team) {
+            return false;
+        }
+
+        $hasPermission = $user->teams()
+            ->where('teams.id', $team->id)
+            ->where('team_user.role', 'central_purchasing')
+            ->where('team_user.central_purchasing_role', CentralPurchasingRole::FINANCE->value)
+            ->where('team_user.is_approver', true)
+            ->exists();
+
+        if (! $hasPermission) {
+            return false;
+        }
+
+        $hasApproval = PaymentDocumentApproval::where('media_id', $record->id)
+            ->where('team_id', $team->id)
+            ->exists();
+
+        return ! $hasApproval;
     }
 }

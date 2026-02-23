@@ -6,12 +6,14 @@ namespace App\Filament\Resources\RequestResource\RelationManagers;
 
 use App\Enums\RequestStage;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
+use App\Mail\Erp\QuoteToSupplierMail;
 use App\Models\Article;
 use App\Models\Currency;
 use App\Models\Request;
 use App\Models\RequestItem;
 use App\Models\SupplierQuote;
 use App\Models\UnitOfMeasure;
+use App\Services\Email\EmailTemplateService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -32,6 +34,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 final class ItemsRelationManager extends RelationManager
 {
@@ -187,7 +190,7 @@ final class ItemsRelationManager extends RelationManager
 
                 return "Status: {$matchedCount}/{$totalCount} items matched to articles";
             })
-            ->modifyQueryUsing(fn ($query) => $query->with('article')->withCount('supplierQuoteItems'))
+            ->modifyQueryUsing(fn ($query) => $query->with(['article', 'supplierQuoteItems.supplierQuote'])->withCount('supplierQuoteItems'))
             ->reorderable('sort_order')
             ->defaultSort('sort_order')
             ->columns([
@@ -210,10 +213,76 @@ final class ItemsRelationManager extends RelationManager
                     ->icon(fn (RequestItem $record): ?string => $record->supplier_quote_items_count > 0
                         ? 'heroicon-o-check-circle'
                         : null)
-                    ->color('success')
-                    ->tooltip(fn (RequestItem $record): ?string => $record->supplier_quote_items_count > 0
-                        ? "Sent to {$record->supplier_quote_items_count} supplier(s)"
-                        : null)
+                    ->color(function (RequestItem $record): string {
+                        if ($record->supplier_quote_items_count === 0) {
+                            return 'gray';
+                        }
+                        
+                        // Check if any emails failed
+                        $hasFailedEmails = false;
+                        $hasSuccessfulEmails = false;
+                        
+                        foreach ($record->supplierQuoteItems as $quoteItem) {
+                            $quote = $quoteItem->supplierQuote ?? null;
+                            if ($quote && isset($quote->notification_metadata['email_sent'])) {
+                                if ($quote->notification_metadata['email_sent'] === true) {
+                                    $hasSuccessfulEmails = true;
+                                } elseif ($quote->notification_metadata['email_sent'] === false) {
+                                    $hasFailedEmails = true;
+                                }
+                            }
+                        }
+                        
+                        // If there are failed emails, show warning color
+                        if ($hasFailedEmails) {
+                            return 'warning';
+                        }
+                        
+                        return 'success';
+                    })
+                    ->tooltip(function (RequestItem $record): ?string {
+                        if ($record->supplier_quote_items_count === 0) {
+                            return null;
+                        }
+                        
+                        $tooltip = "Sent to {$record->supplier_quote_items_count} supplier(s)";
+                        
+                        // Check email status
+                        $emailsSent = 0;
+                        $emailsFailed = 0;
+                        $noEmailStatus = 0;
+                        
+                        foreach ($record->supplierQuoteItems as $quoteItem) {
+                            $quote = $quoteItem->supplierQuote ?? null;
+                            if ($quote && isset($quote->notification_metadata['email_sent'])) {
+                                if ($quote->notification_metadata['email_sent'] === true) {
+                                    $emailsSent++;
+                                } elseif ($quote->notification_metadata['email_sent'] === false) {
+                                    $emailsFailed++;
+                                    if (isset($quote->notification_metadata['email_error'])) {
+                                        // Email failed
+                                    }
+                                }
+                            } else {
+                                $noEmailStatus++;
+                            }
+                        }
+                        
+                        if ($emailsSent > 0 || $emailsFailed > 0) {
+                            $tooltip .= "\n\nEmail Status:";
+                            if ($emailsSent > 0) {
+                                $tooltip .= "\n✓ {$emailsSent} email(s) sent successfully";
+                            }
+                            if ($emailsFailed > 0) {
+                                $tooltip .= "\n✗ {$emailsFailed} email(s) failed to send";
+                            }
+                            if ($noEmailStatus > 0) {
+                                $tooltip .= "\n? {$noEmailStatus} quote(s) created before email tracking";
+                            }
+                        }
+                        
+                        return $tooltip;
+                    })
                     ->width(60),
             ])
             ->filters([
@@ -266,7 +335,10 @@ final class ItemsRelationManager extends RelationManager
 
                         $prefix = $hasSelection ? 'SELECTED ' : 'ALL ';
 
-                        return "You are about to send {$prefix}matched items to their respective suppliers.\n\n{$itemsList}{$moreItems}\n\nTotal: {$matchedItems->count()} item(s) will be sent to {$supplierIds} supplier(s).";
+                        $hasExistingQuotes = $matchedItems->some(fn (RequestItem $item) => $item->supplier_quote_items_count > 0);
+                        $resendNote = $hasExistingQuotes ? "\n\n📧 If emails failed previously, they will be resent automatically." : "\n\n📧 Email notifications will be sent to suppliers for newly created quote requests.";
+                        
+                        return "You are about to send {$prefix}matched items to their respective suppliers.\n\n{$itemsList}{$moreItems}\n\nTotal: {$matchedItems->count()} item(s) will be sent to {$supplierIds} supplier(s).{$resendNote}";
                     })
                     ->action(function () use ($request): void {
                         $selectedRecords = $this->getSelectedTableRecords();
@@ -308,8 +380,9 @@ final class ItemsRelationManager extends RelationManager
 
                         $itemsAdded = 0;
                         $quotesCreated = 0;
+                        $quotesToEmail = [];
 
-                        DB::transaction(function () use ($matchedItems, $defaultCurrency, $request, &$itemsAdded, &$quotesCreated): void {
+                        DB::transaction(function () use ($matchedItems, $defaultCurrency, $request, &$itemsAdded, &$quotesCreated, &$quotesToEmail): void {
                             foreach ($matchedItems as $item) {
                                 /** @var RequestItem $item */
                                 if ($item->article === null) {
@@ -334,6 +407,25 @@ final class ItemsRelationManager extends RelationManager
                                             'quoted_at' => now(),
                                         ]);
                                         $quotesCreated++;
+                                        $quotesToEmail[] = $existingQuote;
+                                    } else {
+                                        // Refresh to ensure notification_metadata is loaded
+                                        $existingQuote->refresh();
+                                        // Always check if email needs to be resent (failed or not sent)
+                                        $needsResend = false;
+                                        $metadata = $existingQuote->notification_metadata ?? [];
+                                        if (!isset($metadata['email_sent'])) {
+                                            $needsResend = true; // Email was never sent
+                                        } elseif ($metadata['email_sent'] === false) {
+                                            $needsResend = true; // Email failed previously
+                                        }
+                                        
+                                        if ($needsResend) {
+                                            $quoteIds = array_map(fn ($q) => is_object($q) ? $q->id : $q, $quotesToEmail);
+                                            if (!in_array($existingQuote->id, $quoteIds)) {
+                                                $quotesToEmail[] = $existingQuote;
+                                            }
+                                        }
                                     }
 
                                     if ($existingQuote->items()->where('request_item_id', $item->getKey())->exists()) {
@@ -353,17 +445,161 @@ final class ItemsRelationManager extends RelationManager
                             }
                         });
 
+                        // Also check all existing quotes for matched items to resend emails if needed
+                        if (empty($quotesToEmail) && !empty($matchedItems)) {
+                            $itemIds = $matchedItems->pluck('id')->toArray();
+                            $existingQuotes = $request->supplierQuotes()
+                                ->whereHas('items', function ($query) use ($itemIds) {
+                                    $query->whereIn('request_item_id', $itemIds);
+                                })
+                                ->get();
+                            
+                            foreach ($existingQuotes as $quote) {
+                                // Refresh to ensure notification_metadata is loaded
+                                $quote->refresh();
+                                $metadata = $quote->notification_metadata ?? [];
+                                $needsResend = false;
+                                if (!isset($metadata['email_sent'])) {
+                                    $needsResend = true; // Email was never sent
+                                } elseif ($metadata['email_sent'] === false) {
+                                    $needsResend = true; // Email failed previously
+                                }
+                                
+                                if ($needsResend) {
+                                    $quoteIds = array_map(fn ($q) => is_object($q) ? $q->id : $q, $quotesToEmail);
+                                    if (!in_array($quote->id, $quoteIds)) {
+                                        $quotesToEmail[] = $quote;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Send emails to suppliers for new quotes and resend for existing quotes with failed emails
+                        $emailsSent = 0;
+                        $emailsFailed = 0;
+                        $noEmailCount = 0;
+                        $emailsResent = 0;
+
+                        if (!empty($quotesToEmail) && $team !== null) {
+                            $emailService = app(EmailTemplateService::class);
+                            $settings = $team->getErpSettings();
+
+                            foreach ($quotesToEmail as $quote) {
+                                // Check if this is a resend
+                                $isResend = isset($quote->notification_metadata['email_sent']) && 
+                                           $quote->notification_metadata['email_sent'] === false;
+                                
+                                // Reload quote with relationships for email
+                                $quote->load(['supplier', 'request', 'team']);
+                                
+                                $supplierEmail = $quote->supplier->email ?? null;
+                                $supplierName = $quote->supplier->name ?? 'Supplier';
+
+                                if (empty($supplierEmail)) {
+                                    $noEmailCount++;
+                                    // Track that email was not sent due to missing email
+                                    $quote->update([
+                                        'notification_metadata' => array_merge(
+                                            $quote->notification_metadata ?? [],
+                                            [
+                                                'email_sent' => false,
+                                                'email_sent_at' => null,
+                                                'email_error' => 'Supplier has no email address configured',
+                                            ]
+                                        ),
+                                    ]);
+                                    continue;
+                                }
+
+                                try {
+                                    $emailService->sendWithTeamSettings(
+                                        $team,
+                                        new QuoteToSupplierMail($quote),
+                                        $supplierEmail,
+                                        $settings->email_template_quote_to_supplier ?? null
+                                    );
+                                    $emailsSent++;
+                                    if ($isResend) {
+                                        $emailsResent++;
+                                    }
+                                    // Track successful email send
+                                    $quote->update([
+                                        'notification_metadata' => array_merge(
+                                            $quote->notification_metadata ?? [],
+                                            [
+                                                'email_sent' => true,
+                                                'email_sent_at' => now()->toIso8601String(),
+                                                'email_error' => null,
+                                            ]
+                                        ),
+                                    ]);
+                                } catch (\Exception $e) {
+                                    Log::error('Failed to send quote request email to supplier', [
+                                        'quote_id' => $quote->id,
+                                        'supplier_id' => $quote->supplier_id,
+                                        'supplier_email' => $supplierEmail,
+                                        'error' => $e->getMessage(),
+                                        'trace' => $e->getTraceAsString(),
+                                    ]);
+                                    $emailsFailed++;
+                                    // Track failed email send
+                                    $quote->update([
+                                        'notification_metadata' => array_merge(
+                                            $quote->notification_metadata ?? [],
+                                            [
+                                                'email_sent' => false,
+                                                'email_sent_at' => null,
+                                                'email_error' => $e->getMessage(),
+                                            ]
+                                        ),
+                                    ]);
+                                }
+                            }
+                        }
+
                         // Deselect records after action
                         if ($hasSelection) {
                             $this->deselectAllTableRecords();
                         }
 
-                        if ($itemsAdded > 0 || $quotesCreated > 0) {
-                            Notification::make()
+                        if ($itemsAdded > 0 || $quotesCreated > 0 || $emailsSent > 0) {
+                            $message = '';
+                            
+                            if ($quotesCreated > 0) {
+                                $message .= "{$quotesCreated} quote(s) created. ";
+                            }
+                            
+                            if ($itemsAdded > 0) {
+                                $message .= "{$itemsAdded} item(s) added. ";
+                            }
+                            
+                            if ($emailsSent > 0) {
+                                if ($emailsResent > 0) {
+                                    $message .= "{$emailsResent} email(s) resent, ".($emailsSent - $emailsResent)." email(s) sent to suppliers.";
+                                } else {
+                                    $message .= "{$emailsSent} email(s) sent to suppliers.";
+                                }
+                            }
+                            
+                            if ($emailsFailed > 0) {
+                                $message .= " {$emailsFailed} email(s) failed to send.";
+                            }
+                            
+                            if ($noEmailCount > 0) {
+                                $message .= " {$noEmailCount} supplier(s) have no email address configured.";
+                            }
+
+                            $notification = Notification::make()
                                 ->title('Sent to suppliers')
-                                ->body("{$quotesCreated} quote(s) created, {$itemsAdded} item(s) added.")
-                                ->success()
-                                ->send();
+                                ->body(trim($message));
+
+                            if ($emailsFailed > 0 || $noEmailCount > 0) {
+                                $notification->warning();
+                            } else {
+                                $notification->success();
+                            }
+
+                            $notification->send();
                         } else {
                             Notification::make()
                                 ->title('No changes')
@@ -400,7 +636,10 @@ final class ItemsRelationManager extends RelationManager
 
                         $qty = number_format((float) $record->quantity, 0);
 
-                        return "You are about to send a quote request for:\n\n• Item: {$articleName}\n• Quantity: {$qty} ".($record->unitOfMeasure?->code ?? $record->unit?->value ?? 'pcs')."\n\nThis will be sent to {$supplierCount} supplier(s) linked to this article.";
+                        $hasExistingQuotes = $record->supplier_quote_items_count > 0;
+                        $resendNote = $hasExistingQuotes ? "\n\n📧 If emails failed previously, they will be resent automatically." : "\n\n📧 Email notifications will be sent to suppliers for newly created quote requests.";
+                        
+                        return "You are about to send a quote request for:\n\n• Item: {$articleName}\n• Quantity: {$qty} ".($record->unitOfMeasure?->code ?? $record->unit?->value ?? 'pcs')."\n\nThis will be sent to {$supplierCount} supplier(s) linked to this article.{$resendNote}";
                     })
                     ->action(function (RequestItem $record) use ($request): void {
                         if ($record->article === null) {
@@ -431,14 +670,31 @@ final class ItemsRelationManager extends RelationManager
 
                         $quotesCreated = 0;
                         $itemsAdded = 0;
+                        $quotesToEmail = [];
 
-                        DB::transaction(function () use ($suppliers, $record, $request, $defaultCurrency, &$quotesCreated, &$itemsAdded): void {
+                        DB::transaction(function () use ($suppliers, $record, $request, $defaultCurrency, &$quotesCreated, &$itemsAdded, &$quotesToEmail): void {
                             foreach ($suppliers as $supplier) {
                                 $existingQuote = $request->supplierQuotes()
                                     ->where('supplier_id', $supplier->getKey())
                                     ->first();
 
                                 if ($existingQuote !== null) {
+                                    // Always check if email needs to be resent (failed or not sent)
+                                    $needsResend = false;
+                                    $metadata = $existingQuote->notification_metadata ?? [];
+                                    if (!isset($metadata['email_sent'])) {
+                                        $needsResend = true; // Email was never sent
+                                    } elseif ($metadata['email_sent'] === false) {
+                                        $needsResend = true; // Email failed previously
+                                    }
+                                    
+                                    if ($needsResend) {
+                                        $quoteIds = array_map(fn ($q) => is_object($q) ? $q->id : $q, $quotesToEmail);
+                                        if (!in_array($existingQuote->id, $quoteIds)) {
+                                            $quotesToEmail[] = $existingQuote;
+                                        }
+                                    }
+                                    
                                     if ($existingQuote->items()->where('request_item_id', $record->getKey())->exists()) {
                                         continue;
                                     }
@@ -465,6 +721,7 @@ final class ItemsRelationManager extends RelationManager
                                     'quoted_at' => now(),
                                 ]);
                                 $quotesCreated++;
+                                $quotesToEmail[] = $quote;
 
                                 $quote->items()->create([
                                     'request_item_id' => $record->getKey(),
@@ -479,12 +736,155 @@ final class ItemsRelationManager extends RelationManager
                             }
                         });
 
-                        if ($quotesCreated > 0 || $itemsAdded > 0) {
-                            Notification::make()
+                        // Also check existing quotes for this item to resend emails if needed
+                        if (empty($quotesToEmail)) {
+                            $existingQuotes = $request->supplierQuotes()
+                                ->whereHas('items', function ($query) use ($record) {
+                                    $query->where('request_item_id', $record->getKey());
+                                })
+                                ->get();
+                            
+                            foreach ($existingQuotes as $quote) {
+                                // Refresh to ensure notification_metadata is loaded
+                                $quote->refresh();
+                                $metadata = $quote->notification_metadata ?? [];
+                                $needsResend = false;
+                                if (!isset($metadata['email_sent'])) {
+                                    $needsResend = true; // Email was never sent
+                                } elseif ($metadata['email_sent'] === false) {
+                                    $needsResend = true; // Email failed previously
+                                }
+                                
+                                if ($needsResend) {
+                                    $quoteIds = array_map(fn ($q) => is_object($q) ? $q->id : $q, $quotesToEmail);
+                                    if (!in_array($quote->id, $quoteIds)) {
+                                        $quotesToEmail[] = $quote;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Send emails to suppliers for new quotes and resend for existing quotes with failed emails
+                        $emailsSent = 0;
+                        $emailsFailed = 0;
+                        $noEmailCount = 0;
+                        $emailsResent = 0;
+
+                        if (!empty($quotesToEmail) && $team !== null) {
+                            $emailService = app(EmailTemplateService::class);
+                            $settings = $team->getErpSettings();
+
+                            foreach ($quotesToEmail as $quote) {
+                                // Check if this is a resend
+                                $isResend = isset($quote->notification_metadata['email_sent']) && 
+                                           $quote->notification_metadata['email_sent'] === false;
+                                
+                                // Reload quote with relationships for email
+                                $quote->load(['supplier', 'request', 'team']);
+                                
+                                $supplierEmail = $quote->supplier->email ?? null;
+                                $supplierName = $quote->supplier->name ?? 'Supplier';
+
+                                if (empty($supplierEmail)) {
+                                    $noEmailCount++;
+                                    // Track that email was not sent due to missing email
+                                    $quote->update([
+                                        'notification_metadata' => array_merge(
+                                            $quote->notification_metadata ?? [],
+                                            [
+                                                'email_sent' => false,
+                                                'email_sent_at' => null,
+                                                'email_error' => 'Supplier has no email address configured',
+                                            ]
+                                        ),
+                                    ]);
+                                    continue;
+                                }
+
+                                try {
+                                    $emailService->sendWithTeamSettings(
+                                        $team,
+                                        new QuoteToSupplierMail($quote),
+                                        $supplierEmail,
+                                        $settings->email_template_quote_to_supplier ?? null
+                                    );
+                                    $emailsSent++;
+                                    if ($isResend) {
+                                        $emailsResent++;
+                                    }
+                                    // Track successful email send
+                                    $quote->update([
+                                        'notification_metadata' => array_merge(
+                                            $quote->notification_metadata ?? [],
+                                            [
+                                                'email_sent' => true,
+                                                'email_sent_at' => now()->toIso8601String(),
+                                                'email_error' => null,
+                                            ]
+                                        ),
+                                    ]);
+                                } catch (\Exception $e) {
+                                    Log::error('Failed to send quote request email to supplier', [
+                                        'quote_id' => $quote->id,
+                                        'supplier_id' => $quote->supplier_id,
+                                        'supplier_email' => $supplierEmail,
+                                        'error' => $e->getMessage(),
+                                        'trace' => $e->getTraceAsString(),
+                                    ]);
+                                    $emailsFailed++;
+                                    // Track failed email send
+                                    $quote->update([
+                                        'notification_metadata' => array_merge(
+                                            $quote->notification_metadata ?? [],
+                                            [
+                                                'email_sent' => false,
+                                                'email_sent_at' => null,
+                                                'email_error' => $e->getMessage(),
+                                            ]
+                                        ),
+                                    ]);
+                                }
+                            }
+                        }
+
+                        if ($quotesCreated > 0 || $itemsAdded > 0 || $emailsSent > 0) {
+                            $message = '';
+                            
+                            if ($quotesCreated > 0) {
+                                $message .= "{$quotesCreated} new quote(s) created. ";
+                            }
+                            
+                            if ($itemsAdded > 0) {
+                                $message .= "{$itemsAdded} item(s) added. ";
+                            }
+                            
+                            if ($emailsSent > 0) {
+                                if ($emailsResent > 0) {
+                                    $message .= "{$emailsResent} email(s) resent, ".($emailsSent - $emailsResent)." email(s) sent to suppliers.";
+                                } else {
+                                    $message .= "{$emailsSent} email(s) sent to suppliers.";
+                                }
+                            }
+                            
+                            if ($emailsFailed > 0) {
+                                $message .= " {$emailsFailed} email(s) failed to send.";
+                            }
+                            
+                            if ($noEmailCount > 0) {
+                                $message .= " {$noEmailCount} supplier(s) have no email address configured.";
+                            }
+
+                            $notification = Notification::make()
                                 ->title('Sent to suppliers')
-                                ->body("{$quotesCreated} new quote(s) created, {$itemsAdded} item(s) added.")
-                                ->success()
-                                ->send();
+                                ->body(trim($message));
+
+                            if ($emailsFailed > 0 || $noEmailCount > 0) {
+                                $notification->warning();
+                            } else {
+                                $notification->success();
+                            }
+
+                            $notification->send();
                         } else {
                             Notification::make()
                                 ->title('No changes')

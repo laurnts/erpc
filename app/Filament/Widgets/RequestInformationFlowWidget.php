@@ -100,7 +100,7 @@ final class RequestInformationFlowWidget extends Widget
         return <<<'MARKDOWN'
 **Step 1: Requested Items**
 Add items requested by the buyer to the request. All listed items must be matched to articles before you can request quotes from suppliers.
-Click on send send to suppliers to request quotes from suppliers.
+Click on Send to all suppliers or Send to supplier button to suppliers to request quotes from suppliers.
 MARKDOWN;
     }
 

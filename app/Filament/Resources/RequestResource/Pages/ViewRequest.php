@@ -23,6 +23,7 @@ use App\Filament\Resources\RequestResource\RelationManagers\SupplierOrdersRelati
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierQuotesRelationManager;
 use App\Models\BuyerInvoice;
 use App\Models\BuyerOrder;
+use App\Models\PaymentDocumentApproval;
 use App\Models\Currency;
 use App\Models\QuotationEvaluation;
 use App\Models\Request;
@@ -287,6 +288,11 @@ final class ViewRequest extends ViewRecord
             // Approvals Information Section
             Section::make('Approvals Information')
                 ->icon('heroicon-o-check-badge')
+                ->visible(fn (Request $record): bool => 
+                    $record->quotationEvaluations()->exists() ||
+                    $record->profitAndLosses()->exists() ||
+                    $record->supplierOrders()->exists()
+                )
                 ->schema([
                     Grid::make(3)
                         ->schema([
@@ -681,10 +687,26 @@ final class ViewRequest extends ViewRecord
     }
 
     /**
-     * Get payment term status (Paid/Not Paid) based on invoice payments.
+     * Get payment term status (Paid/Not Paid) based on invoice payments or approved acceptance report.
      */
     private function getPaymentTermStatus(Request $record, int $dueDays, int $percentage): string
     {
+        // If an acceptance report payment document for this term is approved, consider Paid
+        $paymentTermsKey = "{$dueDays}-{$percentage}";
+        $paymentMedia = $record->getMedia('completion_reports')
+            ->filter(fn ($media) => (bool) $media->getCustomProperty('is_payment_document', false)
+                && $media->getCustomProperty('payment_terms') === $paymentTermsKey);
+        $paymentMediaIds = $paymentMedia->pluck('id')->toArray();
+        if ($paymentMediaIds !== [] && $record->team_id !== null) {
+            $hasApprovedDoc = PaymentDocumentApproval::query()
+                ->whereIn('media_id', $paymentMediaIds)
+                ->where('team_id', $record->team_id)
+                ->exists();
+            if ($hasApprovedDoc) {
+                return 'Paid';
+            }
+        }
+
         // Get invoices for this request with matching net_days
         $invoices = BuyerInvoice::query()
             ->where('request_id', $record->getKey())

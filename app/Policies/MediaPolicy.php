@@ -27,9 +27,9 @@ final readonly class MediaPolicy
 
     public function viewAny(User $user): bool
     {
+        // Allow any team member to view (e.g. Acceptance Report list); restrict other actions via view/update/delete
         return $user->hasVerifiedEmail()
-            && $user->currentTeam !== null
-            && $user->hasPermissionTo('view requests');
+            && $user->currentTeam !== null;
     }
 
     public function view(User $user, Media $media): bool
