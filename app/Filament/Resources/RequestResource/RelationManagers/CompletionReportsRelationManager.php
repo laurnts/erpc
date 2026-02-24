@@ -50,6 +50,8 @@ final class CompletionReportsRelationManager extends RelationManager
             ->modifyQueryUsing(function ($query) {
                 $query->where('collection_name', 'completion_reports');
             })
+            ->recordAction(null)
+            ->recordUrl(null)
             ->columns([
                 TextColumn::make('name')
                     ->label('File Name')
@@ -58,6 +60,29 @@ final class CompletionReportsRelationManager extends RelationManager
                 TextColumn::make('is_payment_document')
                     ->label('Mark')
                     ->getStateUsing(fn (Media $record): string => (bool) $record->getCustomProperty('is_payment_document', false) ? 'Payment' : '-')
+                    ->sortable(),
+                TextColumn::make('approval_status')
+                    ->label('Status')
+                    ->getStateUsing(function (Media $record): string {
+                        if (! (bool) $record->getCustomProperty('is_payment_document', false)) {
+                            return '-';
+                        }
+                        $request = $record->model;
+                        if (! $request instanceof Request || $request->team_id === null) {
+                            return '-';
+                        }
+                        $approved = PaymentDocumentApproval::query()
+                            ->where('media_id', $record->id)
+                            ->where('team_id', $request->team_id)
+                            ->exists();
+                        return $approved ? 'Approved' : 'Pending';
+                    })
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Approved' => 'success',
+                        'Pending' => 'warning',
+                        default => 'gray',
+                    })
                     ->sortable(),
                 TextColumn::make('mime_type')
                     ->label('Type')
