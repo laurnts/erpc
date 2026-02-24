@@ -7,8 +7,12 @@ use App\Http\Controllers\Auth\RedirectController;
 use App\Http\Controllers\BuyerQuotePoDownloadController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PrivacyPolicyController;
+use App\Http\Controllers\SupplierQuoteQuotationDownloadController;
 use App\Http\Controllers\TermsOfServiceController;
 use App\Models\BuyerQuote;
+use App\Models\GoodsReceiveBatch;
+use App\Models\Request;
+use App\Models\SupplierQuote;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Support\Facades\Route;
 use Laravel\Jetstream\Http\Controllers\TeamInvitationController;
@@ -114,4 +118,74 @@ Route::middleware(['web', 'auth'])->group(function () {
             return redirect()->back()->with('error', 'Failed to delete file');
         }
     })->name('buyer-quotes.po.delete');
+
+    // Supplier quote quotation file routes
+    Route::get('/supplier-quotes/{supplierQuote}/quotation/{media}', SupplierQuoteQuotationDownloadController::class)
+        ->name('supplier-quotes.quotation.download');
+    Route::delete('/supplier-quotes/{supplierQuote}/quotation/{media}', function (SupplierQuote $supplierQuote, Media $media) {
+        $isValidModelType = $media->model_type === SupplierQuote::class
+            || $media->model_type === 'App\\Models\\SupplierQuote';
+        if (! $isValidModelType || (int) $media->model_id !== (int) $supplierQuote->id) {
+            abort(404);
+        }
+        if ($media->collection_name !== 'quotation') {
+            abort(404);
+        }
+        if (! auth()->check()) {
+            abort(403);
+        }
+        try {
+            $media->delete();
+            if (request()->wantsJson() || request()->expectsJson()) {
+                return response()->json(['success' => true, 'message' => 'File deleted successfully']);
+            }
+
+            return redirect()->back()->with('success', 'File deleted successfully');
+        } catch (\Exception $e) {
+            if (request()->wantsJson() || request()->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Failed to delete file: '.$e->getMessage()], 500);
+            }
+
+            return redirect()->back()->with('error', 'Failed to delete file');
+        }
+    })->name('supplier-quotes.quotation.delete');
+
+    // Goods receive document delete (single media from a batch)
+    Route::delete('/requests/{request}/goods-receive/{media}', function (Request $request, Media $media) {
+        if ($media->model_type !== Request::class || (int) $media->model_id !== (int) $request->id) {
+            abort(404);
+        }
+        if ($media->collection_name !== 'goods_receive') {
+            abort(404);
+        }
+        if (! auth()->check()) {
+            abort(403);
+        }
+        $batch = GoodsReceiveBatch::query()
+            ->where('request_id', $request->id)
+            ->whereJsonContains('media_ids', $media->id)
+            ->first();
+        try {
+            $media->delete();
+            if ($batch !== null) {
+                $mediaIds = array_values(array_filter($batch->media_ids ?? [], fn ($id) => (int) $id !== (int) $media->id));
+                if ($mediaIds === []) {
+                    $batch->delete();
+                } else {
+                    $batch->update(['media_ids' => $mediaIds]);
+                }
+            }
+            if (request()->wantsJson() || request()->expectsJson()) {
+                return response()->json(['success' => true, 'message' => 'File deleted successfully']);
+            }
+
+            return redirect()->back()->with('success', 'File deleted successfully');
+        } catch (\Exception $e) {
+            if (request()->wantsJson() || request()->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Failed to delete file: '.$e->getMessage()], 500);
+            }
+
+            return redirect()->back()->with('error', 'Failed to delete file');
+        }
+    })->name('requests.goods-receive.delete');
 });

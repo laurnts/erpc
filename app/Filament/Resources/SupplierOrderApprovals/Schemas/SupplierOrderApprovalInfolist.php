@@ -23,8 +23,17 @@ final class SupplierOrderApprovalInfolist
                             ->schema([
                                 TextEntry::make('po_number')
                                     ->label('PO Number'),
-                                TextEntry::make('status')
-                                    ->badge(),
+                                TextEntry::make('approval_status')
+                                    ->label('Status')
+                                    ->getStateUsing(function ($record): string {
+                                        $bothApproved = $record->approver_1_id !== null && $record->approver_2_id !== null;
+                                        return $bothApproved ? 'Approved' : 'Pending';
+                                    })
+                                    ->badge()
+                                    ->color(function ($record): string {
+                                        $bothApproved = $record->approver_1_id !== null && $record->approver_2_id !== null;
+                                        return $bothApproved ? 'success' : 'warning';
+                                    }),
                                 TextEntry::make('request.request_number')
                                     ->label('Request')
                                     ->url(fn ($record): string => \App\Filament\Resources\RequestResource::getUrl('view', ['record' => $record->request_id])),

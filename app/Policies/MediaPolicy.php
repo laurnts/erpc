@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Models\Request;
+use App\Models\SupplierQuote;
 use App\Models\User;
 use Illuminate\Auth\Access\HandlesAuthorization;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -14,12 +15,18 @@ final readonly class MediaPolicy
     use HandlesAuthorization;
 
     /**
-     * Get the Request model that owns this media.
+     * Get the Request model that owns this media (directly or via SupplierQuote).
      */
     private function getRequest(Media $media): ?Request
     {
         if ($media->model_type === Request::class) {
             return Request::find($media->model_id);
+        }
+
+        if ($media->model_type === SupplierQuote::class) {
+            $quote = SupplierQuote::find($media->model_id);
+
+            return $quote?->request;
         }
 
         return null;

@@ -60,6 +60,7 @@ final class RequestInformationFlowWidget extends Widget
             'supplierOrders' => $this->getSupplierOrdersInformationFlow(),
             'invoices' => $this->getBuyerOrdersInformationFlow(),
             'purchases' => $this->getSupplierOrdersInformationFlow(),
+            'goodsReceive' => $this->getGoodsReceiveInformationFlow(),
             'shipments' => $this->getShipmentsInformationFlow(),
             'completionReports' => $this->getCompletionReportsInformationFlow(),
             default => '',
@@ -77,8 +78,9 @@ final class RequestInformationFlowWidget extends Widget
             'buyerQuotes' => 2,
             'invoices' => 3,
             'purchases' => 4,
-            'shipments' => 5,
-            'completionReports' => 6,
+            'goodsReceive' => 5,
+            'shipments' => 6,
+            'completionReports' => 7,
         ];
 
         // If it's already a string key, return it
@@ -155,6 +157,18 @@ MARKDOWN;
 Supplier order created based on buyer order as purchase order to supplier.
 There will be more than one purchase order to supplier.
 Verify all order details, pricing, and terms.
+MARKDOWN;
+    }
+
+    /**
+     * Get information flow text for Goods Receive tab.
+     */
+    public function getGoodsReceiveInformationFlow(): string
+    {
+        return <<<'MARKDOWN'
+**Step 6: Goods Receive**
+Upload goods receive documents (e.g. delivery notes, packing lists). You can upload multiple documents at once.
+All documents must be approved (via Approval > Goods Receive) before you can proceed to Inbound Shipments.
 MARKDOWN;
     }
 

@@ -123,6 +123,7 @@ final class Request extends Model implements HasCustomFields, HasMedia
     {
         $this->addMediaCollection('attachments');
         $this->addMediaCollection('completion_reports');
+        $this->addMediaCollection('goods_receive');
     }
 
     /**
@@ -203,6 +204,16 @@ final class Request extends Model implements HasCustomFields, HasMedia
     public function supplierOrders(): HasMany
     {
         return $this->hasMany(SupplierOrder::class);
+    }
+
+    /**
+     * Goods receive document batches (each batch can contain multiple uploaded files).
+     *
+     * @return HasMany<GoodsReceiveBatch, $this>
+     */
+    public function goodsReceiveBatches(): HasMany
+    {
+        return $this->hasMany(GoodsReceiveBatch::class);
     }
 
     /**

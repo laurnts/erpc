@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Http\Responses\LoginResponse;
 use App\Models\Company;
+use App\Models\GoodsReceiveBatch;
 use App\Models\Import;
 use App\Models\Note;
 use App\Models\Opportunity;
@@ -58,6 +59,8 @@ final class AppServiceProvider extends ServiceProvider
     {
         // Manually register Media policy for Spatie Media Library
         Gate::policy(Media::class, \App\Policies\MediaPolicy::class);
+
+        Gate::policy(GoodsReceiveBatch::class, \App\Policies\GoodsReceiveBatchPolicy::class);
 
         Gate::guessPolicyNamesUsing(function (string $modelClass): ?string {
             try {

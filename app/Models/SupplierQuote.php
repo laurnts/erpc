@@ -17,6 +17,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
 /**
  * @property int $id
@@ -50,7 +52,7 @@ use Illuminate\Support\Carbon;
  * @property-read string $formatted_total_base
  */
 #[ObservedBy(SupplierQuoteObserver::class)]
-final class SupplierQuote extends Model
+final class SupplierQuote extends Model implements HasMedia
 {
     use HasCreator;
 
@@ -58,6 +60,7 @@ final class SupplierQuote extends Model
     use HasFactory;
 
     use HasTeam;
+    use InteractsWithMedia;
     use SoftDeletes;
 
     /**
@@ -116,6 +119,25 @@ final class SupplierQuote extends Model
             'valid_until' => 'date',
             'notification_metadata' => 'array',
         ];
+    }
+
+    /**
+     * Register media collections for this model.
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('quotation')
+            ->useDisk('local')
+            ->acceptsMimeTypes([
+                'application/pdf',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'application/vnd.ms-excel',
+                'image/png',
+                'image/jpeg',
+                'image/jpg',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            ]);
     }
 
     /**

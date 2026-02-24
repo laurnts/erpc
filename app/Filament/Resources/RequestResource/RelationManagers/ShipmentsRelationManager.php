@@ -10,8 +10,10 @@ use App\Enums\RequestStage;
 use App\Enums\ShipmentStatus;
 use App\Enums\ShipmentType;
 use App\Filament\Actions\DownloadPdfAction;
+use App\Filament\Resources\RequestResource;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Mail\Erp\ShipmentToBuyerMail;
+use App\Models\PaymentDocumentApproval;
 use App\Models\Request;
 use App\Models\Shipment;
 use App\Models\SupplierOrder;
@@ -29,6 +31,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Enums\Size;
 use Filament\Tables\Columns\TextColumn;
@@ -54,6 +57,62 @@ final class ShipmentsRelationManager extends RelationManager
     protected static function getBaseTabTitle(): string
     {
         return 'Inbound Shipments';
+    }
+
+    public function mount(): void
+    {
+        parent::mount();
+
+        /** @var Request $request */
+        $request = $this->getOwnerRecord();
+        if (static::hasUnapprovedGoodsReceiveDocuments($request)) {
+            Notification::make()
+                ->title('Access Restricted')
+                ->body('All Goods Receive documents must be approved before you can access Inbound Shipments.')
+                ->warning()
+                ->send();
+
+            $this->redirect(RequestResource::getUrl('view', ['record' => $request->id, 'activeRelationManager' => 'goodsReceive']));
+        }
+    }
+
+    /**
+     * @return Tab
+     */
+    public static function getTabComponent(Model $ownerRecord, string $pageClass): Tab
+    {
+        $tab = parent::getTabComponent($ownerRecord, $pageClass);
+
+        /** @var Request $ownerRecord */
+        if (static::hasUnapprovedGoodsReceiveDocuments($ownerRecord)) {
+            $tab->disabled()
+                ->badgeColor('gray')
+                ->badgeTooltip('All Goods Receive documents must be approved first')
+                ->extraAttributes([
+                    'class' => 'goods-receive-disabled-tab',
+                ]);
+        }
+
+        return $tab;
+    }
+
+    /**
+     * Check if the request has any goods receive documents that are not yet approved.
+     */
+    private static function hasUnapprovedGoodsReceiveDocuments(Request $request): bool
+    {
+        $media = $request->getMedia('goods_receive');
+        if ($media->isEmpty() || $request->team_id === null) {
+            return false;
+        }
+
+        $approvedMediaIds = PaymentDocumentApproval::query()
+            ->where('team_id', $request->team_id)
+            ->whereIn('media_id', $media->pluck('id')->toArray())
+            ->pluck('media_id')
+            ->toArray();
+
+        return $media->contains(fn ($m) => ! in_array($m->id, $approvedMediaIds, true));
     }
 
     /**
