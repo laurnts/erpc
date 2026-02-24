@@ -124,6 +124,7 @@ Route::middleware(['web', 'auth'])->group(function () {
         ->name('supplier-quotes.quotation.download');
     Route::delete('/supplier-quotes/{supplierQuote}/quotation/{media}', function (SupplierQuote $supplierQuote, Media $media) {
         $isValidModelType = $media->model_type === SupplierQuote::class
+            || $media->model_type === 'supplier_quote'
             || $media->model_type === 'App\\Models\\SupplierQuote';
         if (! $isValidModelType || (int) $media->model_id !== (int) $supplierQuote->id) {
             abort(404);
