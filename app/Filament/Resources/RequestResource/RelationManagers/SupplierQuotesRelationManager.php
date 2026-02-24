@@ -17,18 +17,22 @@ use App\Models\SupplierQuote;
 use App\Models\TaxCode;
 use App\Models\UnitOfMeasure;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ViewField;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -686,58 +690,157 @@ final class SupplierQuotesRelationManager extends RelationManager
                         return $hasSelected ? null : 'Please apply selected supplier quotes first';
                     }),
             ])
-            ->recordAction('edit')
             ->recordActions([
-                EditAction::make()
-                    ->label('Input Supplier Price')
-                    ->icon('heroicon-o-pencil-square')
-                    ->size(Size::Small)
-                    ->mutateFormDataUsing(function (array $data, SupplierQuote $record): array {
-                        // Check if items in form data have prices
-                        $hasPrices = false;
-                        if (isset($data['items']) && is_array($data['items'])) {
-                            foreach ($data['items'] as $item) {
-                                $unitPrice = (float) ($item['unit_price'] ?? 0);
-                                if ($unitPrice > 0) {
-                                    $hasPrices = true;
-                                    break;
+                ActionGroup::make([
+                    EditAction::make()
+                        ->label('Input price')
+                        ->icon('heroicon-o-pencil-square')
+                        ->size(Size::Small)
+                        ->visible(function (?SupplierQuote $record): bool {
+                            if ($record === null) {
+                                return false;
+                            }
+                            $record->load('media');
+
+                            return $record->getMedia('quotation')->isNotEmpty();
+                        })
+                        ->mutateFormDataUsing(function (array $data, SupplierQuote $record): array {
+                            $hasPrices = false;
+                            if (isset($data['items']) && is_array($data['items'])) {
+                                foreach ($data['items'] as $item) {
+                                    $unitPrice = (float) ($item['unit_price'] ?? 0);
+                                    if ($unitPrice > 0) {
+                                        $hasPrices = true;
+                                        break;
+                                    }
                                 }
                             }
-                        }
-                        
-                        // Also check existing items if form items don't have prices yet
-                        if (! $hasPrices) {
+                            if (! $hasPrices) {
+                                $hasPrices = $record->items()->where('unit_price', '>', 0)->exists();
+                            }
+                            if ($hasPrices && ($data['status'] ?? null) === SupplierQuoteStatus::PENDING->value) {
+                                $data['status'] = SupplierQuoteStatus::RECEIVED->value;
+                            }
+
+                            return $data;
+                        })
+                        ->after(function (SupplierQuote $record): void {
+                            $record->refresh();
                             $hasPrices = $record->items()->where('unit_price', '>', 0)->exists();
-                        }
-                        
-                        // Update status from PENDING to RECEIVED if prices exist
-                        if ($hasPrices && ($data['status'] ?? null) === SupplierQuoteStatus::PENDING->value) {
-                            $data['status'] = SupplierQuoteStatus::RECEIVED->value;
-                        }
-                        
-                        return $data;
-                    })
-                    ->after(function (SupplierQuote $record): void {
-                        // After save, check if status needs to be updated
-                        // Reload to get fresh data including items
-                        $record->refresh();
-                        
-                        // Check if items have prices
-                        $hasPrices = $record->items()->where('unit_price', '>', 0)->exists();
-                        $total = (float) $record->total;
-                        
-                        // Update status from PENDING to RECEIVED if prices exist
-                        if ($record->status === SupplierQuoteStatus::PENDING && ($hasPrices || $total > 0)) {
-                            $record->status = SupplierQuoteStatus::RECEIVED;
-                            $record->save();
-                        }
-                    }),
+                            $total = (float) $record->total;
+                            if ($record->status === SupplierQuoteStatus::PENDING && ($hasPrices || $total > 0)) {
+                                $record->status = SupplierQuoteStatus::RECEIVED;
+                                $record->save();
+                            }
+                        }),
+                    Action::make('quotation')
+                        ->label(function (SupplierQuote $record): string {
+                            $record->load('media');
+
+                            return $record->getMedia('quotation')->isNotEmpty() ? 'View quotation' : 'Upload quotation';
+                        })
+                        ->icon(function (SupplierQuote $record): string {
+                            $record->load('media');
+
+                            return $record->getMedia('quotation')->isNotEmpty() ? 'heroicon-o-eye' : 'heroicon-o-document-arrow-up';
+                        })
+                        ->color('gray')
+                        ->size(Size::Small)
+                        ->slideOver()
+                        ->form(function (SupplierQuote $record): array {
+                            $record->load('media');
+
+                            return $record->getMedia('quotation')->isNotEmpty()
+                                ? $this->getQuotationViewFormSchema($record)
+                                : $this->getQuotationUploadFormSchema($record);
+                        })
+                        ->modalSubmitAction(fn (Action $action): Action|false => $this->getMountedAction()?->getRecord()?->getMedia('quotation')->isEmpty() ? $action : false)
+                        ->modalSubmitActionLabel('Upload')
+                        ->modalCancelActionLabel('Close')
+                        ->action(function (SupplierQuote $record, array $data): void {
+                            $record->load('media');
+                            if ($record->getMedia('quotation')->isNotEmpty()) {
+                                return;
+                            }
+                            $files = $data['quotation_file'] ?? null;
+                            $paths = is_array($files) ? $files : ($files !== null ? [$files] : []);
+                            $added = 0;
+                            foreach ($paths as $file) {
+                                if (is_string($file)) {
+                                    $filePath = storage_path('app/'.ltrim($file, '/'));
+                                    if (file_exists($filePath)) {
+                                        $record->addMedia($filePath)->toMediaCollection('quotation');
+                                        $added++;
+                                    }
+                                }
+                            }
+                            if ($added > 0) {
+                                Notification::make()
+                                    ->title('Quotation uploaded')
+                                    ->body('Quotation document has been uploaded. You can now input supplier prices.')
+                                    ->success()
+                                    ->send();
+                            }
+                        }),
+                ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    /**
+     * Upload form schema for supplier quote quotation.
+     *
+     * @return array<int, \Filament\Schemas\Components\Component>
+     */
+    private function getQuotationUploadFormSchema(SupplierQuote $record): array
+    {
+        return [
+            Section::make('Upload Quotation')
+                ->schema([
+                    FileUpload::make('quotation_file')
+                        ->label('Quotation document')
+                        ->helperText('Upload the supplier quotation document (PDF, Excel, Word, Images), then click Upload.')
+                        ->acceptedFileTypes([
+                            'application/pdf',
+                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            'application/vnd.ms-excel',
+                            'image/png',
+                            'image/jpeg',
+                            'image/jpg',
+                            'application/msword',
+                            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                        ])
+                        ->disk('local')
+                        ->directory('supplier-quotes/quotation')
+                        ->visibility('private')
+                        ->downloadable()
+                        ->openable()
+                        ->maxSize(10240)
+                        ->required(),
+                ]),
+        ];
+    }
+
+    /**
+     * View form schema for supplier quote quotation (list uploaded file).
+     *
+     * @return array<int, \Filament\Schemas\Components\Component>
+     */
+    private function getQuotationViewFormSchema(SupplierQuote $record): array
+    {
+        return [
+            Section::make('Quotation document')
+                ->schema([
+                    ViewField::make('quotation_list')
+                        ->label('')
+                        ->view('filament.forms.components.supplier-quote-quotation-list')
+                        ->dehydrated(false),
+                ]),
+        ];
     }
 
     /**
