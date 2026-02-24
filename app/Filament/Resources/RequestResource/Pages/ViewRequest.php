@@ -17,6 +17,7 @@ use App\Filament\Resources\SupplierOrderResource;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerOrdersRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerQuotesRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\CompletionReportsRelationManager;
+use App\Filament\Resources\RequestResource\RelationManagers\GoodsReceiveRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\ItemsRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\ShipmentsRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierOrdersRelationManager;
@@ -57,8 +58,9 @@ final class ViewRequest extends ViewRecord
         'buyerQuotes' => 2,
         'buyerOrders' => 3,
         'supplierOrders' => 4,
-        'shipments' => 5,
-        'completionReports' => 6,
+        'goodsReceive' => 5,
+        'shipments' => 6,
+        'completionReports' => 7,
     ];
 
     public function getMaxWidth(): \Filament\Support\Enums\Width
@@ -342,6 +344,7 @@ final class ViewRequest extends ViewRecord
             BuyerQuotesRelationManager::class,
             BuyerOrdersRelationManager::class,
             SupplierOrdersRelationManager::class,
+            GoodsReceiveRelationManager::class,
             ShipmentsRelationManager::class,
             CompletionReportsRelationManager::class,
         ];
@@ -891,8 +894,9 @@ final class ViewRequest extends ViewRecord
             }
 
             $totalApprovers = 2; // Supplier orders always require 2 approvers
-            $status = $order->status;
-            $statusColor = $order->is_approved ? 'success' : ($approvalCount > 0 ? 'warning' : 'gray');
+            $bothApproved = $order->approver_1_id !== null && $order->approver_2_id !== null;
+            $statusColor = $bothApproved ? 'success' : ($approvalCount > 0 ? 'warning' : 'gray');
+            $statusLabel = $bothApproved ? 'Approved' : 'Pending';
             $poNumber = htmlspecialchars($order->po_number ?? 'N/A');
 
             $rows[] = sprintf(
@@ -903,11 +907,12 @@ final class ViewRequest extends ViewRecord
                 $totalApprovers,
                 $statusColor,
                 $statusColor,
-                htmlspecialchars($status->getLabel())
+                htmlspecialchars($statusLabel)
             );
         }
 
-        $html = '<table class="text-sm w-full"><thead><tr class="text-gray-500"><th class="text-left pr-4">PO Number</th><th class="text-left pr-4">Approval</th><th class="text-left">Status</th></tr></thead><tbody>'.implode('', $rows).'</tbody></table>';
+        $html = '<table class="text-sm w-full">
+        <tbody>'.implode('', $rows).'</tbody></table>';
 
         return new HtmlString($html);
     }
