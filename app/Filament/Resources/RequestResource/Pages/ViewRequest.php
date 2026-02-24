@@ -62,6 +62,7 @@ final class ViewRequest extends ViewRecord
         'buyerOrders' => 5,
         'shipments' => 6,
         'completionReports' => 7,
+        'acceptanceReports' => 8,
     ];
 
     public function getMaxWidth(): \Filament\Support\Enums\Width
@@ -896,8 +897,9 @@ final class ViewRequest extends ViewRecord
             }
 
             $totalApprovers = 2; // Supplier orders always require 2 approvers
-            $statusColor = $order->is_approved ? 'success' : ($approvalCount > 0 ? 'warning' : 'gray');
-            $statusLabel = $order->is_approved ? 'Approved' : 'Pending';
+            $bothApproved = $order->approver_1_id !== null && $order->approver_2_id !== null;
+            $statusColor = $bothApproved ? 'success' : ($approvalCount > 0 ? 'warning' : 'gray');
+            $statusLabel = $bothApproved ? 'Approved' : 'Pending';
             $poNumber = htmlspecialchars($order->po_number ?? 'N/A');
 
             $rows[] = sprintf(
