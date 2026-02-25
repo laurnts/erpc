@@ -100,6 +100,13 @@ final class SupplierOrderApprovalInfolist
                             ->view('filament.infolists.components.supplier-order-items'),
                     ])
                     ->collapsible(),
+                Section::make('Documents')
+                    ->schema([
+                        ViewEntry::make('documents')
+                            ->label('')
+                            ->view('filament.infolists.components.document-list'),
+                    ])
+                    ->collapsible(),
             ]);
     }
 }

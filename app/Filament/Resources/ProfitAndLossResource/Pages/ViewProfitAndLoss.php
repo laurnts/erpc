@@ -15,6 +15,8 @@ use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Notifications\Notification;
@@ -48,29 +50,6 @@ final class ViewProfitAndLoss extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('downloadPdf')
-                ->label('Download PDF')
-                ->icon('heroicon-o-arrow-down-tray')
-                ->action(function () {
-                    /** @var ProfitAndLoss $record */
-                    $record = $this->record;
-
-                    $service = app(PdfGenerationService::class);
-                    $pdf = $service->generateProfitAndLossPdf($record);
-                    $filename = $service->getProfitAndLossFilename($record);
-
-                    $content = $pdf->output();
-
-                    return response()->streamDownload(
-                        callback: static function () use ($content): void {
-                            echo $content;
-                        },
-                        name: $filename,
-                        headers: [
-                            'Content-Type' => 'application/pdf',
-                        ],
-                    );
-                }),
             Action::make('approve')
                 ->label('Approve')
                 ->icon('heroicon-o-check-badge')
@@ -104,10 +83,76 @@ final class ViewProfitAndLoss extends ViewRecord
                 ->visible(fn (ProfitAndLoss $record): bool => $record->canBeApprovedBy(auth()->user())),
             ActionGroup::make([
                 EditAction::make()
+                    ->url(null)
                     ->slideOver()
                     ->beforeFormFilled(function ($record) {
                         // Ensure request relationship is loaded before form is built
                         $record->load('request');
+                    }),
+                Action::make('downloadPdf')
+                    ->label('Download PDF')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->action(function () {
+                        /** @var ProfitAndLoss $record */
+                        $record = $this->record;
+
+                        $service = app(PdfGenerationService::class);
+                        $pdf = $service->generateProfitAndLossPdf($record);
+                        $filename = $service->getProfitAndLossFilename($record);
+                        $content = $pdf->output();
+
+                        return response()->streamDownload(
+                            callback: static function () use ($content): void {
+                                echo $content;
+                            },
+                            name: $filename,
+                            headers: ['Content-Type' => 'application/pdf'],
+                        );
+                    }),
+                Action::make('uploadDocument')
+                    ->label('Upload Document')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->form([
+                        FileUpload::make('document')
+                            ->label('Document')
+                            ->required()
+                            ->disk('local')
+                            ->directory('documents-temp')
+                            ->acceptedFileTypes([
+                                'application/pdf',
+                                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                'application/vnd.ms-excel',
+                                'image/png',
+                                'image/jpeg',
+                                'image/jpg',
+                                'application/msword',
+                                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                            ])
+                            ->maxSize(10240),
+                        TextInput::make('name')
+                            ->label('Document Name')
+                            ->maxLength(255),
+                    ])
+                    ->action(function (array $data): void {
+                        /** @var ProfitAndLoss $record */
+                        $record = $this->record;
+                        $file = $data['document'] ?? null;
+                        if (is_array($file)) {
+                            $file = $file[0] ?? null;
+                        }
+                        if ($file && is_string($file)) {
+                            $path = storage_path('app/'.ltrim($file, '/'));
+                            if (file_exists($path)) {
+                                $record->addMedia($path)
+                                    ->usingName($data['name'] ?? basename($path))
+                                    ->toMediaCollection('documents');
+                                Notification::make()
+                                    ->title('Document uploaded')
+                                    ->success()
+                                    ->send();
+                                $this->refresh();
+                            }
+                        }
                     }),
                 DeleteAction::make(),
             ]),
@@ -325,6 +370,15 @@ final class ViewProfitAndLoss extends ViewRecord
                     ])
                     ->columns(4)
                     ->columnSpan('full'),
+
+                Section::make('Documents')
+                    ->schema([
+                        ViewEntry::make('documents')
+                            ->label('')
+                            ->view('filament.infolists.components.document-list'),
+                    ])
+                    ->columnSpan('full')
+                    ->collapsible(),
             ]);
     }
 }

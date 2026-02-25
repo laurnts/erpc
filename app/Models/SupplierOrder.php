@@ -19,6 +19,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
 /**
  * @property int $id
@@ -60,7 +62,7 @@ use Illuminate\Support\Carbon;
  * @property-read User|null $approver2
  */
 #[ObservedBy(SupplierOrderObserver::class)]
-final class SupplierOrder extends Model
+final class SupplierOrder extends Model implements HasMedia
 {
     use HasCreator;
 
@@ -68,6 +70,7 @@ final class SupplierOrder extends Model
     use HasFactory;
 
     use HasTeam;
+    use InteractsWithMedia;
     use SoftDeletes;
 
     /**
@@ -133,6 +136,14 @@ final class SupplierOrder extends Model
             'confirmed_at' => 'datetime',
             'approved_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Register media collections.
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('documents');
     }
 
     /**
@@ -391,6 +402,18 @@ final class SupplierOrder extends Model
             $this->status = OrderStatus::APPROVED;
             $this->save();
         }
+    }
+
+    /**
+     * Mark this supplier order as approved via document acceptance (key account approved the document in Acceptance Report).
+     */
+    public function approveViaDocumentAcceptance(User $user): void
+    {
+        $this->approver_1_id = $this->approver_1_id ?? $user->id;
+        $this->approver_2_id = $this->approver_2_id ?? $user->id;
+        $this->approved_at = now();
+        $this->status = OrderStatus::APPROVED;
+        $this->save();
     }
 
     /**

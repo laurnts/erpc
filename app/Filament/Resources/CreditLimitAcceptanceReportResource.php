@@ -6,7 +6,15 @@ namespace App\Filament\Resources;
 
 use App\Enums\CentralPurchasingRole;
 use App\Filament\Resources\CreditLimitAcceptanceReportResource\Pages\ListAcceptanceReports;
+use App\Filament\Resources\ProfitAndLossResource;
+use App\Filament\Resources\QuotationEvaluationResource;
+use App\Filament\Resources\RequestResource;
+use App\Filament\Resources\SupplierOrderApprovals\SupplierOrderApprovalResource;
 use App\Models\PaymentDocumentApproval;
+use App\Models\ProfitAndLoss;
+use App\Models\QuotationEvaluation;
+use App\Models\Request;
+use App\Models\SupplierOrder;
 use Filament\Facades\Filament;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -39,45 +47,9 @@ final class CreditLimitAcceptanceReportResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->recordUrl(null)
+            ->recordAction(null)
             ->columns([
-                TextColumn::make('name')
-                    ->label('Document Name')
-                    ->searchable()
-                    ->sortable()
-                    ->weight('bold'),
-                TextColumn::make('request_number')
-                    ->label('Request Number')
-                    ->getStateUsing(function (Media $record): ?string {
-                        return $record->model instanceof \App\Models\Request ? $record->model->request_number : null;
-                    })
-                    ->searchable()
-                    ->sortable(),
-                TextColumn::make('buyer_name')
-                    ->label('Buyer')
-                    ->getStateUsing(function (Media $record): ?string {
-                        return $record->model instanceof \App\Models\Request ? $record->model->buyer?->name : null;
-                    })
-                    ->searchable()
-                    ->sortable(),
-                TextColumn::make('payment_terms_display')
-                    ->label('Payment Terms')
-                    ->getStateUsing(function (Media $record): string {
-                        $paymentTerms = $record->getCustomProperty('payment_terms');
-                        if ($paymentTerms) {
-                            // Format: "30-100" -> "30 days - 100%"
-                            $parts = explode('-', $paymentTerms);
-                            if (count($parts) === 2) {
-                                return "{$parts[0]} days - {$parts[1]}%";
-                            }
-                            return $paymentTerms;
-                        }
-                        return '-';
-                    })
-                    ->sortable(),
-                TextColumn::make('created_at')
-                    ->label('Uploaded At')
-                    ->dateTime()
-                    ->sortable(),
                 TextColumn::make('approval_status')
                     ->label('Status')
                     ->getStateUsing(function (Media $record): string {
@@ -92,6 +64,113 @@ final class CreditLimitAcceptanceReportResource extends Resource
                         'Pending' => 'warning',
                         default => 'gray',
                     })
+                    ->sortable(),
+                TextColumn::make('source')
+                    ->label('Source')
+                    ->getStateUsing(function (Media $record): string {
+                        $model = $record->model;
+                        if ($model instanceof QuotationEvaluation) {
+                            return 'QE ' . $model->qe_number;
+                        }
+                        if ($model instanceof ProfitAndLoss) {
+                            return 'PNL ' . $model->pnl_number;
+                        }
+                        if ($model instanceof SupplierOrder) {
+                            return 'PO ' . $model->po_number;
+                        }
+                        return 'Payment Document';
+                    })
+                    ->url(function (Media $record): ?string {
+                        $model = $record->model;
+                        if ($model instanceof QuotationEvaluation) {
+                            return QuotationEvaluationResource::getUrl('view', ['record' => $model]);
+                        }
+                        if ($model instanceof ProfitAndLoss) {
+                            return ProfitAndLossResource::getUrl('view', ['record' => $model]);
+                        }
+                        if ($model instanceof SupplierOrder) {
+                            return SupplierOrderApprovalResource::getUrl('view', ['record' => $model]);
+                        }
+                        return null;
+                    })
+                    ->badge()
+                    ->color(function (Media $record): string {
+                        if ($record->collection_name !== 'documents') {
+                            return 'gray';
+                        }
+                        return match ($record->model_type) {
+                            'quotation_evaluation' => 'info',
+                            'profit_and_loss' => 'warning',
+                            'supplier_order' => 'success',
+                            default => 'gray',
+                        };
+                    })
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('request_number')
+                    ->label('Request Number')
+                    ->getStateUsing(function (Media $record): ?string {
+                        $model = $record->model;
+                        if ($model instanceof Request) {
+                            return $model->request_number;
+                        }
+                        if ($model instanceof QuotationEvaluation || $model instanceof ProfitAndLoss || $model instanceof SupplierOrder) {
+                            return $model->request?->request_number;
+                        }
+                        return null;
+                    })
+                    ->url(function (Media $record): ?string {
+                        $model = $record->model;
+                        if ($model instanceof Request) {
+                            return RequestResource::getUrl('view', ['record' => $model]);
+                        }
+                        if ($model instanceof QuotationEvaluation) {
+                            return QuotationEvaluationResource::getUrl('view', ['record' => $model]);
+                        }
+                        if ($model instanceof ProfitAndLoss) {
+                            return ProfitAndLossResource::getUrl('view', ['record' => $model]);
+                        }
+                        if ($model instanceof SupplierOrder) {
+                            return SupplierOrderApprovalResource::getUrl('view', ['record' => $model]);
+                        }
+                        return null;
+                    })
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('buyer_name')
+                    ->label('Buyer')
+                    ->getStateUsing(function (Media $record): ?string {
+                        $model = $record->model;
+                        if ($model instanceof Request) {
+                            return $model->buyer?->name;
+                        }
+                        if ($model instanceof QuotationEvaluation || $model instanceof ProfitAndLoss || $model instanceof SupplierOrder) {
+                            return $model->request?->buyer?->name;
+                        }
+                        return null;
+                    })
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('payment_terms_display')
+                    ->label('Payment Terms')
+                    ->getStateUsing(function (Media $record): string {
+                        if ($record->collection_name !== 'completion_reports') {
+                            return '—';
+                        }
+                        $paymentTerms = $record->getCustomProperty('payment_terms');
+                        if ($paymentTerms) {
+                            $parts = explode('-', $paymentTerms);
+                            if (count($parts) === 2) {
+                                return "{$parts[0]} days - {$parts[1]}%";
+                            }
+                            return $paymentTerms;
+                        }
+                        return '—';
+                    })
+                    ->sortable(),
+                TextColumn::make('created_at')
+                    ->label('Uploaded At')
+                    ->dateTime()
                     ->sortable(),
                 TextColumn::make('approved_by')
                     ->label('Approved By')
@@ -119,13 +198,14 @@ final class CreditLimitAcceptanceReportResource extends Resource
                 SelectFilter::make('buyer_id')
                     ->label('Buyer')
                     ->query(function (Builder $query, array $data): Builder {
-                        if (! empty($data['value'])) {
-                            return $query->whereHasMorph('model', \App\Models\Request::class, function ($q) use ($data): void {
-                                $q->where('buyer_id', $data['value']);
-                            });
+                        if (empty($data['value'])) {
+                            return $query;
                         }
-
-                        return $query;
+                        $buyerId = $data['value'];
+                        return $query->where(function (Builder $q) use ($buyerId): void {
+                            $q->whereHasMorph('model', Request::class, fn (Builder $m): Builder => $m->where('buyer_id', $buyerId))
+                                ->orWhereHasMorph('model', [QuotationEvaluation::class, ProfitAndLoss::class, SupplierOrder::class], fn (Builder $m): Builder => $m->whereHas('request', fn (Builder $r): Builder => $r->where('buyer_id', $buyerId)));
+                        });
                     })
                     ->options(function (): array {
                         /** @var \App\Models\Team|null $team */
@@ -198,9 +278,18 @@ final class CreditLimitAcceptanceReportResource extends Resource
                                 'notes' => $data['notes'] ?? null,
                             ]);
 
+                            $model = $record->model;
+                            if ($model instanceof QuotationEvaluation || $model instanceof ProfitAndLoss || $model instanceof SupplierOrder) {
+                                $model->approveViaDocumentAcceptance($user);
+                            }
+
+                            $message = $model instanceof QuotationEvaluation || $model instanceof ProfitAndLoss || $model instanceof SupplierOrder
+                                ? 'Document approved. Related record has been set to Approved.'
+                                : 'Payment document has been approved successfully.';
+
                             \Filament\Notifications\Notification::make()
                                 ->title('Document approved')
-                                ->body('Payment document has been approved successfully.')
+                                ->body($message)
                                 ->success()
                                 ->send();
                         }),
@@ -231,20 +320,22 @@ final class CreditLimitAcceptanceReportResource extends Resource
     {
         $team = Filament::getTenant();
 
-        // Build query without parent tenant filtering since Media doesn't have team relationship
-        $query = Media::query()
-            ->where('collection_name', 'completion_reports')
-            ->where('custom_properties->is_payment_document', true)
-            ->whereHasMorph('model', \App\Models\Request::class, function ($query) use ($team): void {
-                $query->where('team_id', $team?->getKey());
+        return Media::query()
+            ->where(function (Builder $q) use ($team): void {
+                $q->where(function (Builder $sub) use ($team): void {
+                    $sub->where('collection_name', 'completion_reports')
+                        ->where('custom_properties->is_payment_document', true)
+                        ->whereHasMorph('model', Request::class, fn (Builder $m): Builder => $m->where('team_id', $team?->getKey()));
+                })->orWhere(function (Builder $sub) use ($team): void {
+                    $sub->where('collection_name', 'documents')
+                        ->whereHasMorph('model', [QuotationEvaluation::class, ProfitAndLoss::class, SupplierOrder::class], fn (Builder $m): Builder => $m->where('team_id', $team?->getKey()));
+                });
             })
-            ->with(['model.buyer', 'model']);
-
-        return $query;
+            ->with(['model']);
     }
 
     /**
-     * Approve button only for central purchasing finance team members (with is_approver).
+     * Approve: key account for QE/PNL/Supplier Order documents; finance approver for payment documents.
      */
     protected static function canApprove(Media $record): bool
     {
@@ -255,21 +346,27 @@ final class CreditLimitAcceptanceReportResource extends Resource
             return false;
         }
 
-        $hasPermission = $user->teams()
+        $hasApproval = PaymentDocumentApproval::where('media_id', $record->id)
+            ->where('team_id', $team->id)
+            ->exists();
+
+        if ($hasApproval) {
+            return false;
+        }
+
+        if ($record->collection_name === 'documents' && in_array($record->model_type, ['quotation_evaluation', 'profit_and_loss', 'supplier_order'], true)) {
+            return $user->teams()
+                ->where('teams.id', $team->id)
+                ->where('team_user.role', 'central_purchasing')
+                ->where('team_user.central_purchasing_role', CentralPurchasingRole::KEY_ACCOUNT->value)
+                ->exists();
+        }
+
+        return $user->teams()
             ->where('teams.id', $team->id)
             ->where('team_user.role', 'central_purchasing')
             ->where('team_user.central_purchasing_role', CentralPurchasingRole::FINANCE->value)
             ->where('team_user.is_approver', true)
             ->exists();
-
-        if (! $hasPermission) {
-            return false;
-        }
-
-        $hasApproval = PaymentDocumentApproval::where('media_id', $record->id)
-            ->where('team_id', $team->id)
-            ->exists();
-
-        return ! $hasApproval;
     }
 }

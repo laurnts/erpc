@@ -67,7 +67,7 @@ final class ProfitAndLossPolicy
      */
     public function update(User $user, ProfitAndLoss $profitAndLoss): bool
     {
-        return false; // P&L are updated via workflow, not directly
+        return $this->viewAny($user);
     }
 
     /**

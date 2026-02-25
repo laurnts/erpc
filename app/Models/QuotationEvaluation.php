@@ -19,6 +19,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
 /**
  * Quotation Evaluation document for internal procurement documentation.
@@ -44,7 +46,7 @@ use Illuminate\Support\Collection;
  * @property-read string $created_by
  */
 #[ObservedBy(QuotationEvaluationObserver::class)]
-final class QuotationEvaluation extends Model
+final class QuotationEvaluation extends Model implements HasMedia
 {
     use HasCreator;
 
@@ -52,6 +54,7 @@ final class QuotationEvaluation extends Model
     use HasFactory;
 
     use HasTeam;
+    use InteractsWithMedia;
 
     /**
      * @var list<string>
@@ -85,6 +88,14 @@ final class QuotationEvaluation extends Model
             'director_approved_at' => 'datetime',
             'data' => 'array',
         ];
+    }
+
+    /**
+     * Register media collections.
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('documents');
     }
 
     /**
@@ -300,6 +311,19 @@ final class QuotationEvaluation extends Model
             $this->status = QEStatus::APPROVED;
         }
 
+        $this->save();
+    }
+
+    /**
+     * Mark this QE as approved via document acceptance (key account approved the document in Acceptance Report).
+     */
+    public function approveViaDocumentAcceptance(User $user): void
+    {
+        $now = now();
+        $this->dept_head_sales_approved_at = $this->dept_head_sales_approved_at ?? $now;
+        $this->deputy_director_approved_at = $this->deputy_director_approved_at ?? $now;
+        $this->director_approved_at = $this->director_approved_at ?? $now;
+        $this->status = QEStatus::APPROVED;
         $this->save();
     }
 

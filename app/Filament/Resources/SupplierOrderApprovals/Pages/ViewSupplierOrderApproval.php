@@ -4,17 +4,19 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SupplierOrderApprovals\Pages;
 
-use App\Enums\CentralPurchasingRole;
 use App\Enums\OrderStatus;
+use App\Filament\Resources\RequestResource;
 use App\Filament\Resources\SupplierOrderApprovals\Schemas\SupplierOrderApprovalInfolist;
 use App\Filament\Resources\SupplierOrderApprovals\SupplierOrderApprovalResource;
 use App\Models\SupplierOrder;
 use App\Models\User;
-use App\Services\TeamMemberService;
+use App\Services\Erp\PdfGenerationService;
 use Filament\Actions\Action;
-use Filament\Facades\Filament;
-use Filament\Resources\Pages\ViewRecord;
+use Filament\Actions\ActionGroup;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Schema;
 
 final class ViewSupplierOrderApproval extends ViewRecord
@@ -63,6 +65,77 @@ final class ViewSupplierOrderApproval extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            ActionGroup::make([
+                Action::make('edit')
+                    ->label('Edit')
+                    ->icon('heroicon-o-pencil-square')
+                    ->url(fn (): string => RequestResource::getUrl('view', ['record' => $this->getRecord()->request_id]))
+                    ->openUrlInNewTab(false),
+                Action::make('downloadPdf')
+                    ->label('Download PDF')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->action(function () {
+                        /** @var SupplierOrder $record */
+                        $record = $this->getRecord();
+                        $service = app(PdfGenerationService::class);
+                        $pdf = $service->generateSupplierOrderPdf($record);
+                        $filename = $service->getSupplierOrderFilename($record);
+                        $content = $pdf->output();
+
+                        return response()->streamDownload(
+                            callback: static function () use ($content): void {
+                                echo $content;
+                            },
+                            name: $filename,
+                            headers: ['Content-Type' => 'application/pdf'],
+                        );
+                    }),
+                Action::make('uploadDocument')
+                    ->label('Upload Document')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->form([
+                        FileUpload::make('document')
+                            ->label('Document')
+                            ->required()
+                            ->disk('local')
+                            ->directory('documents-temp')
+                            ->acceptedFileTypes([
+                                'application/pdf',
+                                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                'application/vnd.ms-excel',
+                                'image/png',
+                                'image/jpeg',
+                                'image/jpg',
+                                'application/msword',
+                                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                            ])
+                            ->maxSize(10240),
+                        TextInput::make('name')
+                            ->label('Document Name')
+                            ->maxLength(255),
+                    ])
+                    ->action(function (array $data): void {
+                        /** @var SupplierOrder $record */
+                        $record = $this->getRecord();
+                        $file = $data['document'] ?? null;
+                        if (is_array($file)) {
+                            $file = $file[0] ?? null;
+                        }
+                        if ($file && is_string($file)) {
+                            $path = storage_path('app/'.ltrim($file, '/'));
+                            if (file_exists($path)) {
+                                $record->addMedia($path)
+                                    ->usingName($data['name'] ?? basename($path))
+                                    ->toMediaCollection('documents');
+                                Notification::make()
+                                    ->title('Document uploaded')
+                                    ->success()
+                                    ->send();
+                                $this->refresh();
+                            }
+                        }
+                    }),
+            ]),
             Action::make('approve')
                 ->label('Approve')
                 ->icon('heroicon-o-check-badge')

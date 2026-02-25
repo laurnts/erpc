@@ -19,6 +19,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
 /**
  * Profit and Loss document for internal tracking.
@@ -46,7 +48,7 @@ use Illuminate\Support\Collection;
  * @property-read PNLStatus $orderStatus
  */
 #[ObservedBy(ProfitAndLossObserver::class)]
-final class ProfitAndLoss extends Model
+final class ProfitAndLoss extends Model implements HasMedia
 {
     use HasCreator;
 
@@ -54,6 +56,7 @@ final class ProfitAndLoss extends Model
     use HasFactory;
 
     use HasTeam;
+    use InteractsWithMedia;
 
     /**
      * @var list<string>
@@ -88,6 +91,14 @@ final class ProfitAndLoss extends Model
             'director_approved_at' => 'datetime',
             'data' => 'array',
         ];
+    }
+
+    /**
+     * Register media collections.
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('documents');
     }
 
     /**
@@ -297,6 +308,19 @@ final class ProfitAndLoss extends Model
             $this->status = PNLStatus::APPROVED;
         }
 
+        $this->save();
+    }
+
+    /**
+     * Mark this PNL as approved via document acceptance (key account approved the document in Acceptance Report).
+     */
+    public function approveViaDocumentAcceptance(User $user): void
+    {
+        $now = now();
+        $this->dept_head_sales_approved_at = $this->dept_head_sales_approved_at ?? $now;
+        $this->deputy_director_approved_at = $this->deputy_director_approved_at ?? $now;
+        $this->director_approved_at = $this->director_approved_at ?? $now;
+        $this->status = PNLStatus::APPROVED;
         $this->save();
     }
 

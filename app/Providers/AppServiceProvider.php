@@ -146,6 +146,8 @@ final class AppServiceProvider extends ServiceProvider
             'supplier' => Company::class,
             'article' => \App\Models\Article::class,
             'request' => \App\Models\Request::class,
+            'quotation_evaluation' => \App\Models\QuotationEvaluation::class,
+            'profit_and_loss' => \App\Models\ProfitAndLoss::class,
             'supplier_quote' => \App\Models\SupplierQuote::class,
             'buyer_quote' => \App\Models\BuyerQuote::class,
             'buyer_order' => \App\Models\BuyerOrder::class,

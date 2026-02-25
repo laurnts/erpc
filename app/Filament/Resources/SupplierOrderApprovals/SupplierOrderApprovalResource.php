@@ -16,6 +16,8 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -118,6 +120,48 @@ final class SupplierOrderApprovalResource extends Resource
                         ->label('View')
                         ->icon('heroicon-o-eye')
                         ->url(fn (SupplierOrder $record): string => self::getUrl('view', ['record' => $record])),
+                    Action::make('uploadDocument')
+                        ->label('Upload Document')
+                        ->icon('heroicon-o-arrow-up-tray')
+                        ->form([
+                            FileUpload::make('document')
+                                ->label('Document')
+                                ->required()
+                                ->disk('local')
+                                ->directory('documents-temp')
+                                ->acceptedFileTypes([
+                                    'application/pdf',
+                                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                    'application/vnd.ms-excel',
+                                    'image/png',
+                                    'image/jpeg',
+                                    'image/jpg',
+                                    'application/msword',
+                                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                                ])
+                                ->maxSize(10240),
+                            TextInput::make('name')
+                                ->label('Document Name')
+                                ->maxLength(255),
+                        ])
+                        ->action(function (SupplierOrder $record, array $data): void {
+                            $file = $data['document'] ?? null;
+                            if (is_array($file)) {
+                                $file = $file[0] ?? null;
+                            }
+                            if ($file && is_string($file)) {
+                                $path = storage_path('app/'.ltrim($file, '/'));
+                                if (file_exists($path)) {
+                                    $record->addMedia($path)
+                                        ->usingName($data['name'] ?? basename($path))
+                                        ->toMediaCollection('documents');
+                                    Notification::make()
+                                        ->title('Document uploaded')
+                                        ->success()
+                                        ->send();
+                                }
+                            }
+                        }),
                     Action::make('approve')
                         ->label('Approve')
                         ->icon('heroicon-o-check-badge')
