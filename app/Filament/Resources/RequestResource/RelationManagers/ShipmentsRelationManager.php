@@ -10,13 +10,16 @@ use App\Enums\RequestStage;
 use App\Enums\ShipmentStatus;
 use App\Enums\ShipmentType;
 use App\Filament\Actions\DownloadPdfAction;
+use App\Filament\Resources\PeopleResource;
 use App\Filament\Resources\RequestResource;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Mail\Erp\ShipmentToBuyerMail;
 use App\Models\PaymentDocumentApproval;
+use App\Models\People;
 use App\Models\Request;
 use App\Models\Shipment;
 use App\Models\SupplierOrder;
+use Filament\Facades\Filament;
 use App\Services\Email\EmailTemplateService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -245,6 +248,44 @@ final class ShipmentsRelationManager extends RelationManager
 
             Section::make('Additional Info')
                 ->schema([
+                    Select::make('pic_contact_id')
+                        ->label('PIC Contact')
+                        ->options(function () use ($supplierOrder): array {
+                            $buyer = $supplierOrder->request->buyer ?? null;
+                            if ($buyer === null) {
+                                return [];
+                            }
+                            return $buyer->people()
+                                ->select('people.id', 'people.name')
+                                ->orderBy('people.name')
+                                ->pluck('name', 'id')
+                                ->all();
+                        })
+                        ->preload()
+                        ->nullable()
+                        ->helperText('Person in charge at the buyer for this shipment')
+                        ->actionSchemaModel(People::class)
+                        ->createOptionForm(PeopleResource::getFormSchema(excludeCompaniesField: false, excludeCustomFields: true))
+                        ->createOptionUsing(function (array $data) use ($supplierOrder): int {
+                            /** @var \App\Models\Team $team */
+                            $team = Filament::getTenant();
+                            $companyIds = $data['companies'] ?? [];
+                            unset($data['companies']);
+                            /** @var People $person */
+                            $person = People::create([
+                                ...$data,
+                                'team_id' => $team->id,
+                                'creator_id' => auth()->id(),
+                            ]);
+                            if (! empty($companyIds)) {
+                                $person->companies()->sync($companyIds);
+                            }
+                            $buyer = $supplierOrder->request->buyer;
+                            if ($buyer !== null) {
+                                $buyer->people()->syncWithoutDetaching([$person->id]);
+                            }
+                            return $person->id;
+                        }),
                     Textarea::make('notes')
                         ->rows(3),
                 ]),
@@ -259,7 +300,7 @@ final class ShipmentsRelationManager extends RelationManager
     private function getViewShipmentsSchema(SupplierOrder $supplierOrder): array
     {
         $shipments = $supplierOrder->shipments()
-            ->with(['items', 'request.buyer'])
+            ->with(['items', 'request.buyer', 'picContact'])
             ->get();
 
         if ($shipments->isEmpty()) {
@@ -297,6 +338,9 @@ final class ShipmentsRelationManager extends RelationManager
                                 ->label('Delivered')
                                 ->content($shipment->delivered_at?->format('Y-m-d H:i') ?? '-'),
                         ]),
+                    Placeholder::make("pic_{$shipment->id}")
+                        ->label('PIC Contact')
+                        ->content($shipment->picContact?->name ?? '-'),
                     Placeholder::make("items_{$shipment->id}")
                         ->label('Items')
                         ->content(new HtmlString($this->formatShipmentItems($shipment))),
@@ -726,6 +770,7 @@ final class ShipmentsRelationManager extends RelationManager
                             $shipment->expected_delivery_at = $data['expected_delivery_at'] ?? null;
                             $shipment->delivered_at = $data['delivered_at'] ?? null;
                             $shipment->notes = $data['notes'] ?? null;
+                            $shipment->pic_contact_id = $data['pic_contact_id'] ?? null;
                             $shipment->save();
 
                             // Create shipment items
