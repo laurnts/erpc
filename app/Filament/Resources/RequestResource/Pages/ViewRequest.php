@@ -56,9 +56,9 @@ final class ViewRequest extends ViewRecord
         'items' => 0,
         'supplierQuotes' => 1,
         'buyerQuotes' => 2,
-        'buyerOrders' => 3,
-        'supplierOrders' => 4,
-        'goodsReceive' => 5,
+        'supplierOrders' => 3,
+        'goodsReceive' => 4,
+        'buyerOrders' => 5,
         'shipments' => 6,
         'completionReports' => 7,
     ];
@@ -342,9 +342,9 @@ final class ViewRequest extends ViewRecord
             ItemsRelationManager::class,
             SupplierQuotesRelationManager::class,
             BuyerQuotesRelationManager::class,
-            BuyerOrdersRelationManager::class,
             SupplierOrdersRelationManager::class,
             GoodsReceiveRelationManager::class,
+            BuyerOrdersRelationManager::class,
             ShipmentsRelationManager::class,
             CompletionReportsRelationManager::class,
         ];

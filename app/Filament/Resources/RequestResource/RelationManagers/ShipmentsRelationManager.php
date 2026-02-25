@@ -243,12 +243,11 @@ final class ShipmentsRelationManager extends RelationManager
                         ->reorderable(false),
                 ]),
 
-            Section::make('Notes')
+            Section::make('Additional Info')
                 ->schema([
                     Textarea::make('notes')
                         ->rows(3),
-                ])
-                ->collapsed(),
+                ]),
         ];
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\RequestResource\RelationManagers\Concerns;
 
+use App\Enums\OrderStatus;
 use App\Enums\PNLStatus;
 use App\Enums\QEStatus;
 use App\Enums\RequestStage;
@@ -80,8 +81,31 @@ trait HasRequestStageTab
                 
                 // Redirect back to Buyer Quotes tab
                 $this->redirect(RequestResource::getUrl('view', ['record' => $request->id, 'activeRelationManager' => 'buyerQuotes']));
+                return;
             }
         }
+
+        // Check if all supplier orders are approved for Goods Receive tab
+        if ($stage === RequestStage::GOODS_RECEIVE && static::hasUnapprovedSupplierOrders($request)) {
+            Notification::make()
+                ->title('Access Restricted')
+                ->body('All Supplier Orders must be approved before accessing Goods Receive.')
+                ->warning()
+                ->send();
+
+            $this->redirect(RequestResource::getUrl('view', ['record' => $request->id, 'activeRelationManager' => 'supplierOrders']));
+            return;
+        }
+    }
+
+    /**
+     * Check if the request has any supplier orders that are not yet approved (status not APPROVED or SENT).
+     */
+    private static function hasUnapprovedSupplierOrders(Request $request): bool
+    {
+        return $request->supplierOrders()
+            ->whereNotIn('status', [OrderStatus::APPROVED, OrderStatus::SENT, OrderStatus::CANCELLED])
+            ->exists();
     }
 
     /**
@@ -135,6 +159,14 @@ trait HasRequestStageTab
             $tab->disabled()
                 ->badgeColor('gray')
                 ->badgeTooltip('Profit & Loss must be approved first')
+                ->extraAttributes([
+                    'class' => 'qe-disabled-tab',
+                ]);
+        } elseif ($stage === RequestStage::GOODS_RECEIVE && static::hasUnapprovedSupplierOrders($ownerRecord)) {
+            // Disable Goods Receive tab until all supplier orders are approved
+            $tab->disabled()
+                ->badgeColor('gray')
+                ->badgeTooltip('All Supplier Orders must be approved first')
                 ->extraAttributes([
                     'class' => 'qe-disabled-tab',
                 ]);
