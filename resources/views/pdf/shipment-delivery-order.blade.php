@@ -37,8 +37,7 @@
     @if($shipment->request?->buyer)
         <div class="party-section">
             <div class="party-box">
-                <div class="party-label">Buyer</div>
-                <div class="party-name">{{ $shipment->request->buyer->name }}</div>
+                <div class="party-name">To: {{ $shipment->request->buyer->name }}</div>
             </div>
         </div>
     @endif
@@ -80,12 +79,15 @@
                 <div class="party-label">Delivery Address</div>
                 <div class="party-details">
                     {{ $shipment->request->buyer->name }}<br>
-                    @if($shipment->request->buyer->contact_person)
-                        Attn: {{ $shipment->request->buyer->contact_person }}<br>
-                    @endif
                     {{ $shipment->request->buyer->address }}
-                    @if($shipment->request->buyer->phone)
-                        <br>Tel: {{ $shipment->request->buyer->phone }}
+                </div>
+                <div class="party-details">
+                    PIC Contact: 
+                    @if($shipment->picContact)
+                        {{ $shipment->picContact->name }}
+                        @if($shipment->picContact->phone)
+                            - {{ $shipment->picContact->phone }}
+                        @endif
                     @endif
                 </div>
             </div>
@@ -96,34 +98,36 @@
     <div style="margin-top: 40px;">
         <table style="width: 100%; border-collapse: collapse;">
             <tr>
-                <td style="width: 25%; padding: 60px 0 10px;">
-                    <div style="border-top: 1px solid #374151; width: 200px; padding-top: 5px; font-size: 9pt; color: #6b7280;">
+                <td style="padding: 10px 10px 60px 0;">
+                    <div style="border-bottom: 1px solid #374151; width: 200px; padding-bottom: 5px; font-size: 9pt; color: #6b7280; text-align: center;">
                         Prepared By
                     </div>
                 </td>
-                <td style="width: 25%; padding: 60px 0 10px;">
-                    <div style="border-top: 1px solid #374151; width: 200px; padding-top: 5px; font-size: 9pt; color: #6b7280;">
-                        Acknowledged By Head Admin
+                <td style="padding: 10px 10px 60px 0;">
+                    <div style="border-bottom: 1px solid #374151; width: 200px; padding-bottom: 5px; font-size: 9pt; color: #6b7280; text-align: center;">
+                        Approved By Head Admin
                     </div>
                 </td>
-                <td style="width: 25%; padding: 60px 0 10px;">
-                    <div style="border-top: 1px solid #374151; width: 200px; padding-top: 5px; font-size: 9pt; color: #6b7280;">
+                <td style="padding: 10px 10px 60px 0">
+                    <div style="border-bottom: 1px solid #374151; width: 200px; padding-bottom: 5px; font-size: 9pt; color: #6b7280; text-align: center;">
                         Delivered By
                     </div>
                 </td>
-                <td style="width: 25%; padding: 60px 0 10px;">
-                    <div style="border-top: 1px solid #374151; width: 200px; padding-top: 5px; font-size: 9pt; color: #6b7280;">
+                <td style="padding: 10px 10px 60px 0">
+                    <div style="border-bottom: 1px solid #374151; width: 200px; padding-bottom: 5px; font-size: 9pt; color: #6b7280; text-align: center;">
                         Accepted By
+                    </div>
+                </td>
+                <td style="padding: 10px 0 60px">
+                    <div style="border-bottom: 1px solid #374151; width: 200px; padding-bottom: 5px; font-size: 9pt; color: #6b7280; text-align: center;">
+                        Notes
+                        @if($shipment->notes)
+                            <div style="font-size: 9pt; color: #6b7280; white-space: pre-wrap;">{{ $shipment->notes }}</div>
+                        @endif
                     </div>
                 </td>
             </tr>
         </table>
-        @if($shipment->notes)
-            <div style="margin-top: 20px;">
-                <div style="font-size: 9pt; font-weight: bold; color: #4b5563; margin-bottom: 5px;">Notes:</div>
-                <div style="font-size: 9pt; color: #6b7280; white-space: pre-wrap;">{{ $shipment->notes }}</div>
-            </div>
-        @endif
     </div>
 @endsection
 

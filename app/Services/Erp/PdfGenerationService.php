@@ -280,6 +280,7 @@ final readonly class PdfGenerationService
             'supplierOrder.request.buyer',
             'items.supplierOrderItem.article',
             'request.buyer',
+            'picContact',
             'team',
         ]);
 

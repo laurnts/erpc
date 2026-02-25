@@ -48,6 +48,8 @@ final class People extends Model implements HasCustomFields
      */
     protected $fillable = [
         'name',
+        'phone',
+        'email',
         'creation_source',
         'is_key_account', // @deprecated - kept for backward compatibility
     ];

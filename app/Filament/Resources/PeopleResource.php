@@ -52,13 +52,22 @@ final class PeopleResource extends Resource
      * Used both in main form and inline create modals.
      *
      * @param  bool  $excludeCompaniesField  Exclude Companies field to prevent circular references
+     * @param  bool  $excludeCustomFields  Exclude custom fields (use when form is used in createOptionForm where context is not People)
      * @return array<int, \Filament\Schemas\Components\Component>
      */
-    public static function getFormSchema(bool $excludeCompaniesField = false): array
+    public static function getFormSchema(bool $excludeCompaniesField = false, bool $excludeCustomFields = false): array
     {
         $fields = [
             TextInput::make('name')
                 ->required()
+                ->maxLength(255),
+            TextInput::make('phone')
+                ->label('Phone Number')
+                ->tel()
+                ->maxLength(255),
+            TextInput::make('email')
+                ->label('Email')
+                ->email()
                 ->maxLength(255),
         ];
 
@@ -87,8 +96,10 @@ final class PeopleResource extends Resource
                 });
         }
 
-        // Always include custom fields (Emails, Phone, Job Title, etc.)
-        $fields[] = CustomFields::form()->build()->columnSpanFull();
+        // Include custom fields unless excluded (e.g. when used in createOptionForm where schema context is not People)
+        if (! $excludeCustomFields) {
+            $fields[] = CustomFields::form()->build()->columnSpanFull();
+        }
 
         return $fields;
     }

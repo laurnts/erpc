@@ -40,6 +40,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property Carbon|null $delivered_at
  * @property Carbon|null $do_sent_at
  * @property string|null $notes
+ * @property int|null $pic_contact_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
@@ -50,6 +51,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property-read float $total_quantity_shipped
  * @property-read float $total_quantity_received
  * @property-read Request $request
+ * @property-read People|null $picContact
  * @property-read SupplierOrder|null $supplierOrder
  * @property-read BuyerOrder|null $buyerOrder
  */
@@ -83,6 +85,7 @@ final class Shipment extends Model implements HasMedia
         'delivered_at',
         'do_sent_at',
         'notes',
+        'pic_contact_id',
     ];
 
     /**
@@ -128,6 +131,16 @@ final class Shipment extends Model implements HasMedia
     public function request(): BelongsTo
     {
         return $this->belongsTo(Request::class);
+    }
+
+    /**
+     * PIC (Person In Charge) contact at the buyer.
+     *
+     * @return BelongsTo<People, $this>
+     */
+    public function picContact(): BelongsTo
+    {
+        return $this->belongsTo(People::class, 'pic_contact_id');
     }
 
     /**
