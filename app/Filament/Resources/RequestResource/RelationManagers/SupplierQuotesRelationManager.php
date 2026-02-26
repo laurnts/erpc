@@ -694,7 +694,7 @@ final class SupplierQuotesRelationManager extends RelationManager
             ->recordActions([
                 ActionGroup::make([
                     EditAction::make()
-                        ->label('Input price')
+                        ->label('Edit')
                         ->icon('heroicon-o-pencil-square')
                         ->size(Size::Small)
                         ->visible(function (?SupplierQuote $record): bool {
