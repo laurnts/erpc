@@ -8,9 +8,12 @@ use App\Enums\CentralPurchasingRole;
 use App\Filament\Forms\Components\ApprovalPersonnelSchema;
 use App\Filament\Resources\QuotationEvaluationResource\Pages\ListQuotationEvaluations;
 use App\Filament\Resources\QuotationEvaluationResource\Pages\ViewQuotationEvaluation;
+use App\Filament\Exports\QuotationEvaluationExporter;
 use App\Models\QuotationEvaluation;
 use App\Policies\QuotationEvaluationPolicy;
 use App\Services\TeamMemberService;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\ExportBulkAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -148,7 +151,12 @@ final class QuotationEvaluationResource extends Resource
                     ->toggleable()
                     ->toggledHiddenByDefault(),
             ])
-            ->defaultSort('created_at', 'desc');
+            ->defaultSort('created_at', 'desc')
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    ExportBulkAction::make()->exporter(QuotationEvaluationExporter::class),
+                ]),
+            ]);
     }
 
     public static function getPages(): array

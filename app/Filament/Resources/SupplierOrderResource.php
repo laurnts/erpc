@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Enums\OrderStatus;
+use App\Filament\Exports\SupplierOrderExporter;
 use App\Filament\Resources\SupplierOrderResource\Pages\ListSupplierOrders;
 use App\Models\SupplierOrder;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\ExportBulkAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -129,6 +131,7 @@ final class SupplierOrderResource extends Resource
             ->recordUrl(fn (SupplierOrder $record): string => RequestResource::getUrl('view', ['record' => $record->request_id]))
             ->toolbarActions([
                 BulkActionGroup::make([
+                    ExportBulkAction::make()->exporter(SupplierOrderExporter::class),
                     DeleteBulkAction::make(),
                 ]),
             ]);

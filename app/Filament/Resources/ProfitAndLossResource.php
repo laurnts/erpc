@@ -8,9 +8,12 @@ use App\Enums\CentralPurchasingRole;
 use App\Filament\Forms\Components\ApprovalPersonnelSchema;
 use App\Filament\Resources\ProfitAndLossResource\Pages\ListProfitAndLosses;
 use App\Filament\Resources\ProfitAndLossResource\Pages\ViewProfitAndLoss;
+use App\Filament\Exports\ProfitAndLossExporter;
 use App\Models\ProfitAndLoss;
 use App\Policies\ProfitAndLossPolicy;
 use App\Services\TeamMemberService;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\ExportBulkAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -150,7 +153,12 @@ final class ProfitAndLossResource extends Resource
                     ->toggleable()
                     ->toggledHiddenByDefault(),
             ])
-            ->defaultSort('created_at', 'desc');
+            ->defaultSort('created_at', 'desc')
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    ExportBulkAction::make()->exporter(ProfitAndLossExporter::class),
+                ]),
+            ]);
     }
 
     public static function getPages(): array

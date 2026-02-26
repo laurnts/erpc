@@ -36,6 +36,13 @@ final class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(\Filament\Auth\Http\Responses\Contracts\LoginResponse::class, LoginResponse::class);
+
+        // Use custom ExportCompletion so the Export is refreshed before sending the
+        // completion notification (ensures download links appear in the notification).
+        $this->app->bind(
+            \Filament\Actions\Exports\Jobs\ExportCompletion::class,
+            \App\Filament\Exports\Jobs\ExportCompletion::class,
+        );
     }
 
     /**

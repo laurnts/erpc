@@ -13,8 +13,10 @@ use App\Models\Currency;
 use App\Models\People;
 use App\Models\Tag;
 use App\Models\Team;
+use App\Filament\Exports\BuyerExporter;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\ExportBulkAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Facades\Filament;
@@ -349,6 +351,7 @@ final class BuyerResource extends Resource
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    ExportBulkAction::make()->exporter(BuyerExporter::class),
                     DeleteBulkAction::make(),
                     ForceDeleteBulkAction::make(),
                     RestoreBulkAction::make(),
