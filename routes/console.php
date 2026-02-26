@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Jobs\Erp\CheckAwaitingSupplierQuotesJob;
+use App\Jobs\Erp\CheckExpiredQuotesJob;
 use App\Jobs\Erp\CheckExpiringQuotesJob;
 use App\Jobs\Erp\CheckOverdueInvoicesJob;
 use Illuminate\Support\Facades\Schedule;
@@ -25,6 +26,13 @@ use Illuminate\Support\Facades\Schedule;
 Schedule::job(new CheckExpiringQuotesJob)
     ->dailyAt('08:00')
     ->name('erp:check-expiring-quotes')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// Check for buyer quotes that expired yesterday; email buyer and key accounts
+Schedule::job(new CheckExpiredQuotesJob)
+    ->dailyAt('08:30')
+    ->name('erp:check-expired-quotes')
     ->withoutOverlapping()
     ->onOneServer();
 

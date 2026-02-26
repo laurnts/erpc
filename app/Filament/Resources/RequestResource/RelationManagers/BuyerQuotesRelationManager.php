@@ -84,6 +84,11 @@ final class BuyerQuotesRelationManager extends RelationManager
         $request = $this->getOwnerRecord();
 
         return [
+            ViewField::make('expired_alert')
+                ->label('')
+                ->view('filament.forms.components.buyer-quote-expired-alert')
+                ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->exists && $record->is_expired)
+                ->dehydrated(false),
             Section::make('Quote Details')
                 ->schema([
                     Grid::make(3)
