@@ -121,9 +121,12 @@ final class Request extends Model implements HasCustomFields, HasMedia
      */
     public function registerMediaCollections(): void
     {
-        $this->addMediaCollection('attachments');
-        $this->addMediaCollection('completion_reports');
-        $this->addMediaCollection('goods_receive');
+        $this->addMediaCollection('attachments')
+            ->useDisk('local');
+        $this->addMediaCollection('completion_reports')
+            ->useDisk('local');
+        $this->addMediaCollection('goods_receive')
+            ->useDisk('local');
     }
 
     /**

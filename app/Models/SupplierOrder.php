@@ -143,7 +143,8 @@ final class SupplierOrder extends Model implements HasMedia
      */
     public function registerMediaCollections(): void
     {
-        $this->addMediaCollection('documents');
+        $this->addMediaCollection('documents')
+            ->useDisk('local');
     }
 
     /**

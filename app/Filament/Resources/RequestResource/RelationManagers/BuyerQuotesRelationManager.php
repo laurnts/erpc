@@ -16,6 +16,7 @@ use App\Filament\Resources\ProfitAndLossResource;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Models\BuyerQuote;
 use App\Models\Currency;
+use App\Support\Media\DocumentPathGenerator;
 use App\Services\TeamMemberService;
 use App\Models\ProfitAndLoss;
 use App\Models\Request;
@@ -699,6 +700,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         if (file_exists($filePath)) {
                                             try {
                                                 $media = $record->addMedia($filePath)
+                                                    ->withCustomProperties([DocumentPathGenerator::PATH_VERSION_PROPERTY => DocumentPathGenerator::PATH_VERSION_V2])
                                                     ->toMediaCollection('buyer_po');
 
                                                 // Refresh the record to load new media

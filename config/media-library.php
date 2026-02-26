@@ -92,11 +92,15 @@ return [
 
     /*
      * Here you can specify which path generator should be used for the given class.
+     * DocumentPathGenerator stores files under storage/app/{folder}/{id}/uploaded_document_files/
      */
     'custom_path_generators' => [
-        // Model::class => PathGenerator::class
-        // or
-        // 'model_morph_alias' => PathGenerator::class
+        \App\Models\SupplierQuote::class => \App\Support\Media\DocumentPathGenerator::class,
+        \App\Models\BuyerQuote::class => \App\Support\Media\DocumentPathGenerator::class,
+        \App\Models\SupplierOrder::class => \App\Support\Media\DocumentPathGenerator::class,
+        \App\Models\Request::class => \App\Support\Media\DocumentPathGenerator::class,
+        \App\Models\QuotationEvaluation::class => \App\Support\Media\DocumentPathGenerator::class,
+        \App\Models\ProfitAndLoss::class => \App\Support\Media\DocumentPathGenerator::class,
     ],
 
     /*

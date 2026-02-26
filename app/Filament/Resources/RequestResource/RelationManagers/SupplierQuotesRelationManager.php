@@ -15,6 +15,7 @@ use App\Models\QuotationEvaluation;
 use App\Models\Request;
 use App\Models\SupplierQuote;
 use App\Models\TaxCode;
+use App\Support\Media\DocumentPathGenerator;
 use App\Models\UnitOfMeasure;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -769,7 +770,9 @@ final class SupplierQuotesRelationManager extends RelationManager
                                 if (is_string($file)) {
                                     $filePath = storage_path('app/'.ltrim($file, '/'));
                                     if (file_exists($filePath)) {
-                                        $record->addMedia($filePath)->toMediaCollection('quotation');
+                                        $record->addMedia($filePath)
+                                        ->withCustomProperties([DocumentPathGenerator::PATH_VERSION_PROPERTY => DocumentPathGenerator::PATH_VERSION_V2])
+                                        ->toMediaCollection('quotation');
                                         $added++;
                                     }
                                 }
