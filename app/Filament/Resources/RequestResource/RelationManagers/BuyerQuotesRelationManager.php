@@ -1144,9 +1144,11 @@ final class BuyerQuotesRelationManager extends RelationManager
                             $supplierQuoteItemId = $supplierQuoteItem->getKey();
                             $supplierName = $supplierQuoteItem->supplierQuote->supplier->name ?? null;
 
-                            // Calculate tax-related values
-                            $taxRate = $defaultTaxCode !== null ? (float) $defaultTaxCode->rate : 0.0;
-                            $addTax = $defaultTaxCode !== null && $defaultTaxCode->is_inclusive_default;
+                            // Main item tax: default tax code, or fallback to article's default (so detail items get same tax)
+                            $mainItemTaxCode = $defaultTaxCode ?? $requestItem->article?->defaultTaxCode;
+                            $taxRate = $mainItemTaxCode !== null ? (float) $mainItemTaxCode->rate : 0.0;
+                            $addTax = $mainItemTaxCode !== null && $mainItemTaxCode->is_inclusive_default;
+                            $mainItemTaxCodeId = $mainItemTaxCode?->getKey();
                             $quantity = (float) $requestItem->quantity;
 
                             // Calculate selling price with default margin on selling (NET price)
@@ -1186,51 +1188,61 @@ final class BuyerQuotesRelationManager extends RelationManager
                             $marginPercent = $unitPriceExcTax > 0 ? ($marginAmount / $unitPriceExcTax) * 100 : 0;
 
                             // Prepare child items if this is a Service request with child items
+                            // Always show all request item children in Detail Items; use supplier quote data when available
                             $childItems = [];
                             if ($request->isServiceRequest() && $requestItem->children()->exists()) {
-                                // Get child supplier quote items for this main item
-                                $childRequestItems = $requestItem->children()->get();
+                                $childRequestItems = $requestItem->children()->orderBy('sort_order')->get();
                                 foreach ($childRequestItems as $childRequestItem) {
-                                    // Find the corresponding supplier quote item for this child
                                     $childSupplierQuoteItem = \App\Models\SupplierQuoteItem::query()
                                         ->whereHas('supplierQuote', fn ($q) => $q->where('request_id', $request->getKey())
                                             ->where('status', SupplierQuoteStatus::SELECTED))
                                         ->where('request_item_id', $childRequestItem->getKey())
                                         ->first();
-                                    
-                                    if ($childSupplierQuoteItem !== null) {
-                                        $childCostPrice = (float) $childSupplierQuoteItem->unit_price_exc_tax;
-                                        $childQuantity = (float) $childRequestItem->quantity;
-                                        
-                                        // Calculate selling price with default margin
-                                        $childUnitPriceExcTax = $childCostPrice > 0 && $defaultMarginPercent < 100
-                                            ? round($childCostPrice / (1 - $defaultMarginPercent / 100), 0)
-                                            : 0.0;
-                                        $childUnitPrice = round($childUnitPriceExcTax, 0);
-                                        
-                                        // Calculate line totals
-                                        $childLineSubtotal = $childQuantity * $childUnitPriceExcTax;
-                                        $childLineTax = $taxRate > 0 && $addTax ? $childLineSubtotal * $taxRate / 100 : 0;
-                                        $childLineTotal = $addTax && $taxRate > 0 ? $childLineSubtotal + $childLineTax : $childLineSubtotal;
-                                        
-                                        $childItems[] = [
-                                            'request_item_id' => $childRequestItem->getKey(),
-                                            'description' => $childRequestItem->description,
-                                            'quantity' => (string) $childRequestItem->quantity,
-                                            'unit_of_measure_id' => $childRequestItem->unit_of_measure_id,
-                                            'cost_price' => (string) $childCostPrice,
-                                            'unit_price' => (string) $childUnitPrice,
-                                            'unit_price_exc_tax' => (string) round($childUnitPriceExcTax, 0),
-                                            'tax_code_id' => $defaultTaxCode?->getKey(),
-                                            'tax_rate' => (string) $taxRate,
-                                            'is_tax_inclusive' => $addTax,
-                                            'line_subtotal' => (string) round($childLineSubtotal, 4),
-                                            'line_tax' => (string) round($childLineTax, 4),
-                                            'line_total' => (string) round($childLineTotal, 0),
-                                            'supplier_quote_item_id' => $childSupplierQuoteItem->getKey(),
-                                            'hide_from_pdf' => false, // Default to false
-                                        ];
+
+                                    $childQuantity = (float) $childRequestItem->quantity;
+                                    // Use main item's margin for selling price: selling = cost / (1 - margin%/100)
+                                    $childCostPrice = $childSupplierQuoteItem !== null
+                                        ? (float) $childSupplierQuoteItem->unit_price_exc_tax
+                                        : 0.0;
+                                    $childSupplierQuoteItemId = $childSupplierQuoteItem?->getKey();
+
+                                    if ($childSupplierQuoteItem === null) {
+                                        // No SELECTED quote line for child: try any supplier quote for this request to get cost
+                                        $anyChildQuoteItem = \App\Models\SupplierQuoteItem::query()
+                                            ->whereHas('supplierQuote', fn ($q) => $q->where('request_id', $request->getKey()))
+                                            ->where('request_item_id', $childRequestItem->getKey())
+                                            ->first();
+                                        if ($anyChildQuoteItem !== null) {
+                                            $childCostPrice = (float) $anyChildQuoteItem->unit_price_exc_tax;
+                                            $childSupplierQuoteItemId = $anyChildQuoteItem->getKey();
+                                        }
                                     }
+
+                                    $childUnitPriceExcTax = $childCostPrice > 0 && $defaultMarginPercent < 100
+                                        ? round($childCostPrice / (1 - $defaultMarginPercent / 100), 0)
+                                        : 0.0;
+                                    $childUnitPrice = round($childUnitPriceExcTax, 0);
+                                    $childLineSubtotal = $childQuantity * $childUnitPriceExcTax;
+                                    $childLineTax = $taxRate > 0 && $addTax ? $childLineSubtotal * $taxRate / 100 : 0;
+                                    $childLineTotal = $addTax && $taxRate > 0 ? $childLineSubtotal + $childLineTax : $childLineSubtotal;
+
+                                    $childItems[] = [
+                                        'request_item_id' => $childRequestItem->getKey(),
+                                        'description' => $childRequestItem->description,
+                                        'quantity' => (string) $childRequestItem->quantity,
+                                        'unit_of_measure_id' => $childRequestItem->unit_of_measure_id,
+                                        'cost_price' => (string) $childCostPrice,
+                                        'unit_price' => (string) $childUnitPrice,
+                                        'unit_price_exc_tax' => (string) round($childUnitPriceExcTax, 0),
+                                        'tax_code_id' => $mainItemTaxCodeId,
+                                        'tax_rate' => (string) $taxRate,
+                                        'is_tax_inclusive' => $addTax,
+                                        'line_subtotal' => (string) round($childLineSubtotal, 4),
+                                        'line_tax' => (string) round($childLineTax, 4),
+                                        'line_total' => (string) round($childLineTotal, 0),
+                                        'supplier_quote_item_id' => $childSupplierQuoteItemId,
+                                        'hide_from_pdf' => false,
+                                    ];
                                 }
                             }
 
@@ -1246,7 +1258,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 'cost_price' => (string) $costPrice,
                                 'unit_price' => (string) $unitPrice,
                                 'unit_price_exc_tax' => (string) round($unitPriceExcTax, 0),
-                                'tax_code_id' => $defaultTaxCode?->getKey(),
+                                'tax_code_id' => $mainItemTaxCodeId,
                                 'tax_rate' => (string) $taxRate,
                                 'tax_amount' => (string) round($lineTax / max($quantity, 0.0001), 4),
                                 'is_tax_inclusive' => $addTax,

@@ -537,15 +537,19 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
 
     /**
      * Recalculate totals from items.
+     * For service requests, only main items are included (child/detail items are excluded from total).
      */
     public function recalculateTotals(): void
     {
-        // Refresh the items relationship to get fresh data
-        $this->load('items');
+        $this->load(['items.requestItem', 'request']);
 
-        $this->subtotal = (string) $this->items->sum('line_subtotal');
-        $this->tax_total = (string) $this->items->sum('line_tax');
-        $this->total = (string) $this->items->sum('line_total');
+        $itemsForTotal = $this->request?->isServiceRequest()
+            ? $this->items->filter(fn (BuyerQuoteItem $item): bool => $item->requestItem === null || $item->requestItem->parent_id === null)
+            : $this->items;
+
+        $this->subtotal = (string) $itemsForTotal->sum('line_subtotal');
+        $this->tax_total = (string) $itemsForTotal->sum('line_tax');
+        $this->total = (string) $itemsForTotal->sum('line_total');
         $this->saveQuietly();
     }
 

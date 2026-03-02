@@ -107,16 +107,6 @@
     @apply rounded-lg;
 }
 
-/* Hide clear/remove button on all Select components */
-.fi-select-input button[type="button"]:has(svg[class*="heroicon-x"]),
-.fi-select-input button[aria-label*="Clear"],
-.fi-select-input .fi-select-clear-button,
-.fi-fo-select button[type="button"]:has(svg[class*="heroicon-x"]),
-.fi-fo-select button[aria-label*="Clear"],
-.fi-fo-select .fi-select-clear-button {
-    @apply !hidden;
-}
-
 /* Tables */
 
 .fi-ta-ctn {
