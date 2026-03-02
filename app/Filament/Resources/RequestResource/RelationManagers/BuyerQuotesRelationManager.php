@@ -162,71 +162,92 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 ->maxValue(fn (Get $get): ?int => $get('prepayment_type') === PrepaymentType::PERCENT->value ? 100 : null)
                                 ->suffix(fn (Get $get): string => $get('prepayment_type') === PrepaymentType::PERCENT->value ? '%' : ''),
                         ]),
-                    Repeater::make('paymentTerms')
-                        ->relationship()
-                        ->visible(function (): bool {
-                            /** @var Request $request */
-                            $request = $this->getOwnerRecord();
-                            $buyer = $request->buyer;
-                            return $buyer?->credit_status ?? true;
-                        })
-                        ->rules([
-                            function (): Closure {
-                                return function (string $attribute, $value, Closure $fail) {
-                                    /** @var Request $request */
-                                    $request = $this->getOwnerRecord();
-                                    $buyer = $request->buyer;
-                                    
-                                    // Only validate if credit_status is enabled
-                                    if (!$buyer?->credit_status) {
-                                        return;
-                                    }
-                                    
-                                    // Calculate sum of all percentages and count payment terms
-                                    $totalPercentage = 0;
-                                    $paymentTermCount = 0;
-                                    if (is_array($value)) {
-                                        foreach ($value as $item) {
-                                            $percentage = (float) ($item['percentage'] ?? 0);
-                                            if ($percentage > 0) {
-                                                $totalPercentage += $percentage;
-                                                $paymentTermCount++;
+                        Repeater::make('paymentTerms')
+                            ->relationship()
+                            ->live()
+                            ->visible(function (): bool {
+                                /** @var Request $request */
+                                $request = $this->getOwnerRecord();
+                                $buyer = $request->buyer;
+                                return $buyer?->credit_status ?? true;
+                            })
+                            ->rules([
+                                function (): Closure {
+                                    return function (string $attribute, $value, Closure $fail) {
+                                        /** @var Request $request */
+                                        $request = $this->getOwnerRecord();
+                                        $buyer = $request->buyer;
+                                        
+                                        // Only validate if credit_status is enabled
+                                        if (!$buyer?->credit_status) {
+                                            return;
+                                        }
+                                        
+                                        // Calculate sum of all percentages and count payment terms
+                                        $totalPercentage = 0;
+                                        $paymentTermCount = 0;
+                                        if (is_array($value)) {
+                                            foreach ($value as $item) {
+                                                $percentage = (float) ($item['percentage'] ?? 0);
+                                                if ($percentage > 0) {
+                                                    $totalPercentage += $percentage;
+                                                    $paymentTermCount++;
+                                                }
                                             }
                                         }
-                                    }
-                                    
-                                    // Only validate if there are more than 1 payment term
-                                    if ($paymentTermCount > 1) {
-                                        // Validate sum equals 100
-                                        if (abs($totalPercentage - 100) > 0.01) { // Allow small floating point differences
-                                            $fail("The total payment terms percentage must equal 100%. Current total: " . number_format($totalPercentage, 2) . "%");
+                                        
+                                        // Only validate if there are more than 1 payment term
+                                        if ($paymentTermCount > 1) {
+                                            // Validate sum equals 100
+                                            if (abs($totalPercentage - 100) > 0.01) { // Allow small floating point differences
+                                                $fail("The total payment terms percentage must equal 100%. Current total: " . number_format($totalPercentage, 2) . "%");
+                                            }
                                         }
-                                    }
-                                };
-                            },
-                        ])
-                        ->schema([
-                            Grid::make(2)
-                                ->schema([
-                                    TextInput::make('due_days')
-                                        ->label('Due Days')
-                                        ->numeric()
-                                        ->required()
-                                        ->default(0)
-                                        ->minValue(0)
-                                        ->suffix('days'),
-                                    TextInput::make('percentage')
-                                        ->label('Percentage')
-                                        ->numeric()
-                                        ->required()
-                                        ->default(0)
-                                        ->minValue(0)
-                                        ->maxValue(100)
-                                        ->suffix('%'),
-                                ]),
-                        ])
-                        ->defaultItems(1)
-                        ->itemLabel(fn (array $state): ?string => isset($state['due_days'], $state['percentage']) ? "{$state['due_days']} days - {$state['percentage']}%" : null)
+                                    };
+                                },
+                            ])
+                            ->schema([
+                                Grid::make(3)
+                                    ->schema([
+                                        TextInput::make('due_days')
+                                            ->label('Due Days')
+                                            ->numeric()
+                                            ->required()
+                                            ->default(0)
+                                            ->minValue(0)
+                                            ->suffix('days')
+                                            ->live(),
+                                        TextInput::make('percentage')
+                                            ->label('Percentage')
+                                            ->numeric()
+                                            ->required()
+                                            ->default(0)
+                                            ->minValue(0)
+                                            ->maxValue(100)
+                                            ->suffix('%')
+                                            ->live(),
+                                        TextInput::make('job_progress')
+                                            ->label('Job Progress (%)')
+                                            ->numeric()
+                                            ->default(null)
+                                            ->minValue(0)
+                                            ->maxValue(100)
+                                            ->suffix('%')
+                                            ->visible(fn (): bool => $this->getOwnerRecord()->isServiceRequest())
+                                            ->live(),
+                                    ]),
+                            ])
+                            ->defaultItems(1)
+                            ->itemLabel(function (array $state): ?string {
+                                if (! isset($state['due_days'], $state['percentage'])) {
+                                    return null;
+                                }
+                                $label = "{$state['due_days']} days - {$state['percentage']}%";
+                                if ($this->getOwnerRecord()->isServiceRequest() && isset($state['job_progress']) && $state['job_progress'] !== '' && $state['job_progress'] !== null) {
+                                    $label .= " - {$state['job_progress']}%";
+                                }
+                                return $label;
+                            })
                         ->addActionLabel('Add Payment Terms')
                         ->reorderableWithButtons()
                         ->collapsible(),

@@ -39,6 +39,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Flex;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\HtmlString;
@@ -178,47 +179,47 @@ final class ViewRequest extends ViewRecord
     {
         return $schema->schema([
             // Request Header Section
-            Section::make()
-                ->schema([
-                    Grid::make(4)
-                        ->schema([
-                            TextEntry::make('request_number')
-                                ->label('')
-                                ->weight('bold')
-                                ->size('lg')
-                                ->copyable()
-                                ->columnSpan(1),
-                            TextEntry::make('title')
-                                ->label('')
-                                ->weight('bold')
-                                ->size('lg')
-                                ->columnSpan(3),
-                        ]),
-                    Grid::make(5)
-                        ->schema([
-                            TextEntry::make('priority')
-                                ->badge(),
-                            TextEntry::make('buyer.name')
-                                ->label('Buyer')
-                                ->icon('heroicon-o-user-group')
-                                ->color('primary')
-                                ->url(fn (Request $record): ?string => $record->buyer ? BuyerResource::getUrl('index') : null),
-                            TextEntry::make('project.name')
-                                ->label('Project')
-                                ->icon('heroicon-o-folder')
-                                ->color('primary')
-                                ->placeholder('-')
-                                ->url(fn (Request $record): ?string => $record->project ? ProjectResource::getUrl('index') : null),
-                            TextEntry::make('created_at')
-                                ->label('Created')
-                                ->dateTime(),
-                            TextEntry::make('updated_at')
-                                ->label('Last Updated')
-                                ->since(),
-                        ]),
-                ])
-                ->columnSpanFull(),
-
+            Flex::make([
+                Section::make()
+                    ->schema([
+                        TextEntry::make('request_number')
+                            ->label('')
+                            ->weight('bold')
+                            ->size('md')
+                            ->copyable(),
+                        TextEntry::make('title')
+                            ->label('')
+                            ->weight('bold')
+                            ->size('md'),
+                        TextEntry::make('request_type')
+                            ->label('Request type')
+                            ->badge(),
+                        TextEntry::make('project.name')
+                            ->label('Project')
+                            ->icon('heroicon-o-folder')
+                            ->color('primary')
+                            ->placeholder('-')
+                            ->url(fn (Request $record): ?string => $record->project ? ProjectResource::getUrl('index') : null),
+                    ])
+                    ->columns(3),
+                Section::make()
+                    ->schema([
+                        TextEntry::make('priority')
+                            ->badge(),
+                        TextEntry::make('created_at')
+                            ->label('Created')
+                            ->dateTime(),
+                        TextEntry::make('buyer.name')
+                            ->label('Buyer')
+                            ->icon('heroicon-o-user-group')
+                            ->color('primary')
+                            ->url(fn (Request $record): ?string => $record->buyer ? BuyerResource::getUrl('index') : null),
+                        TextEntry::make('updated_at')
+                            ->label('Last Updated')
+                            ->since(),
+                    ])
+                    ->columns(2),
+            ])->columnSpan('full'),
             // Internal Notes
             Section::make('Internal Notes')
                 ->icon('heroicon-o-document-text')

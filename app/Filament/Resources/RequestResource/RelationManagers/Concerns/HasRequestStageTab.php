@@ -42,15 +42,16 @@ trait HasRequestStageTab
         $request = $this->getOwnerRecord();
         $stage = static::getAssociatedStage();
 
-        // Check if QE is approved for tabs after Supplier Quotes
+        // Check if QE is approved for tabs after Supplier Quotes (or has obtained+selected quote)
         // Supplier Quotes is AWAITING_SUPPLIER_RESPONSE, so require approval for tabs from PREPARING_BUYER_QUOTE onwards
         $requiresQEApproval = $stage->getOrder() > RequestStage::AWAITING_SUPPLIER_RESPONSE->getOrder();
         
         if ($requiresQEApproval) {
             $latestQE = $request->quotationEvaluations()->latest()->first();
             $isQEApproved = $latestQE !== null && $latestQE->status === QEStatus::APPROVED;
+            $hasObtainedSelected = $request->hasObtainedSelectedSupplierQuote();
             
-            if (! $isQEApproved) {
+            if (! $isQEApproved && ! $hasObtainedSelected) {
                 Notification::make()
                     ->title('Access Restricted')
                     ->body('Quotation Evaluation must be approved before accessing this section.')
@@ -121,14 +122,16 @@ trait HasRequestStageTab
         $isCurrentStage = $currentStage === $stage;
         $isCompleted = $currentStage->getOrder() > $stage->getOrder();
 
-        // Check if QE is approved for tabs after Supplier Quotes
+        // Check if QE is approved for tabs after Supplier Quotes (or has obtained+selected quote)
         // Supplier Quotes is AWAITING_SUPPLIER_RESPONSE, so disable tabs from PREPARING_BUYER_QUOTE onwards
         $requiresQEApproval = $stage->getOrder() > RequestStage::AWAITING_SUPPLIER_RESPONSE->getOrder();
         $isQEApproved = false;
+        $hasObtainedSelected = false;
         
         if ($requiresQEApproval) {
             $latestQE = $ownerRecord->quotationEvaluations()->latest()->first();
             $isQEApproved = $latestQE !== null && $latestQE->status === QEStatus::APPROVED;
+            $hasObtainedSelected = $ownerRecord->hasObtainedSelectedSupplierQuote();
         }
 
         // Check if PNL is approved for tabs from Buyer Orders to Completion Report
@@ -146,8 +149,8 @@ trait HasRequestStageTab
         $tab = Tab::make(static::getBaseTabTitle())
             ->icon(static::$icon ?? null);
 
-        // Disable tab if QE approval is required but not approved
-        if ($requiresQEApproval && ! $isQEApproved) {
+        // Disable tab if QE approval is required but not approved (and no obtained+selected quote)
+        if ($requiresQEApproval && ! $isQEApproved && ! $hasObtainedSelected) {
             $tab->disabled()
                 ->badgeColor('gray')
                 ->badgeTooltip('Quotation Evaluation must be approved first')

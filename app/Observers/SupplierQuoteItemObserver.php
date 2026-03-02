@@ -161,7 +161,9 @@ final readonly class SupplierQuoteItemObserver
             // Reload to get fresh totals
             $quote->refresh();
             if ($quote->status === SupplierQuoteStatus::PENDING && (float) $quote->total > 0) {
-                $quote->status = SupplierQuoteStatus::RECEIVED;
+                $quote->status = $quote->obtained
+                    ? SupplierQuoteStatus::SELECTED
+                    : SupplierQuoteStatus::RECEIVED;
                 $quote->saveQuietly();
             }
         }

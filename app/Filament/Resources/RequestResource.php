@@ -120,6 +120,7 @@ final class RequestResource extends Resource
             ->options(RequestType::class)
             ->default(RequestType::GOODS)
             ->required()
+            ->disablePlaceholderSelection()
             ->native(false)
             ->live();
         $requestDetailsSchema[] = Select::make('priority')

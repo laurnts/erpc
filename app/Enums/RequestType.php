@@ -11,13 +11,13 @@ use Filament\Support\Contracts\HasLabel;
 enum RequestType: string implements HasColor, HasIcon, HasLabel
 {
     case GOODS = 'goods';
-    case SERVICE = 'service';
+    case SERVICE = 'services';
 
     public function getLabel(): string
     {
         return match ($this) {
             self::GOODS => 'Goods',
-            self::SERVICE => 'Service',
+            self::SERVICE => 'Services',
         };
     }
 
