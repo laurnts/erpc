@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\RequestResource\RelationManagers;
 
 use App\Enums\RequestStage;
+use App\Enums\RequestType;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Mail\Erp\QuoteToSupplierMail;
 use App\Models\Article;
@@ -21,6 +22,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -41,6 +43,13 @@ final class ItemsRelationManager extends RelationManager
     use HasRequestStageTab;
 
     protected static string $relationship = 'items';
+
+    /**
+     * Temporary storage for children data during edit operations.
+     *
+     * @var array<int, array<string, mixed>>|null
+     */
+    protected ?array $storedChildrenData = null;
 
     protected static ?string $title = 'Requested Items';
 
@@ -131,6 +140,7 @@ final class ItemsRelationManager extends RelationManager
                     ->searchable()
                     ->selectablePlaceholder(false)
                     ->placeholder('Select article...')
+                    ->searchable()
                     ->helperText('Quotes will be sent to all suppliers of this article. Use + to create a new article.')
                     ->createOptionForm(\App\Filament\Resources\ArticleResource::getFormSchema(forModal: true))
                     ->createOptionUsing(function (array $data) use ($request): int {
@@ -165,6 +175,48 @@ final class ItemsRelationManager extends RelationManager
                     ->live(),
                 Hidden::make('is_matched')
                     ->default(false),
+                Hidden::make('parent_id')
+                    ->default(null),
+                // Child items section for Service requests
+                Repeater::make('children')
+                    ->label('Detail Items')
+                    ->schema([
+                        TextInput::make('description')
+                            ->required()
+                            ->maxLength(255)
+                            ->columnSpanFull()
+                            ->helperText('Detail description of the child item'),
+                        TextInput::make('quantity')
+                            ->required()
+                            ->numeric(),
+                        Select::make('unit_of_measure_id')
+                            ->label('Unit of Measure')
+                            ->options(
+                                fn (): array => UnitOfMeasure::query()
+                                    ->where('team_id', $request->team_id)
+                                    ->where('is_active', true)
+                                    ->orderBy('sort_order')
+                                    ->orderBy('label')
+                                    ->get()
+                                    ->mapWithKeys(fn (UnitOfMeasure $unit): array => [
+                                        $unit->getKey() => $unit->label,
+                                    ])
+                                    ->toArray())
+                            ->preload()
+                            ->required()
+                            ->default(fn (): ?int => UnitOfMeasure::query()
+                                ->where('team_id', $request->team_id)
+                                ->where('code', 'pcs')
+                                ->where('is_active', true)
+                                ->value('id')),
+                    ])
+                    ->columns(2)
+                    ->columnSpanFull()
+                    ->visible(fn ($get, $record): bool => $request->isServiceRequest() && ($get('article_id') !== null || ($record && $record->article_id !== null)))
+                    ->helperText('Add child items to provide detail breakdown of the service (only for Service requests)')
+                    ->defaultItems(0)
+                    ->collapsible()
+                    ->dehydrated(true), // Ensure Repeater data is included in form submission
                 Textarea::make('notes')
                     ->rows(2)
                     ->columnSpanFull(),
@@ -177,27 +229,33 @@ final class ItemsRelationManager extends RelationManager
         $request = $this->getOwnerRecord();
         $canEdit = $request->canEditItems();
 
-        $matchedCount = $request->items()->where('is_matched', true)->count();
-        $totalCount = $request->items()->count();
-        $allMatched = $matchedCount === $totalCount;
+        // Only count main items, not child items
+        // A matched item must have both is_matched = true AND article_id is not null
+        $matchedCount = $request->items()
+            ->whereNull('parent_id')
+            ->where('is_matched', true)
+            ->whereNotNull('article_id')
+            ->count();
+        $totalCount = $request->items()->whereNull('parent_id')->count();
+        $allMatched = $matchedCount === $totalCount && $totalCount > 0;
 
         return $table
             ->recordTitleAttribute('description')
-            ->description(function () use ($allMatched, $totalCount, $matchedCount): ?string {
-                if ($allMatched || $totalCount === 0) {
+            ->description(function () use ($totalCount, $matchedCount): ?string {
+                if ($totalCount === 0) {
                     return null;
                 }
 
                 return "Status: {$matchedCount}/{$totalCount} items matched to articles";
             })
-            ->modifyQueryUsing(fn ($query) => $query->with(['article', 'supplierQuoteItems.supplierQuote'])->withCount('supplierQuoteItems'))
+            ->modifyQueryUsing(fn ($query) => $query->whereNull('parent_id')->with(['article', 'children', 'supplierQuoteItems.supplierQuote'])->withCount('supplierQuoteItems'))
             ->reorderable('sort_order')
             ->defaultSort('sort_order')
             ->columns([
                 TextColumn::make('description')
                     
                     ->limit(50)
-                    ->tooltip(fn (RequestItem $record): ?string => $record->description),
+                    ->tooltip(fn (?RequestItem $record): ?string => $record?->description),
                 TextColumn::make('article.code')
                     ->label('Article')
                     ->placeholder('Not matched')
@@ -291,7 +349,36 @@ final class ItemsRelationManager extends RelationManager
                 CreateAction::make()
                     ->icon('heroicon-o-plus')
                     ->size(Size::Small)
-                    ->visible($canEdit),
+                    ->visible($canEdit)
+                    ->using(function (array $data) use ($request): RequestItem {
+                        // Store children data before removing it
+                        $childrenData = $data['children'] ?? [];
+                        unset($data['children']);
+
+                        // Ensure request_id is set
+                        $data['request_id'] = $request->id;
+
+                        // Create the main item
+                        $record = RequestItem::create($data);
+
+                        // Handle child items for Service requests
+                        if ($request->isServiceRequest() && ! empty($childrenData)) {
+                            $sortOrder = 0;
+                            foreach ($childrenData as $childData) {
+                                RequestItem::create([
+                                    'request_id' => $request->id,
+                                    'parent_id' => $record->id,
+                                    'description' => $childData['description'],
+                                    'quantity' => $childData['quantity'],
+                                    'unit_of_measure_id' => $childData['unit_of_measure_id'],
+                                    'sort_order' => $sortOrder++,
+                                    'is_matched' => false, // Child items don't need article matching
+                                ]);
+                            }
+                        }
+
+                        return $record;
+                    }),
                 Action::make('sendRequestToAllSuppliers')
                     ->label(fn (): string => count($this->getSelectedTableRecords()) > 0
                         ? 'Send Selected to Suppliers'
@@ -316,7 +403,12 @@ final class ItemsRelationManager extends RelationManager
                                 ->with('article.suppliers')
                                 ->get();
                         } else {
-                            $matchedItems = $request->items()->whereNotNull('article_id')->with('article.suppliers')->get();
+                            // For Service requests, only get main items (not child items)
+                            $query = $request->items()->whereNotNull('article_id');
+                            if ($request->isServiceRequest()) {
+                                $query->whereNull('parent_id'); // Only main items
+                            }
+                            $matchedItems = $query->with('article.suppliers')->get();
                         }
 
                         if ($matchedItems->isEmpty()) {
@@ -352,10 +444,12 @@ final class ItemsRelationManager extends RelationManager
                                 ->with('article.suppliers')
                                 ->get();
                         } else {
-                            $matchedItems = $request->items()
-                                ->whereNotNull('article_id')
-                                ->with('article.suppliers')
-                                ->get();
+                            // For Service requests, only get main items (not child items)
+                            $query = $request->items()->whereNotNull('article_id');
+                            if ($request->isServiceRequest()) {
+                                $query->whereNull('parent_id'); // Only main items
+                            }
+                            $matchedItems = $query->with('article.suppliers')->get();
                         }
 
                         if ($matchedItems->isEmpty()) {
@@ -615,6 +709,74 @@ final class ItemsRelationManager extends RelationManager
                     ->label('')
                     ->icon('')
                     ->size(Size::Small)
+                    ->visible(fn (RequestItem $record): bool => $record->isMainItem())
+                    ->fillForm(function (RequestItem $record) use ($request): array {
+                        // Load existing children for editing
+                        $data = $record->toArray();
+                        if ($request->isServiceRequest() && $record->isMainItem()) {
+                            $data['children'] = $record->children()->get()->map(function (RequestItem $child): array {
+                                return [
+                                    'description' => $child->description,
+                                    'quantity' => $child->quantity,
+                                    'unit_of_measure_id' => $child->unit_of_measure_id,
+                                ];
+                            })->toArray();
+                        } else {
+                            $data['children'] = [];
+                        }
+
+                        return $data;
+                    })
+                    ->using(function (array $data, RequestItem $record) use ($request): RequestItem {
+                        // Get children data before removing it
+                        $childrenData = $data['children'] ?? [];
+                        
+                        // Also try to get from livewire form state as fallback
+                        if (empty($childrenData)) {
+                            try {
+                                $livewire = $this->getLivewire();
+                                if (method_exists($livewire, 'form')) {
+                                    $formState = $livewire->form->getState();
+                                    $childrenData = $formState['children'] ?? [];
+                                }
+                            } catch (\Exception $e) {
+                                // Ignore
+                            }
+                        }
+                        
+                        // Remove children from data before updating (it's not a model field)
+                        unset($data['children']);
+
+                        // Update the record
+                        $record->update($data);
+
+                        // Handle child items for Service requests
+                        if ($request->isServiceRequest() && $record->isMainItem()) {
+                            // Delete existing children
+                            $record->children()->delete();
+
+                            // Create new children
+                            if (! empty($childrenData) && is_array($childrenData)) {
+                                $sortOrder = 0;
+                                foreach ($childrenData as $childData) {
+                                    // Validate child data structure
+                                    if (is_array($childData) && isset($childData['description']) && ! empty($childData['description'])) {
+                                        RequestItem::create([
+                                            'request_id' => $request->id,
+                                            'parent_id' => $record->id,
+                                            'description' => $childData['description'],
+                                            'quantity' => $childData['quantity'] ?? 1,
+                                            'unit_of_measure_id' => $childData['unit_of_measure_id'] ?? null,
+                                            'sort_order' => $sortOrder++,
+                                            'is_matched' => false,
+                                        ]);
+                                    }
+                                }
+                            }
+                        }
+
+                        return $record;
+                    })
                     ->extraModalFooterActions(fn (): array => $canEdit ? [
                         DeleteAction::make(),
                     ] : []),

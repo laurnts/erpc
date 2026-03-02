@@ -100,6 +100,14 @@ final readonly class GenerateSupplierQuotesForRequest
         $sortOrder = 0;
         foreach ($items as $item) {
             $this->createQuoteItem($quote, $item, $supplierId, $sortOrder++);
+            
+            // For Service requests, also create child items
+            if ($request->isServiceRequest() && $item->isMainItem() && $item->children()->count() > 0) {
+                $childItems = $item->children()->orderBy('sort_order')->get();
+                foreach ($childItems as $childItem) {
+                    $this->createChildQuoteItem($quote, $childItem, $item, $supplierId, $sortOrder++);
+                }
+            }
         }
 
         return $quote;
@@ -159,6 +167,36 @@ final readonly class GenerateSupplierQuotesForRequest
             'is_tax_inclusive' => false,
             'sort_order' => $sortOrder,
             'notes' => $item->notes,
+        ]);
+    }
+
+    /**
+     * Create a quote item from a child request item.
+     */
+    private function createChildQuoteItem(
+        SupplierQuote $quote,
+        RequestItem $childItem,
+        RequestItem $parentItem,
+        int $supplierId,
+        int $sortOrder
+    ): SupplierQuoteItem {
+        // Child items don't have articles, so use the parent's article tax code
+        $taxCode = $parentItem->article?->defaultTaxCode;
+        $taxRate = $taxCode !== null ? (string) $taxCode->rate : '0.0000';
+
+        return SupplierQuoteItem::create([
+            'supplier_quote_id' => $quote->getKey(),
+            'request_item_id' => $childItem->getKey(),
+            'article_id' => null, // Child items don't have articles
+            'description' => $childItem->description,
+            'quantity' => $childItem->quantity,
+            'unit' => $childItem->unit ?? 'pcs',
+            'unit_price' => '0.0000', // Child items start with 0 price
+            'tax_code_id' => $taxCode?->getKey(),
+            'tax_rate' => $taxRate,
+            'is_tax_inclusive' => $taxCode?->is_inclusive_default ?? false,
+            'sort_order' => $sortOrder,
+            'notes' => $childItem->notes,
         ]);
     }
 }

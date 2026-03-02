@@ -13,6 +13,7 @@ use App\Filament\Resources\ProfitAndLossResource;
 use App\Filament\Resources\ProjectResource;
 use App\Filament\Resources\QuotationEvaluationResource;
 use App\Filament\Resources\RequestResource;
+use App\Filament\Resources\RequestResource\RelationManagers\AcceptanceReportsRelationManager;
 use App\Filament\Resources\SupplierOrderResource;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerOrdersRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerQuotesRelationManager;
@@ -61,6 +62,7 @@ final class ViewRequest extends ViewRecord
         'buyerOrders' => 5,
         'shipments' => 6,
         'completionReports' => 7,
+        'acceptanceReports' => 8,
     ];
 
     public function getMaxWidth(): \Filament\Support\Enums\Width
@@ -290,7 +292,7 @@ final class ViewRequest extends ViewRecord
             // Approvals Information Section
             Section::make('Approvals Information')
                 ->icon('heroicon-o-check-badge')
-                ->visible(fn (Request $record): bool => 
+                ->visible(fn (Request $record): bool =>
                     $record->quotationEvaluations()->exists() ||
                     $record->profitAndLosses()->exists() ||
                     $record->supplierOrders()->exists()
@@ -347,6 +349,7 @@ final class ViewRequest extends ViewRecord
             BuyerOrdersRelationManager::class,
             ShipmentsRelationManager::class,
             CompletionReportsRelationManager::class,
+            AcceptanceReportsRelationManager::class,
         ];
     }
 

@@ -228,6 +228,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                         Select::make('request_item_id')
                                             ->label('Request Item')
                                             ->options(fn (): array => $request->items()
+                                                ->whereNull('parent_id') // Only show main items, not child items
                                                 ->get()
                                                 ->mapWithKeys(fn ($item): array => [
                                                     $item->getKey() => $item->display_text,

@@ -358,7 +358,7 @@ final class QuotationEvaluation extends Model implements HasMedia
     public function approvalCount(): int
     {
         $count = 0;
-        
+
         if ($this->dept_head_sales_id !== null && $this->dept_head_sales_approved_at !== null) {
             $count++;
         }
@@ -368,7 +368,7 @@ final class QuotationEvaluation extends Model implements HasMedia
         if ($this->approved_by_id !== null && $this->director_approved_at !== null) {
             $count++;
         }
-        
+
         return $count;
     }
 
@@ -378,7 +378,7 @@ final class QuotationEvaluation extends Model implements HasMedia
     public function totalApproversCount(): int
     {
         $count = 0;
-        
+
         if ($this->dept_head_sales_id !== null) {
             $count++;
         }
@@ -388,7 +388,7 @@ final class QuotationEvaluation extends Model implements HasMedia
         if ($this->approved_by_id !== null) {
             $count++;
         }
-        
+
         return $count;
     }
 
@@ -400,7 +400,7 @@ final class QuotationEvaluation extends Model implements HasMedia
     public function getApprovers(): Collection
     {
         $approvers = collect();
-        
+
         if ($this->dept_head_sales_id !== null && $this->dept_head_sales_approved_at !== null && $this->deptHeadSales) {
             $approvers->push($this->deptHeadSales);
         }
@@ -410,7 +410,7 @@ final class QuotationEvaluation extends Model implements HasMedia
         if ($this->approved_by_id !== null && $this->director_approved_at !== null && $this->approvedBy) {
             $approvers->push($this->approvedBy);
         }
-        
+
         return $approvers;
     }
 

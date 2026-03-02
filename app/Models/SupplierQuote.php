@@ -246,10 +246,21 @@ final class SupplierQuote extends Model implements HasMedia
 
     /**
      * Recalculate totals from items.
+     * Only counts main items, not child items (for Service requests).
      */
     public function recalculateTotals(): void
     {
-        $items = $this->items()->get();
+        // Get only main items (exclude child items)
+        // Child items are identified by having a request_item_id that points to a child request item
+        $items = $this->items()
+            ->where(function ($query) {
+                $query->whereHas('requestItem', function ($q) {
+                    // Only include items where the request_item has no parent (main items)
+                    $q->whereNull('parent_id');
+                })
+                ->orWhereNull('request_item_id'); // Include items without request_item_id (fallback)
+            })
+            ->get();
 
         $subtotal = $items->sum(fn (SupplierQuoteItem $item): float => (float) $item->line_subtotal);
         $taxTotal = $items->sum(fn (SupplierQuoteItem $item): float => (float) $item->line_tax);
