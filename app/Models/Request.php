@@ -681,4 +681,16 @@ final class Request extends Model implements HasCustomFields, HasMedia
     {
         return $this->isGoodsRequest();
     }
+
+    /**
+     * Check if the request has at least one supplier quote that is obtained and selected.
+     * When true, user can proceed to Buyer Quotes without QE approval.
+     */
+    public function hasObtainedSelectedSupplierQuote(): bool
+    {
+        return $this->supplierQuotes()
+            ->where('obtained', true)
+            ->where('status', SupplierQuoteStatus::SELECTED)
+            ->exists();
+    }
 }

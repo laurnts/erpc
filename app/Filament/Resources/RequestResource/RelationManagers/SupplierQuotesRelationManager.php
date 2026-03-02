@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\RequestResource\RelationManagers;
 
+use App\Enums\PrepaymentType;
 use App\Enums\QEStatus;
 use App\Enums\RequestStage;
 use App\Enums\SupplierQuoteStatus;
@@ -267,10 +268,86 @@ final class SupplierQuotesRelationManager extends RelationManager
                                     ->required()
                                     ->selectablePlaceholder(false),
                             ]),
-                        DatePicker::make('valid_until')
-                            ->label('Valid Until')
-                            ->helperText('Leave empty for default validity period'),
+                        Grid::make(2)
+                            ->schema([
+                                DatePicker::make('valid_until')
+                                    ->label('Valid Until')
+                                    ->helperText('Leave empty for default validity period'),
+                                Checkbox::make('obtained')
+                                    ->label('Obtained')
+                                    ->helperText('When checked, saving with item prices will set status to Selected and allow proceeding to Buyer Quotes without QE.'),
+                            ]),
                     ]),
+
+                Section::make('Payment Terms')
+                    ->schema([
+                        Grid::make(2)
+                            ->schema([
+                                Select::make('prepayment_type')
+                                    ->label('Prepayment Type')
+                                    ->options(PrepaymentType::class)
+                                    ->default(PrepaymentType::PERCENT)
+                                    ->selectablePlaceholder(false)
+                                    ->live()
+                                    ->afterStateUpdated(fn (Set $set): mixed => $set('prepayment_amount', 0)),
+                                TextInput::make('prepayment_amount')
+                                    ->label('Prepayment')
+                                    ->numeric()
+                                    ->default(0)
+                                    ->minValue(0)
+                                    ->maxValue(fn (Get $get): ?int => $get('prepayment_type') === PrepaymentType::PERCENT->value ? 100 : null)
+                                    ->suffix(fn (Get $get): string => $get('prepayment_type') === PrepaymentType::PERCENT->value ? '%' : ''),
+                            ]),
+                        Repeater::make('paymentTerms')
+                            ->relationship()
+                            ->live()
+                            ->schema([
+                                Grid::make(3)
+                                    ->schema([
+                                        TextInput::make('due_days')
+                                            ->label('Due Days')
+                                            ->numeric()
+                                            ->required()
+                                            ->default(0)
+                                            ->minValue(0)
+                                            ->suffix('days')
+                                            ->live(),
+                                        TextInput::make('percentage')
+                                            ->label('Percentage')
+                                            ->numeric()
+                                            ->required()
+                                            ->default(0)
+                                            ->minValue(0)
+                                            ->maxValue(100)
+                                            ->suffix('%')
+                                            ->live(),
+                                        TextInput::make('job_progress')
+                                            ->label('Job Progress (%)')
+                                            ->numeric()
+                                            ->default(null)
+                                            ->minValue(0)
+                                            ->maxValue(100)
+                                            ->suffix('%')
+                                            ->visible(fn (): bool => $this->getOwnerRecord()->isServiceRequest())
+                                            ->live(),
+                                    ]),
+                            ])
+                            ->defaultItems(1)
+                            ->itemLabel(function (array $state): ?string {
+                                if (! isset($state['due_days'], $state['percentage'])) {
+                                    return null;
+                                }
+                                $label = "{$state['due_days']} days - {$state['percentage']}%";
+                                if ($this->getOwnerRecord()->isServiceRequest() && isset($state['job_progress']) && $state['job_progress'] !== '' && $state['job_progress'] !== null) {
+                                    $label .= " - {$state['job_progress']}%";
+                                }
+                                return $label;
+                            })
+                            ->addActionLabel('Add Payment Terms')
+                            ->reorderableWithButtons()
+                            ->collapsible(),
+                    ])
+                    ->collapsible(),
 
                 Section::make('Line Items')
                     ->schema([
@@ -1112,6 +1189,11 @@ final class SupplierQuotesRelationManager extends RelationManager
                             return false;
                         }
 
+                        // When user has obtained+selected quote, they can skip QE and go to Buyer Quotes
+                        if ($request->hasObtainedSelectedSupplierQuote()) {
+                            return false;
+                        }
+
                         // Check if there are supplier quotes with prices entered
                         // Similar to Compare Quotes button - need quotes with RECEIVED or SELECTED status
                         $quotesWithPrices = $request->supplierQuotes()
@@ -1145,7 +1227,7 @@ final class SupplierQuotesRelationManager extends RelationManager
             ->recordActions([
                 ActionGroup::make([
                     EditAction::make()
-                        ->label('Input Supplier Response')
+                        ->label('Edit')
                         ->icon('heroicon-o-pencil-square')
                         ->size(Size::Small)
                         ->visible(function (?SupplierQuote $record): bool {
@@ -1153,8 +1235,12 @@ final class SupplierQuotesRelationManager extends RelationManager
                                 return false;
                             }
                             $record->load('media');
+                            // Only show when document is uploaded and quote is in sync with request items (no additional items)
+                            if ($record->getMedia('quotation')->isEmpty()) {
+                                return false;
+                            }
 
-                            return $record->getMedia('quotation')->isNotEmpty();
+                            return ! $record->hasAdditionalRequestItems();
                         })
                         ->mutateFormDataUsing(function (array $data, SupplierQuote $record): array {
                             $request = $record->request;
@@ -1274,7 +1360,9 @@ final class SupplierQuotesRelationManager extends RelationManager
                                 $hasPrices = $record->items()->where('unit_price', '>', 0)->exists();
                             }
                             if ($hasPrices && ($data['status'] ?? null) === SupplierQuoteStatus::PENDING->value) {
-                                $data['status'] = SupplierQuoteStatus::RECEIVED->value;
+                                $data['status'] = ($data['obtained'] ?? false)
+                                    ? SupplierQuoteStatus::SELECTED->value
+                                    : SupplierQuoteStatus::RECEIVED->value;
                             }
 
                             return $data;
@@ -1391,12 +1479,14 @@ final class SupplierQuotesRelationManager extends RelationManager
 
                             $this->storedChildItemsData = null;
 
-                            // Update quote status to RECEIVED when prices are present
+                            // Update quote status when prices are present: SELECTED if obtained, otherwise RECEIVED
                             $record->refresh();
                             $hasPrices = $record->items()->where('unit_price', '>', 0)->exists();
                             $total = (float) $record->total;
                             if ($record->status === SupplierQuoteStatus::PENDING && ($hasPrices || $total > 0)) {
-                                $record->status = SupplierQuoteStatus::RECEIVED;
+                                $record->status = $record->obtained
+                                    ? SupplierQuoteStatus::SELECTED
+                                    : SupplierQuoteStatus::RECEIVED;
                                 $record->save();
                             }
                         })
@@ -1471,11 +1561,18 @@ final class SupplierQuotesRelationManager extends RelationManager
                     Action::make('quotation')
                         ->label(function (SupplierQuote $record): string {
                             $record->load('media');
+                            // When request has additional items, always show Upload so user must re-upload before inputting prices
+                            if ($record->hasAdditionalRequestItems()) {
+                                return 'Upload quotation';
+                            }
 
                             return $record->getMedia('quotation')->isNotEmpty() ? 'View quotation' : 'Upload quotation';
                         })
                         ->icon(function (SupplierQuote $record): string {
                             $record->load('media');
+                            if ($record->hasAdditionalRequestItems()) {
+                                return 'heroicon-o-document-arrow-up';
+                            }
 
                             return $record->getMedia('quotation')->isNotEmpty() ? 'heroicon-o-eye' : 'heroicon-o-document-arrow-up';
                         })
@@ -1484,18 +1581,37 @@ final class SupplierQuotesRelationManager extends RelationManager
                         ->slideOver()
                         ->form(function (SupplierQuote $record): array {
                             $record->load('media');
+                            // When request has additional items, always show upload form so user must re-upload
+                            if ($record->hasAdditionalRequestItems()) {
+                                return $this->getQuotationUploadFormSchema($record);
+                            }
 
                             return $record->getMedia('quotation')->isNotEmpty()
                                 ? $this->getQuotationViewFormSchema($record)
                                 : $this->getQuotationUploadFormSchema($record);
                         })
-                        ->modalSubmitAction(fn (Action $action): Action|false => $this->getMountedAction()?->getRecord()?->getMedia('quotation')->isEmpty() ? $action : false)
+                        ->modalSubmitAction(function (Action $action): Action|false {
+                            $record = $this->getMountedAction()?->getRecord();
+                            if ($record === null) {
+                                return false;
+                            }
+                            // Show Upload button when no document yet, or when request has additional items (must re-upload)
+                            if ($record->getMedia('quotation')->isEmpty() || $record->hasAdditionalRequestItems()) {
+                                return $action;
+                            }
+
+                            return false;
+                        })
                         ->modalSubmitActionLabel('Upload')
                         ->modalCancelActionLabel('Close')
                         ->action(function (SupplierQuote $record, array $data): void {
                             $record->load('media');
-                            if ($record->getMedia('quotation')->isNotEmpty()) {
+                            $isReupload = $record->hasAdditionalRequestItems() && $record->getMedia('quotation')->isNotEmpty();
+                            if (! $isReupload && $record->getMedia('quotation')->isNotEmpty()) {
                                 return;
+                            }
+                            if ($isReupload) {
+                                $record->clearMediaCollection('quotation');
                             }
                             $files = $data['quotation_file'] ?? null;
                             $paths = is_array($files) ? $files : ($files !== null ? [$files] : []);

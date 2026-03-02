@@ -52,22 +52,24 @@ final readonly class SupplierQuoteObserver
      */
     public function updating(SupplierQuote $supplierQuote): void
     {
-        // Auto-change status from PENDING to RECEIVED when prices are inputted
+        // Auto-change status when prices are inputted: SELECTED if obtained, otherwise RECEIVED
         if ($supplierQuote->status === SupplierQuoteStatus::PENDING) {
             // Check current total from database if quote exists
             if ($supplierQuote->exists) {
                 $originalTotal = (float) $supplierQuote->getOriginal('total', 0);
                 $newTotal = (float) $supplierQuote->total;
-                
+
                 // Use the higher of the two (in case items were just saved)
                 $total = max($originalTotal, $newTotal);
             } else {
                 $total = (float) $supplierQuote->total;
             }
-            
+
             // Check if total is greater than 0 (meaning prices have been inputted)
             if ($total > 0) {
-                $supplierQuote->status = SupplierQuoteStatus::RECEIVED;
+                $supplierQuote->status = $supplierQuote->obtained
+                    ? SupplierQuoteStatus::SELECTED
+                    : SupplierQuoteStatus::RECEIVED;
             }
         }
     }
@@ -82,13 +84,15 @@ final readonly class SupplierQuoteObserver
         if ($supplierQuote->status === SupplierQuoteStatus::PENDING) {
             // Reload to get fresh items and totals
             $supplierQuote->refresh();
-            
+
             // Check if items have prices
             $hasPrices = $supplierQuote->items()->where('unit_price', '>', 0)->exists();
             $total = (float) $supplierQuote->total;
-            
+
             if ($hasPrices || $total > 0) {
-                $supplierQuote->status = SupplierQuoteStatus::RECEIVED;
+                $supplierQuote->status = $supplierQuote->obtained
+                    ? SupplierQuoteStatus::SELECTED
+                    : SupplierQuoteStatus::RECEIVED;
                 $supplierQuote->saveQuietly();
             }
         }

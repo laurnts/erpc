@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\PrepaymentType;
 use App\Enums\SupplierQuoteStatus;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
@@ -37,8 +38,12 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string $subtotal_base
  * @property string $tax_total_base
  * @property string $total_base
+ * @property PrepaymentType $prepayment_type
+ * @property string $prepayment_amount
+ * @property int $prepayment_percent
  * @property Carbon|null $quoted_at
  * @property Carbon|null $valid_until
+ * @property bool $obtained
  * @property string|null $notes
  * @property string|null $internal_notes
  * @property array<string, mixed>|null $notification_metadata
@@ -80,8 +85,12 @@ final class SupplierQuote extends Model implements HasMedia
         'subtotal_base',
         'tax_total_base',
         'total_base',
+        'prepayment_type',
+        'prepayment_amount',
+        'prepayment_percent',
         'quoted_at',
         'valid_until',
+        'obtained',
         'notes',
         'internal_notes',
         'notification_metadata',
@@ -99,6 +108,10 @@ final class SupplierQuote extends Model implements HasMedia
         'subtotal_base' => '0.0000',
         'tax_total_base' => '0.0000',
         'total_base' => '0.0000',
+        'prepayment_type' => PrepaymentType::PERCENT,
+        'prepayment_amount' => '0.0000',
+        'prepayment_percent' => 0,
+        'obtained' => false,
     ];
 
     /**
@@ -115,8 +128,12 @@ final class SupplierQuote extends Model implements HasMedia
             'subtotal_base' => 'decimal:4',
             'tax_total_base' => 'decimal:4',
             'total_base' => 'decimal:4',
+            'prepayment_type' => PrepaymentType::class,
+            'prepayment_amount' => 'decimal:4',
+            'prepayment_percent' => 'integer',
             'quoted_at' => 'date',
             'valid_until' => 'date',
+            'obtained' => 'boolean',
             'notification_metadata' => 'array',
         ];
     }
@@ -178,6 +195,16 @@ final class SupplierQuote extends Model implements HasMedia
     public function items(): HasMany
     {
         return $this->hasMany(SupplierQuoteItem::class)->orderBy('sort_order');
+    }
+
+    /**
+     * The payment terms for this quote.
+     *
+     * @return HasMany<SupplierQuotePaymentTerm, $this>
+     */
+    public function paymentTerms(): HasMany
+    {
+        return $this->hasMany(SupplierQuotePaymentTerm::class)->orderBy('sort_order');
     }
 
     /**
@@ -277,12 +304,41 @@ final class SupplierQuote extends Model implements HasMedia
         $this->tax_total_base = (string) round($taxTotal * $exchangeRate, 4);
         $this->total_base = (string) round($total * $exchangeRate, 4);
 
-        // Auto-change status from PENDING to RECEIVED when prices are inputted
+        // Auto-change status when prices are inputted: SELECTED if obtained, otherwise RECEIVED
         if ($this->status === SupplierQuoteStatus::PENDING && $total > 0) {
-            $this->status = SupplierQuoteStatus::RECEIVED;
+            $this->status = $this->obtained ? SupplierQuoteStatus::SELECTED : SupplierQuoteStatus::RECEIVED;
         }
 
         $this->saveQuietly();
+    }
+
+    /**
+     * Check if the request has main items that are not yet covered by this quote.
+     * When true, the user must re-upload the quotation document before inputting prices.
+     */
+    public function hasAdditionalRequestItems(): bool
+    {
+        $request = $this->request;
+        if ($request === null) {
+            return false;
+        }
+
+        $requestMainItemIds = $request->items()
+            ->whereNull('parent_id')
+            ->pluck('id')
+            ->toArray();
+
+        $quoteCoveredMainItemIds = $this->items()
+            ->whereNotNull('request_item_id')
+            ->whereHas('requestItem', fn ($q) => $q->whereNull('parent_id'))
+            ->pluck('request_item_id')
+            ->unique()
+            ->values()
+            ->toArray();
+
+        $uncovered = array_diff($requestMainItemIds, $quoteCoveredMainItemIds);
+
+        return $uncovered !== [];
     }
 
     /**

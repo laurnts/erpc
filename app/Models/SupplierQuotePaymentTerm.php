@@ -4,33 +4,28 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use Database\Factories\BuyerQuotePaymentTermFactory;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
- * @property int $buyer_quote_id
+ * @property int $supplier_quote_id
  * @property int $due_days
  * @property int $percentage
  * @property int|null $job_progress
  * @property int $sort_order
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
- * @property-read BuyerQuote $buyerQuote
+ * @property-read SupplierQuote $supplierQuote
  */
-final class BuyerQuotePaymentTerm extends Model
+final class SupplierQuotePaymentTerm extends Model
 {
-    /** @use HasFactory<BuyerQuotePaymentTermFactory> */
-    use HasFactory;
-
     /**
      * @var list<string>
      */
     protected $fillable = [
-        'buyer_quote_id',
+        'supplier_quote_id',
         'due_days',
         'percentage',
         'job_progress',
@@ -61,12 +56,12 @@ final class BuyerQuotePaymentTerm extends Model
     }
 
     /**
-     * The buyer quote this payment term belongs to.
+     * The supplier quote this payment term belongs to.
      *
-     * @return BelongsTo<BuyerQuote, $this>
+     * @return BelongsTo<SupplierQuote, $this>
      */
-    public function buyerQuote(): BelongsTo
+    public function supplierQuote(): BelongsTo
     {
-        return $this->belongsTo(BuyerQuote::class);
+        return $this->belongsTo(SupplierQuote::class);
     }
 }
