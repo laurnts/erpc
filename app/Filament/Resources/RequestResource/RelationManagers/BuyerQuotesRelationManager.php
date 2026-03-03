@@ -12,10 +12,16 @@ use App\Enums\RequestStage;
 use App\Enums\SupplierQuoteStatus;
 use App\Filament\Actions\DownloadPdfAction;
 use App\Filament\Forms\Components\KeyAccountSelect;
+use App\Filament\Forms\Components\SafeLabelRepeater;
 use App\Filament\Resources\ProfitAndLossResource;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Models\BuyerQuote;
+use App\Models\BuyerQuoteItem;
+use App\Models\BuyerQuotePaymentTerm;
 use App\Models\Currency;
+use App\Models\SupplierQuote;
+use App\Models\SupplierQuoteItem;
+use App\Models\SupplierQuotePaymentTerm;
 use App\Support\Media\DocumentPathGenerator;
 use App\Services\TeamMemberService;
 use App\Models\ProfitAndLoss;
@@ -48,10 +54,12 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Size;
+use Filament\Support\Exceptions\Halt;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 use Closure;
 
 final class BuyerQuotesRelationManager extends RelationManager
@@ -61,6 +69,9 @@ final class BuyerQuotesRelationManager extends RelationManager
     protected static string $relationship = 'buyerQuotes';
 
     protected static ?string $title = 'Buyer Quotes';
+
+    /** Unused; kept for Livewire state compatibility (was used by chunked loading). */
+    public int $step2TotalGroups = 0;
 
     protected static string|\BackedEnum|null $icon = 'heroicon-o-document-text';
 
@@ -72,6 +83,66 @@ final class BuyerQuotesRelationManager extends RelationManager
     protected static function getBaseTabTitle(): string
     {
         return 'Buyer Quotes';
+    }
+
+    /**
+     * Recursively make array safe for Livewire serialization (no Carbon, Enum, or objects).
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function makeDataSerializationSafe(array $data): array
+    {
+        $out = [];
+        foreach ($data as $k => $v) {
+            if (is_array($v)) {
+                $out[$k] = $this->makeDataSerializationSafe($v);
+            } elseif ($v instanceof \Illuminate\Support\Carbon) {
+                $out[$k] = $v->format('Y-m-d');
+            } elseif ($v instanceof \BackedEnum) {
+                $out[$k] = $v->value;
+            } elseif (is_object($v)) {
+                $out[$k] = null;
+            } else {
+                $out[$k] = $v;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Load step 2 data. Prefill supplier_groups when exactly 1 supplier quote is selected (small payload, usually no 502).
+     * For 2+ quotes we keep groups empty and build on submit.
+     */
+    public function loadWizardStep2Data(): void
+    {
+        $actions = $this->mountedActions ?? [];
+        if ($actions === []) {
+            return;
+        }
+        $idx = array_key_last($actions);
+        $data = $this->mountedActions[$idx]['data'] ?? [];
+        if (($data['step'] ?? 1) !== 2) {
+            return;
+        }
+        if (! empty($data['supplier_groups'] ?? [])) {
+            return;
+        }
+        $ids = array_map('intval', (array) ($data['supplier_quote_ids'] ?? []));
+        if ($ids === []) {
+            return;
+        }
+
+        /** @var Request $request */
+        $request = $this->getOwnerRecord();
+        $step2Data = $this->buildSupplierGroupsFormData($request, $ids);
+        if (count($ids) !== 1) {
+            $step2Data['supplier_groups'] = [];
+        } else {
+            $step2Data['supplier_groups'] = $this->supplierGroupsWithUuidKeys($step2Data['supplier_groups'] ?? []);
+        }
+        $step2Data = $this->makeDataSerializationSafe($step2Data);
+        $this->mountedActions[$idx]['data'] = array_merge($data, $step2Data);
     }
 
     /**
@@ -90,6 +161,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                 ->view('filament.forms.components.buyer-quote-expired-alert')
                 ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->exists && $record->is_expired)
                 ->dehydrated(false),
+            Hidden::make('_create_with_supplier_groups')->dehydrated(false),
             Section::make('Quote Details')
                 ->schema([
                     Grid::make(3)
@@ -143,7 +215,80 @@ final class BuyerQuotesRelationManager extends RelationManager
                     Hidden::make('exchange_rate')->default(1),
                 ]),
 
+            Section::make('By supplier')
+                ->visible(fn (Get $get): bool => (bool) ($get('_create_with_supplier_groups') ?? false))
+                ->schema([
+                    SafeLabelRepeater::make('supplier_groups')
+                        ->schema([
+                            Hidden::make('supplier_quote_id'),
+                            Placeholder::make('supplier_name')
+                                ->label('Supplier')
+                                ->content(fn ($state): string => $state ?? '—'),
+                            SafeLabelRepeater::make('payment_terms')
+                                ->label('Payment terms')
+                                ->schema([
+                                    TextInput::make('due_days')->label('Due days')->numeric()->suffix('days'),
+                                    TextInput::make('percentage')->label('Percentage')->numeric()->suffix('%'),
+                                    TextInput::make('job_progress')->label('Job progress %')->numeric()->nullable()->visible(fn (): bool => $this->getOwnerRecord()->isServiceRequest()),
+                                ])
+                                ->collapsible()
+                                ->columns(3),
+                            SafeLabelRepeater::make('items')
+                                ->label('Line items')
+                                ->schema([
+                                    Hidden::make('request_item_id'),
+                                    Hidden::make('article_id'),
+                                    Hidden::make('supplier_quote_item_id'),
+                                    TextInput::make('description')->required(),
+                                    TextInput::make('quantity')->numeric()->required(),
+                                    TextInput::make('cost_price')->label('Cost')->numeric(),
+                                    TextInput::make('unit_price')->label('Selling (net)')->numeric(),
+                                    TextInput::make('line_total')->numeric()->disabled(),
+                                    Hidden::make('unit'),
+                                    Hidden::make('unit_of_measure_id'),
+                                    Hidden::make('unit_price_exc_tax'),
+                                    Hidden::make('tax_code_id'),
+                                    Hidden::make('tax_rate'),
+                                    Hidden::make('is_tax_inclusive'),
+                                    Hidden::make('line_subtotal'),
+                                    Hidden::make('line_tax'),
+                                    Hidden::make('margin_amount'),
+                                    Hidden::make('margin_percent'),
+                                    Hidden::make('sort_order'),
+                                    SafeLabelRepeater::make('child_items')
+                                        ->label('Detail items')
+                                        ->schema([
+                                            Hidden::make('request_item_id'),
+                                            Hidden::make('supplier_quote_item_id'),
+                                            TextInput::make('description')->required(),
+                                            TextInput::make('quantity')->numeric()->required(),
+                                            TextInput::make('cost_price')->numeric(),
+                                            TextInput::make('unit_price')->numeric(),
+                                            TextInput::make('line_total')->numeric(),
+                                            Hidden::make('unit_of_measure_id'),
+                                            Hidden::make('unit_price_exc_tax'),
+                                            Hidden::make('tax_code_id'),
+                                            Hidden::make('tax_rate'),
+                                            Hidden::make('is_tax_inclusive'),
+                                            Hidden::make('line_subtotal'),
+                                            Hidden::make('line_tax'),
+                                            Hidden::make('hide_from_pdf'),
+                                        ])
+                                        ->columns(2)
+                                        ->collapsible()
+                                        ->visible(fn (): bool => $this->getOwnerRecord()->isServiceRequest()),
+                                ])
+                                ->columns(2)
+                                ->collapsible()
+                                ->itemLabel(fn (array $state): ?string => $state['description'] ?? null),
+                        ])
+                        ->itemLabel(fn (array $state): ?string => $state['supplier_name'] ?? null)
+                        ->collapsible()
+                        ->defaultItems(0),
+                ]),
+
             Section::make('Payment Terms')
+                ->visible(fn (Get $get): bool => ! (bool) ($get('_create_with_supplier_groups') ?? false))
                 ->schema([
                     Grid::make(2)
                         ->schema([
@@ -255,6 +400,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                 ->collapsible(),
 
             Section::make('Line Items')
+                ->visible(fn (Get $get): bool => ! (bool) ($get('_create_with_supplier_groups') ?? false))
                 ->schema([
                     Repeater::make('items')
                         ->relationship(
@@ -938,6 +1084,281 @@ final class BuyerQuotesRelationManager extends RelationManager
     }
 
     /**
+     * Form schema for the "New buyer quote" wizard: step 1 = select supplier quotes, step 2 = create form.
+     *
+     * @return array<int, \Filament\Schemas\Components\Component>
+     */
+    private function getNewBuyerQuoteWizardFormSchema(): array
+    {
+        /** @var Request $request */
+        $request = $this->getOwnerRecord();
+
+        return [
+            Hidden::make('step')->default(1)->dehydrated(false),
+            Section::make('Select supplier quotes')
+                ->visible(fn (Get $get): bool => (int) ($get('step') ?? 1) === 1)
+                ->schema([
+                    Select::make('supplier_quote_ids')
+                        ->label('Supplier quotes')
+                        ->options(
+                            SupplierQuote::query()
+                                ->where('request_id', $request->getKey())
+                                ->where('status', SupplierQuoteStatus::SELECTED)
+                                ->with('supplier')
+                                ->get()
+                                ->mapWithKeys(fn (SupplierQuote $sq): array => [
+                                    $sq->getKey() => $sq->quote_number . ' — ' . ($sq->supplier?->name ?? ''),
+                                ])
+                        )
+                        ->multiple()
+                        ->required()
+                        ->searchable()
+                        ->preload(),
+                    Checkbox::make('create_separate')
+                        ->label('Create separate buyer quote for each supplier')
+                        ->helperText('When selected, one buyer quote will be created per selected supplier quote.')
+                        ->visible(fn (Get $get): bool => count($get('supplier_quote_ids') ?? []) > 1),
+                ]),
+            Section::make('Quote Details')
+                ->visible(fn (Get $get): bool => (int) ($get('step') ?? 1) === 2)
+                ->schema([
+                    Grid::make(2)
+                        ->schema([
+                            Select::make('status')
+                                ->options(BuyerQuoteStatus::class)
+                                ->default(BuyerQuoteStatus::DRAFT)
+                                ->required()
+                                ->selectablePlaceholder(false),
+                            Select::make('currency_id')
+                                ->label('Currency')
+                                ->options(
+                                    Currency::query()
+                                        ->where('is_active', true)
+                                        ->orderBy('code')
+                                        ->get()
+                                        ->mapWithKeys(fn (Currency $currency): array => [
+                                            $currency->getKey() => "{$currency->code} - {$currency->name}",
+                                        ])
+                                )
+                                ->default(function (): ?int {
+                                    $team = Filament::getTenant();
+                                    $defaultCode = $team?->getErpSettings()->default_currency ?? 'USD';
+                                    return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
+                                })
+                                ->required()
+                                ->selectablePlaceholder(false),
+                            DatePicker::make('valid_until')
+                                ->label('Valid Until')
+                                ->default(function (): \Illuminate\Support\Carbon {
+                                    $team = Filament::getTenant();
+                                    $validityDays = $team?->getErpSettings()->quote_validity_days ?? 30;
+                                    return now()->addDays($validityDays);
+                                }),
+                            Hidden::make('exchange_rate')->default(1),
+                        ]),
+                ]),
+            Hidden::make('_create_with_supplier_groups')->default(true)->dehydrated(false),
+            Section::make()
+                ->heading('')
+                ->key(fn (Get $get): string => 'wizard-by-supplier-step-' . ((int) ($get('step') ?? 1)))
+                ->visible(fn (Get $get): bool => (int) ($get('step') ?? 1) === 2)
+                ->schema([
+                    ViewField::make('_load_step2')
+                        ->label('')
+                        ->view('filament.forms.components.buyer-quote-wizard-load-step2')
+                        ->dehydrated(false),
+                    ViewField::make('_wizard_build_hint')
+                        ->label('')
+                        ->view('filament.forms.components.buyer-quote-wizard-build-hint')
+                        ->visible(fn (Get $get): bool => empty($get('supplier_groups')) && ! empty($get('supplier_quote_ids')))
+                        ->dehydrated(false),
+                    SafeLabelRepeater::make('supplier_groups')
+                        ->label('')
+                        ->addable(false)
+                        ->schema([
+                            Hidden::make('supplier_quote_id'),
+                            Hidden::make('supplier_name'),
+                            Section::make('Payment Terms')
+                                ->schema([
+                                    Grid::make(3)
+                                        ->schema([
+                                            Select::make('prepayment_type')
+                                                ->label('Prepayment Type')
+                                                ->options(PrepaymentType::class)
+                                                ->default(PrepaymentType::PERCENT)
+                                                ->selectablePlaceholder(false)
+                                                ->live()
+                                                ->afterStateUpdated(fn (Set $set): mixed => $set('prepayment_amount', 0)),
+                                            TextInput::make('prepayment_amount')
+                                                ->label('Prepayment')
+                                                ->numeric()
+                                                ->default(0)
+                                                ->minValue(0)
+                                                ->maxValue(fn (Get $get): ?int => $get('prepayment_type') === PrepaymentType::PERCENT->value ? 100 : null)
+                                                ->suffix(fn (Get $get): string => $get('prepayment_type') === PrepaymentType::PERCENT->value ? '%' : ''),
+                                            TextInput::make('prepayment_due_days')
+                                                ->label('Prepayment due days')
+                                                ->numeric()
+                                                ->default(0)
+                                                ->minValue(0)
+                                                ->suffix('days'),
+                                        ]),
+                                    SafeLabelRepeater::make('payment_terms')
+                                        ->label('Payment schedule')
+                                        ->schema([
+                                            TextInput::make('due_days')->label('Due days')->numeric()->suffix('days'),
+                                            TextInput::make('percentage')->label('Percentage')->numeric()->suffix('%'),
+                                            TextInput::make('job_progress')->label('Job progress %')->numeric()->nullable()->visible(fn (): bool => $request->isServiceRequest()),
+                                        ])
+                                        ->columns(3),
+                                ]),
+                            SafeLabelRepeater::make('items')
+                                ->label('Line items')
+                                ->schema([
+                                            Hidden::make('request_item_id'),
+                                            Hidden::make('article_id'),
+                                            Hidden::make('supplier_quote_item_id'),
+                                            TextInput::make('description')->required(),
+                                            TextInput::make('quantity')->numeric()->required(),
+                                            TextInput::make('cost_price')->label('Cost')->numeric(),
+                                            TextInput::make('unit_price')->label('Selling (net)')->numeric(),
+                                            TextInput::make('line_total')->numeric()->disabled(),
+                                            Hidden::make('unit'),
+                                            Hidden::make('unit_of_measure_id'),
+                                            Hidden::make('unit_price_exc_tax'),
+                                            Hidden::make('tax_code_id'),
+                                            Hidden::make('tax_rate'),
+                                            Hidden::make('is_tax_inclusive'),
+                                            Hidden::make('line_subtotal'),
+                                            Hidden::make('line_tax'),
+                                            Hidden::make('margin_amount'),
+                                            Hidden::make('margin_percent'),
+                                            Hidden::make('sort_order'),
+                                            SafeLabelRepeater::make('child_items')
+                                                ->label('Detail items')
+                                                ->schema([
+                                                    Hidden::make('request_item_id'),
+                                                    Hidden::make('supplier_quote_item_id'),
+                                                    TextInput::make('description')->required(),
+                                                    TextInput::make('quantity')->numeric()->required(),
+                                                    TextInput::make('cost_price')->numeric(),
+                                                    TextInput::make('unit_price')->numeric(),
+                                                    TextInput::make('line_total')->numeric(),
+                                                    Hidden::make('unit_of_measure_id'),
+                                                    Hidden::make('unit_price_exc_tax'),
+                                                    Hidden::make('tax_code_id'),
+                                                    Hidden::make('tax_rate'),
+                                                    Hidden::make('is_tax_inclusive'),
+                                                    Hidden::make('line_subtotal'),
+                                                    Hidden::make('line_tax'),
+                                                    Hidden::make('hide_from_pdf'),
+                                                ])
+                                                ->columns(2)
+                                                ->collapsible()
+                                                ->visible(fn (): bool => $request->isServiceRequest()),
+                                        ])
+                                        ->columns(2)
+                                        ->collapsible()
+                                        ->itemLabel(fn (array $state): ?string => $state['description'] ?? null),
+                        ])
+                        ->itemLabel(fn (array $state): ?string => $state['supplier_name'] ?? null)
+                        ->collapsible()
+                        ->defaultItems(0),
+                ]),
+            Section::make('Summary')
+                ->visible(fn (Get $get): bool => (int) ($get('step') ?? 1) === 2)
+                ->schema([
+                    Grid::make(4)
+                        ->schema([
+                            Placeholder::make('subtotal_display')
+                                ->label('Subtotal')
+                                ->live()
+                                ->content(function (Get $get): string {
+                                    $groups = $get('supplier_groups') ?? [];
+                                    $subtotal = 0.0;
+                                    foreach ($groups as $group) {
+                                        foreach ($group['items'] ?? [] as $item) {
+                                            $subtotal += (float) ($item['line_subtotal'] ?? 0);
+                                            foreach ($item['child_items'] ?? [] as $child) {
+                                                $subtotal += (float) ($child['line_subtotal'] ?? 0);
+                                            }
+                                        }
+                                    }
+                                    $currencyId = $get('currency_id');
+                                    $currency = $currencyId !== null ? Currency::find($currencyId) : null;
+                                    return $currency instanceof Currency ? $currency->formatNumber($subtotal) : number_format($subtotal, 2);
+                                }),
+                            Placeholder::make('tax_total_display')
+                                ->label('Tax Total')
+                                ->live()
+                                ->content(function (Get $get): string {
+                                    $groups = $get('supplier_groups') ?? [];
+                                    $taxTotal = 0.0;
+                                    foreach ($groups as $group) {
+                                        foreach ($group['items'] ?? [] as $item) {
+                                            $taxTotal += (float) ($item['line_tax'] ?? 0);
+                                            foreach ($item['child_items'] ?? [] as $child) {
+                                                $taxTotal += (float) ($child['line_tax'] ?? 0);
+                                            }
+                                        }
+                                    }
+                                    $currencyId = $get('currency_id');
+                                    $currency = $currencyId !== null ? Currency::find($currencyId) : null;
+                                    return $currency instanceof Currency ? $currency->formatNumber($taxTotal) : number_format($taxTotal, 2);
+                                }),
+                            Placeholder::make('total_display')
+                                ->label('Total')
+                                ->live()
+                                ->content(function (Get $get): string {
+                                    $groups = $get('supplier_groups') ?? [];
+                                    $total = 0.0;
+                                    foreach ($groups as $group) {
+                                        foreach ($group['items'] ?? [] as $item) {
+                                            $total += (float) ($item['line_total'] ?? 0);
+                                            foreach ($item['child_items'] ?? [] as $child) {
+                                                $total += (float) ($child['line_total'] ?? 0);
+                                            }
+                                        }
+                                    }
+                                    $currencyId = $get('currency_id');
+                                    $currency = $currencyId !== null ? Currency::find($currencyId) : null;
+                                    return $currency instanceof Currency ? $currency->format($total) : number_format($total, 2);
+                                }),
+                            Placeholder::make('margin_display')
+                                ->label('Total Margin')
+                                ->live()
+                                ->content(function (Get $get): string {
+                                    $groups = $get('supplier_groups') ?? [];
+                                    $totalMargin = 0.0;
+                                    $totalSelling = 0.0;
+                                    foreach ($groups as $group) {
+                                        foreach ($group['items'] ?? [] as $item) {
+                                            $qty = (float) ($item['quantity'] ?? 0);
+                                            $totalMargin += (float) ($item['margin_amount'] ?? 0) * $qty;
+                                            $totalSelling += (float) ($item['unit_price_exc_tax'] ?? $item['unit_price'] ?? 0) * $qty;
+                                        }
+                                    }
+                                    $marginPercent = $totalSelling > 0 ? ($totalMargin / $totalSelling) * 100 : 0;
+                                    $currencyId = $get('currency_id');
+                                    $currency = $currencyId !== null ? Currency::find($currencyId) : null;
+                                    $formatted = $currency instanceof Currency ? $currency->formatNumber($totalMargin) : number_format($totalMargin, 2);
+                                    return sprintf('%s (%.1f%%)', $formatted, $marginPercent);
+                                }),
+                        ]),
+                ])
+                ->collapsible(),
+            Section::make('Notes')
+                ->visible(fn (Get $get): bool => (int) ($get('step') ?? 1) === 2)
+                ->schema([
+                    Textarea::make('notes')->label('Notes (Visible to Buyer)')->rows(2),
+                    Textarea::make('internal_notes')->label('Internal Notes')->rows(2)->helperText('Not visible on buyer PDF'),
+                    Textarea::make('terms_and_conditions')->label('Terms & Conditions')->rows(3),
+                ])
+                ->collapsed(),
+        ];
+    }
+
+    /**
      * Get the form schema for Buyer PO upload.
      *
      * @return array<int, \Filament\Schemas\Components\Component>
@@ -1095,223 +1516,119 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->all()),
             ])
             ->headerActions([
+                Action::make('newBuyerQuoteWizard')
+                    ->label('New buyer quote')
+                    ->icon('heroicon-o-plus')
+                    ->size(Size::Small)
+                    ->modalHeading('New buyer quote')
+                    ->modalDescription(function (): string {
+                        $step = 1;
+                        $actions = $this->mountedActions ?? [];
+                        if ($actions !== [] && ($idx = array_key_last($actions)) !== null && isset($actions[$idx]['data']['step'])) {
+                            $step = (int) $actions[$idx]['data']['step'];
+                        }
+                        return $step === 1
+                            ? 'Choose one or more supplier quotes. You can create one combined quote or separate quotes per supplier.'
+                            : 'Review and edit the quote, then create.';
+                    })
+                    ->modalWidth('7xl')
+                    ->form(fn (): array => $this->getNewBuyerQuoteWizardFormSchema())
+                    ->modalSubmitActionLabel(function (): string {
+                        $step = 1;
+                        $actions = $this->mountedActions ?? [];
+                        if ($actions !== [] && ($idx = array_key_last($actions)) !== null && isset($actions[$idx]['data']['step'])) {
+                            $step = (int) $actions[$idx]['data']['step'];
+                        }
+                        return $step === 1 ? 'Continue' : 'Create buyer quote';
+                    })
+                    ->action(function (array $data) use ($request): void {
+                        $step = (int) ($data['step'] ?? 1);
+                        $ids = array_map('intval', $data['supplier_quote_ids'] ?? []);
+
+                        if ($step === 1) {
+                            if (empty($ids)) {
+                                Notification::make()
+                                    ->warning()
+                                    ->title('Select at least one supplier quote')
+                                    ->send();
+                                return;
+                            }
+                            if (! empty($data['create_separate']) && count($ids) > 1) {
+                                $created = 0;
+                                foreach ($ids as $supplierQuoteId) {
+                                    $this->createBuyerQuoteFromSupplierQuote($request, $supplierQuoteId);
+                                    $created++;
+                                }
+                                Notification::make()
+                                    ->success()
+                                    ->title('Created ' . $created . ' buyer quote(s)')
+                                    ->send();
+                                $this->unmountAction();
+                                return;
+                            }
+                            // Advance to step 2 in same modal: merge minimal state so form re-renders as create form; full data loads via loadWizardStep2Data().
+                            $idx = array_key_last($this->mountedActions ?? []);
+                            if ($idx !== null && isset($this->mountedActions[$idx])) {
+                                $minimal = $this->buildSupplierGroupsFormData($request, $ids);
+                                $minimal['step'] = 2;
+                                $minimal['supplier_quote_ids'] = $ids;
+                                $minimal['supplier_groups'] = [];
+                                $minimal = $this->makeDataSerializationSafe($minimal);
+                                $this->mountedActions[$idx]['data'] = array_merge(
+                                    $this->mountedActions[$idx]['data'] ?? [],
+                                    $minimal
+                                );
+                            }
+                            throw new Halt();
+                        }
+
+                        // Step 2: create the buyer quote (build supplier_groups on submit if empty to avoid 502 from large Livewire payload)
+                        $record = new BuyerQuote();
+                        $record->request_id = $request->getKey();
+                        $record->buyer_id = $request->buyer_id;
+                        $record->status = $data['status'] ?? BuyerQuoteStatus::DRAFT;
+                        $record->currency_id = $data['currency_id'];
+                        $record->exchange_rate = (string) ($data['exchange_rate'] ?? 1);
+                        $record->valid_until = $data['valid_until'] ?? now()->addDays(30);
+                        $dataToSave = $data;
+                        if (empty($dataToSave['supplier_groups']) && ! empty($ids)) {
+                            $built = $this->buildSupplierGroupsFormData($request, $ids);
+                            $dataToSave['supplier_groups'] = $this->supplierGroupsWithUuidKeys($built['supplier_groups'] ?? []);
+                            $dataToSave['_create_with_supplier_groups'] = true;
+                        }
+                        $firstGroup = is_array($dataToSave['supplier_groups'] ?? null) && $dataToSave['supplier_groups'] !== []
+                            ? reset($dataToSave['supplier_groups'])
+                            : null;
+                        $record->prepayment_type = is_array($firstGroup) && isset($firstGroup['prepayment_type'])
+                            ? $firstGroup['prepayment_type']
+                            : ($data['prepayment_type'] ?? PrepaymentType::PERCENT->value);
+                        $record->prepayment_amount = is_array($firstGroup) && isset($firstGroup['prepayment_amount'])
+                            ? (string) $firstGroup['prepayment_amount']
+                            : (string) ($data['prepayment_amount'] ?? 0);
+                        $record->subtotal = '0';
+                        $record->tax_total = '0';
+                        $record->total = '0';
+                        $record->notes = $data['notes'] ?? null;
+                        $record->internal_notes = $data['internal_notes'] ?? null;
+                        $record->terms_and_conditions = $data['terms_and_conditions'] ?? null;
+                        $record->save();
+                        $this->saveBuyerQuoteFromSupplierGroups($record, $dataToSave, $request);
+                        Notification::make()
+                            ->success()
+                            ->title('Buyer quote created')
+                            ->send();
+                        $this->unmountAction();
+                    }),
                 CreateAction::make()
                     ->icon('heroicon-o-plus')
                     ->size(Size::Small)
                     ->modalWidth('7xl')
-                    ->fillForm(function () use ($request): array {
-                        /** @var \App\Models\Team|null $team */
-                        $team = Filament::getTenant();
-                        $settings = $team?->getErpSettings();
-
-                        // Get default currency
-                        $defaultCurrencyCode = $settings->default_currency ?? 'USD';
-                        $currencyId = Currency::query()
-                            ->where('code', $defaultCurrencyCode)
-                            ->where('is_active', true)
-                            ->value('id');
-
-                        // Get default tax code
-                        $defaultTaxCode = TaxCode::query()
-                            ->where('team_id', $request->team_id)
-                            ->where('is_default', true)
-                            ->where('is_active', true)
-                            ->first();
-
-                        // Get default margin percentage
-                        $defaultMarginPercent = $settings->default_margin_percent ?? 3.0;
-
-                        // Pre-populate items from SELECTED supplier quote items only
-                        $items = [];
-                        $sortOrder = 0;
-
-                        // Get all items from supplier quotes with status SELECTED for this request
-                        // Only get main items (not child items) - child items will be added separately
-                        $selectedSupplierQuoteItems = \App\Models\SupplierQuoteItem::query()
-                            ->whereHas('supplierQuote', fn ($q) => $q->where('request_id', $request->getKey())
-                                ->where('status', SupplierQuoteStatus::SELECTED))
-                            ->whereHas('requestItem', fn ($q) => $q->whereNull('parent_id')) // Only main items
-                            ->with(['supplierQuote.supplier', 'requestItem.article', 'requestItem.unitOfMeasure', 'requestItem.children'])
-                            ->get();
-
-                        foreach ($selectedSupplierQuoteItems as $supplierQuoteItem) {
-                            $requestItem = $supplierQuoteItem->requestItem;
-                            if ($requestItem === null) {
-                                continue;
-                            }
-
-                            $costPrice = (float) $supplierQuoteItem->unit_price_exc_tax;
-                            $supplierQuoteItemId = $supplierQuoteItem->getKey();
-                            $supplierName = $supplierQuoteItem->supplierQuote->supplier->name ?? null;
-
-                            // Main item tax: default tax code, or fallback to article's default (so detail items get same tax)
-                            $mainItemTaxCode = $defaultTaxCode ?? $requestItem->article?->defaultTaxCode;
-                            $taxRate = $mainItemTaxCode !== null ? (float) $mainItemTaxCode->rate : 0.0;
-                            $addTax = $mainItemTaxCode !== null && $mainItemTaxCode->is_inclusive_default;
-                            $mainItemTaxCodeId = $mainItemTaxCode?->getKey();
-                            $quantity = (float) $requestItem->quantity;
-
-                            // Calculate selling price with default margin on selling (NET price)
-                            // Formula: margin% = (selling - cost) / selling × 100
-                            // Solving for selling: selling = cost / (1 - margin%/100)
-                            $unitPriceExcTax = $costPrice > 0 && $defaultMarginPercent < 100
-                                ? round($costPrice / (1 - $defaultMarginPercent / 100), 0)
-                                : 0.0;
-
-                            // unit_price always represents the net price (Selling Price Net), regardless of tax inclusivity
-                            // The +Tax checkbox only affects whether tax is added to line_total
-                            $unitPrice = round($unitPriceExcTax, 0);
-
-                            // Line subtotal is quantity * net price (amount before tax)
-                            $lineSubtotal = $quantity * $unitPriceExcTax;
-
-                            // Calculate tax if tax rate > 0 (tax should always be calculated when tax code is selected)
-                            if ($taxRate > 0) {
-                                // Calculate tax amount
-                                $lineTax = $lineSubtotal * $taxRate / 100;
-                                
-                                if ($addTax) {
-                                    // Tax is added on top of the net price (line_total = subtotal + tax)
-                                    $lineTotal = $lineSubtotal + $lineTax;
-                                } else {
-                                    // Tax is exclusive - line total equals subtotal (no tax added)
-                                    $lineTax = 0;
-                                    $lineTotal = $lineSubtotal;
-                                }
-                            } else {
-                                $lineTax = 0;
-                                $lineTotal = $lineSubtotal;
-                            }
-
-                            // Calculate margin amount and percentage for storage
-                            $marginAmount = $unitPriceExcTax - $costPrice;
-                            $marginPercent = $unitPriceExcTax > 0 ? ($marginAmount / $unitPriceExcTax) * 100 : 0;
-
-                            // Prepare child items if this is a Service request with child items
-                            // Always show all request item children in Detail Items; use supplier quote data when available
-                            $childItems = [];
-                            if ($request->isServiceRequest() && $requestItem->children()->exists()) {
-                                $childRequestItems = $requestItem->children()->orderBy('sort_order')->get();
-                                foreach ($childRequestItems as $childRequestItem) {
-                                    $childSupplierQuoteItem = \App\Models\SupplierQuoteItem::query()
-                                        ->whereHas('supplierQuote', fn ($q) => $q->where('request_id', $request->getKey())
-                                            ->where('status', SupplierQuoteStatus::SELECTED))
-                                        ->where('request_item_id', $childRequestItem->getKey())
-                                        ->first();
-
-                                    $childQuantity = (float) $childRequestItem->quantity;
-                                    // Use main item's margin for selling price: selling = cost / (1 - margin%/100)
-                                    $childCostPrice = $childSupplierQuoteItem !== null
-                                        ? (float) $childSupplierQuoteItem->unit_price_exc_tax
-                                        : 0.0;
-                                    $childSupplierQuoteItemId = $childSupplierQuoteItem?->getKey();
-
-                                    if ($childSupplierQuoteItem === null) {
-                                        // No SELECTED quote line for child: try any supplier quote for this request to get cost
-                                        $anyChildQuoteItem = \App\Models\SupplierQuoteItem::query()
-                                            ->whereHas('supplierQuote', fn ($q) => $q->where('request_id', $request->getKey()))
-                                            ->where('request_item_id', $childRequestItem->getKey())
-                                            ->first();
-                                        if ($anyChildQuoteItem !== null) {
-                                            $childCostPrice = (float) $anyChildQuoteItem->unit_price_exc_tax;
-                                            $childSupplierQuoteItemId = $anyChildQuoteItem->getKey();
-                                        }
-                                    }
-
-                                    $childUnitPriceExcTax = $childCostPrice > 0 && $defaultMarginPercent < 100
-                                        ? round($childCostPrice / (1 - $defaultMarginPercent / 100), 0)
-                                        : 0.0;
-                                    $childUnitPrice = round($childUnitPriceExcTax, 0);
-                                    $childLineSubtotal = $childQuantity * $childUnitPriceExcTax;
-                                    $childLineTax = $taxRate > 0 && $addTax ? $childLineSubtotal * $taxRate / 100 : 0;
-                                    $childLineTotal = $addTax && $taxRate > 0 ? $childLineSubtotal + $childLineTax : $childLineSubtotal;
-
-                                    $childItems[] = [
-                                        'request_item_id' => $childRequestItem->getKey(),
-                                        'description' => $childRequestItem->description,
-                                        'quantity' => (string) $childRequestItem->quantity,
-                                        'unit_of_measure_id' => $childRequestItem->unit_of_measure_id,
-                                        'cost_price' => (string) $childCostPrice,
-                                        'unit_price' => (string) $childUnitPrice,
-                                        'unit_price_exc_tax' => (string) round($childUnitPriceExcTax, 0),
-                                        'tax_code_id' => $mainItemTaxCodeId,
-                                        'tax_rate' => (string) $taxRate,
-                                        'is_tax_inclusive' => $addTax,
-                                        'line_subtotal' => (string) round($childLineSubtotal, 4),
-                                        'line_tax' => (string) round($childLineTax, 4),
-                                        'line_total' => (string) round($childLineTotal, 0),
-                                        'supplier_quote_item_id' => $childSupplierQuoteItemId,
-                                        'hide_from_pdf' => false,
-                                    ];
-                                }
-                            }
-
-                            $items[] = [
-                                'request_item_id' => $requestItem->getKey(),
-                                'article_id' => $requestItem->article_id,
-                                'supplier_quote_item_id' => $supplierQuoteItemId,
-                                'from_supplier' => $supplierName,
-                                'description' => $requestItem->article !== null ? $requestItem->article->name : $requestItem->description,
-                                'quantity' => (string) $requestItem->quantity,
-                                'unit_of_measure_id' => $requestItem->unit_of_measure_id,
-                                'unit' => $requestItem->unitOfMeasure?->code ?? $requestItem->unit?->value ?? 'pcs',
-                                'cost_price' => (string) $costPrice,
-                                'unit_price' => (string) $unitPrice,
-                                'unit_price_exc_tax' => (string) round($unitPriceExcTax, 0),
-                                'tax_code_id' => $mainItemTaxCodeId,
-                                'tax_rate' => (string) $taxRate,
-                                'tax_amount' => (string) round($lineTax / max($quantity, 0.0001), 4),
-                                'is_tax_inclusive' => $addTax,
-                                'line_subtotal' => (string) round($lineSubtotal, 4),
-                                'line_tax' => (string) round($lineTax, 4),
-                                'line_total' => (string) round($lineTotal, 0),
-                                'margin_amount' => (string) round($marginAmount, 4),
-                                'margin_percent' => (string) round($marginPercent, 4),
-                                'margin_percent_input' => (string) (int) ceil($defaultMarginPercent),
-                                'sort_order' => $sortOrder++,
-                                'child_items' => $childItems, // Include child items
-                            ];
-                        }
-
-                        $defaultPaymentTermsDays = $settings->default_payment_terms_days ?? 30;
-
-                        // Ensure all child items have tax_rate populated from tax_code_id
-                        // This handles cases where tax_rate might be 0 but tax_code_id is set
-                        foreach ($items as &$item) {
-                            if (isset($item['child_items']) && is_array($item['child_items'])) {
-                                foreach ($item['child_items'] as &$childItem) {
-                                    if (isset($childItem['tax_code_id']) && $childItem['tax_code_id'] !== null) {
-                                        $taxCode = TaxCode::find($childItem['tax_code_id']);
-                                        if ($taxCode !== null) {
-                                            // Always populate tax_rate from tax_code_id
-                                            $childItem['tax_rate'] = (string) $taxCode->rate;
-                                            // Also ensure is_tax_inclusive is set if not already set
-                                            if (!isset($childItem['is_tax_inclusive'])) {
-                                                $childItem['is_tax_inclusive'] = $taxCode->is_inclusive_default;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        unset($item, $childItem); // Clean up references
-
-                        return [
-                            'status' => BuyerQuoteStatus::DRAFT,
-                            'currency_id' => $currencyId,
-                            'exchange_rate' => 1,
-                            'valid_until' => now()->addDays($settings->quote_validity_days ?? 30),
-                            'prepayment_type' => PrepaymentType::PERCENT->value,
-                            'prepayment_amount' => 0,
-                            'paymentTerms' => [
-                                [
-                                    'due_days' => $defaultPaymentTermsDays,
-                                    'percentage' => 100,
-                                    'sort_order' => 0,
-                                ],
-                            ],
-                            'items' => $items,
-                        ];
+                    ->visible(false)
+                    ->fillForm(function (\Filament\Actions\CreateAction $action) use ($request): array {
+                        $supplierQuoteIds = array_map('intval', $action->getArguments()['supplier_quote_ids'] ?? []);
+                        $data = $this->buildSupplierGroupsFormData($request, $supplierQuoteIds);
+                        $data['supplier_groups'] = $this->supplierGroupsWithUuidKeys($data['supplier_groups'] ?? []);
+                        return $this->makeDataSerializationSafe($data);
                     })
                     ->mutateFormDataUsing(function (array $data) use ($request): array {
                         $data['request_id'] = $request->getKey();
@@ -1336,6 +1653,11 @@ final class BuyerQuotesRelationManager extends RelationManager
                         return $data;
                     })
                     ->after(function (BuyerQuote $record, array $data) use ($request): void {
+                        // New flow: create from supplier_groups (payment terms and items per supplier)
+                        if (! empty($data['supplier_groups'] ?? [])) {
+                            $this->saveBuyerQuoteFromSupplierGroups($record, $data, $request);
+                            return;
+                        }
 
                         // Refresh media relationship to ensure it's loaded
                         $record->load('media');
@@ -2324,6 +2646,279 @@ final class BuyerQuotesRelationManager extends RelationManager
                     DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    /**
+     * Convert supplier_groups (and nested items/child_items) to use UUID keys so Filament Repeater resolves getChildSchema().
+     *
+     * @param array<int|string, array<string, mixed>> $groups
+     * @return array<string, array<string, mixed>>
+     */
+    private function supplierGroupsWithUuidKeys(array $groups): array
+    {
+        $out = [];
+        foreach ($groups as $group) {
+            $items = $group['items'] ?? [];
+            $itemsWithUuids = [];
+            foreach ($items as $item) {
+                $childItems = $item['child_items'] ?? [];
+                $childItemsWithUuids = [];
+                foreach ($childItems as $child) {
+                    $childItemsWithUuids[(string) Str::uuid()] = $child;
+                }
+                $item['child_items'] = $childItemsWithUuids;
+                $itemsWithUuids[(string) Str::uuid()] = $item;
+            }
+            $group['items'] = $itemsWithUuids;
+            $out[(string) Str::uuid()] = $group;
+        }
+        return $out;
+    }
+
+    /**
+     * Build form data for create flow: quote details + supplier_groups (payment terms and items per supplier).
+     *
+     * @param array<int> $supplierQuoteIds
+     * @return array<string, mixed>
+     */
+    private function buildSupplierGroupsFormData(Request $request, array $supplierQuoteIds): array
+    {
+        /** @var \App\Models\Team|null $team */
+        $team = Filament::getTenant();
+        $settings = $team?->getErpSettings();
+        $defaultCurrencyCode = $settings->default_currency ?? 'USD';
+        $currencyId = Currency::query()
+            ->where('code', $defaultCurrencyCode)
+            ->where('is_active', true)
+            ->value('id');
+        $defaultTaxCode = TaxCode::query()
+            ->where('team_id', $request->team_id)
+            ->where('is_default', true)
+            ->where('is_active', true)
+            ->first();
+        $defaultMarginPercent = $settings->default_margin_percent ?? 3.0;
+        $defaultPaymentTermsDays = $settings->default_payment_terms_days ?? 30;
+
+        $supplierGroups = [];
+        if ($supplierQuoteIds === []) {
+            return [
+                'status' => BuyerQuoteStatus::DRAFT,
+                'currency_id' => $currencyId,
+                'exchange_rate' => 1,
+                'valid_until' => now()->addDays($settings->quote_validity_days ?? 30),
+                'prepayment_type' => PrepaymentType::PERCENT->value,
+                'prepayment_amount' => 0,
+                '_create_with_supplier_groups' => true,
+                'supplier_groups' => [],
+            ];
+        }
+        $supplierQuotes = SupplierQuote::query()
+            ->whereIn('id', $supplierQuoteIds)
+            ->where('request_id', $request->getKey())
+            ->with(['supplier', 'paymentTerms', 'items.requestItem.article', 'items.requestItem.unitOfMeasure', 'items.requestItem.children'])
+            ->get()
+            ->sortBy(fn (SupplierQuote $sq): int => (int) array_search($sq->id, $supplierQuoteIds, true))
+            ->values();
+
+        foreach ($supplierQuotes as $sq) {
+            $paymentTerms = $sq->paymentTerms->map(fn (SupplierQuotePaymentTerm $pt): array => [
+                'due_days' => $pt->due_days,
+                'percentage' => $pt->percentage,
+                'job_progress' => $pt->job_progress,
+                'sort_order' => $pt->sort_order,
+            ])->values()->all();
+            if (empty($paymentTerms)) {
+                $paymentTerms = [['due_days' => $defaultPaymentTermsDays, 'percentage' => 100, 'job_progress' => null, 'sort_order' => 0]];
+            }
+
+            $items = [];
+            $sortOrder = 0;
+            foreach ($sq->items as $sqi) {
+                $requestItem = $sqi->requestItem;
+                if ($requestItem === null || $requestItem->parent_id !== null) {
+                    continue;
+                }
+                $costPrice = (float) $sqi->unit_price_exc_tax;
+                $taxRate = $defaultTaxCode !== null ? (float) $defaultTaxCode->rate : 0.0;
+                $addTax = $defaultTaxCode !== null && $defaultTaxCode->is_inclusive_default;
+                $quantity = (float) $requestItem->quantity;
+                $unitPriceExcTax = $costPrice > 0 && $defaultMarginPercent < 100
+                    ? round($costPrice / (1 - $defaultMarginPercent / 100), 0) : 0.0;
+                $unitPrice = round($unitPriceExcTax, 0);
+                $lineSubtotal = $quantity * $unitPriceExcTax;
+                $lineTax = $taxRate > 0 && $addTax ? $lineSubtotal * $taxRate / 100 : 0;
+                $lineTotal = $addTax && $taxRate > 0 ? $lineSubtotal + $lineTax : $lineSubtotal;
+                $marginAmount = $unitPriceExcTax - $costPrice;
+                $marginPercent = $unitPriceExcTax > 0 ? ($marginAmount / $unitPriceExcTax) * 100 : 0;
+                $childItems = [];
+                if ($request->isServiceRequest() && $requestItem->children()->exists()) {
+                    foreach ($requestItem->children()->orderBy('sort_order')->get() as $childRI) {
+                        $childSqi = $sq->items->firstWhere('request_item_id', $childRI->id);
+                        $childCost = $childSqi ? (float) $childSqi->unit_price_exc_tax : 0.0;
+                        $childQty = (float) $childRI->quantity;
+                        $childUnitExcTax = $childCost > 0 && $defaultMarginPercent < 100
+                            ? round($childCost / (1 - $defaultMarginPercent / 100), 0) : 0.0;
+                        $childLineSub = $childQty * $childUnitExcTax;
+                        $childLineTax = $taxRate > 0 && $addTax ? $childLineSub * $taxRate / 100 : 0;
+                        $childLineTotal = $addTax && $taxRate > 0 ? $childLineSub + $childLineTax : $childLineSub;
+                        $childItems[] = [
+                            'request_item_id' => $childRI->id,
+                            'supplier_quote_item_id' => $childSqi?->id,
+                            'description' => $childRI->description,
+                            'quantity' => (string) $childRI->quantity,
+                            'unit_of_measure_id' => $childRI->unit_of_measure_id,
+                            'cost_price' => (string) $childCost,
+                            'unit_price' => (string) round($childUnitExcTax, 0),
+                            'unit_price_exc_tax' => (string) round($childUnitExcTax, 0),
+                            'tax_code_id' => $defaultTaxCode?->getKey(),
+                            'tax_rate' => (string) $taxRate,
+                            'is_tax_inclusive' => $addTax,
+                            'line_subtotal' => (string) round($childLineSub, 4),
+                            'line_tax' => (string) round($childLineTax, 4),
+                            'line_total' => (string) round($childLineTotal, 0),
+                            'hide_from_pdf' => false,
+                        ];
+                    }
+                }
+                $items[] = [
+                    'request_item_id' => $requestItem->id,
+                    'article_id' => $requestItem->article_id,
+                    'supplier_quote_item_id' => $sqi->id,
+                    'from_supplier' => $sq->supplier?->name,
+                    'description' => $requestItem->article?->name ?? $requestItem->description,
+                    'quantity' => (string) $requestItem->quantity,
+                    'unit_of_measure_id' => $requestItem->unit_of_measure_id,
+                    'unit' => $requestItem->unitOfMeasure?->code ?? 'pcs',
+                    'cost_price' => (string) $costPrice,
+                    'unit_price' => (string) $unitPrice,
+                    'unit_price_exc_tax' => (string) $unitPriceExcTax,
+                    'tax_code_id' => $defaultTaxCode?->getKey(),
+                    'tax_rate' => (string) $taxRate,
+                    'tax_amount' => (string) round($lineTax / max($quantity, 0.0001), 4),
+                    'is_tax_inclusive' => $addTax,
+                    'line_subtotal' => (string) round($lineSubtotal, 4),
+                    'line_tax' => (string) round($lineTax, 4),
+                    'line_total' => (string) round($lineTotal, 0),
+                    'margin_amount' => (string) round($marginAmount, 4),
+                    'margin_percent' => (string) round($marginPercent, 4),
+                    'sort_order' => $sortOrder++,
+                    'child_items' => $childItems,
+                ];
+            }
+            $supplierGroups[] = [
+                'supplier_quote_id' => $sq->id,
+                'supplier_name' => $sq->supplier?->name ?? $sq->quote_number,
+                'prepayment_type' => PrepaymentType::PERCENT->value,
+                'prepayment_amount' => 0,
+                'prepayment_due_days' => $defaultPaymentTermsDays,
+                'payment_terms' => $paymentTerms,
+                'items' => $items,
+            ];
+        }
+
+        return [
+            'status' => BuyerQuoteStatus::DRAFT,
+            'currency_id' => $currencyId,
+            'exchange_rate' => 1,
+            'valid_until' => now()->addDays($settings->quote_validity_days ?? 30),
+            'prepayment_type' => PrepaymentType::PERCENT->value,
+            'prepayment_amount' => 0,
+            '_create_with_supplier_groups' => true,
+            'supplier_groups' => $supplierGroups,
+        ];
+    }
+
+    /**
+     * Create one buyer quote from a single supplier quote (for "create separate" flow).
+     */
+    private function createBuyerQuoteFromSupplierQuote(Request $request, int $supplierQuoteId): void
+    {
+        $data = $this->buildSupplierGroupsFormData($request, [$supplierQuoteId]);
+        $record = new BuyerQuote();
+        $record->request_id = $request->getKey();
+        $record->buyer_id = $request->buyer_id;
+        $record->status = BuyerQuoteStatus::DRAFT;
+        $record->currency_id = $data['currency_id'];
+        $record->exchange_rate = (string) ($data['exchange_rate'] ?? 1);
+        $record->valid_until = $data['valid_until'] ?? now()->addDays(30);
+        $record->prepayment_type = $data['prepayment_type'] ?? PrepaymentType::PERCENT->value;
+        $record->prepayment_amount = (string) ($data['prepayment_amount'] ?? 0);
+        $record->subtotal = '0';
+        $record->tax_total = '0';
+        $record->total = '0';
+        $record->save();
+        $this->saveBuyerQuoteFromSupplierGroups($record, array_merge($data, ['supplier_groups' => $data['supplier_groups'] ?? []]), $request);
+    }
+
+    /**
+     * Persist payment terms and items from supplier_groups onto an existing buyer quote.
+     */
+    private function saveBuyerQuoteFromSupplierGroups(BuyerQuote $record, array $data, Request $request): void
+    {
+        $groups = $data['supplier_groups'] ?? [];
+        $defaultTaxCode = TaxCode::query()
+            ->where('team_id', $request->team_id)
+            ->where('is_default', true)
+            ->where('is_active', true)
+            ->first();
+        $sortOrder = 0;
+        foreach ($groups as $group) {
+            $supplierQuoteId = (int) ($group['supplier_quote_id'] ?? 0);
+            foreach ($group['payment_terms'] ?? [] as $pt) {
+                $record->paymentTerms()->create([
+                    'supplier_quote_id' => $supplierQuoteId ?: null,
+                    'due_days' => (int) ($pt['due_days'] ?? 0),
+                    'percentage' => (int) ($pt['percentage'] ?? 0),
+                    'job_progress' => isset($pt['job_progress']) ? (int) $pt['job_progress'] : null,
+                    'sort_order' => $sortOrder++,
+                ]);
+            }
+            foreach ($group['items'] ?? [] as $item) {
+                $mainItem = $record->items()->create([
+                    'request_item_id' => $item['request_item_id'] ?? null,
+                    'article_id' => $item['article_id'] ?? null,
+                    'supplier_quote_item_id' => $item['supplier_quote_item_id'] ?? null,
+                    'description' => $item['description'] ?? '',
+                    'quantity' => $item['quantity'] ?? '1',
+                    'unit' => $item['unit'] ?? 'pcs',
+                    'unit_of_measure_id' => $item['unit_of_measure_id'] ?? null,
+                    'cost_price' => $item['cost_price'] ?? '0',
+                    'unit_price' => $item['unit_price'] ?? '0',
+                    'unit_price_exc_tax' => $item['unit_price_exc_tax'] ?? '0',
+                    'tax_code_id' => $item['tax_code_id'] ?? $defaultTaxCode?->getKey(),
+                    'tax_rate' => $item['tax_rate'] ?? '0',
+                    'is_tax_inclusive' => (bool) ($item['is_tax_inclusive'] ?? false),
+                    'line_subtotal' => $item['line_subtotal'] ?? '0',
+                    'line_tax' => $item['line_tax'] ?? '0',
+                    'line_total' => $item['line_total'] ?? '0',
+                    'margin_amount' => $item['margin_amount'] ?? '0',
+                    'margin_percent' => $item['margin_percent'] ?? '0',
+                    'sort_order' => (int) ($item['sort_order'] ?? 0),
+                ]);
+                foreach ($item['child_items'] ?? [] as $child) {
+                    $record->items()->create([
+                        'request_item_id' => $child['request_item_id'] ?? null,
+                        'supplier_quote_item_id' => $child['supplier_quote_item_id'] ?? null,
+                        'description' => $child['description'] ?? '',
+                        'quantity' => $child['quantity'] ?? '1',
+                        'unit_of_measure_id' => $child['unit_of_measure_id'] ?? null,
+                        'cost_price' => $child['cost_price'] ?? '0',
+                        'unit_price' => $child['unit_price'] ?? '0',
+                        'unit_price_exc_tax' => $child['unit_price_exc_tax'] ?? '0',
+                        'tax_code_id' => $child['tax_code_id'] ?? $defaultTaxCode?->getKey(),
+                        'tax_rate' => $child['tax_rate'] ?? '0',
+                        'is_tax_inclusive' => (bool) ($child['is_tax_inclusive'] ?? false),
+                        'line_subtotal' => $child['line_subtotal'] ?? '0',
+                        'line_tax' => $child['line_tax'] ?? '0',
+                        'line_total' => $child['line_total'] ?? '0',
+                        'hide_from_pdf' => (bool) ($child['hide_from_pdf'] ?? false),
+                        'sort_order' => $mainItem->sort_order + 1,
+                    ]);
+                }
+            }
+        }
+        $record->refresh();
+        $record->recalculateTotals();
     }
 
     /**

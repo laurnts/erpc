@@ -13,6 +13,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $buyer_quote_id
+ * @property int|null $supplier_quote_id
  * @property int $due_days
  * @property int $percentage
  * @property int|null $job_progress
@@ -20,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read BuyerQuote $buyerQuote
+ * @property-read SupplierQuote|null $supplierQuote
  */
 final class BuyerQuotePaymentTerm extends Model
 {
@@ -31,6 +33,7 @@ final class BuyerQuotePaymentTerm extends Model
      */
     protected $fillable = [
         'buyer_quote_id',
+        'supplier_quote_id',
         'due_days',
         'percentage',
         'job_progress',
@@ -68,5 +71,15 @@ final class BuyerQuotePaymentTerm extends Model
     public function buyerQuote(): BelongsTo
     {
         return $this->belongsTo(BuyerQuote::class);
+    }
+
+    /**
+     * The supplier quote this payment term was copied from (when grouped by supplier).
+     *
+     * @return BelongsTo<SupplierQuote, $this>
+     */
+    public function supplierQuote(): BelongsTo
+    {
+        return $this->belongsTo(SupplierQuote::class);
     }
 }
