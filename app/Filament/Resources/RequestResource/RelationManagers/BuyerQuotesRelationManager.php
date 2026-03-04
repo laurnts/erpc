@@ -262,7 +262,10 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     Grid::make(12)
                                         ->schema([
                                             TextInput::make('description')->required()->columnSpan(4),
-                                            TextInput::make('quantity')->numeric()->required()->columnSpan(2)->live(onBlur: true)->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
+                                            TextInput::make('quantity')
+                                                ->numeric()->required()->columnSpan(2)->step(1)->live(onBlur: true)
+                                                ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : null)
+                                                ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
                                             Select::make('unit_of_measure_id')
                                                 ->label('Unit of measure')
                                                 ->options(fn (): array => UnitOfMeasure::query()->where('team_id', $this->getOwnerRecord()->team_id)->where('is_active', true)->orderBy('label')->get()->mapWithKeys(fn (UnitOfMeasure $u): array => [$u->getKey() => $u->label])->all())
@@ -320,7 +323,11 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                     $this->calculateItemTotals($set, $get);
                                                 }),
                                             Hidden::make('tax_rate')->default(0)->dehydrated(),
-                                            Checkbox::make('is_tax_inclusive')->label('+ Tax')->inline(false)->columnSpan(1)->live()->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
+                                            Checkbox::make('is_tax_inclusive')
+                                                ->label('+ Tax')->inline(false)->columnSpan(1)->live()
+                                                ->afterStateUpdated(function (Set $set, Get $get, $state): void {
+                                                    $this->calculateItemTotals($set, $get, (bool) $state);
+                                                }),
                                             TextInput::make('margin_percent_input')
                                                 ->label('Margin %')
                                                 ->numeric()->suffix('%')->columnSpan(2)
@@ -352,7 +359,21 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                     $this->calculateItemTotals($set, $get);
                                                 })
                                                 ->dehydrated(false),
-                                            TextInput::make('line_total')->label('Line Total')->numeric()->disabled()->dehydrated()->live()->columnSpan(3),
+                                            Hidden::make('line_total')->dehydrated(),
+                                            Placeholder::make('line_total_display')
+                                                ->label('Line Total')
+                                                ->content(function (Get $get): string {
+                                                    $qty = (float) ($get('quantity') ?? 0);
+                                                    $price = (float) ($get('unit_price') ?? 0);
+                                                    $taxRate = (float) ($get('tax_rate') ?? 0);
+                                                    $incl = $get('is_tax_inclusive');
+                                                    $incl = $incl === true || $incl === '1' || $incl === 1;
+                                                    $sub = $qty * $price;
+                                                    if ($incl && $taxRate > 0) {
+                                                        return (string) round($sub + $sub * $taxRate / 100, 0);
+                                                    }
+                                                    return (string) round($sub, 0);
+                                                }),
                                         ]),
                                     SafeLabelRepeater::make('child_items')
                                         ->label('Detail items')
@@ -360,7 +381,9 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             Hidden::make('request_item_id'),
                                             Hidden::make('supplier_quote_item_id'),
                                             TextInput::make('description')->required(),
-                                            TextInput::make('quantity')->numeric()->required(),
+                                            TextInput::make('quantity')
+                                                ->numeric()->required()->step(1)
+                                                ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : null),
                                             TextInput::make('cost_price')->numeric(),
                                             TextInput::make('unit_price')->numeric(),
                                             TextInput::make('line_total')->numeric(),
@@ -402,9 +425,11 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 ->label('Prepayment')
                                 ->numeric()
                                 ->default(0)
+                                ->step(1)
                                 ->minValue(0)
                                 ->maxValue(fn (Get $get): ?int => $get('prepayment_type') === PrepaymentType::PERCENT->value ? 100 : null)
-                                ->suffix(fn (Get $get): string => $get('prepayment_type') === PrepaymentType::PERCENT->value ? '%' : ''),
+                                ->suffix(fn (Get $get): string => $get('prepayment_type') === PrepaymentType::PERCENT->value ? '%' : '')
+                                ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : null),
                         ]),
                         Repeater::make('paymentTerms')
                             ->relationship()
@@ -513,6 +538,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                             }
                         )
                         ->mutateRelationshipDataBeforeFillUsing(function (array $data, $record) use ($request): array {
+                            $data['quantity'] = (string) (int) round((float) ($data['quantity'] ?? 0));
                             // Prefill margin_percent_input so the Margin % field is never empty; round to int so all items show same default (e.g. 3)
                             $stored = $data['margin_percent'] ?? ($record->margin_percent ?? null);
                             $default = (int) ceil(Filament::getTenant()?->getErpSettings()->default_margin_percent ?? 3.0);
@@ -658,9 +684,10 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->numeric()
                                         ->required()
                                         ->default(1)
-                                        ->step(0.0001)
+                                        ->step(1)
                                         ->columnSpan(2)
                                         ->live(onBlur: true)
+                                        ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : null)
                                         ->afterStateHydrated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get))
                                         ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
                                     Select::make('unit_of_measure_id')
@@ -807,7 +834,9 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->columnSpan(1)
                                         ->live()
                                         ->afterStateHydrated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get))
-                                        ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
+                                        ->afterStateUpdated(function (Set $set, Get $get, $state): void {
+                                            $this->calculateItemTotals($set, $get, (bool) $state);
+                                        }),
                                     TextInput::make('tax_rate')
                                         ->label('Tax %')
                                         ->numeric()
@@ -868,13 +897,21 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             $this->calculateItemTotals($set, $get);
                                         })
                                         ->dehydrated(false),
-                                    TextInput::make('line_total')
+                                    Hidden::make('line_total')->dehydrated(),
+                                    Placeholder::make('line_total_display')
                                         ->label('Line Total')
-                                        ->numeric()
-                                        ->disabled()
-                                        ->dehydrated()
-                                        ->live()
-                                        ->columnSpan(2),
+                                        ->content(function (Get $get): string {
+                                            $qty = (float) ($get('quantity') ?? 0);
+                                            $price = (float) ($get('unit_price') ?? 0);
+                                            $taxRate = (float) ($get('tax_rate') ?? 0);
+                                            $incl = $get('is_tax_inclusive');
+                                            $incl = $incl === true || $incl === '1' || $incl === 1;
+                                            $sub = $qty * $price;
+                                            if ($incl && $taxRate > 0) {
+                                                return (string) round($sub + $sub * $taxRate / 100, 0);
+                                            }
+                                            return (string) round($sub, 0);
+                                        }),
                                 ]),
                             Checkbox::make('hide_from_pdf')
                                 ->label('Hide from PDF')
@@ -899,9 +936,10 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                     TextInput::make('quantity')
                                                         ->numeric()
                                                         ->required()
-
+                                                        ->step(1)
                                                         ->columnSpan(1)
                                                         ->live(onBlur: true)
+                                                        ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : null)
                                                         ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
                                                     Select::make('unit_of_measure_id')
                                                         ->label('Unit')
@@ -1278,9 +1316,11 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                 ->label('Prepayment')
                                                 ->numeric()
                                                 ->default(0)
+                                                ->step(1)
                                                 ->minValue(0)
                                                 ->maxValue(fn (Get $get): ?int => $get('prepayment_type') === PrepaymentType::PERCENT->value ? 100 : null)
-                                                ->suffix(fn (Get $get): string => $get('prepayment_type') === PrepaymentType::PERCENT->value ? '%' : ''),
+                                                ->suffix(fn (Get $get): string => $get('prepayment_type') === PrepaymentType::PERCENT->value ? '%' : '')
+                                                ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : null),
                                         ]),
                                     SafeLabelRepeater::make('payment_terms')
                                         ->label('Payment terms')
@@ -1318,7 +1358,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                 ->schema([
                                                     TextInput::make('description')->required()->columnSpan(4),
                                                     TextInput::make('quantity')
-                                                        ->numeric()->required()->columnSpan(2)->live(onBlur: true)
+                                                        ->numeric()->required()->columnSpan(2)->step(1)->live(onBlur: true)
+                                                        ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : null)
                                                         ->afterStateHydrated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get))
                                                         ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
                                                     Select::make('unit_of_measure_id')
@@ -1384,7 +1425,9 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                     Checkbox::make('is_tax_inclusive')
                                                         ->label('+ Tax')->inline(false)->columnSpan(1)->live()
                                                         ->afterStateHydrated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get))
-                                                        ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
+                                                        ->afterStateUpdated(function (Set $set, Get $get, $state): void {
+                                                            $this->calculateItemTotals($set, $get, (bool) $state);
+                                                        }),
                                                     TextInput::make('margin_percent_input')
                                                         ->label('Margin %')
                                                         ->numeric()->suffix('%')->columnSpan(2)
@@ -1415,8 +1458,21 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                             $this->calculateItemTotals($set, $get);
                                                         })
                                                         ->dehydrated(false),
-                                                    TextInput::make('line_total')
-                                                        ->label('Line Total')->numeric()->disabled()->dehydrated()->live()->columnSpan(3),
+                                                    Hidden::make('line_total')->dehydrated(),
+                                                    Placeholder::make('line_total_display')
+                                                        ->label('Line Total')
+                                                        ->content(function (Get $get): string {
+                                                            $qty = (float) ($get('quantity') ?? 0);
+                                                            $price = (float) ($get('unit_price') ?? 0);
+                                                            $taxRate = (float) ($get('tax_rate') ?? 0);
+                                                            $incl = $get('is_tax_inclusive');
+                                                            $incl = $incl === true || $incl === '1' || $incl === 1;
+                                                            $sub = $qty * $price;
+                                                            if ($incl && $taxRate > 0) {
+                                                                return (string) round($sub + $sub * $taxRate / 100, 0);
+                                                            }
+                                                            return (string) round($sub, 0);
+                                                        }),
                                                 ]),
                                             SafeLabelRepeater::make('child_items')
                                                 ->label('Detail items')
@@ -1424,7 +1480,9 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                     Hidden::make('request_item_id'),
                                                     Hidden::make('supplier_quote_item_id'),
                                                     TextInput::make('description')->required(),
-                                                    TextInput::make('quantity')->numeric()->required(),
+                                                    TextInput::make('quantity')
+                                                        ->numeric()->required()->step(1)
+                                                        ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : null),
                                                     TextInput::make('cost_price')->numeric(),
                                                     TextInput::make('unit_price')->numeric(),
                                                     TextInput::make('line_total')->numeric(),
@@ -2368,7 +2426,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     'article_id' => $mainItem->article_id,
                                     'supplier_quote_item_id' => $mainItem->supplier_quote_item_id,
                                     'description' => $mainItem->description,
-                                    'quantity' => (string) $mainItem->quantity,
+                                    'quantity' => (string) (int) round((float) $mainItem->quantity),
                                     'unit_of_measure_id' => $mainItem->unit_of_measure_id,
                                     'unit' => $mainItem->unit instanceof \App\Enums\Unit ? $mainItem->unit->value : (string) $mainItem->unit,
                                     'cost_price' => (string) $mainItem->cost_price,
@@ -2424,7 +2482,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                 'request_item_id' => $childItem->request_item_id,
                                                 'supplier_quote_item_id' => $childItem->supplier_quote_item_id,
                                                 'description' => $childItem->description,
-                                                'quantity' => (string) $childItem->quantity,
+                                                'quantity' => (string) (int) round((float) $childItem->quantity),
                                                 'unit_of_measure_id' => $childItem->unit_of_measure_id,
                                                 'cost_price' => (string) $childItem->cost_price,
                                                 'unit_price' => (string) $childItem->unit_price,
@@ -2447,7 +2505,10 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 $items[] = $itemData;
                             }
                             
-                            return ['items' => $items];
+                            return [
+                                'items' => $items,
+                                'prepayment_amount' => (string) (int) round((float) $record->prepayment_amount),
+                            ];
                         })
                         ->mutateFormDataUsing(function (array $data): array {
                             // Ensure unit_price_exc_tax matches unit_price for all items (both should be net price)
@@ -2893,6 +2954,10 @@ final class BuyerQuotesRelationManager extends RelationManager
             ->sortBy(fn (SupplierQuote $sq): int => (int) array_search($sq->id, $supplierQuoteIds, true))
             ->values();
 
+        $firstSupplierQuote = $supplierQuotes->first();
+        $prepaymentType = $firstSupplierQuote !== null ? $firstSupplierQuote->prepayment_type->value : PrepaymentType::PERCENT->value;
+        $prepaymentAmount = $firstSupplierQuote !== null ? (string) (int) round((float) $firstSupplierQuote->prepayment_amount) : '0';
+
         foreach ($supplierQuotes as $sq) {
             $paymentTerms = $sq->paymentTerms->map(fn (SupplierQuotePaymentTerm $pt): array => [
                 'due_days' => $pt->due_days,
@@ -2936,7 +3001,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                             'request_item_id' => $childRI->id,
                             'supplier_quote_item_id' => $childSqi?->id,
                             'description' => $childRI->description,
-                            'quantity' => (string) $childRI->quantity,
+                            'quantity' => (string) (int) round((float) $childRI->quantity),
                             'unit_of_measure_id' => $childRI->unit_of_measure_id,
                             'cost_price' => (string) $childCost,
                             'unit_price' => (string) round($childUnitExcTax, 0),
@@ -2957,7 +3022,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                     'supplier_quote_item_id' => $sqi->id,
                     'from_supplier' => $sq->supplier?->name,
                     'description' => $requestItem->article?->name ?? $requestItem->description,
-                    'quantity' => (string) $requestItem->quantity,
+                    'quantity' => (string) (int) round((float) $requestItem->quantity),
                     'unit_of_measure_id' => $requestItem->unit_of_measure_id,
                     'unit' => $requestItem->unitOfMeasure?->code ?? 'pcs',
                     'cost_price' => (string) $costPrice,
@@ -2980,8 +3045,8 @@ final class BuyerQuotesRelationManager extends RelationManager
             $supplierGroups[] = [
                 'supplier_quote_id' => $sq->id,
                 'supplier_name' => $sq->supplier?->name ?? $sq->quote_number,
-                'prepayment_type' => PrepaymentType::PERCENT->value,
-                'prepayment_amount' => 0,
+                'prepayment_type' => $sq->prepayment_type->value,
+                'prepayment_amount' => (string) (int) round((float) $sq->prepayment_amount),
                 'payment_terms' => $paymentTerms,
                 'items' => $items,
             ];
@@ -2992,8 +3057,8 @@ final class BuyerQuotesRelationManager extends RelationManager
             'currency_id' => $currencyId,
             'exchange_rate' => 1,
             'valid_until' => now()->addDays($settings->quote_validity_days ?? 30),
-            'prepayment_type' => PrepaymentType::PERCENT->value,
-            'prepayment_amount' => 0,
+            'prepayment_type' => $prepaymentType,
+            'prepayment_amount' => $prepaymentAmount,
             '_create_with_supplier_groups' => true,
             'supplier_groups' => $supplierGroups,
         ];
