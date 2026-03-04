@@ -1286,7 +1286,13 @@ final class SupplierQuotesRelationManager extends RelationManager
             ->recordActions([
                 ActionGroup::make([
                     EditAction::make()
-                        ->label('Edit')
+                        ->label(function (?SupplierQuote $record): string {
+                            if ($record === null) {
+                                return 'Edit';
+                            }
+                            $record->load('media');
+                            return $record->getMedia('quotation')->isNotEmpty() ? 'Input price' : 'Edit';
+                        })
                         ->icon('heroicon-o-pencil-square')
                         ->size(Size::Small)
                         ->visible(function (?SupplierQuote $record): bool {
@@ -1294,12 +1300,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                 return false;
                             }
                             $record->load('media');
-                            // Only show when document is uploaded and quote is in sync with request items (no additional items)
-                            if ($record->getMedia('quotation')->isEmpty()) {
-                                return false;
-                            }
-
-                            return ! $record->hasAdditionalRequestItems();
+                            // Show when quotation document is uploaded so user can input supplier prices (per post-upload notification)
+                            return $record->getMedia('quotation')->isNotEmpty();
                         })
                         ->mutateFormDataUsing(function (array $data, SupplierQuote $record): array {
                             $request = $record->request;
