@@ -215,10 +215,13 @@ final class BuyerQuotesRelationManager extends RelationManager
                     Hidden::make('exchange_rate')->default(1),
                 ]),
 
-            Section::make('By supplier')
+            Section::make()
+                ->heading('')
                 ->visible(fn (Get $get): bool => (bool) ($get('_create_with_supplier_groups') ?? false))
                 ->schema([
                     SafeLabelRepeater::make('supplier_groups')
+                        ->label('')
+                        ->hiddenLabel()
                         ->schema([
                             Hidden::make('supplier_quote_id'),
                             Placeholder::make('supplier_name')
@@ -226,6 +229,16 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 ->content(fn ($state): string => $state ?? '—'),
                             SafeLabelRepeater::make('payment_terms')
                                 ->label('Payment terms')
+                                ->itemLabel(function (array $state): ?string {
+                                    if (! isset($state['due_days'], $state['percentage'])) {
+                                        return null;
+                                    }
+                                    $label = "{$state['due_days']} days - {$state['percentage']}%";
+                                    if ($this->getOwnerRecord()->isServiceRequest() && isset($state['job_progress']) && $state['job_progress'] !== '' && $state['job_progress'] !== null) {
+                                        $label .= " - {$state['job_progress']}%";
+                                    }
+                                    return $label;
+                                })
                                 ->schema([
                                     TextInput::make('due_days')->label('Due days')->numeric()->suffix('days'),
                                     TextInput::make('percentage')->label('Percentage')->numeric()->suffix('%'),
@@ -239,22 +252,108 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     Hidden::make('request_item_id'),
                                     Hidden::make('article_id'),
                                     Hidden::make('supplier_quote_item_id'),
-                                    TextInput::make('description')->required(),
-                                    TextInput::make('quantity')->numeric()->required(),
-                                    TextInput::make('cost_price')->label('Cost')->numeric(),
-                                    TextInput::make('unit_price')->label('Selling (net)')->numeric(),
-                                    TextInput::make('line_total')->numeric()->disabled(),
                                     Hidden::make('unit'),
-                                    Hidden::make('unit_of_measure_id'),
                                     Hidden::make('unit_price_exc_tax'),
-                                    Hidden::make('tax_code_id'),
-                                    Hidden::make('tax_rate'),
-                                    Hidden::make('is_tax_inclusive'),
                                     Hidden::make('line_subtotal'),
                                     Hidden::make('line_tax'),
                                     Hidden::make('margin_amount'),
                                     Hidden::make('margin_percent'),
                                     Hidden::make('sort_order'),
+                                    Grid::make(12)
+                                        ->schema([
+                                            TextInput::make('description')->required()->columnSpan(4),
+                                            TextInput::make('quantity')->numeric()->required()->columnSpan(2)->live(onBlur: true)->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
+                                            Select::make('unit_of_measure_id')
+                                                ->label('Unit of measure')
+                                                ->options(fn (): array => UnitOfMeasure::query()->where('team_id', $this->getOwnerRecord()->team_id)->where('is_active', true)->orderBy('label')->get()->mapWithKeys(fn (UnitOfMeasure $u): array => [$u->getKey() => $u->label])->all())
+                                                ->default(fn (): ?int => UnitOfMeasure::query()->where('team_id', $this->getOwnerRecord()->team_id)->where('code', 'pcs')->where('is_active', true)->value('id'))
+                                                ->selectablePlaceholder(false)
+                                                ->columnSpan(3)
+                                                ->live()
+                                                ->afterStateUpdated(function (Set $set, ?int $state): void {
+                                                    if ($state !== null) {
+                                                        $uom = UnitOfMeasure::find($state);
+                                                        if ($uom !== null) {
+                                                            $set('unit', $uom->code ?? 'pcs');
+                                                        }
+                                                    }
+                                                }),
+                                            TextInput::make('cost_price')->label('Cost')->numeric()->columnSpan(3)->live(onBlur: true)->afterStateUpdated(function (Set $set, Get $get): void {
+                                                $costPrice = (float) ($get('cost_price') ?? 0);
+                                                $unitPrice = (float) ($get('unit_price') ?? 0);
+                                                if ($costPrice > 0 && $unitPrice > 0) {
+                                                    $marginPercent = (($unitPrice - $costPrice) / $unitPrice) * 100;
+                                                    $set('margin_percent_input', (int) round($marginPercent));
+                                                }
+                                                $this->calculateItemTotals($set, $get);
+                                            }),
+                                        ]),
+                                    Grid::make(12)
+                                        ->schema([
+                                            TextInput::make('unit_price')->label('Selling (net)')->numeric()->columnSpan(3)->live(onBlur: true)->afterStateUpdated(function (Set $set, Get $get): void {
+                                                $unitPrice = (float) ($get('unit_price') ?? 0);
+                                                $set('unit_price_exc_tax', round($unitPrice, 0));
+                                                $costPrice = (float) ($get('cost_price') ?? 0);
+                                                if ($costPrice > 0 && $unitPrice > 0) {
+                                                    $marginPercent = (($unitPrice - $costPrice) / $unitPrice) * 100;
+                                                    $set('margin_percent_input', (int) round($marginPercent));
+                                                }
+                                                $this->calculateItemTotals($set, $get);
+                                            }),
+                                            Select::make('tax_code_id')
+                                                ->label('Tax Code')
+                                                ->options(fn (): array => TaxCode::query()->where('team_id', $this->getOwnerRecord()->team_id)->where('is_active', true)->orderBy('sort_order')->get()->mapWithKeys(fn (TaxCode $t): array => [$t->getKey() => $t->display_name])->all())
+                                                ->default(fn (): ?int => TaxCode::query()->where('team_id', $this->getOwnerRecord()->team_id)->where('is_default', true)->where('is_active', true)->value('id'))
+                                                ->selectablePlaceholder(false)
+                                                ->columnSpan(3)
+                                                ->live()
+                                                ->afterStateUpdated(function (Set $set, Get $get, ?int $state): void {
+                                                    if ($state === null) {
+                                                        $set('tax_rate', 0);
+                                                    } else {
+                                                        $taxCode = TaxCode::find($state);
+                                                        if ($taxCode !== null) {
+                                                            $set('tax_rate', $taxCode->rate);
+                                                            $set('is_tax_inclusive', $taxCode->is_inclusive_default);
+                                                        }
+                                                    }
+                                                    $this->calculateItemTotals($set, $get);
+                                                }),
+                                            Hidden::make('tax_rate')->default(0)->dehydrated(),
+                                            Checkbox::make('is_tax_inclusive')->label('+ Tax')->inline(false)->columnSpan(1)->live()->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
+                                            TextInput::make('margin_percent_input')
+                                                ->label('Margin %')
+                                                ->numeric()->suffix('%')->columnSpan(2)
+                                                ->default(function (Get $get): float {
+                                                    $stored = $get('margin_percent');
+                                                    if ($stored !== null && $stored !== '' && (float) $stored > 0) {
+                                                        return (float) $stored;
+                                                    }
+                                                    return (float) ceil(Filament::getTenant()?->getErpSettings()->default_margin_percent ?? 3.0);
+                                                })
+                                                ->live(onBlur: true)
+                                                ->afterStateHydrated(function (Set $set, Get $get): void {
+                                                    $current = $get('margin_percent_input');
+                                                    if ($current !== null && $current !== '' && (float) $current > 0) {
+                                                        return;
+                                                    }
+                                                    $stored = $get('margin_percent');
+                                                    $default = (int) ceil(Filament::getTenant()?->getErpSettings()->default_margin_percent ?? 3.0);
+                                                    $set('margin_percent_input', $stored !== null && $stored !== '' && (float) $stored > 0 ? (int) round((float) $stored) : $default);
+                                                })
+                                                ->afterStateUpdated(function (Set $set, Get $get, ?float $state): void {
+                                                    $marginPercent = $state ?? 0;
+                                                    $costPrice = (float) ($get('cost_price') ?? 0);
+                                                    if ($costPrice > 0 && $marginPercent >= 0) {
+                                                        $unitPriceExcTax = round($costPrice * (1 + $marginPercent / 100), 0);
+                                                        $set('unit_price', $unitPriceExcTax);
+                                                        $set('unit_price_exc_tax', $unitPriceExcTax);
+                                                    }
+                                                    $this->calculateItemTotals($set, $get);
+                                                })
+                                                ->dehydrated(false),
+                                            TextInput::make('line_total')->label('Line Total')->numeric()->disabled()->dehydrated()->live()->columnSpan(3),
+                                        ]),
                                     SafeLabelRepeater::make('child_items')
                                         ->label('Detail items')
                                         ->schema([
@@ -278,7 +377,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->collapsible()
                                         ->visible(fn (): bool => $this->getOwnerRecord()->isServiceRequest()),
                                 ])
-                                ->columns(2)
+                                ->columns(1)
                                 ->collapsible()
                                 ->itemLabel(fn (array $state): ?string => $state['description'] ?? null),
                         ])
@@ -414,6 +513,13 @@ final class BuyerQuotesRelationManager extends RelationManager
                             }
                         )
                         ->mutateRelationshipDataBeforeFillUsing(function (array $data, $record) use ($request): array {
+                            // Prefill margin_percent_input so the Margin % field is never empty; round to int so all items show same default (e.g. 3)
+                            $stored = $data['margin_percent'] ?? ($record->margin_percent ?? null);
+                            $default = (int) ceil(Filament::getTenant()?->getErpSettings()->default_margin_percent ?? 3.0);
+                            $data['margin_percent_input'] = ($stored !== null && $stored !== '' && (float) $stored > 0)
+                                ? (int) round((float) $stored)
+                                : $default;
+
                             // Add child_items to each MAIN item when loading from relationship
                             // $record here is the BuyerQuoteItem, we need to check if it's a main item
                             if ($request->isServiceRequest() && isset($data['request_item_id']) && $data['request_item_id'] !== null) {
@@ -555,6 +661,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->step(0.0001)
                                         ->columnSpan(2)
                                         ->live(onBlur: true)
+                                        ->afterStateHydrated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get))
                                         ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
                                     Select::make('unit_of_measure_id')
                                         ->label('Unit')
@@ -612,8 +719,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             $set('unit_price_exc_tax', $unitPriceExcTax);
 
                                             if ($costPrice > 0 && $unitPriceExcTax > 0) {
-                                                // Margin on selling: ((selling_price - cost_price) / selling_price) * 100
-                                                $marginPercent = (($unitPriceExcTax - $costPrice) / $unitPriceExcTax) * 100;
+                                                $marginPercent = (($unitPriceExcTax - $costPrice) / $costPrice) * 100;
                                                 $set('margin_percent_input', (int) round($marginPercent));
                                             }
 
@@ -627,6 +733,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->step(1)
                                         ->columnSpan(2)
                                         ->live(onBlur: true)
+                                        ->afterStateHydrated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get))
                                         ->afterStateUpdated(function (Set $set, Get $get): void {
                                             $costPrice = (float) ($get('cost_price') ?? 0);
                                             $unitPrice = (float) ($get('unit_price') ?? 0);
@@ -638,8 +745,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             $set('unit_price_exc_tax', $unitPriceExcTax);
 
                                             if ($costPrice > 0 && $unitPriceExcTax > 0) {
-                                                // Margin on selling: ((selling_price - cost_price) / selling_price) * 100
-                                                $marginPercent = (($unitPriceExcTax - $costPrice) / $unitPriceExcTax) * 100;
+                                                $marginPercent = (($unitPriceExcTax - $costPrice) / $costPrice) * 100;
                                                 $set('margin_percent_input', (int) ceil($marginPercent));
                                             }
 
@@ -700,6 +806,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->inline(false)
                                         ->columnSpan(1)
                                         ->live()
+                                        ->afterStateHydrated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get))
                                         ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
                                     TextInput::make('tax_rate')
                                         ->label('Tax %')
@@ -709,6 +816,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->columnSpan(1)
                                         ->disabled()
                                         ->dehydrated(),
+                                    // Margin %: default from general settings. Unit price = cost × (1 + margin%/100); margin% = (selling - cost)/cost×100. +Tax adds tax to line total.
                                     TextInput::make('margin_percent_input')
                                         ->label('Margin %')
                                         ->numeric()
@@ -723,58 +831,40 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->columnSpan(2)
                                         ->live(onBlur: true)
                                         ->afterStateHydrated(function (Set $set, Get $get): void {
-                                            // Use unit_price_exc_tax from database if available, otherwise calculate from unit_price
+                                            $defaultMargin = (float) ceil(Filament::getTenant()?->getErpSettings()->default_margin_percent ?? 3.0);
+                                            $stored = $get('margin_percent');
+                                            $current = $get('margin_percent_input');
+                                            $prefill = ($stored !== null && $stored !== '' && (float) $stored > 0)
+                                                ? (int) round((float) $stored)
+                                                : (int) $defaultMargin;
+                                            if ($current === null || $current === '' || (float) $current === 0.0) {
+                                                $set('margin_percent_input', $prefill);
+                                            }
                                             $costPrice = (float) ($get('cost_price') ?? 0);
                                             $unitPrice = (float) ($get('unit_price') ?? 0);
                                             $unitPriceExcTaxStored = (float) ($get('unit_price_exc_tax') ?? 0);
-                                            $taxRate = (float) ($get('tax_rate') ?? 0);
-                                            $isTaxInclusive = (bool) ($get('is_tax_inclusive') ?? false);
-                                            $marginPercentInput = $get('margin_percent_input');
-                                            
-                                            // unit_price always represents the net price (Selling Price Net)
-                                            // unit_price_exc_tax should always equal unit_price (they're both net price)
                                             if ($unitPrice > 0) {
                                                 $unitPriceExcTax = round($unitPrice, 0);
-                                                // Ensure unit_price_exc_tax matches unit_price
                                                 $set('unit_price_exc_tax', $unitPriceExcTax);
                                             } elseif ($unitPriceExcTaxStored > 0) {
-                                                // Fallback to stored value if unit_price is not set
                                                 $unitPriceExcTax = $unitPriceExcTaxStored;
                                             } else {
                                                 $unitPriceExcTax = 0;
                                             }
-                                            
-                                            // Always recalculate margin from current values to ensure accuracy
-                                            // This ensures correct margin even if database has old incorrect values
                                             if ($costPrice > 0 && $unitPriceExcTax > 0) {
-                                                // Calculate margin on selling: ((selling_price - cost_price) / selling_price) * 100
-                                                $marginPercent = (($unitPriceExcTax - $costPrice) / $unitPriceExcTax) * 100;
+                                                $marginPercent = (($unitPriceExcTax - $costPrice) / $costPrice) * 100;
                                                 $set('margin_percent_input', (int) round($marginPercent));
                                             }
-                                            
-                                            // Recalculate line totals to ensure they're correct based on current values
                                             $this->calculateItemTotals($set, $get);
                                         })
                                         ->afterStateUpdated(function (Set $set, Get $get, ?float $state): void {
                                             $marginPercent = $state ?? 0;
                                             $costPrice = (float) ($get('cost_price') ?? 0);
-                                            $taxRate = (float) ($get('tax_rate') ?? 0);
-                                            $isTaxInclusive = (bool) ($get('is_tax_inclusive') ?? false);
-
-                                            if ($costPrice > 0 && $marginPercent >= 0 && $marginPercent < 100) {
-                                                // Calculate selling price from margin on selling: selling = cost / (1 - margin%/100)
-                                                // Formula: margin% = (selling - cost) / selling × 100
-                                                // Solving for selling: selling = cost / (1 - margin%/100)
-                                                $unitPriceExcTax = round($costPrice / (1 - $marginPercent / 100), 0);
-                                                
-                                                // unit_price always represents the net price (Selling Price Net)
-                                                // The "+Tax" checkbox only affects whether tax is added to line total
-                                                $unitPrice = $unitPriceExcTax;
-                                                
-                                                $set('unit_price', $unitPrice);
+                                            if ($costPrice > 0 && $marginPercent >= 0) {
+                                                $unitPriceExcTax = round($costPrice * (1 + $marginPercent / 100), 0);
+                                                $set('unit_price', $unitPriceExcTax);
                                                 $set('unit_price_exc_tax', $unitPriceExcTax);
                                             }
-
                                             $this->calculateItemTotals($set, $get);
                                         })
                                         ->dehydrated(false),
@@ -783,6 +873,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->numeric()
                                         ->disabled()
                                         ->dehydrated()
+                                        ->live()
                                         ->columnSpan(2),
                                 ]),
                             Checkbox::make('hide_from_pdf')
@@ -844,9 +935,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                             $set('unit_price_exc_tax', $unitPriceExcTax);
                                                             
                                                             if ($costPrice > 0 && $unitPriceExcTax > 0) {
-                                                                // Margin on selling: ((selling_price - cost_price) / selling_price) * 100
-                                                                $marginPercent = (($unitPriceExcTax - $costPrice) / $unitPriceExcTax) * 100;
-                                                                // Note: margin_percent_input is not used for child items, but we keep the logic consistent
+                                                                $marginPercent = (($unitPriceExcTax - $costPrice) / $costPrice) * 100;
                                                             }
                                                             
                                                             $this->calculateItemTotals($set, $get);
@@ -866,15 +955,11 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                             $costPrice = (float) ($get('cost_price') ?? 0);
                                                             $unitPrice = (float) ($get('unit_price') ?? 0);
                                                             
-                                                            // unit_price always represents the net price (Selling Price Net)
                                                             $unitPriceExcTax = round($unitPrice, 0);
-                                                            
-                                                            // Update unit_price_exc_tax to match
                                                             $set('unit_price_exc_tax', $unitPriceExcTax);
                                                             
                                                             if ($costPrice > 0 && $unitPriceExcTax > 0) {
-                                                                // Margin on selling: ((selling_price - cost_price) / selling_price) * 100
-                                                                $marginPercent = (($unitPriceExcTax - $costPrice) / $unitPriceExcTax) * 100;
+                                                                $marginPercent = (($unitPriceExcTax - $costPrice) / $costPrice) * 100;
                                                             }
                                                             
                                                             $this->calculateItemTotals($set, $get);
@@ -930,8 +1015,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                         ->step(0.01)
                                                         ->columnSpan(1)
                                                         ->disabled()
-                                                        ->dehydrated()
-                                                        ->live(onBlur: false),
+                                                        ->dehydrated(),
                                                     TextInput::make('line_total')
                                                         ->label('Line Total')
                                                         ->numeric()
@@ -1122,7 +1206,7 @@ final class BuyerQuotesRelationManager extends RelationManager
             Section::make('Quote Details')
                 ->visible(fn (Get $get): bool => (int) ($get('step') ?? 1) === 2)
                 ->schema([
-                    Grid::make(2)
+                    Grid::make(3)
                         ->schema([
                             Select::make('status')
                                 ->options(BuyerQuoteStatus::class)
@@ -1174,6 +1258,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->dehydrated(false),
                     SafeLabelRepeater::make('supplier_groups')
                         ->label('')
+                        ->hiddenLabel()
                         ->addable(false)
                         ->schema([
                             Hidden::make('supplier_quote_id'),
@@ -1196,15 +1281,19 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                 ->minValue(0)
                                                 ->maxValue(fn (Get $get): ?int => $get('prepayment_type') === PrepaymentType::PERCENT->value ? 100 : null)
                                                 ->suffix(fn (Get $get): string => $get('prepayment_type') === PrepaymentType::PERCENT->value ? '%' : ''),
-                                            TextInput::make('prepayment_due_days')
-                                                ->label('Prepayment due days')
-                                                ->numeric()
-                                                ->default(0)
-                                                ->minValue(0)
-                                                ->suffix('days'),
                                         ]),
                                     SafeLabelRepeater::make('payment_terms')
-                                        ->label('Payment schedule')
+                                        ->label('Payment terms')
+                                        ->itemLabel(function (array $state) use ($request): ?string {
+                                            if (! isset($state['due_days'], $state['percentage'])) {
+                                                return null;
+                                            }
+                                            $label = "{$state['due_days']} days - {$state['percentage']}%";
+                                            if ($request->isServiceRequest() && isset($state['job_progress']) && $state['job_progress'] !== '' && $state['job_progress'] !== null) {
+                                                $label .= " - {$state['job_progress']}%";
+                                            }
+                                            return $label;
+                                        })
                                         ->schema([
                                             TextInput::make('due_days')->label('Due days')->numeric()->suffix('days'),
                                             TextInput::make('percentage')->label('Percentage')->numeric()->suffix('%'),
@@ -1218,22 +1307,117 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             Hidden::make('request_item_id'),
                                             Hidden::make('article_id'),
                                             Hidden::make('supplier_quote_item_id'),
-                                            TextInput::make('description')->required(),
-                                            TextInput::make('quantity')->numeric()->required(),
-                                            TextInput::make('cost_price')->label('Cost')->numeric(),
-                                            TextInput::make('unit_price')->label('Selling (net)')->numeric(),
-                                            TextInput::make('line_total')->numeric()->disabled(),
                                             Hidden::make('unit'),
-                                            Hidden::make('unit_of_measure_id'),
                                             Hidden::make('unit_price_exc_tax'),
-                                            Hidden::make('tax_code_id'),
-                                            Hidden::make('tax_rate'),
-                                            Hidden::make('is_tax_inclusive'),
                                             Hidden::make('line_subtotal'),
                                             Hidden::make('line_tax'),
                                             Hidden::make('margin_amount'),
                                             Hidden::make('margin_percent'),
                                             Hidden::make('sort_order'),
+                                            Grid::make(12)
+                                                ->schema([
+                                                    TextInput::make('description')->required()->columnSpan(4),
+                                                    TextInput::make('quantity')
+                                                        ->numeric()->required()->columnSpan(2)->live(onBlur: true)
+                                                        ->afterStateHydrated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get))
+                                                        ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
+                                                    Select::make('unit_of_measure_id')
+                                                        ->label('Unit of measure')
+                                                        ->options(fn (): array => UnitOfMeasure::query()->where('team_id', $request->team_id)->where('is_active', true)->orderBy('label')->get()->mapWithKeys(fn (UnitOfMeasure $u): array => [$u->getKey() => $u->label])->all())
+                                                        ->default(fn (): ?int => UnitOfMeasure::query()->where('team_id', $request->team_id)->where('code', 'pcs')->where('is_active', true)->value('id'))
+                                                        ->selectablePlaceholder(false)
+                                                        ->columnSpan(3)
+                                                        ->live()
+                                                        ->afterStateUpdated(function (Set $set, ?int $state): void {
+                                                            if ($state !== null) {
+                                                                $uom = UnitOfMeasure::find($state);
+                                                                if ($uom !== null) {
+                                                                    $set('unit', $uom->code ?? 'pcs');
+                                                                }
+                                                            }
+                                                        }),
+                                                    TextInput::make('cost_price')->label('Cost')->numeric()->columnSpan(3)->live(onBlur: true)->afterStateUpdated(function (Set $set, Get $get): void {
+                                                        $costPrice = (float) ($get('cost_price') ?? 0);
+                                                        $unitPrice = (float) ($get('unit_price') ?? 0);
+                                                        if ($costPrice > 0 && $unitPrice > 0) {
+                                                            $marginPercent = (($unitPrice - $costPrice) / $costPrice) * 100;
+                                                            $set('margin_percent_input', (int) round($marginPercent));
+                                                        }
+                                                        $this->calculateItemTotals($set, $get);
+                                                    }),
+                                                ]),
+                                            Grid::make(12)
+                                                ->schema([
+                                                    TextInput::make('unit_price')
+                                                        ->label('Selling (net)')->numeric()->columnSpan(3)->live(onBlur: true)
+                                                        ->afterStateHydrated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get))
+                                                        ->afterStateUpdated(function (Set $set, Get $get): void {
+                                                            $unitPrice = (float) ($get('unit_price') ?? 0);
+                                                            $set('unit_price_exc_tax', round($unitPrice, 0));
+                                                            $costPrice = (float) ($get('cost_price') ?? 0);
+                                                            if ($costPrice > 0 && $unitPrice > 0) {
+                                                                $marginPercent = (($unitPrice - $costPrice) / $costPrice) * 100;
+                                                                $set('margin_percent_input', (int) round($marginPercent));
+                                                            }
+                                                            $this->calculateItemTotals($set, $get);
+                                                        }),
+                                                    Select::make('tax_code_id')
+                                                        ->label('Tax Code')
+                                                        ->options(fn (): array => TaxCode::query()->where('team_id', $request->team_id)->where('is_active', true)->orderBy('sort_order')->get()->mapWithKeys(fn (TaxCode $t): array => [$t->getKey() => $t->display_name])->all())
+                                                        ->default(fn (): ?int => TaxCode::query()->where('team_id', $request->team_id)->where('is_default', true)->where('is_active', true)->value('id'))
+                                                        ->selectablePlaceholder(false)
+                                                        ->columnSpan(3)
+                                                        ->live()
+                                                        ->afterStateUpdated(function (Set $set, Get $get, ?int $state) use ($request): void {
+                                                            if ($state === null) {
+                                                                $set('tax_rate', 0);
+                                                            } else {
+                                                                $taxCode = TaxCode::find($state);
+                                                                if ($taxCode !== null) {
+                                                                    $set('tax_rate', $taxCode->rate);
+                                                                    $set('is_tax_inclusive', $taxCode->is_inclusive_default);
+                                                                }
+                                                            }
+                                                            $this->calculateItemTotals($set, $get);
+                                                        }),
+                                                    Hidden::make('tax_rate')->default(0)->dehydrated(),
+                                                    Checkbox::make('is_tax_inclusive')
+                                                        ->label('+ Tax')->inline(false)->columnSpan(1)->live()
+                                                        ->afterStateHydrated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get))
+                                                        ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
+                                                    TextInput::make('margin_percent_input')
+                                                        ->label('Margin %')
+                                                        ->numeric()->suffix('%')->columnSpan(2)
+                                                        ->default(function (): float {
+                                                            /** @var \App\Models\Team|null $team */
+                                                            $team = Filament::getTenant();
+                
+                                                            return ceil($team?->getErpSettings()->default_margin_percent ?? 3.0);
+                                                        })
+                                                        ->live(onBlur: true)
+                                                        ->afterStateHydrated(function (Set $set, Get $get): void {
+                                                            $current = $get('margin_percent_input');
+                                                            if ($current !== null && $current !== '' && (float) $current > 0) {
+                                                                return;
+                                                            }
+                                                            $stored = $get('margin_percent');
+                                                            $default = (int) ceil(Filament::getTenant()?->getErpSettings()->default_margin_percent ?? 3.0);
+                                                            $set('margin_percent_input', $stored !== null && $stored !== '' && (float) $stored > 0 ? (int) round((float) $stored) : $default);
+                                                        })
+                                                        ->afterStateUpdated(function (Set $set, Get $get, ?float $state): void {
+                                                            $marginPercent = $state ?? 0;
+                                                            $costPrice = (float) ($get('cost_price') ?? 0);
+                                                            if ($costPrice > 0 && $marginPercent >= 0) {
+                                                                $unitPriceExcTax = round($costPrice * (1 + $marginPercent / 100), 0);
+                                                                $set('unit_price', $unitPriceExcTax);
+                                                                $set('unit_price_exc_tax', $unitPriceExcTax);
+                                                            }
+                                                            $this->calculateItemTotals($set, $get);
+                                                        })
+                                                        ->dehydrated(false),
+                                                    TextInput::make('line_total')
+                                                        ->label('Line Total')->numeric()->disabled()->dehydrated()->live()->columnSpan(3),
+                                                ]),
                                             SafeLabelRepeater::make('child_items')
                                                 ->label('Detail items')
                                                 ->schema([
@@ -1257,7 +1441,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                 ->collapsible()
                                                 ->visible(fn (): bool => $request->isServiceRequest()),
                                         ])
-                                        ->columns(2)
+                                        ->columns(1)
                                         ->collapsible()
                                         ->itemLabel(fn (array $state): ?string => $state['description'] ?? null),
                         ])
@@ -1519,7 +1703,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                 Action::make('newBuyerQuoteWizard')
                     ->label('New buyer quote')
                     ->icon('heroicon-o-plus')
-                    ->size(Size::Small)
+                    ->size(Size::Medium)
                     ->modalHeading('New buyer quote')
                     ->modalDescription(function (): string {
                         $step = 1;
@@ -1531,7 +1715,6 @@ final class BuyerQuotesRelationManager extends RelationManager
                             ? 'Choose one or more supplier quotes. You can create one combined quote or separate quotes per supplier.'
                             : 'Review and edit the quote, then create.';
                     })
-                    ->modalWidth('7xl')
                     ->form(fn (): array => $this->getNewBuyerQuoteWizardFormSchema())
                     ->modalSubmitActionLabel(function (): string {
                         $step = 1;
@@ -1780,22 +1963,15 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         : 0.0;
                                     $childQuantity = (float) $childRequestItem->quantity;
 
-                                    // Calculate selling price with default margin
-                                    $childUnitPriceExcTax = $childCostPrice > 0 && $defaultMarginPercent < 100
-                                        ? round($childCostPrice / (1 - $defaultMarginPercent / 100), 0)
-                                        : 0.0;
+                                    $childUnitPriceExcTax = $childCostPrice > 0 ? round($childCostPrice * (1 + $defaultMarginPercent / 100), 0) : 0.0;
                                     $childUnitPrice = round($childUnitPriceExcTax, 0);
 
-                                    // Calculate line totals
                                     $childLineSubtotal = $childQuantity * $childUnitPriceExcTax;
                                     $childLineTax = $taxRate > 0 && $addTax ? $childLineSubtotal * $taxRate / 100 : 0;
                                     $childLineTotal = $addTax && $taxRate > 0 ? $childLineSubtotal + $childLineTax : $childLineSubtotal;
 
-                                    // Calculate margin
                                     $childMarginAmount = $childUnitPriceExcTax - $childCostPrice;
-                                    $childMarginPercent = $childUnitPriceExcTax > 0
-                                        ? ($childMarginAmount / $childUnitPriceExcTax) * 100
-                                        : 0;
+                                    $childMarginPercent = $childCostPrice > 0 ? ($childMarginAmount / $childCostPrice) * 100 : 0;
 
                                     $record->items()->create([
                                         'request_item_id' => $childRequestItem->getKey(),
@@ -1858,12 +2034,9 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 $addTax = $defaultTaxCode !== null && $defaultTaxCode->is_inclusive_default;
                                 $quantity = (float) $requestItem->quantity;
 
-                                // Calculate selling price with default margin (NET price)
-                                // Calculate selling price with default margin on selling (NET price)
-                                // Formula: margin% = (selling - cost) / selling × 100
-                                // Solving for selling: selling = cost / (1 - margin%/100)
-                                $unitPriceExcTax = $costPrice > 0 && $defaultMarginPercent < 100
-                                    ? round($costPrice / (1 - $defaultMarginPercent / 100), 4)
+                                // Unit price (Selling net) = Cost × (1 + margin%/100)
+                                $unitPriceExcTax = $costPrice > 0
+                                    ? round($costPrice * (1 + $defaultMarginPercent / 100), 4)
                                     : 0.0;
 
                                 // If tax is inclusive, unit_price should include tax; otherwise unit_price = net price
@@ -1892,9 +2065,9 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     $lineTotal = $lineSubtotal;
                                 }
 
-                                // Calculate margin: ((selling_price - cost_price) / selling_price) * 100
+                                // Margin on cost: (selling - cost) / cost * 100
                                 $marginAmount = $unitPriceExcTax - $costPrice;
-                                $marginPercent = $unitPriceExcTax > 0 ? ($marginAmount / $unitPriceExcTax) * 100 : 0;
+                                $marginPercent = $costPrice > 0 ? ($marginAmount / $costPrice) * 100 : 0;
 
                                 $record->items()->create([
                                     'request_item_id' => $requestItem->getKey(),
@@ -2742,22 +2915,20 @@ final class BuyerQuotesRelationManager extends RelationManager
                 $taxRate = $defaultTaxCode !== null ? (float) $defaultTaxCode->rate : 0.0;
                 $addTax = $defaultTaxCode !== null && $defaultTaxCode->is_inclusive_default;
                 $quantity = (float) $requestItem->quantity;
-                $unitPriceExcTax = $costPrice > 0 && $defaultMarginPercent < 100
-                    ? round($costPrice / (1 - $defaultMarginPercent / 100), 0) : 0.0;
+                $unitPriceExcTax = $costPrice > 0 ? round($costPrice * (1 + $defaultMarginPercent / 100), 0) : 0.0;
                 $unitPrice = round($unitPriceExcTax, 0);
                 $lineSubtotal = $quantity * $unitPriceExcTax;
                 $lineTax = $taxRate > 0 && $addTax ? $lineSubtotal * $taxRate / 100 : 0;
                 $lineTotal = $addTax && $taxRate > 0 ? $lineSubtotal + $lineTax : $lineSubtotal;
                 $marginAmount = $unitPriceExcTax - $costPrice;
-                $marginPercent = $unitPriceExcTax > 0 ? ($marginAmount / $unitPriceExcTax) * 100 : 0;
+                $marginPercent = $costPrice > 0 ? ($marginAmount / $costPrice) * 100 : 0;
                 $childItems = [];
                 if ($request->isServiceRequest() && $requestItem->children()->exists()) {
                     foreach ($requestItem->children()->orderBy('sort_order')->get() as $childRI) {
                         $childSqi = $sq->items->firstWhere('request_item_id', $childRI->id);
                         $childCost = $childSqi ? (float) $childSqi->unit_price_exc_tax : 0.0;
                         $childQty = (float) $childRI->quantity;
-                        $childUnitExcTax = $childCost > 0 && $defaultMarginPercent < 100
-                            ? round($childCost / (1 - $defaultMarginPercent / 100), 0) : 0.0;
+                        $childUnitExcTax = $childCost > 0 ? round($childCost * (1 + $defaultMarginPercent / 100), 0) : 0.0;
                         $childLineSub = $childQty * $childUnitExcTax;
                         $childLineTax = $taxRate > 0 && $addTax ? $childLineSub * $taxRate / 100 : 0;
                         $childLineTotal = $addTax && $taxRate > 0 ? $childLineSub + $childLineTax : $childLineSub;
@@ -2801,6 +2972,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                     'line_total' => (string) round($lineTotal, 0),
                     'margin_amount' => (string) round($marginAmount, 4),
                     'margin_percent' => (string) round($marginPercent, 4),
+                    'margin_percent_input' => (int) ($marginPercent > 0 ? round($marginPercent) : round($defaultMarginPercent)),
                     'sort_order' => $sortOrder++,
                     'child_items' => $childItems,
                 ];
@@ -2810,7 +2982,6 @@ final class BuyerQuotesRelationManager extends RelationManager
                 'supplier_name' => $sq->supplier?->name ?? $sq->quote_number,
                 'prepayment_type' => PrepaymentType::PERCENT->value,
                 'prepayment_amount' => 0,
-                'prepayment_due_days' => $defaultPaymentTermsDays,
                 'payment_terms' => $paymentTerms,
                 'items' => $items,
             ];
@@ -2936,7 +3107,8 @@ final class BuyerQuotesRelationManager extends RelationManager
         $unitPriceExcTaxStored = (float) ($get('unit_price_exc_tax') ?? 0);
         $costPrice = (float) ($get('cost_price') ?? 0);
         $taxRate = (float) ($get('tax_rate') ?? 0);
-        $isTaxInclusive = $isTaxInclusiveOverride !== null ? $isTaxInclusiveOverride : (bool) ($get('is_tax_inclusive') ?? false);
+        $taxInclusiveRaw = $get('is_tax_inclusive');
+        $isTaxInclusive = $isTaxInclusiveOverride !== null ? $isTaxInclusiveOverride : ($taxInclusiveRaw === true || $taxInclusiveRaw === '1' || $taxInclusiveRaw === 1);
 
         // unit_price always represents the net price (Selling Price Net), regardless of tax checkbox
         // unit_price_exc_tax should always equal unit_price (they're the same - net price before tax)
@@ -2965,9 +3137,9 @@ final class BuyerQuotesRelationManager extends RelationManager
             $lineTotal = $lineSubtotal;
         }
 
-        // Calculate margin on selling: ((selling_price - cost_price) / selling_price) * 100
+        // Margin on cost: margin% = (selling_price - cost_price) / cost_price * 100
         $marginAmount = $unitPriceExcTax - $costPrice;
-        $marginPercent = $unitPriceExcTax > 0 ? ($marginAmount / $unitPriceExcTax) * 100 : 0;
+        $marginPercent = $costPrice > 0 ? ($marginAmount / $costPrice) * 100 : 0;
 
         $set('unit_price_exc_tax', round($unitPriceExcTax, 0));
         $set('line_subtotal', round($lineSubtotal, 0));
