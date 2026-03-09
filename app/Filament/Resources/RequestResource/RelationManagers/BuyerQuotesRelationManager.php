@@ -95,8 +95,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                 ->view('filament.forms.components.buyer-quote-expired-alert')
                 ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->exists && $record->is_expired)
                 ->dehydrated(false),
-            Section::make('Supplier quotes')
-                ->description('Select which supplier quotes to include. When exactly one is selected, items and payment terms will match that quote. When multiple are selected, items are combined and payment terms use team defaults.')
+            Section::make()
+                ->description('Select which supplier quotes to include.')
                 ->schema([
                     Select::make('supplier_quote_ids')
                         ->label('Supplier quotes')
@@ -129,8 +129,6 @@ final class BuyerQuotesRelationManager extends RelationManager
                             $built = $this->buildFormDataFromSupplierQuotes($request, $ids);
                             $set('items', $built['items']);
                             $set('paymentTerms', $built['paymentTerms']);
-                            $set('prepayment_type', $built['prepayment_type']);
-                            $set('prepayment_amount', $built['prepayment_amount']);
                             if (isset($built['currency_id'])) {
                                 $set('currency_id', $built['currency_id']);
                             }
@@ -140,6 +138,12 @@ final class BuyerQuotesRelationManager extends RelationManager
                             if (isset($built['exchange_rate'])) {
                                 $set('exchange_rate', $built['exchange_rate']);
                             }
+                            // Prepayment: set type first, then amount from supplier quote (or 0 for multiple)
+                            $set('prepayment_type', $built['prepayment_type']);
+                            $prepaymentValue = is_int($built['prepayment_amount']) || is_float($built['prepayment_amount'])
+                                ? (string) $built['prepayment_amount']
+                                : $built['prepayment_amount'];
+                            $set('prepayment_amount', $prepaymentValue);
                         }),
                 ])
                 ->visible(fn (?Model $record): bool => $record === null || ! $record->exists)
@@ -206,14 +210,35 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 ->options(PrepaymentType::class)
                                 ->default(PrepaymentType::PERCENT)
                                 ->selectablePlaceholder(false)
-                                ->live()
-                                ->afterStateUpdated(fn (Set $set): mixed => $set('prepayment_amount', 0)),
+                                ->live(),
                             TextInput::make('prepayment_amount')
                                 ->label('Prepayment')
                                 ->numeric()
-                                ->default(0)
+                                ->default(function (Get $get) use ($request): int|float {
+                                    $ids = $get('supplier_quote_ids');
+                                    if (! is_array($ids) || count($ids) !== 1) {
+                                        return 0;
+                                    }
+                                    $sq = SupplierQuote::query()
+                                        ->where('request_id', $request->getKey())
+                                        ->whereKey(reset($ids))
+                                        ->first();
+                                    if ($sq === null) {
+                                        return 0;
+                                    }
+
+                                    // Prefer prepayment_percent when type is PERCENT; fall back to prepayment_amount when percent is 0
+                                    if ($sq->prepayment_type === PrepaymentType::PERCENT) {
+                                        return (int) $sq->prepayment_percent > 0
+                                            ? (int) $sq->prepayment_percent
+                                            : (int) round((float) $sq->prepayment_amount);
+                                    }
+
+                                    return (float) $sq->prepayment_amount;
+                                })
                                 ->step(1)
                                 ->minValue(0)
+                                ->live()
                                 ->maxValue(fn (Get $get): ?int => $get('prepayment_type') === PrepaymentType::PERCENT->value ? 100 : null)
                                 ->suffix(fn (Get $get): string => $get('prepayment_type') === PrepaymentType::PERCENT->value ? '%' : '')
                                 ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : null),
@@ -1258,13 +1283,15 @@ final class BuyerQuotesRelationManager extends RelationManager
             if ($paymentTerms === []) {
                 $paymentTerms = [['due_days' => $defaultPaymentTermsDays, 'percentage' => 100, 'sort_order' => 0]];
             }
+            // Use prepayment_percent when type is PERCENT; fall back to prepayment_amount when percent is 0 (legacy data)
+            $prepaymentAmount = $singleQuote->prepayment_type === \App\Enums\PrepaymentType::PERCENT
+                ? ((int) $singleQuote->prepayment_percent > 0 ? (int) $singleQuote->prepayment_percent : (int) round((float) $singleQuote->prepayment_amount))
+                : (float) $singleQuote->prepayment_amount;
             $result = [
                 'items' => $items,
                 'paymentTerms' => $paymentTerms,
                 'prepayment_type' => $singleQuote->prepayment_type->value,
-                'prepayment_amount' => $singleQuote->prepayment_type === \App\Enums\PrepaymentType::PERCENT
-                    ? (int) $singleQuote->prepayment_percent
-                    : (float) $singleQuote->prepayment_amount,
+                'prepayment_amount' => $prepaymentAmount,
                 'currency_id' => $singleQuote->currency_id,
                 'valid_until' => $singleQuote->valid_until ?? now()->addDays($settings->quote_validity_days ?? 30),
                 'exchange_rate' => (float) $singleQuote->exchange_rate,
@@ -1360,7 +1387,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                             'exchange_rate' => 1,
                             'valid_until' => now()->addDays($settings->quote_validity_days ?? 30),
                             'prepayment_type' => PrepaymentType::PERCENT->value,
-                            'prepayment_amount' => 0,
+                            // prepayment_amount left unset so it is derived from selected supplier quote (default closure) or stays 0
                             'paymentTerms' => [['due_days' => $defaultPaymentTermsDays, 'percentage' => 100, 'sort_order' => 0]],
                             'items' => [],
                         ];
@@ -1368,29 +1395,50 @@ final class BuyerQuotesRelationManager extends RelationManager
                     ->mutateFormDataUsing(function (array $data) use ($request): array {
                         $data['request_id'] = $request->getKey();
                         $data['buyer_id'] = $request->buyer_id;
-                        // supplier_quote_ids is not on BuyerQuote; kept in $data for after() only
+                        // Form-only keys must not be passed to create() — store on request for after()
+                        $supplierQuoteIds = $data['supplier_quote_ids'] ?? [];
+                        unset($data['supplier_quote_ids'], $data['_supplier_quote_ids']);
+                        if (is_array($supplierQuoteIds)) {
+                            request()->attributes->set('_buyer_quote_create_supplier_quote_ids', $supplierQuoteIds);
+                        }
 
-                        // Store child_items data keyed by request_item_id for reliable matching
-                        // Child items will be saved separately in the after() callback
-                        if (isset($data['items']) && is_array($data['items'])) {
-                            foreach ($data['items'] as $index => $item) {
-                                if (isset($item['child_items']) && is_array($item['child_items']) && !empty($item['child_items'])) {
-                                    // Store child_items keyed by request_item_id for reliable matching
-                                    $requestItemId = $item['request_item_id'] ?? null;
-                                    if ($requestItemId !== null) {
-                                        $data['_child_items'][$requestItemId] = $item['child_items'];
-                                    }
-                                }
-                                // Always remove child_items from the item data so Filament doesn't try to save it
-                                unset($data['items'][$index]['child_items']);
+                        // When exactly one supplier quote selected, ensure prepayment comes from that quote (form may not have set it)
+                        if (is_array($supplierQuoteIds) && count($supplierQuoteIds) === 1) {
+                            $sq = SupplierQuote::query()
+                                ->where('request_id', $request->getKey())
+                                ->whereKey(reset($supplierQuoteIds))
+                                ->first();
+                            if ($sq !== null) {
+                                $data['prepayment_type'] = $sq->prepayment_type->value;
+                                $data['prepayment_amount'] = $sq->prepayment_type === PrepaymentType::PERCENT
+                                    ? (string) ((int) $sq->prepayment_percent > 0 ? $sq->prepayment_percent : (int) round((float) $sq->prepayment_amount))
+                                    : (string) $sq->prepayment_amount;
                             }
                         }
+
+                        // Store child_items keyed by request_item_id for after(); remove from $data so not passed to create()
+                        if (isset($data['items']) && is_array($data['items'])) {
+                            $childItemsByRequestItemId = [];
+                            foreach ($data['items'] as $index => $item) {
+                                if (isset($item['child_items']) && is_array($item['child_items']) && ! empty($item['child_items'])) {
+                                    $requestItemId = $item['request_item_id'] ?? null;
+                                    if ($requestItemId !== null) {
+                                        $childItemsByRequestItemId[$requestItemId] = $item['child_items'];
+                                    }
+                                }
+                                unset($data['items'][$index]['child_items']);
+                            }
+                            if ($childItemsByRequestItemId !== []) {
+                                request()->attributes->set('_buyer_quote_create_child_items', $childItemsByRequestItemId);
+                            }
+                        }
+                        unset($data['_child_items']);
 
                         return $data;
                     })
                     ->after(function (BuyerQuote $record, array $data) use ($request): void {
                         // When exactly one supplier quote was selected, ensure payment terms are copied from it (safety net)
-                        $supplierQuoteIds = $data['supplier_quote_ids'] ?? [];
+                        $supplierQuoteIds = request()->attributes->get('_buyer_quote_create_supplier_quote_ids', []);
                         if (is_array($supplierQuoteIds) && count($supplierQuoteIds) === 1) {
                             $supplierQuote = SupplierQuote::query()
                                 ->where('request_id', $request->getKey())
@@ -1401,6 +1449,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 $record->copyPaymentTermsFromSupplierQuote($supplierQuote);
                             }
                         }
+                        request()->attributes->remove('_buyer_quote_create_supplier_quote_ids');
 
                         // Refresh media relationship to ensure it's loaded
                         $record->load('media');
@@ -1412,8 +1461,9 @@ final class BuyerQuotesRelationManager extends RelationManager
                             ->get()
                             ->keyBy('request_item_id');
 
-                        // Process child items from form data
-                        // Child items are stored in _child_items array keyed by request_item_id
+                        // Process child items from form data (stored on request to avoid passing to create())
+                        $dataChildItems = request()->attributes->get('_buyer_quote_create_child_items', []);
+                        request()->attributes->remove('_buyer_quote_create_child_items');
                         $processedRequestItemIds = [];
                         
                         // Get default tax code as fallback
@@ -1423,8 +1473,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                             ->where('is_active', true)
                             ->first();
                         
-                        if (isset($data['_child_items']) && is_array($data['_child_items'])) {
-                            foreach ($data['_child_items'] as $requestItemId => $childItemsData) {
+                        if (is_array($dataChildItems) && $dataChildItems !== []) {
+                            foreach ($dataChildItems as $requestItemId => $childItemsData) {
                                 // Match by request_item_id instead of array index for reliability
                                 $mainItem = $mainItems->get($requestItemId);
                                 

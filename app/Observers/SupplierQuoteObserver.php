@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Observers;
 
 use App\Data\TeamErpSettings;
+use App\Enums\PrepaymentType;
 use App\Enums\SupplierQuoteStatus;
 use App\Models\QuotationEvaluation;
 use App\Models\SupplierQuote;
@@ -18,6 +19,7 @@ final readonly class SupplierQuoteObserver
      */
     public function creating(SupplierQuote $supplierQuote): void
     {
+        $this->syncPrepaymentColumns($supplierQuote);
         // Only set team_id and creator_id if not already set
         if (auth()->check()) {
             /** @var User $user */
@@ -52,6 +54,8 @@ final readonly class SupplierQuoteObserver
      */
     public function updating(SupplierQuote $supplierQuote): void
     {
+        $this->syncPrepaymentColumns($supplierQuote);
+
         // Auto-change status when prices are inputted: SELECTED if obtained, otherwise RECEIVED
         if ($supplierQuote->status === SupplierQuoteStatus::PENDING) {
             // Check current total from database if quote exists
@@ -135,6 +139,24 @@ final readonly class SupplierQuoteObserver
         // Sync each QE's snapshot data
         foreach ($quotationEvaluations as $qe) {
             $qe->syncSnapshotData();
+        }
+    }
+
+    /**
+     * Keep prepayment_percent and prepayment_amount in sync with prepayment_type.
+     * When type is PERCENT, store the value in prepayment_percent; when AMOUNT, use prepayment_amount.
+     */
+    private function syncPrepaymentColumns(SupplierQuote $supplierQuote): void
+    {
+        if ($supplierQuote->prepayment_type === PrepaymentType::PERCENT) {
+            $value = (int) $supplierQuote->prepayment_percent;
+            if ($value === 0 && (float) $supplierQuote->prepayment_amount > 0) {
+                $value = (int) round((float) $supplierQuote->prepayment_amount);
+            }
+            $supplierQuote->prepayment_percent = $value;
+            $supplierQuote->prepayment_amount = '0.0000';
+        } else {
+            $supplierQuote->prepayment_percent = 0;
         }
     }
 

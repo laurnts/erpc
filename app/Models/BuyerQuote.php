@@ -228,8 +228,14 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
     public function copyPaymentTermsFromSupplierQuote(SupplierQuote $supplierQuote): void
     {
         $this->prepayment_type = $supplierQuote->prepayment_type;
-        $this->prepayment_amount = $supplierQuote->prepayment_amount;
-        $this->prepayment_percent = $supplierQuote->prepayment_percent;
+        // When type is PERCENT but prepayment_percent is 0, use prepayment_amount as the percentage (legacy data)
+        if ($supplierQuote->prepayment_type === PrepaymentType::PERCENT && (int) $supplierQuote->prepayment_percent === 0 && (float) $supplierQuote->prepayment_amount > 0) {
+            $this->prepayment_percent = (int) round((float) $supplierQuote->prepayment_amount);
+            $this->prepayment_amount = '0.0000';
+        } else {
+            $this->prepayment_amount = $supplierQuote->prepayment_amount;
+            $this->prepayment_percent = $supplierQuote->prepayment_percent;
+        }
         $this->saveQuietly();
 
         $this->paymentTerms()->delete();
