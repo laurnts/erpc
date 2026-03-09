@@ -161,7 +161,55 @@ final class BuyerQuotesRelationManager extends RelationManager
                 ->view('filament.forms.components.buyer-quote-expired-alert')
                 ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->exists && $record->is_expired)
                 ->dehydrated(false),
-            Hidden::make('_create_with_supplier_groups')->dehydrated(false),
+            Section::make('Supplier quotes')
+                ->description('Select which supplier quotes to include. When exactly one is selected, items and payment terms will match that quote. When multiple are selected, items are combined and payment terms use team defaults.')
+                ->schema([
+                    Select::make('supplier_quote_ids')
+                        ->label('Supplier quotes')
+                        ->multiple()
+                        ->required()
+                        ->options(function () use ($request): array {
+                            return $request->supplierQuotes()
+                                ->where('status', SupplierQuoteStatus::SELECTED)
+                                ->with('supplier')
+                                ->orderBy('quote_number')
+                                ->get()
+                                ->mapWithKeys(fn (SupplierQuote $sq): array => [
+                                    $sq->getKey() => sprintf('%s — %s', $sq->quote_number, $sq->supplier?->name ?? ''),
+                                ])
+                                ->all();
+                        })
+                        ->visible(fn (?Model $record): bool => $record === null || ! $record->exists)
+                        ->live()
+                        ->afterStateUpdated(function (Set $set, ?array $state) use ($request): void {
+                            $ids = is_array($state) ? array_filter(array_map('intval', $state)) : [];
+                            if ($ids === []) {
+                                $settings = Filament::getTenant()?->getErpSettings();
+                                $defaultPaymentTermsDays = $settings->default_payment_terms_days ?? 30;
+                                $set('items', []);
+                                $set('paymentTerms', [['due_days' => $defaultPaymentTermsDays, 'percentage' => 100, 'sort_order' => 0]]);
+                                $set('prepayment_type', PrepaymentType::PERCENT->value);
+                                $set('prepayment_amount', 0);
+                                return;
+                            }
+                            $built = $this->buildFormDataFromSupplierQuotes($request, $ids);
+                            $set('items', $built['items']);
+                            $set('paymentTerms', $built['paymentTerms']);
+                            $set('prepayment_type', $built['prepayment_type']);
+                            $set('prepayment_amount', $built['prepayment_amount']);
+                            if (isset($built['currency_id'])) {
+                                $set('currency_id', $built['currency_id']);
+                            }
+                            if (isset($built['valid_until'])) {
+                                $set('valid_until', $built['valid_until']);
+                            }
+                            if (isset($built['exchange_rate'])) {
+                                $set('exchange_rate', $built['exchange_rate']);
+                            }
+                        }),
+                ])
+                ->visible(fn (?Model $record): bool => $record === null || ! $record->exists)
+                ->collapsible(false),
             Section::make('Quote Details')
                 ->schema([
                     Grid::make(3)
@@ -1699,6 +1747,197 @@ final class BuyerQuotesRelationManager extends RelationManager
         ];
     }
 
+    /**
+     * Build items, payment terms (and when single quote: currency, valid_until) from selected supplier quote(s).
+     * When exactly one quote is selected: items and payment terms match that quote. When multiple: items combined, payment terms = team defaults.
+     *
+     * @param  array<int, int>  $supplierQuoteIds
+     * @return array{items: array<int, array<string, mixed>>, paymentTerms: array<int, array<string, mixed>>, prepayment_type: string, prepayment_amount: int|float, currency_id?: int, valid_until?: \Illuminate\Support\Carbon, exchange_rate?: float}
+     */
+    private function buildFormDataFromSupplierQuotes(Request $request, array $supplierQuoteIds): array
+    {
+        /** @var \App\Models\Team|null $team */
+        $team = Filament::getTenant();
+        $settings = $team?->getErpSettings();
+        $defaultCurrencyCode = $settings->default_currency ?? 'USD';
+        $currencyId = (int) Currency::query()->where('code', $defaultCurrencyCode)->where('is_active', true)->value('id');
+        $defaultTaxCode = TaxCode::query()
+            ->where('team_id', $request->team_id)
+            ->where('is_default', true)
+            ->where('is_active', true)
+            ->first();
+        $defaultMarginPercent = $settings->default_margin_percent ?? 3.0;
+        $defaultPaymentTermsDays = $settings->default_payment_terms_days ?? 30;
+
+        $singleQuote = null;
+        if (count($supplierQuoteIds) === 1) {
+            $singleQuote = SupplierQuote::query()
+                ->where('request_id', $request->getKey())
+                ->whereIn('id', $supplierQuoteIds)
+                ->with(['paymentTerms', 'currency'])
+                ->first();
+        }
+
+        $baseQuery = \App\Models\SupplierQuoteItem::query()
+            ->whereIn('supplier_quote_id', $supplierQuoteIds)
+            ->whereHas('requestItem', fn ($q) => $q->whereNull('parent_id'))
+            ->with(['supplierQuote.supplier', 'requestItem.article', 'requestItem.unitOfMeasure', 'requestItem.children']);
+
+        $selectedSupplierQuoteItems = (clone $baseQuery)->get();
+
+        $items = [];
+        $sortOrder = 0;
+        foreach ($selectedSupplierQuoteItems as $supplierQuoteItem) {
+            $requestItem = $supplierQuoteItem->requestItem;
+            if ($requestItem === null) {
+                continue;
+            }
+            $costPrice = (float) $supplierQuoteItem->unit_price_exc_tax;
+            $supplierQuoteItemId = $supplierQuoteItem->getKey();
+            $supplierName = $supplierQuoteItem->supplierQuote->supplier->name ?? null;
+            $mainItemTaxCode = $defaultTaxCode ?? $requestItem->article?->defaultTaxCode;
+            $taxRate = $mainItemTaxCode !== null ? (float) $mainItemTaxCode->rate : 0.0;
+            $addTax = $mainItemTaxCode !== null && $mainItemTaxCode->is_inclusive_default;
+            $mainItemTaxCodeId = $mainItemTaxCode?->getKey();
+            $quantity = (float) $requestItem->quantity;
+            $unitPriceExcTax = $costPrice > 0 && $defaultMarginPercent < 100
+                ? round($costPrice / (1 - $defaultMarginPercent / 100), 0)
+                : 0.0;
+            $unitPrice = round($unitPriceExcTax, 0);
+            $lineSubtotal = $quantity * $unitPriceExcTax;
+            if ($taxRate > 0) {
+                $lineTax = $lineSubtotal * $taxRate / 100;
+                $lineTotal = $addTax ? $lineSubtotal + $lineTax : $lineSubtotal;
+            } else {
+                $lineTax = 0;
+                $lineTotal = $lineSubtotal;
+            }
+            $marginAmount = $unitPriceExcTax - $costPrice;
+            $marginPercent = $unitPriceExcTax > 0 ? ($marginAmount / $unitPriceExcTax) * 100 : 0;
+
+            $childItems = [];
+            if ($request->isServiceRequest() && $requestItem->children()->exists()) {
+                $childRequestItems = $requestItem->children()->orderBy('sort_order')->get();
+                foreach ($childRequestItems as $childRequestItem) {
+                    $childSupplierQuoteItem = \App\Models\SupplierQuoteItem::query()
+                        ->whereIn('supplier_quote_id', $supplierQuoteIds)
+                        ->where('request_item_id', $childRequestItem->getKey())
+                        ->first();
+                    $childQuantity = (float) $childRequestItem->quantity;
+                    $childCostPrice = $childSupplierQuoteItem !== null ? (float) $childSupplierQuoteItem->unit_price_exc_tax : 0.0;
+                    $childSupplierQuoteItemId = $childSupplierQuoteItem?->getKey();
+                    if ($childSupplierQuoteItem === null) {
+                        $anyChildQuoteItem = \App\Models\SupplierQuoteItem::query()
+                            ->whereHas('supplierQuote', fn ($q) => $q->where('request_id', $request->getKey()))
+                            ->where('request_item_id', $childRequestItem->getKey())
+                            ->first();
+                        if ($anyChildQuoteItem !== null) {
+                            $childCostPrice = (float) $anyChildQuoteItem->unit_price_exc_tax;
+                            $childSupplierQuoteItemId = $anyChildQuoteItem->getKey();
+                        }
+                    }
+                    $childUnitPriceExcTax = $childCostPrice > 0 && $defaultMarginPercent < 100
+                        ? round($childCostPrice / (1 - $defaultMarginPercent / 100), 0)
+                        : 0.0;
+                    $childUnitPrice = round($childUnitPriceExcTax, 0);
+                    $childLineSubtotal = $childQuantity * $childUnitPriceExcTax;
+                    $childLineTax = $taxRate > 0 && $addTax ? $childLineSubtotal * $taxRate / 100 : 0;
+                    $childLineTotal = $addTax && $taxRate > 0 ? $childLineSubtotal + $childLineTax : $childLineSubtotal;
+                    $childItems[] = [
+                        'request_item_id' => $childRequestItem->getKey(),
+                        'description' => $childRequestItem->description,
+                        'quantity' => (string) $childRequestItem->quantity,
+                        'unit_of_measure_id' => $childRequestItem->unit_of_measure_id,
+                        'cost_price' => (string) $childCostPrice,
+                        'unit_price' => (string) $childUnitPrice,
+                        'unit_price_exc_tax' => (string) round($childUnitPriceExcTax, 0),
+                        'tax_code_id' => $mainItemTaxCodeId,
+                        'tax_rate' => (string) $taxRate,
+                        'is_tax_inclusive' => $addTax,
+                        'line_subtotal' => (string) round($childLineSubtotal, 4),
+                        'line_tax' => (string) round($childLineTax, 4),
+                        'line_total' => (string) round($childLineTotal, 0),
+                        'supplier_quote_item_id' => $childSupplierQuoteItemId,
+                        'hide_from_pdf' => false,
+                    ];
+                }
+            }
+
+            $items[] = [
+                'request_item_id' => $requestItem->getKey(),
+                'article_id' => $requestItem->article_id,
+                'supplier_quote_item_id' => $supplierQuoteItemId,
+                'from_supplier' => $supplierName,
+                'description' => $requestItem->article !== null ? $requestItem->article->name : $requestItem->description,
+                'quantity' => (string) $requestItem->quantity,
+                'unit_of_measure_id' => $requestItem->unit_of_measure_id,
+                'unit' => $requestItem->unitOfMeasure?->code ?? $requestItem->unit?->value ?? 'pcs',
+                'cost_price' => (string) $costPrice,
+                'unit_price' => (string) $unitPrice,
+                'unit_price_exc_tax' => (string) round($unitPriceExcTax, 0),
+                'tax_code_id' => $mainItemTaxCodeId,
+                'tax_rate' => (string) $taxRate,
+                'tax_amount' => (string) round($lineTax / max($quantity, 0.0001), 4),
+                'is_tax_inclusive' => $addTax,
+                'line_subtotal' => (string) round($lineSubtotal, 4),
+                'line_tax' => (string) round($lineTax, 4),
+                'line_total' => (string) round($lineTotal, 0),
+                'margin_amount' => (string) round($marginAmount, 4),
+                'margin_percent' => (string) round($marginPercent, 4),
+                'margin_percent_input' => (string) (int) ceil($defaultMarginPercent),
+                'sort_order' => $sortOrder++,
+                'child_items' => $childItems,
+            ];
+        }
+
+        foreach ($items as &$item) {
+            if (isset($item['child_items']) && is_array($item['child_items'])) {
+                foreach ($item['child_items'] as &$childItem) {
+                    if (isset($childItem['tax_code_id']) && $childItem['tax_code_id'] !== null) {
+                        $taxCode = TaxCode::find($childItem['tax_code_id']);
+                        if ($taxCode !== null) {
+                            $childItem['tax_rate'] = (string) $taxCode->rate;
+                            $childItem['is_tax_inclusive'] = $childItem['is_tax_inclusive'] ?? $taxCode->is_inclusive_default;
+                        }
+                    }
+                }
+            }
+        }
+        unset($item, $childItem);
+
+        if ($singleQuote !== null) {
+            $paymentTerms = $singleQuote->paymentTerms->map(fn ($t) => [
+                'due_days' => $t->due_days,
+                'percentage' => $t->percentage,
+                'job_progress' => $t->job_progress,
+                'sort_order' => $t->sort_order,
+            ])->values()->all();
+            if ($paymentTerms === []) {
+                $paymentTerms = [['due_days' => $defaultPaymentTermsDays, 'percentage' => 100, 'sort_order' => 0]];
+            }
+            $result = [
+                'items' => $items,
+                'paymentTerms' => $paymentTerms,
+                'prepayment_type' => $singleQuote->prepayment_type->value,
+                'prepayment_amount' => $singleQuote->prepayment_type === \App\Enums\PrepaymentType::PERCENT
+                    ? (int) $singleQuote->prepayment_percent
+                    : (float) $singleQuote->prepayment_amount,
+                'currency_id' => $singleQuote->currency_id,
+                'valid_until' => $singleQuote->valid_until ?? now()->addDays($settings->quote_validity_days ?? 30),
+                'exchange_rate' => (float) $singleQuote->exchange_rate,
+            ];
+        } else {
+            $result = [
+                'items' => $items,
+                'paymentTerms' => [['due_days' => $defaultPaymentTermsDays, 'percentage' => 100, 'sort_order' => 0]],
+                'prepayment_type' => PrepaymentType::PERCENT->value,
+                'prepayment_amount' => 0,
+            ];
+        }
+
+        return $result;
+    }
+
     public function table(Table $table): Table
     {
         /** @var Request $request */
@@ -1864,16 +2103,30 @@ final class BuyerQuotesRelationManager extends RelationManager
                     ->icon('heroicon-o-plus')
                     ->size(Size::Small)
                     ->modalWidth('7xl')
-                    ->visible(false)
-                    ->fillForm(function (\Filament\Actions\CreateAction $action) use ($request): array {
-                        $supplierQuoteIds = array_map('intval', $action->getArguments()['supplier_quote_ids'] ?? []);
-                        $data = $this->buildSupplierGroupsFormData($request, $supplierQuoteIds);
-                        $data['supplier_groups'] = $this->supplierGroupsWithUuidKeys($data['supplier_groups'] ?? []);
-                        return $this->makeDataSerializationSafe($data);
+                    ->disabled(fn (): bool => ! $request->supplierQuotes()->where('status', SupplierQuoteStatus::SELECTED)->exists())
+                    ->fillForm(function () use ($request): array {
+                        $settings = Filament::getTenant()?->getErpSettings();
+                        $defaultPaymentTermsDays = $settings->default_payment_terms_days ?? 30;
+                        $currencyId = (int) Currency::query()
+                            ->where('code', $settings->default_currency ?? 'USD')
+                            ->where('is_active', true)
+                            ->value('id');
+                        return [
+                            'supplier_quote_ids' => [],
+                            'status' => BuyerQuoteStatus::DRAFT,
+                            'currency_id' => $currencyId,
+                            'exchange_rate' => 1,
+                            'valid_until' => now()->addDays($settings->quote_validity_days ?? 30),
+                            'prepayment_type' => PrepaymentType::PERCENT->value,
+                            'prepayment_amount' => 0,
+                            'paymentTerms' => [['due_days' => $defaultPaymentTermsDays, 'percentage' => 100, 'sort_order' => 0]],
+                            'items' => [],
+                        ];
                     })
                     ->mutateFormDataUsing(function (array $data) use ($request): array {
                         $data['request_id'] = $request->getKey();
                         $data['buyer_id'] = $request->buyer_id;
+                        // supplier_quote_ids is not on BuyerQuote; kept in $data for after() only
 
                         // Store child_items data keyed by request_item_id for reliable matching
                         // Child items will be saved separately in the after() callback
@@ -1898,6 +2151,19 @@ final class BuyerQuotesRelationManager extends RelationManager
                         if (! empty($data['supplier_groups'] ?? [])) {
                             $this->saveBuyerQuoteFromSupplierGroups($record, $data, $request);
                             return;
+                        }
+
+                        // When exactly one supplier quote was selected, ensure payment terms are copied from it (safety net)
+                        $supplierQuoteIds = $data['supplier_quote_ids'] ?? [];
+                        if (is_array($supplierQuoteIds) && count($supplierQuoteIds) === 1) {
+                            $supplierQuote = SupplierQuote::query()
+                                ->where('request_id', $request->getKey())
+                                ->whereKey($supplierQuoteIds[0])
+                                ->with('paymentTerms')
+                                ->first();
+                            if ($supplierQuote !== null) {
+                                $record->copyPaymentTermsFromSupplierQuote($supplierQuote);
+                            }
                         }
 
                         // Refresh media relationship to ensure it's loaded

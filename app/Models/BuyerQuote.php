@@ -222,6 +222,28 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
     }
 
     /**
+     * Copy payment terms (prepayment + schedule) from a supplier quote to this buyer quote.
+     * Replaces any existing payment terms on this quote.
+     */
+    public function copyPaymentTermsFromSupplierQuote(SupplierQuote $supplierQuote): void
+    {
+        $this->prepayment_type = $supplierQuote->prepayment_type;
+        $this->prepayment_amount = $supplierQuote->prepayment_amount;
+        $this->prepayment_percent = $supplierQuote->prepayment_percent;
+        $this->saveQuietly();
+
+        $this->paymentTerms()->delete();
+        foreach ($supplierQuote->paymentTerms as $term) {
+            $this->paymentTerms()->create([
+                'due_days' => $term->due_days,
+                'percentage' => $term->percentage,
+                'job_progress' => $term->job_progress,
+                'sort_order' => $term->sort_order,
+            ]);
+        }
+    }
+
+    /**
      * Register media collections for this model.
      */
     public function registerMediaCollections(): void
