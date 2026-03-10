@@ -714,7 +714,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                     ->color('info')
                     ->size(Size::Small)
                     ->modalHeading('Create Supplier Orders from Accepted Buyer Quote(s)')
-                    ->modalDescription('Review the supplier orders that will be created from your accepted buyer quote(s):')
+                    ->modalDescription('Select a supplier first, then review the items. One purchase order will be created for the selected supplier.')
                     ->modalWidth('4xl')
                     ->form(function (): array {
                         /** @var Request $request */
@@ -788,27 +788,53 @@ final class SupplierOrdersRelationManager extends RelationManager
                             ];
                         }
 
-                        // Build form sections for each supplier
-                        $sections = [];
-                        $grandTotal = 0;
-
+                        // Build supplier options for select (only suppliers without an existing order)
+                        $supplierOptions = [];
                         foreach ($itemsBySupplier as $supplierId => $data) {
                             /** @var Company $supplier */
                             $supplier = $data['supplier'];
-                            $items = $data['items'];
-                            $supplierTotal = $data['total'];
-                            $grandTotal += $supplierTotal;
-
-                            // Check if order already exists
                             $existingOrder = SupplierOrder::query()
                                 ->where('request_id', $request->getKey())
                                 ->where('supplier_id', $supplierId)
                                 ->whereNotIn('status', [OrderStatus::CANCELLED])
                                 ->exists();
+                            if (! $existingOrder) {
+                                $supplierOptions[$supplierId] = "[{$supplier->code}] {$supplier->name}";
+                            }
+                        }
 
-                            $statusBadge = $existingOrder ? ' ⚠️ (Order exists - will skip)' : '';
+                        $sections = [];
 
-                            // Build items table as HTML
+                        // Single supplier select at top
+                        $sections[] = \Filament\Schemas\Components\Section::make('Select supplier')
+                            ->description('Choose the supplier to create one purchase order for.')
+                            ->schema([
+                                Select::make('selected_supplier_id')
+                                    ->label('Supplier to create PO for')
+                                    ->options($supplierOptions)
+                                    ->required()
+                                    ->live()
+                                    ->native(false)
+                                    ->searchable()
+                                    ->placeholder('Select a supplier...')
+                                    ->helperText(empty($supplierOptions) ? 'All suppliers already have an order.' : null)
+                                    ->disabled(empty($supplierOptions)),
+                            ]);
+
+                        // One section per supplier; visible only when that supplier is selected
+                        foreach ($itemsBySupplier as $supplierId => $data) {
+                            /** @var Company $supplier */
+                            $supplier = $data['supplier'];
+                            $items = $data['items'];
+                            $supplierTotal = $data['total'];
+
+                            $existingOrder = SupplierOrder::query()
+                                ->where('request_id', $request->getKey())
+                                ->where('supplier_id', $supplierId)
+                                ->whereNotIn('status', [OrderStatus::CANCELLED])
+                                ->exists();
+                            $statusBadge = $existingOrder ? ' ⚠️ (Order exists)' : '';
+
                             $itemsHtml = '<div class="space-y-1 text-sm">';
                             foreach ($items as $item) {
                                 $itemsHtml .= sprintf(
@@ -832,33 +858,19 @@ final class SupplierOrdersRelationManager extends RelationManager
                                         ->label('')
                                         ->content(new \Illuminate\Support\HtmlString($itemsHtml)),
                                 ])
-                                ->collapsible()
-                                ->collapsed(count($itemsBySupplier) > 3);
+                                ->visible(fn (Get $get): bool => (int) ($get('selected_supplier_id') ?? 0) === (int) $supplierId);
                         }
 
-                        // Add summary section with options
-                        $summaryHtml = sprintf(
-                            '<div class="grid grid-cols-2 gap-4 text-sm"><div><span class="text-gray-500">Total Suppliers:</span> <strong>%d</strong></div><div><span class="text-gray-500">Total Cost:</span> <strong>%s</strong></div></div>',
-                            count($itemsBySupplier),
-                            number_format($grandTotal, 2)
-                        );
-
-                        $sections[] = \Filament\Schemas\Components\Section::make('Summary')
-                            ->schema([
-                                Placeholder::make('summary')
-                                    ->label('')
-                                    ->content(new \Illuminate\Support\HtmlString($summaryHtml)),
-                            ]);
-
-                        // Add options section
+                        // Options (notes) - visible when a supplier is selected
                         $sections[] = \Filament\Schemas\Components\Section::make('Options')
                             ->schema([
                                 \Filament\Forms\Components\Textarea::make('notes')
                                     ->label('Order Notes')
                                     ->rows(3)
-                                    ->placeholder('Optional notes for the supplier orders')
-                                    ->helperText('These notes will be added to all created supplier orders'),
-                            ]);
+                                    ->placeholder('Optional notes for this supplier order')
+                                    ->helperText('These notes will be added to the created purchase order.'),
+                            ])
+                            ->visible(fn (Get $get): bool => (int) ($get('selected_supplier_id') ?? 0) > 0);
 
                         return $sections;
                     })
@@ -926,101 +938,105 @@ final class SupplierOrdersRelationManager extends RelationManager
                             return;
                         }
 
-                        $ordersCreated = 0;
+                        $supplierId = (int) ($data['selected_supplier_id'] ?? 0);
+                        if ($supplierId === 0 || ! isset($itemsBySupplier[$supplierId])) {
+                            Notification::make()
+                                ->title('No supplier selected')
+                                ->body('Please select a supplier to create a purchase order for.')
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
+
+                        $quoteItems = $itemsBySupplier[$supplierId];
+
+                        // Check if a supplier order already exists for this request and supplier
+                        $existingOrder = SupplierOrder::query()
+                            ->where('request_id', $request->getKey())
+                            ->where('supplier_id', $supplierId)
+                            ->whereNotIn('status', [OrderStatus::CANCELLED])
+                            ->exists();
+
+                        if ($existingOrder) {
+                            Notification::make()
+                                ->title('Order already exists')
+                                ->body('A supplier order already exists for the selected supplier.')
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
+
                         $quoteNumbers = $acceptedQuotes->pluck('quote_number')->join(', ');
 
-                        // Create a supplier order for each supplier
-                        foreach ($itemsBySupplier as $supplierId => $quoteItems) {
-                            // Check if a supplier order already exists for this request and supplier
-                            $existingOrder = SupplierOrder::query()
-                                ->where('request_id', $request->getKey())
-                                ->where('supplier_id', $supplierId)
-                                ->whereNotIn('status', [OrderStatus::CANCELLED])
-                                ->exists();
+                        $supplierOrder = new SupplierOrder;
+                        $supplierOrder->team_id = $request->team_id;
+                        /** @var int|null $creatorId */
+                        $creatorId = auth()->id();
+                        $supplierOrder->creator_id = $creatorId;
+                        $supplierOrder->request_id = $request->getKey();
+                        $supplierOrder->supplier_id = $supplierId;
+                        $supplierOrder->currency_id = $defaultCurrencyId;
+                        $supplierOrder->exchange_rate = '1.00000000';
 
-                            if ($existingOrder) {
-                                continue; // Skip if order already exists
-                            }
+                        $customNotes = trim($data['notes'] ?? '');
+                        if ($customNotes !== '') {
+                            $supplierOrder->notes = $customNotes;
+                        } else {
+                            $supplierOrder->notes = "Created from Accepted Buyer Quote(s): {$quoteNumbers}";
+                        }
 
-                            // Create the supplier order
-                            $supplierOrder = new SupplierOrder;
-                            $supplierOrder->team_id = $request->team_id;
-                            /** @var int|null $creatorId */
-                            $creatorId = auth()->id();
-                            $supplierOrder->creator_id = $creatorId;
-                            $supplierOrder->request_id = $request->getKey();
-                            $supplierOrder->supplier_id = $supplierId;
-                            $supplierOrder->currency_id = $defaultCurrencyId;
-                            $supplierOrder->exchange_rate = '1.00000000';
+                        $supplierOrder->save();
 
-                            $customNotes = trim($data['notes'] ?? '');
-                            if ($customNotes !== '') {
-                                $supplierOrder->notes = $customNotes;
-                            } else {
-                                $supplierOrder->notes = "Created from Accepted Buyer Quote(s): {$quoteNumbers}";
-                            }
+                        foreach ($quoteItems as $index => $quoteItem) {
+                            /** @var BuyerQuoteItem $quoteItem */
+                            $costPrice = $quoteItem->supplierQuoteItem !== null
+                                ? ($quoteItem->supplierQuoteItem->unit_price ?? '0.0000')
+                                : ($quoteItem->cost_price ?? '0.0000');
 
-                            $supplierOrder->save();
-
-                            // Add items for this supplier from quote items
-                            foreach ($quoteItems as $index => $quoteItem) {
-                                /** @var BuyerQuoteItem $quoteItem */
-                                $costPrice = $quoteItem->supplierQuoteItem !== null
-                                    ? ($quoteItem->supplierQuoteItem->unit_price ?? '0.0000')
-                                    : ($quoteItem->cost_price ?? '0.0000');
-
-                                $unitCode = 'pcs';
-                                if ($quoteItem->unit_of_measure_id !== null) {
-                                    $unitOfMeasure = UnitOfMeasure::find($quoteItem->unit_of_measure_id);
-                                    if ($unitOfMeasure !== null) {
-                                        $unitCode = $unitOfMeasure->code;
-                                    } else {
-                                        $quoteUnit = $quoteItem->unit;
-                                        $unitCode = $quoteUnit instanceof \App\Enums\Unit ? $quoteUnit->value : (string) ($quoteUnit ?? 'pcs');
-                                    }
+                            $unitCode = 'pcs';
+                            if ($quoteItem->unit_of_measure_id !== null) {
+                                $unitOfMeasure = UnitOfMeasure::find($quoteItem->unit_of_measure_id);
+                                if ($unitOfMeasure !== null) {
+                                    $unitCode = $unitOfMeasure->code;
                                 } else {
                                     $quoteUnit = $quoteItem->unit;
                                     $unitCode = $quoteUnit instanceof \App\Enums\Unit ? $quoteUnit->value : (string) ($quoteUnit ?? 'pcs');
                                 }
-
-                                $item = SupplierOrderItem::make([
-                                    'supplier_order_id' => $supplierOrder->getKey(),
-                                    'request_item_id' => $quoteItem->request_item_id,
-                                    'article_id' => $quoteItem->article_id,
-                                    'description' => $quoteItem->description,
-                                    'quantity' => $quoteItem->quantity,
-                                    'unit_of_measure_id' => $quoteItem->unit_of_measure_id,
-                                    'unit_price' => $costPrice,
-                                    'unit_price_exc_tax' => $costPrice,
-                                    'tax_amount' => '0.0000',
-                                    'line_total' => (string) ((float) $quoteItem->quantity * (float) $costPrice),
-                                    'tax_rate' => '0.0000',
-                                    'sort_order' => $index,
-                                    'notes' => $quoteItem->notes,
-                                ]);
-
-                                $attributes = $item->getAttributes();
-                                $item->setRawAttributes(array_merge($attributes, ['unit' => (string) $unitCode]));
-                                $item->save();
+                            } else {
+                                $quoteUnit = $quoteItem->unit;
+                                $unitCode = $quoteUnit instanceof \App\Enums\Unit ? $quoteUnit->value : (string) ($quoteUnit ?? 'pcs');
                             }
 
-                            $supplierOrder->recalculateTotals();
-                            $ordersCreated++;
+                            $item = SupplierOrderItem::make([
+                                'supplier_order_id' => $supplierOrder->getKey(),
+                                'request_item_id' => $quoteItem->request_item_id,
+                                'article_id' => $quoteItem->article_id,
+                                'description' => $quoteItem->description,
+                                'quantity' => $quoteItem->quantity,
+                                'unit_of_measure_id' => $quoteItem->unit_of_measure_id,
+                                'unit_price' => $costPrice,
+                                'unit_price_exc_tax' => $costPrice,
+                                'tax_amount' => '0.0000',
+                                'line_total' => (string) ((float) $quoteItem->quantity * (float) $costPrice),
+                                'tax_rate' => '0.0000',
+                                'sort_order' => $index,
+                                'notes' => $quoteItem->notes,
+                            ]);
+
+                            $attributes = $item->getAttributes();
+                            $item->setRawAttributes(array_merge($attributes, ['unit' => (string) $unitCode]));
+                            $item->save();
                         }
 
-                        if ($ordersCreated > 0) {
-                            Notification::make()
-                                ->title('Supplier orders created')
-                                ->body("{$ordersCreated} purchase order(s) created from accepted buyer quote(s). Orders are in draft status and need to be confirmed before approval.")
-                                ->success()
-                                ->send();
-                        } else {
-                            Notification::make()
-                                ->title('No new orders created')
-                                ->body('Supplier orders already exist for all assigned suppliers.')
-                                ->info()
-                                ->send();
-                        }
+                        $supplierOrder->recalculateTotals();
+
+                        Notification::make()
+                            ->title('Supplier order created')
+                            ->body('One purchase order created for the selected supplier. It is in draft status and needs to be confirmed before approval.')
+                            ->success()
+                            ->send();
                     })
                     ->visible(fn (): bool => BuyerQuote::query()
                         ->where('request_id', $this->getOwnerRecord()->getKey())
