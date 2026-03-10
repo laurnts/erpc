@@ -154,7 +154,7 @@ MARKDOWN;
     {
         return <<<'MARKDOWN'
 **Step 5: Supplier Orders**
-Supplier order created based on buyer order as purchase order to supplier.
+Supplier order created from accepted buyer quote(s) as purchase order to supplier.
 There will be more than one purchase order to supplier.
 Verify all order details, pricing, and terms.
 MARKDOWN;

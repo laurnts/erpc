@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\RequestResource\RelationManagers;
 
+use App\Enums\BuyerQuoteStatus;
 use App\Enums\OrderStatus;
 use App\Enums\RequestStage;
 use App\Enums\SupplierQuoteStatus;
 use App\Filament\Actions\DownloadPdfAction;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Mail\Erp\PurchaseOrderToSupplierMail;
-use App\Models\BuyerOrder;
+use App\Models\BuyerQuote;
+use App\Models\BuyerQuoteItem;
 use App\Models\Company;
 use App\Models\Currency;
 use App\Models\Request;
@@ -707,82 +709,75 @@ final class SupplierOrdersRelationManager extends RelationManager
             ])
             ->headerActions([
                 Action::make('createFromBuyerOrder')
-                    ->label('Create from Buyer Order')
+                    ->label('Create from Accepted Quote')
                     ->icon('heroicon-o-shopping-cart')
                     ->color('info')
                     ->size(Size::Small)
-                    ->modalHeading('Create Supplier Orders from Buyer Order')
-                    ->modalDescription('Review the supplier orders that will be created:')
+                    ->modalHeading('Create Supplier Orders from Accepted Buyer Quote(s)')
+                    ->modalDescription('Review the supplier orders that will be created from your accepted buyer quote(s):')
                     ->modalWidth('4xl')
                     ->form(function (): array {
                         /** @var Request $request */
                         $request = $this->getOwnerRecord();
 
-                        // Get confirmed buyer order
-                        /** @var BuyerOrder|null $buyerOrder */
-                        $buyerOrder = BuyerOrder::query()
+                        // Get accepted buyer quotes and their items
+                        $acceptedQuotes = BuyerQuote::query()
                             ->where('request_id', $request->getKey())
-                            ->where('status', OrderStatus::CONFIRMED)
-                            ->with(['items.buyerQuoteItem.supplierQuoteItem.supplierQuote.supplier', 'items.requestItem.supplier', 'items.unitOfMeasure'])
-                            ->first();
+                            ->where('status', BuyerQuoteStatus::ACCEPTED)
+                            ->with(['items.requestItem.supplier', 'items.supplierQuoteItem.supplierQuote.supplier', 'items.unitOfMeasure'])
+                            ->get();
 
-                        if ($buyerOrder === null) {
+                        if ($acceptedQuotes->isEmpty()) {
                             return [
-                                Placeholder::make('no_order')
+                                Placeholder::make('no_quote')
                                     ->label('')
-                                    ->content('No confirmed buyer order available.'),
+                                    ->content('No accepted buyer quote available.'),
                             ];
                         }
 
-                        // Group items by supplier
+                        // Group quote items by supplier (from all accepted quotes)
                         $itemsBySupplier = [];
-                        foreach ($buyerOrder->items as $buyerOrderItem) {
-                            /** @var \App\Models\BuyerOrderItem $buyerOrderItem */
-                            $requestItem = $buyerOrderItem->requestItem;
-                            
-                            // Try to get supplier from request item first
-                            $supplier = null;
-                            $supplierId = null;
-                            
-                            if ($requestItem !== null && $requestItem->supplier_id !== null) {
-                                $supplier = $requestItem->supplier;
-                                $supplierId = $requestItem->supplier_id;
-                            } elseif ($buyerOrderItem->buyerQuoteItem?->supplierQuoteItem?->supplierQuote?->supplier !== null) {
-                                // Fallback to supplier from quote chain
-                                $supplier = $buyerOrderItem->buyerQuoteItem->supplierQuoteItem->supplierQuote->supplier;
-                                $supplierId = $supplier->getKey();
-                            }
-                            
-                            if ($supplierId === null || $supplier === null) {
-                                continue;
-                            }
-                            if (! isset($itemsBySupplier[$supplierId])) {
-                                $itemsBySupplier[$supplierId] = [
-                                    'supplier' => $supplier,
-                                    'items' => [],
-                                    'total' => 0,
+                        foreach ($acceptedQuotes as $quote) {
+                            foreach ($quote->items as $quoteItem) {
+                                /** @var BuyerQuoteItem $quoteItem */
+                                $requestItem = $quoteItem->requestItem;
+                                $supplier = null;
+                                $supplierId = null;
+
+                                if ($requestItem !== null && $requestItem->supplier_id !== null) {
+                                    $supplier = $requestItem->supplier;
+                                    $supplierId = $requestItem->supplier_id;
+                                } elseif ($quoteItem->supplierQuoteItem?->supplierQuote?->supplier !== null) {
+                                    $supplier = $quoteItem->supplierQuoteItem->supplierQuote->supplier;
+                                    $supplierId = $supplier->getKey();
+                                }
+
+                                if ($supplierId === null || $supplier === null) {
+                                    continue;
+                                }
+                                if (! isset($itemsBySupplier[$supplierId])) {
+                                    $itemsBySupplier[$supplierId] = [
+                                        'supplier' => $supplier,
+                                        'items' => [],
+                                        'total' => 0,
+                                    ];
+                                }
+
+                                $costPrice = $quoteItem->supplierQuoteItem !== null
+                                    ? (float) ($quoteItem->supplierQuoteItem->unit_price ?? 0)
+                                    : (float) ($quoteItem->cost_price ?? 0);
+                                $lineTotal = $costPrice * (float) $quoteItem->quantity;
+
+                                $itemsBySupplier[$supplierId]['items'][] = [
+                                    'description' => $quoteItem->description,
+                                    'quantity' => $quoteItem->quantity,
+                                    'unit_of_measure_id' => $quoteItem->unit_of_measure_id,
+                                    'unit' => $quoteItem->unitOfMeasure?->code ?? ($quoteItem->unit instanceof \App\Enums\Unit ? $quoteItem->unit->value : (string) ($quoteItem->unit ?? 'pcs')),
+                                    'unit_price' => $costPrice,
+                                    'line_total' => $lineTotal,
                                 ];
+                                $itemsBySupplier[$supplierId]['total'] += $lineTotal;
                             }
-
-                            // Get cost price
-                            $costPrice = 0;
-                            if ($buyerOrderItem->buyerQuoteItem?->supplierQuoteItem !== null) {
-                                $costPrice = (float) ($buyerOrderItem->buyerQuoteItem->supplierQuoteItem->unit_price ?? 0);
-                            } elseif ($buyerOrderItem->buyerQuoteItem !== null) {
-                                $costPrice = (float) ($buyerOrderItem->buyerQuoteItem->cost_price ?? 0);
-                            }
-
-                            $lineTotal = $costPrice * (float) $buyerOrderItem->quantity;
-
-                            $itemsBySupplier[$supplierId]['items'][] = [
-                                'description' => $buyerOrderItem->description,
-                                'quantity' => $buyerOrderItem->quantity,
-                                'unit_of_measure_id' => $buyerOrderItem->unit_of_measure_id,
-                                'unit' => $buyerOrderItem->unitOfMeasure?->code ?? $buyerOrderItem->unit?->value ?? 'pcs',
-                                'unit_price' => $costPrice,
-                                'line_total' => $lineTotal,
-                            ];
-                            $itemsBySupplier[$supplierId]['total'] += $lineTotal;
                         }
 
                         if ($itemsBySupplier === []) {
@@ -880,47 +875,45 @@ final class SupplierOrdersRelationManager extends RelationManager
                             ->where('is_active', true)
                             ->value('id');
 
-                        // Get confirmed buyer order
-                        /** @var BuyerOrder|null $buyerOrder */
-                        $buyerOrder = BuyerOrder::query()
+                        // Get accepted buyer quotes and their items
+                        $acceptedQuotes = BuyerQuote::query()
                             ->where('request_id', $request->getKey())
-                            ->where('status', OrderStatus::CONFIRMED)
-                            ->with(['items.buyerQuoteItem.supplierQuoteItem.supplierQuote.supplier', 'items.requestItem.supplier'])
-                            ->first();
+                            ->where('status', BuyerQuoteStatus::ACCEPTED)
+                            ->with(['items.requestItem.supplier', 'items.supplierQuoteItem.supplierQuote.supplier'])
+                            ->get();
 
-                        if ($buyerOrder === null) {
+                        if ($acceptedQuotes->isEmpty()) {
                             Notification::make()
-                                ->title('No confirmed buyer order')
-                                ->body('There is no confirmed buyer order to create supplier orders from.')
+                                ->title('No accepted buyer quote')
+                                ->body('There is no accepted buyer quote to create supplier orders from.')
                                 ->warning()
                                 ->send();
 
                             return;
                         }
 
-                        // Group items by supplier from request items or quote chain
+                        // Group quote items by supplier (from all accepted quotes)
                         $itemsBySupplier = [];
-                        foreach ($buyerOrder->items as $buyerOrderItem) {
-                            /** @var \App\Models\BuyerOrderItem $buyerOrderItem */
-                            $requestItem = $buyerOrderItem->requestItem;
-                            
-                            // Try to get supplier from request item first
-                            $supplierId = null;
-                            
-                            if ($requestItem !== null && $requestItem->supplier_id !== null) {
-                                $supplierId = $requestItem->supplier_id;
-                            } elseif ($buyerOrderItem->buyerQuoteItem?->supplierQuoteItem?->supplierQuote?->supplier !== null) {
-                                // Fallback to supplier from quote chain
-                                $supplierId = $buyerOrderItem->buyerQuoteItem->supplierQuoteItem->supplierQuote->supplier->getKey();
+                        foreach ($acceptedQuotes as $quote) {
+                            foreach ($quote->items as $quoteItem) {
+                                /** @var BuyerQuoteItem $quoteItem */
+                                $requestItem = $quoteItem->requestItem;
+                                $supplierId = null;
+
+                                if ($requestItem !== null && $requestItem->supplier_id !== null) {
+                                    $supplierId = $requestItem->supplier_id;
+                                } elseif ($quoteItem->supplierQuoteItem?->supplierQuote?->supplier !== null) {
+                                    $supplierId = $quoteItem->supplierQuoteItem->supplierQuote->supplier->getKey();
+                                }
+
+                                if ($supplierId === null) {
+                                    continue;
+                                }
+                                if (! isset($itemsBySupplier[$supplierId])) {
+                                    $itemsBySupplier[$supplierId] = [];
+                                }
+                                $itemsBySupplier[$supplierId][] = $quoteItem;
                             }
-                            
-                            if ($supplierId === null) {
-                                continue;
-                            }
-                            if (! isset($itemsBySupplier[$supplierId])) {
-                                $itemsBySupplier[$supplierId] = [];
-                            }
-                            $itemsBySupplier[$supplierId][] = $buyerOrderItem;
                         }
 
                         if ($itemsBySupplier === []) {
@@ -934,9 +927,10 @@ final class SupplierOrdersRelationManager extends RelationManager
                         }
 
                         $ordersCreated = 0;
+                        $quoteNumbers = $acceptedQuotes->pluck('quote_number')->join(', ');
 
                         // Create a supplier order for each supplier
-                        foreach ($itemsBySupplier as $supplierId => $items) {
+                        foreach ($itemsBySupplier as $supplierId => $quoteItems) {
                             // Check if a supplier order already exists for this request and supplier
                             $existingOrder = SupplierOrder::query()
                                 ->where('request_id', $request->getKey())
@@ -958,77 +952,66 @@ final class SupplierOrdersRelationManager extends RelationManager
                             $supplierOrder->supplier_id = $supplierId;
                             $supplierOrder->currency_id = $defaultCurrencyId;
                             $supplierOrder->exchange_rate = '1.00000000';
-                            
-                            // Set notes: use custom notes if provided, otherwise use default message
+
                             $customNotes = trim($data['notes'] ?? '');
-                            if (!empty($customNotes)) {
+                            if ($customNotes !== '') {
                                 $supplierOrder->notes = $customNotes;
                             } else {
-                                $supplierOrder->notes = "Created from Buyer Order #{$buyerOrder->order_number}";
+                                $supplierOrder->notes = "Created from Accepted Buyer Quote(s): {$quoteNumbers}";
                             }
-                            
+
                             $supplierOrder->save();
 
-                            // Add items for this supplier
-                            foreach ($items as $index => $buyerOrderItem) {
-                                /** @var \App\Models\BuyerOrderItem $buyerOrderItem */
-                                // Try to get cost price from supplier quote item chain
-                                $costPrice = '0.0000';
-                                if ($buyerOrderItem->buyerQuoteItem?->supplierQuoteItem !== null) {
-                                    $costPrice = $buyerOrderItem->buyerQuoteItem->supplierQuoteItem->unit_price ?? '0.0000';
-                                } elseif ($buyerOrderItem->buyerQuoteItem !== null) {
-                                    $costPrice = $buyerOrderItem->buyerQuoteItem->cost_price ?? '0.0000';
-                                }
+                            // Add items for this supplier from quote items
+                            foreach ($quoteItems as $index => $quoteItem) {
+                                /** @var BuyerQuoteItem $quoteItem */
+                                $costPrice = $quoteItem->supplierQuoteItem !== null
+                                    ? ($quoteItem->supplierQuoteItem->unit_price ?? '0.0000')
+                                    : ($quoteItem->cost_price ?? '0.0000');
 
-                                // Ensure unit is set from unit_of_measure_id, bypassing SafeUnitCast
-                                $unitCode = 'pcs'; // Default fallback
-                                if ($buyerOrderItem->unit_of_measure_id !== null) {
-                                    $unitOfMeasure = \App\Models\UnitOfMeasure::find($buyerOrderItem->unit_of_measure_id);
+                                $unitCode = 'pcs';
+                                if ($quoteItem->unit_of_measure_id !== null) {
+                                    $unitOfMeasure = UnitOfMeasure::find($quoteItem->unit_of_measure_id);
                                     if ($unitOfMeasure !== null) {
                                         $unitCode = $unitOfMeasure->code;
                                     } else {
-                                        // Fallback to buyer order item's unit
-                                        $orderUnit = $buyerOrderItem->unit;
-                                        $unitCode = $orderUnit instanceof \App\Enums\Unit ? $orderUnit->value : ($orderUnit ?? 'pcs');
+                                        $quoteUnit = $quoteItem->unit;
+                                        $unitCode = $quoteUnit instanceof \App\Enums\Unit ? $quoteUnit->value : (string) ($quoteUnit ?? 'pcs');
                                     }
                                 } else {
-                                    // Fallback to buyer order item's unit
-                                    $orderUnit = $buyerOrderItem->unit;
-                                    $unitCode = $orderUnit instanceof \App\Enums\Unit ? $orderUnit->value : ($orderUnit ?? 'pcs');
+                                    $quoteUnit = $quoteItem->unit;
+                                    $unitCode = $quoteUnit instanceof \App\Enums\Unit ? $quoteUnit->value : (string) ($quoteUnit ?? 'pcs');
                                 }
-                                
+
                                 $item = SupplierOrderItem::make([
                                     'supplier_order_id' => $supplierOrder->getKey(),
-                                    'request_item_id' => $buyerOrderItem->request_item_id,
-                                    'article_id' => $buyerOrderItem->article_id,
-                                    'description' => $buyerOrderItem->description,
-                                    'quantity' => $buyerOrderItem->quantity,
-                                    'unit_of_measure_id' => $buyerOrderItem->unit_of_measure_id,
+                                    'request_item_id' => $quoteItem->request_item_id,
+                                    'article_id' => $quoteItem->article_id,
+                                    'description' => $quoteItem->description,
+                                    'quantity' => $quoteItem->quantity,
+                                    'unit_of_measure_id' => $quoteItem->unit_of_measure_id,
                                     'unit_price' => $costPrice,
                                     'unit_price_exc_tax' => $costPrice,
                                     'tax_amount' => '0.0000',
-                                    'line_total' => (string) ((float) $buyerOrderItem->quantity * (float) $costPrice),
+                                    'line_total' => (string) ((float) $quoteItem->quantity * (float) $costPrice),
                                     'tax_rate' => '0.0000',
                                     'sort_order' => $index,
-                                    'notes' => $buyerOrderItem->notes,
+                                    'notes' => $quoteItem->notes,
                                 ]);
-                                
-                                // Use setRawAttributes to bypass SafeUnitCast and ensure unit is set
+
                                 $attributes = $item->getAttributes();
                                 $item->setRawAttributes(array_merge($attributes, ['unit' => (string) $unitCode]));
                                 $item->save();
                             }
 
-                            // Recalculate totals
                             $supplierOrder->recalculateTotals();
-
                             $ordersCreated++;
                         }
 
                         if ($ordersCreated > 0) {
                             Notification::make()
                                 ->title('Supplier orders created')
-                                ->body("{$ordersCreated} purchase order(s) created from Buyer Order #{$buyerOrder->order_number}. Orders are in draft status and need to be confirmed before approval.")
+                                ->body("{$ordersCreated} purchase order(s) created from accepted buyer quote(s). Orders are in draft status and need to be confirmed before approval.")
                                 ->success()
                                 ->send();
                         } else {
@@ -1039,9 +1022,9 @@ final class SupplierOrdersRelationManager extends RelationManager
                                 ->send();
                         }
                     })
-                    ->visible(fn (): bool => BuyerOrder::query()
+                    ->visible(fn (): bool => BuyerQuote::query()
                         ->where('request_id', $this->getOwnerRecord()->getKey())
-                        ->where('status', OrderStatus::CONFIRMED)
+                        ->where('status', BuyerQuoteStatus::ACCEPTED)
                         ->exists()),
             ])
             ->recordActions([
