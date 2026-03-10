@@ -127,10 +127,10 @@ MARKDOWN;
     {
         return <<<'MARKDOWN'
 **Step 3: Buyer Quotes**
-Buyer quote has items that selected from supplier quote. 
+Buyer quote has items that selected from supplier quote.
 Set selling prices, margins, and tax settings. Verify all order details, pricing, and terms.
-Create a Profit & Loss document for approval before send buyer quote to buyer.
-Once receive PO from buyer, upload PO to the buyer quote. It will set buyer quote status to Accepted.
+Create a Profit & Loss document for approval, then send the buyer quote to the buyer.
+Once you receive the PO from the buyer, upload the PO to the buyer quote; the quote status will change to Accepted. You can then continue to the next stage (Purchase / Buyer Orders and beyond).
 MARKDOWN;
     }
 

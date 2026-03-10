@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\RequestResource\RelationManagers\Concerns;
 
+use App\Enums\BuyerQuoteStatus;
 use App\Enums\OrderStatus;
 use App\Enums\PNLStatus;
 use App\Enums\QEStatus;
@@ -86,6 +87,32 @@ trait HasRequestStageTab
             }
         }
 
+        // From Buyer Orders onwards: require at least one Accepted quote and no quotes left in Sent (all Sent must have PO uploaded → Accepted)
+        $requiresAcceptedQuote = $stage->getOrder() >= RequestStage::AWAITING_BUYER_CONFIRMATION->getOrder()
+            && $stage->getOrder() <= RequestStage::DELIVERED->getOrder();
+        if ($requiresAcceptedQuote) {
+            $hasAcceptedQuote = $request->buyerQuotes()->where('status', BuyerQuoteStatus::ACCEPTED)->exists();
+            $hasSentQuote = $request->buyerQuotes()->where('status', BuyerQuoteStatus::SENT)->exists();
+            if (! $hasAcceptedQuote) {
+                Notification::make()
+                    ->title('Access Restricted')
+                    ->body('Send the buyer quote, then upload the buyer\'s PO so the quote status is Accepted. You can then continue to Purchase and later stages.')
+                    ->warning()
+                    ->send();
+                $this->redirect(RequestResource::getUrl('view', ['record' => $request->id, 'activeRelationManager' => 'buyerQuotes']));
+                return;
+            }
+            if ($hasSentQuote) {
+                Notification::make()
+                    ->title('Access Restricted')
+                    ->body('Upload PO for all buyer quotes that are in Sent status (their status will change to Accepted). Once every sent quote has a PO uploaded, you can continue to the next stage.')
+                    ->warning()
+                    ->send();
+                $this->redirect(RequestResource::getUrl('view', ['record' => $request->id, 'activeRelationManager' => 'buyerQuotes']));
+                return;
+            }
+        }
+
         // Check if all supplier orders are approved for Goods Receive tab
         if ($stage === RequestStage::GOODS_RECEIVE && static::hasUnapprovedSupplierOrders($request)) {
             Notification::make()
@@ -145,6 +172,15 @@ trait HasRequestStageTab
             $isPNLApproved = $latestPNL !== null && $latestPNL->status === PNLStatus::APPROVED;
         }
 
+        $requiresAcceptedQuote = $stage->getOrder() >= RequestStage::AWAITING_BUYER_CONFIRMATION->getOrder()
+            && $stage->getOrder() <= RequestStage::DELIVERED->getOrder();
+        $hasAcceptedQuote = false;
+        $hasSentQuote = false;
+        if ($requiresAcceptedQuote) {
+            $hasAcceptedQuote = $ownerRecord->buyerQuotes()->where('status', BuyerQuoteStatus::ACCEPTED)->exists();
+            $hasSentQuote = $ownerRecord->buyerQuotes()->where('status', BuyerQuoteStatus::SENT)->exists();
+        }
+
         // Build tab
         $tab = Tab::make(static::getBaseTabTitle())
             ->icon(static::$icon ?? null);
@@ -162,6 +198,20 @@ trait HasRequestStageTab
             $tab->disabled()
                 ->badgeColor('gray')
                 ->badgeTooltip('Profit & Loss must be approved first')
+                ->extraAttributes([
+                    'class' => 'qe-disabled-tab',
+                ]);
+        } elseif ($requiresAcceptedQuote && ! $hasAcceptedQuote) {
+            $tab->disabled()
+                ->badgeColor('gray')
+                ->badgeTooltip('Send buyer quote and upload PO (quote status must be Accepted) to continue')
+                ->extraAttributes([
+                    'class' => 'qe-disabled-tab',
+                ]);
+        } elseif ($requiresAcceptedQuote && $hasSentQuote) {
+            $tab->disabled()
+                ->badgeColor('gray')
+                ->badgeTooltip('Upload PO for all sent buyer quotes (status → Accepted) before continuing')
                 ->extraAttributes([
                     'class' => 'qe-disabled-tab',
                 ]);

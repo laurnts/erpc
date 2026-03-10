@@ -107,6 +107,20 @@
     @apply rounded-lg;
 }
 
+/* Align clear button to the left of the chevron, vertically centered */
+.fi-select-input .fi-select-input-ctn {
+    @apply relative;
+}
+
+.fi-select-input .fi-select-input-ctn .fi-select-input-value-remove-btn {
+    @apply absolute top-1/2 -translate-y-1/2 flex items-center justify-center shrink-0;
+    inset-inline-end: 2rem;
+}
+
+.fi-select-input .fi-select-input-ctn-clearable .fi-select-input-btn {
+    @apply pe-14;
+}
+
 /* Tables */
 
 .fi-ta-ctn {

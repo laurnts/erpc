@@ -394,9 +394,9 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             // Get main item's tax information (this is the current item being processed)
                                             // Use the current record's tax info as the main item's tax info
                                             $mainItemTaxCodeId = $data['tax_code_id'] ?? $record->tax_code_id ?? $defaultTaxCode?->getKey();
-                                            $mainItemTaxRate = ($data['tax_code_id'] ?? $record->tax_code_id) !== null 
-                                                ? ($data['tax_rate'] ?? (string) $record->tax_rate ?? '0.0000')
-                                                : (string) ($defaultTaxCode?->rate ?? 0);
+                                            $mainItemTaxRate = ($data['tax_code_id'] ?? $record->tax_code_id) !== null
+                                                ? (string) (int) round((float) ($data['tax_rate'] ?? $record->tax_rate ?? 0))
+                                                : (string) (int) round((float) ($defaultTaxCode?->rate ?? 0));
                                             $mainItemIsTaxInclusive = ($data['tax_code_id'] ?? $record->tax_code_id) !== null
                                                 ? ($data['is_tax_inclusive'] ?? $record->is_tax_inclusive ?? false)
                                                 : ($defaultTaxCode?->is_inclusive_default ?? false);
@@ -404,8 +404,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             $data['child_items'] = $childBuyerQuoteItems->map(function ($childItem) use ($mainItemTaxCodeId, $mainItemTaxRate, $mainItemIsTaxInclusive) {
                                                 // Use stored tax information, or fallback to main item's tax
                                                 $taxCodeId = $childItem->tax_code_id ?? $mainItemTaxCodeId;
-                                                $taxRate = $childItem->tax_code_id !== null 
-                                                    ? (string) $childItem->tax_rate 
+                                                $taxRate = $childItem->tax_code_id !== null
+                                                    ? (string) (int) round((float) $childItem->tax_rate)
                                                     : $mainItemTaxRate;
                                                 $isTaxInclusive = $childItem->tax_code_id !== null
                                                     ? $childItem->is_tax_inclusive
@@ -415,7 +415,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                     'request_item_id' => $childItem->request_item_id,
                                                     'supplier_quote_item_id' => $childItem->supplier_quote_item_id,
                                                     'description' => $childItem->description,
-                                                    'quantity' => (string) $childItem->quantity,
+                                                    'quantity' => (string) (int) round((float) $childItem->quantity),
                                                     'unit_of_measure_id' => $childItem->unit_of_measure_id,
                                                     'cost_price' => (string) $childItem->cost_price,
                                                     'unit_price' => (string) $childItem->unit_price,
@@ -473,7 +473,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             if ($requestItem !== null) {
                                                 $set('article_id', $requestItem->article_id);
                                                 $set('description', $requestItem->description);
-                                                $set('quantity', $requestItem->quantity);
+                                                $set('quantity', (string) (int) round((float) $requestItem->quantity));
                                                 $set('unit_of_measure_id', $requestItem->unit_of_measure_id);
 
                                                 // Prefill tax code from article's default tax code
@@ -481,7 +481,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                     $set('tax_code_id', $requestItem->article->default_tax_code_id);
                                                     $taxCode = $requestItem->article->defaultTaxCode;
                                                     if ($taxCode !== null) {
-                                                        $set('tax_rate', $taxCode->rate);
+                                                        $set('tax_rate', (string) (int) round((float) $taxCode->rate));
                                                         $set('is_tax_inclusive', $taxCode->is_inclusive_default);
                                                     }
                                                 }
@@ -496,10 +496,17 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->required()
                                         ->default(1)
                                         ->step(1)
+                                        ->minValue(1)
                                         ->columnSpan(2)
                                         ->live(onBlur: true)
                                         ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : null)
-                                        ->afterStateHydrated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get))
+                                        ->dehydrateStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '1')
+                                        ->afterStateHydrated(function (Set $set, Get $get): void {
+                                            $qty = $get('quantity');
+                                            $normalized = $qty !== null && $qty !== '' ? (string) (int) round((float) $qty) : '1';
+                                            $set('quantity', $normalized);
+                                            $this->calculateItemTotals($set, $get);
+                                        })
                                         ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
                                     Select::make('unit_of_measure_id')
                                         ->label('Unit')
@@ -620,7 +627,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                         $set('tax_code_id', $article->default_tax_code_id);
                                                         $taxCode = $article->defaultTaxCode;
                                                         if ($taxCode !== null) {
-                                                            $set('tax_rate', $taxCode->rate);
+                                                            $set('tax_rate', (string) (int) round((float) $taxCode->rate));
                                                             $set('is_tax_inclusive', $taxCode->is_inclusive_default);
                                                         }
                                                     }
@@ -629,11 +636,11 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         })
                                         ->afterStateUpdated(function (Set $set, Get $get, ?int $state): void {
                                             if ($state === null) {
-                                                $set('tax_rate', 0);
+                                                $set('tax_rate', '0');
                                             } else {
                                                 $taxCode = TaxCode::find($state);
                                                 if ($taxCode !== null) {
-                                                    $set('tax_rate', $taxCode->rate);
+                                                    $set('tax_rate', (string) (int) round((float) $taxCode->rate));
                                                     $set('is_tax_inclusive', $taxCode->is_inclusive_default);
                                                 }
                                             }
@@ -652,10 +659,12 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->label('Tax %')
                                         ->numeric()
                                         ->default(0)
-                                        ->step(0.01)
+                                        ->step(1)
                                         ->columnSpan(1)
                                         ->disabled()
-                                        ->dehydrated(),
+                                        ->dehydrated()
+                                        ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0')
+                                        ->dehydrateStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0'),
                                     // Margin %: default from general settings. Unit price = cost × (1 + margin%/100); margin% = (selling - cost)/cost×100. +Tax adds tax to line total.
                                     TextInput::make('margin_percent_input')
                                         ->label('Margin %')
@@ -748,9 +757,17 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                         ->numeric()
                                                         ->required()
                                                         ->step(1)
+                                                        ->minValue(1)
                                                         ->columnSpan(1)
                                                         ->live(onBlur: true)
                                                         ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : null)
+                                                        ->dehydrateStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '1')
+                                                        ->afterStateHydrated(function (Set $set, Get $get): void {
+                                                            $qty = $get('quantity');
+                                                            $normalized = $qty !== null && $qty !== '' ? (string) (int) round((float) $qty) : '1';
+                                                            $set('quantity', $normalized);
+                                                            $this->calculateItemTotals($set, $get);
+                                                        })
                                                         ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
                                                     Select::make('unit_of_measure_id')
                                                         ->label('Unit')
@@ -835,11 +852,11 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                         ->live(onBlur: false)
                                                         ->afterStateUpdated(function (Set $set, Get $get, ?int $state): void {
                                                             if ($state === null) {
-                                                                $set('tax_rate', 0);
+                                                                $set('tax_rate', '0');
                                                             } else {
                                                                 $taxCode = TaxCode::find($state);
                                                                 if ($taxCode !== null) {
-                                                                    $set('tax_rate', $taxCode->rate);
+                                                                    $set('tax_rate', (string) (int) round((float) $taxCode->rate));
                                                                     $set('is_tax_inclusive', $taxCode->is_inclusive_default);
                                                                 }
                                                             }
@@ -861,10 +878,12 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                         ->label('Tax %')
                                                         ->numeric()
                                                         ->default(0)
-                                                        ->step(0.01)
+                                                        ->step(1)
                                                         ->columnSpan(1)
                                                         ->disabled()
-                                                        ->dehydrated(),
+                                                        ->dehydrated()
+                                                        ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0')
+                                                        ->dehydrateStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0'),
                                                     TextInput::make('line_total')
                                                         ->label('Line Total')
                                                         ->numeric()
@@ -1214,13 +1233,13 @@ final class BuyerQuotesRelationManager extends RelationManager
                     $childItems[] = [
                         'request_item_id' => $childRequestItem->getKey(),
                         'description' => $childRequestItem->description,
-                        'quantity' => (string) $childRequestItem->quantity,
+                        'quantity' => (string) (int) round((float) $childRequestItem->quantity),
                         'unit_of_measure_id' => $childRequestItem->unit_of_measure_id,
                         'cost_price' => (string) $childCostPrice,
                         'unit_price' => (string) $childUnitPrice,
                         'unit_price_exc_tax' => (string) round($childUnitPriceExcTax, 0),
                         'tax_code_id' => $mainItemTaxCodeId,
-                        'tax_rate' => (string) $taxRate,
+                        'tax_rate' => (string) (int) round((float) $taxRate),
                         'is_tax_inclusive' => $addTax,
                         'line_subtotal' => (string) round($childLineSubtotal, 4),
                         'line_tax' => (string) round($childLineTax, 4),
@@ -1237,14 +1256,14 @@ final class BuyerQuotesRelationManager extends RelationManager
                 'supplier_quote_item_id' => $supplierQuoteItemId,
                 'from_supplier' => $supplierName,
                 'description' => $requestItem->article !== null ? $requestItem->article->name : $requestItem->description,
-                'quantity' => (string) $requestItem->quantity,
+                'quantity' => (string) (int) round((float) $requestItem->quantity),
                 'unit_of_measure_id' => $requestItem->unit_of_measure_id,
                 'unit' => $requestItem->unitOfMeasure?->code ?? $requestItem->unit?->value ?? 'pcs',
                 'cost_price' => (string) $costPrice,
                 'unit_price' => (string) $unitPrice,
                 'unit_price_exc_tax' => (string) round($unitPriceExcTax, 0),
                 'tax_code_id' => $mainItemTaxCodeId,
-                'tax_rate' => (string) $taxRate,
+                'tax_rate' => (string) (int) round((float) $taxRate),
                 'tax_amount' => (string) round($lineTax / max($quantity, 0.0001), 4),
                 'is_tax_inclusive' => $addTax,
                 'line_subtotal' => (string) round($lineSubtotal, 4),
@@ -1264,7 +1283,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                     if (isset($childItem['tax_code_id']) && $childItem['tax_code_id'] !== null) {
                         $taxCode = TaxCode::find($childItem['tax_code_id']);
                         if ($taxCode !== null) {
-                            $childItem['tax_rate'] = (string) $taxCode->rate;
+                            $childItem['tax_rate'] = (string) (int) round((float) $taxCode->rate);
                             $childItem['is_tax_inclusive'] = $childItem['is_tax_inclusive'] ?? $taxCode->is_inclusive_default;
                         }
                     }
@@ -1484,10 +1503,10 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         // Use tax information from form data, or inherit from main item, or fallback to default tax code
                                         $taxCodeId = $childItemData['tax_code_id'] ?? $mainItem->tax_code_id ?? $defaultTaxCode?->getKey();
                                         $taxRate = isset($childItemData['tax_code_id']) && $childItemData['tax_code_id'] !== null
-                                            ? ($childItemData['tax_rate'] ?? '0.0000')
-                                            : ($mainItem->tax_code_id !== null 
-                                                ? (string) $mainItem->tax_rate 
-                                                : (string) ($defaultTaxCode?->rate ?? 0));
+                                            ? (string) (int) round((float) ($childItemData['tax_rate'] ?? 0))
+                                            : ($mainItem->tax_code_id !== null
+                                                ? (string) (int) round((float) $mainItem->tax_rate)
+                                                : (string) (int) round((float) ($defaultTaxCode?->rate ?? 0)));
                                         $isTaxInclusive = isset($childItemData['tax_code_id']) && $childItemData['tax_code_id'] !== null
                                             ? ($childItemData['is_tax_inclusive'] ?? false)
                                             : ($mainItem->tax_code_id !== null
@@ -1964,7 +1983,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     'unit_price' => (string) $mainItem->unit_price,
                                     'unit_price_exc_tax' => (string) $mainItem->unit_price_exc_tax,
                                     'tax_code_id' => $mainItem->tax_code_id,
-                                    'tax_rate' => (string) $mainItem->tax_rate,
+                                    'tax_rate' => (string) (int) round((float) $mainItem->tax_rate),
                                     'is_tax_inclusive' => $mainItem->is_tax_inclusive,
                                     'line_subtotal' => (string) $mainItem->line_subtotal,
                                     'line_tax' => (string) $mainItem->line_tax,
@@ -1992,9 +2011,9 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         
                                         // Use main item's tax information as primary fallback, then default tax code
                                         $mainItemTaxCodeId = $mainItem->tax_code_id ?? $defaultTaxCode?->getKey();
-                                        $mainItemTaxRate = $mainItem->tax_code_id !== null 
-                                            ? (string) $mainItem->tax_rate 
-                                            : (string) ($defaultTaxCode?->rate ?? 0);
+                                        $mainItemTaxRate = $mainItem->tax_code_id !== null
+                                            ? (string) (int) round((float) $mainItem->tax_rate)
+                                            : (string) (int) round((float) ($defaultTaxCode?->rate ?? 0));
                                         $mainItemIsTaxInclusive = $mainItem->tax_code_id !== null
                                             ? $mainItem->is_tax_inclusive
                                             : ($defaultTaxCode?->is_inclusive_default ?? false);
@@ -2002,8 +2021,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         $itemData['child_items'] = $childBuyerQuoteItems->map(function ($childItem) use ($defaultTaxCode, $mainItemTaxCodeId, $mainItemTaxRate, $mainItemIsTaxInclusive) {
                                             // Use stored tax information, or fallback to main item's tax, then default tax code
                                             $taxCodeId = $childItem->tax_code_id ?? $mainItemTaxCodeId;
-                                            $taxRate = $childItem->tax_code_id !== null 
-                                                ? (string) $childItem->tax_rate 
+                                            $taxRate = $childItem->tax_code_id !== null
+                                                ? (string) (int) round((float) $childItem->tax_rate)
                                                 : $mainItemTaxRate;
                                             $isTaxInclusive = $childItem->tax_code_id !== null
                                                 ? $childItem->is_tax_inclusive
