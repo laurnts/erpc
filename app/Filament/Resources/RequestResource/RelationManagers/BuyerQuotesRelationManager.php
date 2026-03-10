@@ -1817,120 +1817,99 @@ final class BuyerQuotesRelationManager extends RelationManager
                     ->size(Size::Small)
                     ->color('info')
                     ->visible(function () use ($request): bool {
-                        // Hide if buyer quotes don't exist
-                        if (! $request->buyerQuotes()->exists()) {
+                        if (! $request->buyerQuotes()->where('status', BuyerQuoteStatus::DRAFT)->exists()) {
                             return false;
                         }
-                        
-                        // Hide if PNL is not created
-                        if (! $request->profitAndLosses()->exists()) {
-                            return false;
-                        }
-                        
-                        // Hide if PNL is not approved
-                        /** @var ProfitAndLoss|null $latestPNL */
+                        /** @var \App\Models\ProfitAndLoss|null $latestPNL */
                         $latestPNL = $request->profitAndLosses()->latest()->first();
-                        if ($latestPNL === null) {
-                            return false;
-                        }
-                        
-                        return $latestPNL->status->isApproved();
+                        return $latestPNL !== null && $latestPNL->status->isApproved();
                     })
                     ->requiresConfirmation()
-                    ->modalHeading('Send this quote?')
+                    ->modalHeading('Send draft quote(s)?')
                     ->modalDescription(function () use ($request): string {
-                        // Find the latest valid buyer quote (not rejected/superseded)
-                        $buyerQuote = $request->buyerQuotes()
-                            ->whereNotIn('status', [BuyerQuoteStatus::REJECTED, BuyerQuoteStatus::SUPERSEDED])
-                            ->latest()
-                            ->first();
-                        
-                        if ($buyerQuote === null) {
-                            return 'No valid buyer quote found.';
+                        $sendableQuotes = $request->buyerQuotes()->where('status', BuyerQuoteStatus::DRAFT)->orderBy('id')->get();
+                        if ($sendableQuotes->isEmpty()) {
+                            return 'No draft buyer quotes to send.';
                         }
-                        
-                        $buyerEmail = $buyerQuote->buyer->email ?? null;
-                        $buyerName = $buyerQuote->buyer->name ?? 'Unknown';
-                        $description = 'This will mark the quote as sent and set the issue date to today.';
-                        
-                        if (empty($buyerEmail)) {
-                            $description .= "\n\n⚠️ **Warning:** The buyer ({$buyerName}) does not have an email address configured. The quote will be marked as sent, but no email will be sent.";
-                        } else {
-                            $description .= "\n\n📧 Email will be sent to: {$buyerEmail}";
+                        $lines = ['This will mark the following quote(s) as sent and set the issue date to today:'];
+                        foreach ($sendableQuotes as $bq) {
+                            $email = $bq->buyer->email ?? null;
+                            $name = $bq->buyer->name ?? 'Unknown';
+                            $quoteLabel = $bq->quote_number ?? 'Quote #' . $bq->id;
+                            if (empty($email)) {
+                                $lines[] = "• **{$quoteLabel}** — ⚠️ No email configured for {$name}; will be marked as sent only.";
+                            } else {
+                                $lines[] = "• **{$quoteLabel}** → {$email}";
+                            }
                         }
-                        
-                        return $description;
+                        return implode("\n\n", $lines);
                     })
                     ->action(function () use ($request): void {
-                        // Find the latest valid buyer quote (not rejected/superseded)
-                        $buyerQuote = $request->buyerQuotes()
-                            ->whereNotIn('status', [BuyerQuoteStatus::REJECTED, BuyerQuoteStatus::SUPERSEDED])
-                            ->latest()
-                            ->first();
-                        
-                        if ($buyerQuote === null) {
+                        $sendableQuotes = $request->buyerQuotes()->where('status', BuyerQuoteStatus::DRAFT)->orderBy('id')->get();
+                        if ($sendableQuotes->isEmpty()) {
                             Notification::make()
                                 ->title('No quote found')
-                                ->body('No valid buyer quote found to send.')
-                                ->warning()
-                                ->send();
-                            return;
-                        }
-                        
-                        // Check if quote can be sent
-                        if (! $buyerQuote->status->canSend()) {
-                            Notification::make()
-                                ->title('Cannot send quote')
-                                ->body('This quote cannot be sent in its current status.')
-                                ->warning()
-                                ->send();
-                            return;
-                        }
-                        
-                        $buyerQuote->markAsSent();
-
-                        // Send email to buyer
-                        $buyerEmail = $buyerQuote->buyer->email ?? null;
-                        $buyerName = $buyerQuote->buyer->name ?? 'Buyer';
-                        
-                        if (empty($buyerEmail)) {
-                            Notification::make()
-                                ->title('Quote marked as sent')
-                                ->body("Quote has been marked as sent, but no email was sent because the buyer ({$buyerName}) does not have an email address configured.")
+                                ->body('No draft buyer quotes to send.')
                                 ->warning()
                                 ->send();
                             return;
                         }
 
-                        try {
-                            $emailService = app(\App\Services\Email\EmailTemplateService::class);
-                            $settings = $buyerQuote->team->getErpSettings();
-                            $emailService->sendWithTeamSettings(
-                                $buyerQuote->team,
-                                new \App\Mail\Erp\QuoteToBuyerMail($buyerQuote),
-                                $buyerEmail,
-                                $settings->email_template_buyer_quote, // Old system fallback
-                                $settings->email_template_buyer_quote_id ?? null, // New system
-                                \App\Models\EmailTemplate::TYPE_BUYER_QUOTE
-                            );
+                        $emailService = app(\App\Services\Email\EmailTemplateService::class);
+                        $sentCount = 0;
+                        $emailFailures = [];
 
+                        foreach ($sendableQuotes as $buyerQuote) {
+                            $buyerQuote->markAsSent();
+                            $buyerEmail = $buyerQuote->buyer->email ?? null;
+                            $buyerName = $buyerQuote->buyer->name ?? 'Buyer';
+                            $quoteLabel = $buyerQuote->quote_number ?? 'Quote #' . $buyerQuote->id;
+
+                            if (empty($buyerEmail)) {
+                                $sentCount++;
+                                continue;
+                            }
+
+                            try {
+                                $settings = $buyerQuote->team->getErpSettings();
+                                $emailService->sendWithTeamSettings(
+                                    $buyerQuote->team,
+                                    new \App\Mail\Erp\QuoteToBuyerMail($buyerQuote),
+                                    $buyerEmail,
+                                    $settings->email_template_buyer_quote,
+                                    $settings->email_template_buyer_quote_id ?? null,
+                                    \App\Models\EmailTemplate::TYPE_BUYER_QUOTE
+                                );
+                                $sentCount++;
+                            } catch (\Exception $e) {
+                                \Illuminate\Support\Facades\Log::error('Failed to send buyer quote email', [
+                                    'quote_id' => $buyerQuote->id,
+                                    'buyer_email' => $buyerEmail,
+                                    'error' => $e->getMessage(),
+                                    'trace' => $e->getTraceAsString(),
+                                ]);
+                                $emailFailures[] = "{$quoteLabel}: " . $e->getMessage();
+                            }
+                        }
+
+                        $total = $sendableQuotes->count();
+                        if ($emailFailures === []) {
                             Notification::make()
-                                ->title('Quote sent')
-                                ->body("Quote has been sent successfully to {$buyerEmail}.")
+                                ->title($total === 1 ? 'Quote sent' : 'Quotes sent')
+                                ->body($total === 1
+                                    ? "Quote has been sent successfully."
+                                    : "{$sentCount} of {$total} quote(s) have been sent successfully.")
                                 ->success()
                                 ->send();
-                        } catch (\Exception $e) {
-                            \Illuminate\Support\Facades\Log::error('Failed to send buyer quote email', [
-                                'quote_id' => $buyerQuote->id,
-                                'buyer_email' => $buyerEmail,
-                                'error' => $e->getMessage(),
-                                'trace' => $e->getTraceAsString(),
-                            ]);
-
+                        } else {
+                            $failureList = implode("\n", array_slice($emailFailures, 0, 5));
+                            if (count($emailFailures) > 5) {
+                                $failureList .= "\n... and " . (count($emailFailures) - 5) . ' more.';
+                            }
                             Notification::make()
-                                ->title('Failed to send email')
-                                ->body("Quote has been marked as sent, but the email could not be sent to {$buyerEmail}. Error: ".$e->getMessage())
-                                ->danger()
+                                ->title('Sent with errors')
+                                ->body("All {$total} quote(s) were marked as sent. {$sentCount} email(s) sent. Failed to send email:\n\n" . $failureList)
+                                ->warning()
                                 ->send();
                         }
                     }),
@@ -2058,8 +2037,13 @@ final class BuyerQuotesRelationManager extends RelationManager
                             }
                             
                             return [
-                                'items' => $items,
+                                'status' => $record->status,
+                                'currency_id' => $record->currency_id,
+                                'valid_until' => $record->valid_until,
+                                'exchange_rate' => $record->exchange_rate ?? 1,
+                                'prepayment_type' => $record->prepayment_type,
                                 'prepayment_amount' => (string) (int) round((float) $record->prepayment_amount),
+                                'items' => $items,
                             ];
                         })
                         ->mutateFormDataUsing(function (array $data): array {
