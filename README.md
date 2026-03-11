@@ -19,6 +19,8 @@ ERPC is designed for trading businesses that source products from multiple suppl
 
 ### Trading Workflow
 - **Request Management** - Track buyer inquiries from initial request through fulfillment
+  - **Request View page** - Single request view (`RequestResource::view`) with tabbed relation managers: Requested Items, Supplier Quotes, Buyer Quotes, Purchases (Supplier Orders), Goods Receive, Invoices (Buyer Orders), Inbound Shipments, Completion Report. Stage advancement and tab access follow `RequestStage` and approval rules (QE, P&L, supplier order approval).
+  - **Information Flow widget** - Step-by-step guide shown at the **bottom of the Request View page** (footer widget). Content is **per-tab**: when a tab is selected, the widget shows that step’s flow as a **bulleted list**. Steps 1–8: (1) Requested Items, (2) Supplier Quotes, (3) Buyer Quotes, (4) Purchases, (5) Goods Receive, (6) Invoices, (7) Inbound Shipments, (8) Completion Report. Implemented in `App\Filament\Widgets\RequestInformationFlowWidget` and view `resources/views/filament/widgets/request-information-flow-widget.blade.php`; registered via `ViewRequest::getFooterWidgets()`.
 - **Supplier Quoting** - Collect and compare quotes from multiple suppliers
 - **Quotation Evaluation** - Generate internal QE documents with item comparison, supplier info, and approval workflow
   - **Document upload** - Upload supporting documents on the QE view page (action group: Edit, Download PDF, Upload Document). Documents appear in a Documents section and in the **Acceptance Report** for key account approval; once approved there, the QE status is set to Approved.
@@ -149,7 +151,8 @@ app/
 │   ├── Exports/        # Exporters (e.g., BuyerExporter), Jobs/ExportCompletion (refresh before notification)
 │   ├── Imports/        # Importers for master data (e.g., BuyerImporter)
 │   ├── Pages/         # Custom Filament pages (e.g., EmailSettings)
-│   └── Resources/     # Filament resources (e.g., CreditLimitAcceptanceReportResource for Acceptance Report)
+│   ├── Resources/     # Filament resources (e.g., CreditLimitAcceptanceReportResource for Acceptance Report)
+│   └── Widgets/       # Filament widgets (e.g., RequestInformationFlowWidget for Request View)
 ├── Jobs/              # Background jobs (e.g. Erp/CheckExpiredQuotesJob, CheckExpiringQuotesJob)
 ├── Mail/              # Laravel Mailables
 │   └── Erp/           # ERP-specific email templates (e.g. QuoteExpiredMail, QuoteToBuyerMail)

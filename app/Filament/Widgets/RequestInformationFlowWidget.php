@@ -17,6 +17,23 @@ final class RequestInformationFlowWidget extends Widget
     // Make widget poll for updates to detect tab changes
     protected ?string $pollingInterval = null;
 
+    /**
+     * Span full width at all breakpoints so the information flow is not constrained by the footer widget grid.
+     *
+     * @return array<string, string|int>
+     */
+    public function getColumnSpan(): array
+    {
+        return [
+            'default' => 'full',
+            'sm' => 'full',
+            'md' => 'full',
+            'lg' => 'full',
+            'xl' => 'full',
+            '2xl' => 'full',
+        ];
+    }
+
     #[Computed]
     public function getInformationFlowText(): string
     {
@@ -56,11 +73,9 @@ final class RequestInformationFlowWidget extends Widget
             'items' => $this->getItemsInformationFlow(),
             'supplierQuotes' => $this->getSupplierQuotesInformationFlow(),
             'buyerQuotes' => $this->getBuyerQuotesInformationFlow(),
-            'buyerOrders' => $this->getBuyerOrdersInformationFlow(),
             'supplierOrders' => $this->getSupplierOrdersInformationFlow(),
-            'invoices' => $this->getBuyerOrdersInformationFlow(),
-            'purchases' => $this->getSupplierOrdersInformationFlow(),
             'goodsReceive' => $this->getGoodsReceiveInformationFlow(),
+            'buyerOrders' => $this->getBuyerOrdersInformationFlow(),
             'shipments' => $this->getShipmentsInformationFlow(),
             'completionReports' => $this->getCompletionReportsInformationFlow(),
             default => '',
@@ -68,7 +83,7 @@ final class RequestInformationFlowWidget extends Widget
     }
 
     /**
-     * Convert a relation manager index to its key.
+     * Convert relation manager index to key. Order must match ViewRequest::getRelationManagers().
      */
     private function getRelationManagerKeyFromIndex(int|string $index): ?string
     {
@@ -76,14 +91,13 @@ final class RequestInformationFlowWidget extends Widget
             'items' => 0,
             'supplierQuotes' => 1,
             'buyerQuotes' => 2,
-            'invoices' => 3,
-            'purchases' => 4,
-            'goodsReceive' => 5,
+            'supplierOrders' => 3,
+            'goodsReceive' => 4,
+            'buyerOrders' => 5,
             'shipments' => 6,
             'completionReports' => 7,
         ];
 
-        // If it's already a string key, return it
         if (is_string($index) && ! is_numeric($index)) {
             return $index;
         }
@@ -101,8 +115,10 @@ final class RequestInformationFlowWidget extends Widget
     {
         return <<<'MARKDOWN'
 **Step 1: Requested Items**
-Add items requested by the buyer to the request. All listed items must be matched to articles before you can request quotes from suppliers.
-Click on Send to all suppliers or Send to supplier button to suppliers to request quotes from suppliers.
+- Add the items requested by the buyer to this request.
+- Match each item to an article (all items must be matched before requesting supplier quotes).
+- Use **Send to all suppliers** or **Send to supplier** to request quotes from suppliers.
+- Once sent, the next stage is Supplier Quotes.
 MARKDOWN;
     }
 
@@ -113,10 +129,11 @@ MARKDOWN;
     {
         return <<<'MARKDOWN'
 **Step 2: Supplier Quotes**
-Input supplier prices for the items in the request.
-Review the supplier quotes and select the best one(s) for each item.
-Click on send to buyer to send the quotes to the buyer.
-Quotation evaluation can be created once selected item applied.
+- Enter or upload supplier prices for the requested items.
+- Review and compare quotes; select the best option(s) per item.
+- Create a Quotation Evaluation (QE) when required; it must be approved before moving to Buyer Quotes.
+- Use **Send to buyer** to send the selected quotes to the buyer.
+- Once sent, proceed to Buyer Quotes.
 MARKDOWN;
     }
 
@@ -127,36 +144,42 @@ MARKDOWN;
     {
         return <<<'MARKDOWN'
 **Step 3: Buyer Quotes**
-Buyer quote has items that selected from supplier quote.
-Set selling prices, margins, and tax settings. Verify all order details, pricing, and terms.
-Create a Profit & Loss document for approval, then send the buyer quote to the buyer.
-Once you receive the PO from the buyer, upload the PO to the buyer quote; the quote status will change to Accepted. You can then continue to the next stage (Purchase / Buyer Orders and beyond).
+- Build the buyer quote from items selected in the supplier quote(s).
+- Set selling prices, margins, and tax; verify order details and terms.
+- Create a Profit & Loss (P&L) document; it must be approved before Invoices and later stages.
+- **Send** the buyer quote to the buyer.
+- When the buyer sends a PO, **upload the PO** to the buyer quote so its status becomes **Accepted**.
+- After at least one quote is Accepted, you can continue to Invoices and Purchases.
 MARKDOWN;
     }
 
     /**
-     * Get information flow text for Buyer Orders tab.
+     * Get information flow text for Buyer Orders (Invoices) tab.
      */
     public function getBuyerOrdersInformationFlow(): string
     {
         return <<<'MARKDOWN'
-**Step 4: Buyer Orders**
-Buyer order has items that selected from buyer quote. 
-Confirm the buyer order to create a supplier order (PO to supplier).
-Buyer order used as invoice that will send to buyer.
+**Step 6: Invoices (Buyer Orders)**
+- Buyer orders are created from accepted buyer quote(s) and act as the invoice to the buyer.
+- Create or open the buyer order; review items, pricing, and terms.
+- **Confirm** the buyer order (this can create or link to supplier orders / purchases).
+- **Send** the order to the buyer when ready.
+- P&L must be approved to access this tab; at least one buyer quote must be Accepted.
 MARKDOWN;
     }
 
     /**
-     * Get information flow text for Supplier Orders tab.
+     * Get information flow text for Purchases (Supplier Orders) tab.
      */
     public function getSupplierOrdersInformationFlow(): string
     {
         return <<<'MARKDOWN'
-**Step 5: Supplier Orders**
-Supplier order created from accepted buyer quote(s) as purchase order to supplier.
-There will be more than one purchase order to supplier.
-Verify all order details, pricing, and terms.
+**Step 4: Purchases (Supplier Orders)**
+- Create purchase orders to suppliers from accepted buyer quote(s); there may be multiple POs (one per supplier).
+- Add or edit supplier orders; verify quantities, prices, and terms.
+- **Confirm** each order so it can be sent for approval.
+- Ensure all supplier orders are **approved** (via Approval) before you can access Goods Receive.
+- **Send** the PO to the supplier when approved.
 MARKDOWN;
     }
 
@@ -166,22 +189,25 @@ MARKDOWN;
     public function getGoodsReceiveInformationFlow(): string
     {
         return <<<'MARKDOWN'
-**Step 6: Goods Receive**
-Upload goods receive documents (e.g. delivery notes, packing lists). You can upload multiple documents at once.
-All documents must be approved (via Approval > Goods Receive) before you can proceed to Inbound Shipments.
+**Step 5: Goods Receive**
+- Upload goods receive documents (e.g. delivery notes, packing lists); multiple files are supported.
+- All documents must be **approved** (via Approval > Goods Receive) before you can open Inbound Shipments.
+- This tab is only available after all supplier orders (Purchases) are approved.
 MARKDOWN;
     }
 
     /**
-     * Get information flow text for Shipments tab.
+     * Get information flow text for Inbound Shipments tab.
      */
     public function getShipmentsInformationFlow(): string
     {
         return <<<'MARKDOWN'
 **Step 7: Inbound Shipments**
-Create shipment and set the detail before submit it.
-The shipment can be multiple depend on shipment aggrement.
-Send delivery order email to buyer once status shipment is In Transit.
+- Create one or more shipments and enter details (quantities, dates, etc.) before submitting.
+- Submit the shipment; you can have multiple shipments per request depending on agreements.
+- When the shipment is **In Transit**, send the delivery order email to the buyer.
+- Mark the shipment as **Delivered** when it reaches the buyer.
+- Goods Receive documents must be approved before you can use this tab.
 MARKDOWN;
     }
 
@@ -192,9 +218,9 @@ MARKDOWN;
     {
         return <<<'MARKDOWN'
 **Step 8: Completion Report**
-Upload completion report documentation after shipments are delivered.
-Documentation may include delivery confirmations, inspection reports, certificates, or other project completion documents.
-All uploaded documents are stored securely and can be downloaded or viewed at any time.
+- Upload completion report documentation after shipments are delivered.
+- Include delivery confirmations, inspection reports, certificates, or other project completion documents as needed.
+- Documents are stored securely and can be downloaded or viewed at any time.
 MARKDOWN;
     }
 }
