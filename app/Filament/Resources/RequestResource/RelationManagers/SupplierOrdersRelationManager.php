@@ -806,8 +806,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                         $sections = [];
 
                         // Single supplier select at top
-                        $sections[] = \Filament\Schemas\Components\Section::make('Select supplier')
-                            ->description('Choose the supplier to create one purchase order for.')
+                        $sections[] = \Filament\Schemas\Components\Section::make()
                             ->schema([
                                 Select::make('selected_supplier_id')
                                     ->label('Supplier to create PO for')

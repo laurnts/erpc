@@ -35,6 +35,8 @@ final class AcceptanceReportResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Workflow';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $navigationLabel = 'Acceptance Reports';
 
     protected static ?string $pluralModelLabel = 'Acceptance Reports';

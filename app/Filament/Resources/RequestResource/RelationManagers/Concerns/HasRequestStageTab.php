@@ -149,9 +149,13 @@ trait HasRequestStageTab
         $isCurrentStage = $currentStage === $stage;
         // Invoices (AWAITING_BUYER_CONFIRMATION) appears after Purchases/Goods Receive in the tab bar,
         // so only show check when we have actually passed Invoices (e.g. on Shipments or later)
+        // Goods Receive appears before Invoices in the tab bar but has higher enum order (6 > 4),
+        // so show check when we have moved to Invoices or any later stage (Shipments+)
         $isCompleted = $stage === RequestStage::AWAITING_BUYER_CONFIRMATION
             ? $currentStage->getOrder() >= RequestStage::AWAITING_SHIPMENT->getOrder()
-            : $currentStage->getOrder() > $stage->getOrder();
+            : ($stage === RequestStage::GOODS_RECEIVE
+                ? $currentStage === RequestStage::AWAITING_BUYER_CONFIRMATION || $currentStage->getOrder() > $stage->getOrder()
+                : $currentStage->getOrder() > $stage->getOrder());
 
         // Check if QE is approved for tabs after Supplier Quotes (or has obtained+selected quote)
         // Supplier Quotes is AWAITING_SUPPLIER_RESPONSE, so disable tabs from PREPARING_BUYER_QUOTE onwards

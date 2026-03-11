@@ -13,7 +13,6 @@ use App\Filament\Resources\ProfitAndLossResource;
 use App\Filament\Resources\ProjectResource;
 use App\Filament\Resources\QuotationEvaluationResource;
 use App\Filament\Resources\RequestResource;
-use App\Filament\Resources\RequestResource\RelationManagers\AcceptanceReportsRelationManager;
 use App\Filament\Resources\SupplierOrderResource;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerOrdersRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerQuotesRelationManager;
@@ -63,7 +62,6 @@ final class ViewRequest extends ViewRecord
         'buyerOrders' => 5,
         'shipments' => 6,
         'completionReports' => 7,
-        'acceptanceReports' => 8,
     ];
 
     public function getMaxWidth(): \Filament\Support\Enums\Width
@@ -95,7 +93,7 @@ final class ViewRequest extends ViewRecord
             return;
         }
 
-        $this->tryAdvanceToStage($targetStage);
+        $this->tryAdvanceToStage($targetStage, $relationKey);
     }
 
     /**
@@ -117,15 +115,24 @@ final class ViewRequest extends ViewRecord
     /**
      * Try to advance the request to the target stage.
      * Only advances if the current stage is before the target stage.
+     * When advancing, redirects to the view page with the target tab active so the page
+     * reloads and all tab check icons (e.g. Goods Receive ✓) render correctly.
+     *
+     * @param  string|null  $activeRelationKey  Relation manager key for the tab that was clicked (e.g. buyerOrders)
      */
-    private function tryAdvanceToStage(RequestStage $targetStage): void
+    private function tryAdvanceToStage(RequestStage $targetStage, ?string $activeRelationKey = null): void
     {
         /** @var Request $record */
         $record = $this->getRecord();
         $currentStage = $record->stage;
 
-        // Only advance forward, never backward
-        if (! $currentStage->isBefore($targetStage)) {
+        // Only advance forward, never backward.
+        // In the tab bar, Invoices (AWAITING_BUYER_CONFIRMATION) appears after Purchases and Goods Receive,
+        // so allow advancing to Invoices when current stage is PREPARING_SUPPLIER_ORDER or GOODS_RECEIVE.
+        $canAdvanceToTarget = $currentStage->isBefore($targetStage)
+            || ($targetStage === RequestStage::AWAITING_BUYER_CONFIRMATION
+                && in_array($currentStage, [RequestStage::PREPARING_SUPPLIER_ORDER, RequestStage::GOODS_RECEIVE], true));
+        if (! $canAdvanceToTarget) {
             return;
         }
 
@@ -149,19 +156,29 @@ final class ViewRequest extends ViewRecord
         $record->stage = $targetStage;
         $record->save();
 
-        // Refresh the record from database to ensure all computed properties are updated
-        // This ensures tab badges reflect the updated stage immediately
-        $this->record->refresh();
+        // Redirect to the view page with the clicked tab active so the page reloads with the new stage.
+        // This ensures tab badges (e.g. check icon on Goods Receive) render correctly without a manual refresh.
+        if ($activeRelationKey !== null) {
+            $url = RequestResource::getUrl('view', ['record' => $record->id, 'activeRelationManager' => $activeRelationKey]);
+            $this->redirect($url, navigate: true);
 
-        // Show success notification
+            Notification::make()
+                ->title('Stage updated')
+                ->body('Request moved to: '.$targetStage->getLabelWithStep())
+                ->success()
+                ->send();
+
+            return;
+        }
+
+        // Fallback: no redirect (e.g. when called without a tab context)
+        $this->record->refresh();
+        $this->refreshFormData(['stage']);
         Notification::make()
             ->title('Stage updated')
             ->body('Request moved to: '.$targetStage->getLabelWithStep())
             ->success()
             ->send();
-
-        // Refresh the form data to update the UI
-        $this->refreshFormData(['stage']);
     }
 
     protected function getHeaderActions(): array
@@ -298,6 +315,7 @@ final class ViewRequest extends ViewRecord
                     $record->profitAndLosses()->exists() ||
                     $record->supplierOrders()->exists()
                 )
+                ->collapsible()
                 ->schema([
                     Grid::make(3)
                         ->schema([
@@ -350,7 +368,6 @@ final class ViewRequest extends ViewRecord
             BuyerOrdersRelationManager::class,
             ShipmentsRelationManager::class,
             CompletionReportsRelationManager::class,
-            AcceptanceReportsRelationManager::class,
         ];
     }
 
