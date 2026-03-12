@@ -233,6 +233,10 @@ final class TasksBoard extends BoardPage
 
     public static function canAccess(): bool
     {
-        return (new self)->statusCustomField() instanceof CustomField;
+        $user = auth()->user();
+
+        return $user !== null
+            && $user->hasVerifiedEmail()
+            && \Filament\Facades\Filament::getTenant() !== null;
     }
 }

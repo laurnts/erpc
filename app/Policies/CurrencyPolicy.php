@@ -23,13 +23,7 @@ final readonly class CurrencyPolicy
 
     public function viewAny(User $user): bool
     {
-        if ($this->isAdmin($user)) {
-            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
-        }
-
-        return $user->hasVerifiedEmail()
-            && $user->currentTeam !== null
-            && $user->hasPermissionTo('view currencies');
+        return $user->hasVerifiedEmail() && $user->currentTeam !== null;
     }
 
     public function view(User $user): bool

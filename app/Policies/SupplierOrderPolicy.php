@@ -26,42 +26,7 @@ final readonly class SupplierOrderPolicy
 
     public function viewAny(User $user): bool
     {
-        if (! $user->hasVerifiedEmail() || $user->currentTeam === null) {
-            return false;
-        }
-
-        // Administrators can view all supplier orders
-        if ($this->isAdmin($user)) {
-            return true;
-        }
-
-        // Check if user has permission to view supplier orders
-        if ($user->hasPermissionTo('view supplier orders')) {
-            return true;
-        }
-
-        // Also allow users with approval roles to view supplier orders for approval purposes
-        /** @var \App\Models\Team|null $team */
-        $team = Filament::getTenant() ?? $user->currentTeam;
-
-        if ($team === null) {
-            return false;
-        }
-
-        $approvalRoles = [
-            CentralPurchasingRole::DEPT_HEAD_SALES,
-            CentralPurchasingRole::DEPUTY_DIRECTOR,
-            CentralPurchasingRole::DIRECTOR,
-        ];
-
-        foreach ($approvalRoles as $role) {
-            $members = TeamMemberService::getTeamMembersByCentralPurchasingRole($team, $role);
-            if ($members->contains('id', $user->id)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $user->hasVerifiedEmail() && $user->currentTeam !== null;
     }
 
     public function view(User $user, SupplierOrder $supplierOrder): bool

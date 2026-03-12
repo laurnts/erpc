@@ -24,13 +24,7 @@ final readonly class TaxCodePolicy
 
     public function viewAny(User $user): bool
     {
-        if ($this->isAdmin($user)) {
-            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
-        }
-
-        return $user->hasVerifiedEmail()
-            && $user->currentTeam !== null
-            && $user->hasPermissionTo('view tax codes');
+        return $user->hasVerifiedEmail() && $user->currentTeam !== null;
     }
 
     public function view(User $user, TaxCode $taxCode): bool

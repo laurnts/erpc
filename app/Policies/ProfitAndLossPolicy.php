@@ -4,46 +4,20 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
-use App\Enums\CentralPurchasingRole;
 use App\Models\ProfitAndLoss;
 use App\Models\User;
-use App\Services\TeamMemberService;
-use Filament\Facades\Filament;
+use Illuminate\Auth\Access\HandlesAuthorization;
 
 final class ProfitAndLossPolicy
 {
+    use HandlesAuthorization;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        /** @var \App\Models\Team|null $team */
-        $team = Filament::getTenant();
-
-        if ($team === null) {
-            return false;
-        }
-
-        // Administrators can see the menu
-        if ($user->hasTeamRole($team, 'admin')) {
-            return true;
-        }
-
-        // Check if user has one of the approval roles
-        $approvalRoles = [
-            CentralPurchasingRole::DEPT_HEAD_SALES,
-            CentralPurchasingRole::DEPUTY_DIRECTOR,
-            CentralPurchasingRole::DIRECTOR,
-        ];
-
-        foreach ($approvalRoles as $role) {
-            $members = TeamMemberService::getTeamMembersByCentralPurchasingRole($team, $role);
-            if ($members->contains('id', $user->id)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $user->hasVerifiedEmail() && $user->currentTeam !== null;
     }
 
     /**

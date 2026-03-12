@@ -231,6 +231,10 @@ final class OpportunitiesBoard extends BoardPage
 
     public static function canAccess(): bool
     {
-        return (new self)->stageCustomField() instanceof CustomField;
+        $user = auth()->user();
+
+        return $user !== null
+            && $user->hasVerifiedEmail()
+            && \Filament\Facades\Filament::getTenant() !== null;
     }
 }

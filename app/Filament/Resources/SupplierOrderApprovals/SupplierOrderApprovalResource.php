@@ -351,47 +351,14 @@ final class SupplierOrderApprovalResource extends Resource
     }
 
     /**
-     * Control navigation visibility - show only to users with approval roles.
+     * Control navigation visibility - show to all team members.
      */
     public static function shouldRegisterNavigation(): bool
     {
-        /** @var \App\Models\Team|null $team */
-        $team = Filament::getTenant();
-        
-        if ($team === null) {
-            return false;
-        }
-
         $user = auth()->user();
-        if ($user === null) {
-            return false;
-        }
 
-        // Administrators can see the approval menu
-        if ($user->hasTeamRole($team, 'admin')) {
-            return true;
-        }
-
-        // Check if user has one of the approval roles
-        $approvalRoles = [
-            CentralPurchasingRole::DEPT_HEAD_SALES,
-            CentralPurchasingRole::DEPUTY_DIRECTOR,
-            CentralPurchasingRole::DIRECTOR,
-        ];
-
-        foreach ($approvalRoles as $role) {
-            $members = TeamMemberService::getTeamMembersByCentralPurchasingRole($team, $role);
-            if ($members->contains('id', $user->id)) {
-                return true;
-            }
-        }
-
-        // Also show to users with admin permissions (if they have view supplier orders permission)
-        // This allows administrators to see the menu even if they don't have approval roles
-        if ($user->hasPermissionTo('view supplier orders')) {
-            return true;
-        }
-
-        return false;
+        return $user !== null
+            && $user->hasVerifiedEmail()
+            && Filament::getTenant() !== null;
     }
 }

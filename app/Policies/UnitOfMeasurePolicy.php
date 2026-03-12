@@ -24,13 +24,7 @@ final readonly class UnitOfMeasurePolicy
 
     public function viewAny(User $user): bool
     {
-        if ($this->isAdmin($user)) {
-            return $user->hasVerifiedEmail() && $user->currentTeam !== null;
-        }
-
-        return $user->hasVerifiedEmail()
-            && $user->currentTeam !== null
-            && $user->hasPermissionTo('view unit of measures');
+        return $user->hasVerifiedEmail() && $user->currentTeam !== null;
     }
 
     public function view(User $user, UnitOfMeasure $unitOfMeasure): bool
