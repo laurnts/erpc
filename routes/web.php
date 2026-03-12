@@ -9,6 +9,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PrivacyPolicyController;
 use App\Http\Controllers\SupplierQuoteQuotationDownloadController;
 use App\Http\Controllers\TermsOfServiceController;
+use App\Http\Controllers\UserGuideDownloadController;
 use App\Models\BuyerQuote;
 use App\Models\GoodsReceiveBatch;
 use App\Models\Request;
@@ -65,6 +66,11 @@ Route::get('/team-invitations/{invitation}', [TeamInvitationController::class, '
 Route::get('/discord', function () {
     return redirect()->away(config('services.discord.invite_url'));
 })->name('discord');
+
+// User guide download (Settings -> General)
+Route::get('/user-guide/download', UserGuideDownloadController::class)
+    ->middleware(['web', 'auth'])
+    ->name('user-guide.download');
 
 // Buyer Quote PO file routes
 Route::middleware(['web', 'auth'])->group(function () {

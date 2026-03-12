@@ -9,6 +9,7 @@ use App\Models\Currency;
 use App\Models\Team;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use DanHarrin\LivewireRateLimiting\WithRateLimiting;
+use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -51,6 +52,20 @@ final class Settings extends Page implements HasForms
     public static function getNavigationLabel(): string
     {
         return 'General';
+    }
+
+    /**
+     * @return array<int, Action>
+     */
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('download_user_guide')
+                ->label('Download User Guide')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->url(route('user-guide.download'))
+                ->openUrlInNewTab(true),
+        ];
     }
 
     public function mount(): void
