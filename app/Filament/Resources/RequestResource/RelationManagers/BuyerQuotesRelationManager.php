@@ -2044,13 +2044,18 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 $items[] = $itemData;
                             }
                             
+                            // When type is PERCENT, value may be stored in prepayment_percent (e.g. after copyPaymentTermsFromSupplierQuote)
+                            $prepaymentAmount = $record->prepayment_type === PrepaymentType::PERCENT
+                                ? ((int) $record->prepayment_percent > 0 ? (string) $record->prepayment_percent : (string) (int) round((float) $record->prepayment_amount))
+                                : (string) (int) round((float) $record->prepayment_amount);
+
                             return [
                                 'status' => $record->status,
                                 'currency_id' => $record->currency_id,
                                 'valid_until' => $record->valid_until,
                                 'exchange_rate' => $record->exchange_rate ?? 1,
                                 'prepayment_type' => $record->prepayment_type,
-                                'prepayment_amount' => (string) (int) round((float) $record->prepayment_amount),
+                                'prepayment_amount' => $prepaymentAmount,
                                 'items' => $items,
                             ];
                         })

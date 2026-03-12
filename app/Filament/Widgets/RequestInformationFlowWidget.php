@@ -144,7 +144,7 @@ MARKDOWN;
     {
         return <<<'MARKDOWN'
 **Step 3: Buyer Quotes**
-- Build the buyer quote from items selected in the supplier quote(s).
+- Create the buyer quote from items selected in the supplier quote(s).
 - Set selling prices, margins, and tax; verify order details and terms.
 - Create a Profit & Loss (P&L) document; it must be approved before Invoices and later stages.
 - **Send** the buyer quote to the buyer.
