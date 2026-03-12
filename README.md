@@ -25,6 +25,8 @@ ERPC is designed for trading businesses that source products from multiple suppl
 - **Quotation Evaluation** - Generate internal QE documents with item comparison, supplier info, and approval workflow
   - **Document upload** - Upload supporting documents on the QE view page (action group: Edit, Download PDF, Upload Document). Documents appear in a Documents section and in the **Acceptance Report** for key account approval; once approved there, the QE status is set to Approved.
 - **Buyer Quoting** - Generate consolidated quotes with margin analysis
+  - **Payment terms and prepayment** - When the buyer has credit status, payment terms (installments) are validated so the total equals 100%. If **Prepayment type** is **Percentage** and a prepayment value is set, validation requires prepayment % + sum(payment term %) = 100%; if **Fixed Amount** or no prepayment, only the payment term percentages must sum to 100%. Validation runs on create and edit in `BuyerQuotesRelationManager` (`validatePaymentTermsTotal`). On edit, the Prepayment field is filled from `prepayment_percent` when type is Percentage (e.g. after copying from a single supplier quote on create), otherwise from `prepayment_amount`.
+  - **Service items: +Tax sync** - For quotes with detail (child) items, the main item's **+ Tax** checkbox syncs to all child items: checking or unchecking the main item updates each child's + Tax and recalculates child line totals (`line_subtotal`, `line_tax`, `line_total`) so the child Line Total reflects tax when + Tax is checked. Implemented via main item `is_tax_inclusive` `afterStateUpdated`/`afterStateHydrated` and `syncChildItemLineTotals()` in `BuyerQuotesRelationManager`.
   - **Buyer PO Upload** - Upload and view buyer purchase order files via action button (available when quote status is Accepted)
   - **Expired quote handling** - When a buyer quote’s valid-until date has passed: (1) View Quote modal shows a clear “This quote has expired” alert; (2) a daily job (`CheckExpiredQuotesJob`, 08:30) finds quotes that expired the previous day and sends an email to the buyer and to each key account assigned to that buyer; key accounts also receive an in-app notification. Each quote is notified only once (tracked via `notification_metadata`).
 - **Profit & Loss** - Generate PNL documents with items by supplier, cost/sell/margin analysis, and approval workflow
@@ -67,6 +69,7 @@ ERPC is designed for trading businesses that source products from multiple suppl
 
 ### Platform Features
 - **Multi-Team** - Isolated workspaces per team
+- **Navigation & menu access** - All team members (verified email + current team) can see all sidebar menus from **Workflow** through **Settings** and their sub-menus (e.g. Requests, Projects, Master Data, Approval, Finance, Workspace, Settings). Menu visibility is driven by policies' `viewAny()`, and where applicable by resource `shouldRegisterNavigation()` (e.g. Supplier Order Approvals) or page `canAccess()` (e.g. Tasks Board, Opportunities Board). Record-level permissions (view, create, update, delete on individual records) are unchanged and still follow policies and Spatie/team role permissions.
 - **Team Member Roles** - Three role types:
   - **Administrator** - Full access to all features
   - **Editor** - Read, create, and update permissions
