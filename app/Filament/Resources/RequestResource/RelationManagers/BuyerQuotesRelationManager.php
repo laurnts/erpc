@@ -57,6 +57,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\ValidationException;
 use Closure;
 
 final class BuyerQuotesRelationManager extends RelationManager
@@ -252,41 +253,6 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 $buyer = $request->buyer;
                                 return $buyer?->credit_status ?? true;
                             })
-                            ->rules([
-                                function (): Closure {
-                                    return function (string $attribute, $value, Closure $fail) {
-                                        /** @var Request $request */
-                                        $request = $this->getOwnerRecord();
-                                        $buyer = $request->buyer;
-                                        
-                                        // Only validate if credit_status is enabled
-                                        if (!$buyer?->credit_status) {
-                                            return;
-                                        }
-                                        
-                                        // Calculate sum of all percentages and count payment terms
-                                        $totalPercentage = 0;
-                                        $paymentTermCount = 0;
-                                        if (is_array($value)) {
-                                            foreach ($value as $item) {
-                                                $percentage = (float) ($item['percentage'] ?? 0);
-                                                if ($percentage > 0) {
-                                                    $totalPercentage += $percentage;
-                                                    $paymentTermCount++;
-                                                }
-                                            }
-                                        }
-                                        
-                                        // Only validate if there are more than 1 payment term
-                                        if ($paymentTermCount > 1) {
-                                            // Validate sum equals 100
-                                            if (abs($totalPercentage - 100) > 0.01) { // Allow small floating point differences
-                                                $fail("The total payment terms percentage must equal 100%. Current total: " . number_format($totalPercentage, 2) . "%");
-                                            }
-                                        }
-                                    };
-                                },
-                            ])
                             ->schema([
                                 Grid::make(3)
                                     ->schema([
@@ -651,9 +617,30 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->inline(false)
                                         ->columnSpan(1)
                                         ->live()
-                                        ->afterStateHydrated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get))
+                                        ->afterStateHydrated(function (Set $set, Get $get): void {
+                                            $this->calculateItemTotals($set, $get);
+                                            // Sync main item +Tax to child items on load and recalc their line totals
+                                            $mainInclusive = $get('is_tax_inclusive');
+                                            $mainInclusive = $mainInclusive === true || $mainInclusive === '1' || $mainInclusive === 1;
+                                            $childItems = $get('child_items') ?? [];
+                                            if (is_array($childItems) && $mainInclusive) {
+                                                foreach (array_keys($childItems) as $index) {
+                                                    $set("child_items.{$index}.is_tax_inclusive", true);
+                                                    $this->syncChildItemLineTotals($set, $get, (int) $index, true);
+                                                }
+                                            }
+                                        })
                                         ->afterStateUpdated(function (Set $set, Get $get, $state): void {
-                                            $this->calculateItemTotals($set, $get, (bool) $state);
+                                            $isTaxInclusive = (bool) $state;
+                                            $this->calculateItemTotals($set, $get, $isTaxInclusive);
+                                            // Sync +Tax to all child items and recalc their line totals
+                                            $childItems = $get('child_items') ?? [];
+                                            if (is_array($childItems)) {
+                                                foreach (array_keys($childItems) as $index) {
+                                                    $set("child_items.{$index}.is_tax_inclusive", $isTaxInclusive);
+                                                    $this->syncChildItemLineTotals($set, $get, (int) $index, $isTaxInclusive);
+                                                }
+                                            }
                                         }),
                                     TextInput::make('tax_rate')
                                         ->label('Tax %')
@@ -1453,6 +1440,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                         }
                         unset($data['_child_items']);
 
+                        $this->validatePaymentTermsTotal($data, $request);
+
                         return $data;
                     })
                     ->after(function (BuyerQuote $record, array $data) use ($request): void {
@@ -2066,6 +2055,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                             ];
                         })
                         ->mutateFormDataUsing(function (array $data): array {
+                            $this->validatePaymentTermsTotal($data, $this->getOwnerRecord());
+
                             // Ensure unit_price_exc_tax matches unit_price for all items (both should be net price)
                             if (isset($data['items']) && is_array($data['items'])) {
                                 foreach ($data['items'] as $key => $item) {
@@ -2437,6 +2428,100 @@ final class BuyerQuotesRelationManager extends RelationManager
             ]);
     }
 
+
+    /**
+     * Validate that payment terms percentages (and prepayment when type is percentage) sum to 100%.
+     *
+     * When prepayment type is Percentage and prepayment > 0: prepayment % + sum(terms %) must equal 100%.
+     * When prepayment type is Fixed Amount or prepayment is 0: sum(terms %) must equal 100%.
+     *
+     * @throws ValidationException
+     */
+    private function validatePaymentTermsTotal(array $data, Request $request): void
+    {
+        $buyer = $request->buyer;
+        if (! $buyer?->credit_status) {
+            return;
+        }
+
+        $terms = $data['paymentTerms'] ?? [];
+        if (! is_array($terms)) {
+            return;
+        }
+
+        $termsSum = 0.0;
+        $termCount = 0;
+        foreach ($terms as $item) {
+            $pct = (float) ($item['percentage'] ?? 0);
+            if ($pct > 0) {
+                $termsSum += $pct;
+                $termCount++;
+            }
+        }
+
+        if ($termCount <= 1) {
+            return;
+        }
+
+        $prepaymentType = $data['prepayment_type'] ?? null;
+        if ($prepaymentType instanceof \BackedEnum) {
+            $prepaymentType = $prepaymentType->value;
+        }
+        $prepaymentAmount = (float) ($data['prepayment_amount'] ?? 0);
+        $isPercentPrepayment = $prepaymentType === PrepaymentType::PERCENT->value && $prepaymentAmount > 0;
+
+        $requiredTotal = 100.0;
+        $actualTotal = $termsSum;
+        if ($isPercentPrepayment) {
+            $actualTotal = $prepaymentAmount + $termsSum;
+        }
+
+        if (abs($actualTotal - $requiredTotal) <= 0.01) {
+            return;
+        }
+
+        if ($isPercentPrepayment) {
+            throw ValidationException::withMessages([
+                'paymentTerms' => sprintf(
+                    'The total payment terms percentage including prepayment must equal 100%%. Prepayment: %s%%, Payment terms: %s%%. Current total: %s%%.',
+                    number_format($prepaymentAmount, 2),
+                    number_format($termsSum, 2),
+                    number_format($actualTotal, 2)
+                ),
+            ]);
+        }
+
+        throw ValidationException::withMessages([
+            'paymentTerms' => sprintf(
+                'The total payment terms percentage must equal 100%%. Current total: %s%%.',
+                number_format($termsSum, 2)
+            ),
+        ]);
+    }
+
+    /**
+     * Recalculate and set line_subtotal, line_tax, line_total for one child item (used when parent +Tax is synced).
+     */
+    private function syncChildItemLineTotals(Set $set, Get $get, int $childIndex, bool $isTaxInclusive): void
+    {
+        $prefix = "child_items.{$childIndex}.";
+        $quantity = (float) ($get($prefix . 'quantity') ?? 0);
+        $unitPrice = (float) ($get($prefix . 'unit_price') ?? 0);
+        $unitPriceExcTaxStored = (float) ($get($prefix . 'unit_price_exc_tax') ?? 0);
+        $unitPriceExcTax = $unitPrice > 0 ? round($unitPrice, 0) : ($unitPriceExcTaxStored > 0 ? $unitPriceExcTaxStored : 0);
+        $taxRate = (float) ($get($prefix . 'tax_rate') ?? 0);
+        $lineSubtotal = $quantity * $unitPriceExcTax;
+        if ($isTaxInclusive && $taxRate > 0) {
+            $lineTax = $lineSubtotal * $taxRate / 100;
+            $lineTotal = $lineSubtotal + $lineTax;
+        } else {
+            $lineTax = 0;
+            $lineTotal = $lineSubtotal;
+        }
+        $set($prefix . 'line_subtotal', round($lineSubtotal, 0));
+        $set($prefix . 'line_tax', round($lineTax, 0));
+        $set($prefix . 'line_total', round($lineTotal, 0));
+    }
 
     /**
      * Calculate item totals based on form values.
