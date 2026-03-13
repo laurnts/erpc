@@ -27,6 +27,7 @@ use App\Models\ProfitAndLoss;
 use App\Models\Request;
 use App\Models\TaxCode;
 use App\Models\UnitOfMeasure;
+use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -1736,6 +1737,30 @@ final class BuyerQuotesRelationManager extends RelationManager
                             return [];
                         }
 
+                        $team = $request->team;
+
+                        // Prepared By: key account assigned to this request's buyer (same team)
+                        $preparedByDefault = $team && $request->buyer_id
+                            ? User::query()
+                                ->whereHas('teams', fn ($q) => $q->where('teams.id', $team->id)
+                                    ->where('team_user.role', 'central_purchasing')
+                                    ->where('team_user.central_purchasing_role', CentralPurchasingRole::KEY_ACCOUNT->value))
+                                ->whereHas('buyers', fn ($q) => $q->where('companies.id', $request->buyer_id))
+                                ->orderBy('name')
+                                ->first()
+                                ?->id
+                            : null;
+
+                        $deptHeadDefault = $team
+                            ? TeamMemberService::getTeamMembersByCentralPurchasingRole($team, CentralPurchasingRole::DEPT_HEAD_SALES)->first()?->id
+                            : null;
+                        $deputyDirectorDefault = $team
+                            ? TeamMemberService::getTeamMembersByCentralPurchasingRole($team, CentralPurchasingRole::DEPUTY_DIRECTOR)->first()?->id
+                            : null;
+                        $directorDefault = $team
+                            ? TeamMemberService::getTeamMembersByCentralPurchasingRole($team, CentralPurchasingRole::DIRECTOR)->first()?->id
+                            : null;
+
                         return [
                             Section::make('PNL Information')
                                 ->schema([
@@ -1754,7 +1779,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     Textarea::make('description')
                                         ->label('Description')
                                         ->rows(2)
-                                        ->columnSpanFull(),
+                                        ->columnSpanFull()
+                                        ->default($request->description ?? $request->title),
                                 ])
                                 ->columns(3),
                             Section::make('Central Purchasing')
@@ -1766,28 +1792,32 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         'preparedBy',
                                         CentralPurchasingRole::KEY_ACCOUNT,
                                         fn () => $request->buyer_id
-                                    ),
+                                    )
+                                        ->default($preparedByDefault),
                                     KeyAccountSelect::makeWithRelationship(
                                         'dept_head_sales_id',
                                         'Dept Head of Sales',
                                         'deptHeadSales',
                                         CentralPurchasingRole::DEPT_HEAD_SALES,
                                         null
-                                    ),
+                                    )
+                                        ->default($deptHeadDefault),
                                     KeyAccountSelect::makeWithRelationship(
                                         'deputy_director_id',
                                         'Deputy Director',
                                         'deputyDirector',
                                         CentralPurchasingRole::DEPUTY_DIRECTOR,
                                         null
-                                    ),
+                                    )
+                                        ->default($deputyDirectorDefault),
                                     KeyAccountSelect::makeWithRelationship(
                                         'approved_by_id',
                                         'Approved By',
                                         'approvedBy',
                                         CentralPurchasingRole::DIRECTOR,
                                         null
-                                    ),
+                                    )
+                                        ->default($directorDefault),
                                 ])
                                 ->columns(2),
                         ];
