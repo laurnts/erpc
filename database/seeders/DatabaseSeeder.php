@@ -14,12 +14,17 @@ final class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call([
+        $seeders = [
             ErpPermissionSeeder::class,
             CurrencySeeder::class,
             TaxCodeSeeder::class,
             UnitOfMeasureSeeder::class,
-            LocalSeeder::class,
-        ]);
+        ];
+
+        if (app()->isLocal()) {
+            $seeders[] = LocalSeeder::class;
+        }
+
+        $this->call($seeders);
     }
 }

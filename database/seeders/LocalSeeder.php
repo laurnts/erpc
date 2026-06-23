@@ -7,11 +7,13 @@ namespace Database\Seeders;
 use App\Models\Company;
 use App\Models\Opportunity;
 use App\Models\People;
+use App\Models\Team;
 use App\Models\User;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\Factories\Sequence;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Auth;
+use Laravel\Jetstream\Features;
 use Relaticle\CustomFields\Models\CustomField;
 
 final class LocalSeeder extends Seeder
@@ -26,21 +28,40 @@ final class LocalSeeder extends Seeder
 
         $this->call(SystemAdministratorSeeder::class);
 
-        $user = User::factory()
-            ->withPersonalTeam()
-            ->create([
+        $user = User::query()->firstOrCreate(
+            ['email' => 'laurentius@aecs.id'],
+            [
                 'name' => 'Laurentius',
-                'email' => 'laurentius@aecs.id',
                 'password' => bcrypt('Stfadmin24!'),
+                'email_verified_at' => now(),
+            ]
+        );
+
+        if (Features::hasTeamFeatures() && $user->personalTeam() === null) {
+            $team = Team::factory()->create([
+                'name' => $user->name.'\'s Team',
+                'user_id' => $user->id,
+                'personal_team' => true,
             ]);
 
+            $user->ownedTeams()->save($team);
+        }
+
         // Assign superadmin role for full ERP access
-        $user->assignRole('superadmin');
+        if (! $user->hasRole('superadmin')) {
+            $user->assignRole('superadmin');
+        }
+
+        $personalTeam = $user->personalTeam();
+
+        if ($personalTeam === null) {
+            return;
+        }
 
         // Set current team to personal team
-        $user->switchTeam($user->personalTeam());
+        $user->switchTeam($personalTeam);
 
-        $teamId = $user->personalTeam()->id;
+        $teamId = $personalTeam->id;
         //
         //        User::factory()
         //            ->withPersonalTeam()
@@ -52,13 +73,13 @@ final class LocalSeeder extends Seeder
         //        // Create 10 Test Users
         User::factory()
             ->count(10)
-            ->create()
-            ->after(function (User $user) use ($teamId): void {
+            ->afterCreating(function (User $user) use ($teamId): void {
                 // Assign the user to the personal team.
                 $user->teams()->attach($teamId, [
                     'role' => 'member',
                 ]);
-            });
+            })
+            ->create();
         //
         //        // Set the current user and tenant.
         //        Auth::setUser($user);
