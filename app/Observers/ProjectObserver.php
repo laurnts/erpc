@@ -52,6 +52,7 @@ final readonly class ProjectObserver
 
         // Get the highest sequence number for this team and year
         $lastProject = Project::query()
+            ->withTrashed()
             ->where('team_id', $project->team_id)
             ->where('project_number', 'like', $pattern.'%')
             ->orderByDesc('project_number')

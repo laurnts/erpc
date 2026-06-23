@@ -54,6 +54,7 @@ final readonly class RequestObserver
 
         // Get the highest sequence number for this team and year
         $lastRequest = Request::query()
+            ->withTrashed()
             ->where('team_id', $request->team_id)
             ->where('request_number', 'like', $pattern)
             ->orderByDesc('request_number')

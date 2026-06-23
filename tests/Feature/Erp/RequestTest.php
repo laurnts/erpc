@@ -38,6 +38,25 @@ describe('Request Model', function (): void {
         expect($request->request_number)->toMatch('/^REQ-\d{4}-\d{4}$/');
     });
 
+    it('increments request number past soft-deleted records', function (): void {
+        $year = date('Y');
+        $deletedNumber = sprintf('REQ-%s-0024', $year);
+        $expectedNumber = sprintf('REQ-%s-0025', $year);
+
+        $deletedRequest = Request::factory()->recycle($this->team)->recycle($this->buyer)->create([
+            'request_number' => $deletedNumber,
+        ]);
+        $deletedRequest->delete();
+
+        $newRequest = Request::create([
+            'team_id' => $this->team->getKey(),
+            'buyer_id' => $this->buyer->getKey(),
+            'title' => 'Next Request',
+        ]);
+
+        expect($newRequest->request_number)->toBe($expectedNumber);
+    });
+
     it('defaults to draft stage', function (): void {
         $request = Request::factory()->recycle($this->team)->recycle($this->buyer)->create();
 
