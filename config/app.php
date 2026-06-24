@@ -56,6 +56,8 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    'panel_domain' => env('APP_PANEL_DOMAIN'),
+
     /*
     |--------------------------------------------------------------------------
     | System Administrator Panel Configuration

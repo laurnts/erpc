@@ -75,7 +75,7 @@ final class AppPanelProvider extends PanelProvider
         $panel
             ->default()
             ->id('app')
-            ->domain('app.'.parse_url((string) config('app.url'))['host'])
+            ->domain(config('app.panel_domain') ?: 'app.'.parse_url((string) config('app.url'))['host'])
             ->homeUrl(fn (): string => CompanyResource::getUrl())
             ->brandName('Relaticle')
             ->login(Login::class)

@@ -15,7 +15,7 @@ final class MacroServiceProvider extends ServiceProvider
             $baseUrl = config('app.url');
             $parsed = parse_url((string) $baseUrl);
             $scheme = $parsed['scheme'] ?? 'https';
-            $host = 'app.'.($parsed['host'] ?? 'localhost');
+            $host = config('app.panel_domain') ?: 'app.'.($parsed['host'] ?? 'localhost');
 
             return $scheme.'://'.$host.'/'.ltrim($path, '/');
         });
