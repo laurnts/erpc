@@ -1,7 +1,8 @@
 # ERPC — Enterprise Trading Platform
 
 > Product & business reference for stakeholders, sales, and implementation teams.  
-> Use alongside `README.md` for technical detail and the **Slide Appendix** at the end for PowerPoint.
+> Use alongside `README.md` for technical detail. **§6** = who/when/why per feature. **§11** = verified vs planned gaps.  
+> **17-slide AI deck:** [`docs/DECK_17_SLIDES.md`](docs/DECK_17_SLIDES.md)
 
 ---
 
@@ -110,18 +111,31 @@ flowchart LR
 
 ### Request Stage Progression
 
-Operational stages (system-enforced) map to the 8-tab Request View:
+The system defines **13 stages** (`RequestStage` enum). The **Request View** consolidates daily work into **8 tabs**; clicking a tab can auto-advance the stage forward when business rules pass.
 
-| Stage | Business meaning | Request View tab |
-|-------|------------------|------------------|
-| Draft | Intake, item matching | Requested Items |
-| Awaiting Supplier Response | Collecting supplier prices | Supplier Quotes |
-| Preparing Buyer Quote | Building sell-side offer | Buyer Quotes |
-| Awaiting Buyer Confirmation | Buyer decision / PO | Buyer Quotes |
-| Preparing Supplier Order | PO preparation | Purchases |
-| Goods Receive | Inbound receipt | Goods Receive |
-| Awaiting Shipment / Shipped / Delivered | Logistics | Inbound Shipments |
-| Invoiced / Paid / Completed | Financial close | Invoices · Completion Report |
+| Stage | Phase | Request View tab |
+|-------|-------|------------------|
+| Draft | Sourcing | Requested Items |
+| Awaiting Supplier Response | Sourcing | Supplier Quotes |
+| Preparing Buyer Quote | Quoting | Buyer Quotes |
+| Awaiting Buyer Confirmation | Quoting | Buyer Quotes |
+| Preparing Supplier Order | Ordering | Purchases (Supplier Orders) |
+| Goods Receive | Ordering | Goods Receive |
+| Awaiting Shipment / Shipped / Delivered | Delivery | Inbound Shipments *(goods only)* |
+| Invoiced / Paid / Completed | Closing | Invoices *(buyer orders)* · Completion Report |
+| Cancelled | — | — |
+
+**Tab access gates (enforced in UI):**
+
+| Gate | Rule |
+|------|------|
+| QE approved | Tabs after Supplier Quotes require **Quotation Evaluation approved** (or obtained+selected supplier quote bypass) |
+| PNL approved | Tabs from Invoices through Completion require **Profit & Loss approved** |
+| Accepted buyer quote | Same tabs require at least one **Accepted** buyer quote; no quotes left in **Sent** without PO upload |
+| Goods receive docs | Inbound Shipments tab blocked until goods-receive documents are approved (where applicable) |
+| Service vs goods | **Inbound Shipments** hidden for service requests; **Goods Receive** still available |
+
+**Footer widget:** `RequestInformationFlowWidget` shows per-tab guidance (steps 1–8) at the bottom of Request View.
 
 ### Approval Gates (Control Points)
 
@@ -259,14 +273,20 @@ Key Accounts approve QE, PNL, and supplier order documents via **Acceptance Repo
 
 ## 5. Detailed Features
 
+> **Capabilities** are listed in subsections below. For **who uses each feature, when in the workflow, and why**, see **§6 Feature Usage Guide**.
+
 ### 5.1 Request Management
 
 - Auto-generated request numbers (`{prefix}-{YYYY}-{NNNN}`), team-scoped, configurable prefix per team
-- Stage machine with validation (e.g. all items matched before supplier quoting)
-- Request types (**goods** / **service**) with item matching to article catalog
-- **Project grouping** — link multiple requests to one project for consolidated tracking
-- Priority, required-by dates, internal notes
-- Financial roll-ups per request: buyer total, supplier cost, margin, cash flow indicators
+- **13 lifecycle stages** with forward-only tab advancement on Request View
+- Request types (**goods** / **service**) — different tabs and line-item rules
+- Item matching to **articles** required before supplier quoting (`all_items_matched`)
+- **Project grouping** — link multiple requests to one project
+- Priority (`RequestPriority`), required-by dates, internal notes, custom fields
+- Soft delete with number sequencing that includes trashed records
+- Financial accessors on model: buyer total, supplier cost, margin %, cash flow, expected vs actual
+- Global search on request number + description
+- Relation managers on resource: items, quotes, orders, shipments, acceptance reports (service), tasks, notes
 
 ### 5.2 Data Entry & Master Data Flexibility
 
@@ -324,27 +344,43 @@ Projects group related requests for **large or multi-phase deals**:
 
 ### 5.5 Supplier Quoting & Quotation Evaluation (QE)
 
-**Supplier quoting**
+**Supplier quoting** (`SupplierQuotesRelationManager`)
 
-- Auto-create supplier quotes when request advances from draft (per supplier–article relationship)
-- Compare multiple supplier options on one request
-- Document upload per supplier quote
+- Auto-create via `GenerateSupplierQuotesForRequest` when request leaves Draft
+- Manual add supplier quote; resend email to suppliers
+- Per-quote: currency, payment terms repeater, validity, job progress (service)
+- Copy prices from `supplier_articles.last_quoted_price`
+- Status: pending, selected, rejected, expired, …
+- Email supplier (`QuoteToSupplierMail`)
+- Document upload per quote
+- Service: quote line structure mirrors main/child items
 
-**Quotation Evaluation**
+**Quotation Evaluation** (`QuotationEvaluationResource` + create from Request View)
 
-- Internal comparison document: items, suppliers, commercial terms
-- Multi-level approval (Key Account preparation + senior roles)
-- PDF export and document upload
-- Approved via Acceptance Report → status **Approved**
+- Auto-numbered QE document; links request + selected supplier quotes
+- Supplier comparison table (price, lead time, PKP flag, payment terms)
+- Approval personnel on document (Key Account, Dept Head, Deputy, Director)
+- Status: need approval → approved (via Acceptance Report or workflow)
+- PDF export; document upload
+- List under **Approval → Quotation Evaluations**; bulk export
 
 ### 5.6 Buyer Quoting
 
-- Consolidated buyer quote with margin view
-- Payment terms validation (installments must total 100%)
-- Prepayment: percentage or fixed amount with cross-validation
-- Service items: parent **+Tax** syncs to child line items
-- Buyer PO upload when quote is **Accepted**
-- Quote expiry: UI warning, daily jobs (expiring 7/3/1 days; expired alerts to buyer + key accounts)
+**Buyer quotes** (`BuyerQuotesRelationManager`)
+
+- Create from scratch or **copy from supplier quote** (margin, terms, items)
+- Multi-currency; validity date; status: draft → sent → accepted / rejected / expired
+- **Margin** fields and team default margin % from settings
+- Payment terms repeater — must total **100%** with prepayment rules
+- Prepayment: percentage or fixed; cross-validated with installment %
+- **Credit status** buyers: stricter payment-term validation
+- Service: **+Tax** on parent syncs to child line totals
+- Service: detail/child line items on quote
+- Send quote email to buyer (`QuoteToBuyerMail`); PDF download
+- **Buyer PO upload** when status = Accepted (media collection)
+- Expired quote alert component on view; scheduled expiry notifications
+- Buyer quote extensions model for revision tracking
+- Custom fields supported
 
 ### 5.7 Profit & Loss (PNL)
 
@@ -353,28 +389,70 @@ Projects group related requests for **large or multi-phase deals**:
 - Same senior approval pattern as QE
 - Document upload, PDF export, Acceptance Report approval
 
-### 5.8 Orders
+### 5.8 Orders & Buyer Orders (UI tab: “Invoices”)
 
-**Buyer orders**
+**Buyer orders** (`BuyerOrdersRelationManager` — tab label **Invoices**)
 
-- Created from accepted buyer quote path
-- Order numbering and status tracking
+- Created from accepted buyer quote
+- Auto-generated order number (`BO-{YYYY}-{NNNN}`)
+- Status workflow: draft → confirmed → …
+- Email buyer (`BuyerOrderToBuyerMail`) with PDF
+- PDF download (`generateBuyerOrderPdf`)
+- Payment terms displayed from source quote (prepayment %, days, description)
+- Custom fields supported
 
-**Supplier orders**
+**Supplier orders** (`SupplierOrdersRelationManager` — tab **Purchases**)
 
-- One PO per supplier per request (suffix A, B, C…)
-- Status: Draft → Confirmed → **Approved** (min. 2 approvers) → Sent → …
-- PDF and email to supplier only after approval
-- Approval section on PDF: checked by key account, two approvers, supplier signature line
-- Tax-aware line totals for taxable suppliers
+- One PO per supplier per request (suffix `-A`, `-B`, …)
+- Status: Draft → Confirmed → **Approved** (min. 2 approvers) → Sent → Shipped → Delivered → Cancelled
+- Create from buyer order / supplier quote path
+- PDF + email to supplier **only after** dual approval (`PurchaseOrderToSupplierMail`)
+- PDF approval block: Key Account (checked by) + 2 approvers + supplier signature line
+- Tax-aware line totals when supplier `is_taxable`
+- Document upload → **Acceptance Report** (Key Account)
+- Dedicated **Approval → Supplier Orders** list for approvers
 
-### 5.9 Goods Receive, Shipments, Invoicing
+### 5.9 Goods Receive, Shipments & Completion
 
-- Goods receive linked to request and supplier orders
-- Inbound shipments with **Delivery Order (DO) PDF**
-- PIC contact from buyer’s people — name and phone on DO
-- Buyer and supplier invoices with payment tracking
-- Completion report and payment document approval path
+**Goods receive** (`GoodsReceiveRelationManager`)
+
+- Batch document upload per supplier order
+- Linked to request + supplier PO
+- **Approval → Goods Receive** menu — finance/key-account style document approval via `PaymentDocumentApproval`
+- Must be approved before Inbound Shipments tab unlocks (goods requests)
+
+**Inbound shipments** (`ShipmentsRelationManager` — **goods requests only**)
+
+- Created per supplier order; types and status tracking (`ShipmentStatus`)
+- **Delivery Order (DO) PDF** (`generateShipmentDeliveryOrderPdf`) — Roman month format
+- **PIC contact** from buyer’s People — name + phone on DO
+- Email shipment to buyer (`ShipmentToBuyerMail`)
+- `do_sent_at` tracking
+
+**Completion report** (`CompletionReportsRelationManager`)
+
+- Upload completion documents to request media collection
+- Mark as **payment document** with payment-term key (`due_days-percentage`)
+- Payment documents approved in **Acceptance Report** by **Finance** role
+- Request View shows payment-term paid/not-paid matrix (invoices + approved payment docs)
+
+**Service acceptance reports** (`AcceptanceReport` model + `AcceptanceReportsRelationManager`)
+
+- Service-only: report number `AR-{YYYY}-{NNNN}`, file uploads (PDF/Word/images)
+- Registered on `RequestResource`; service fulfillment alternative to inbound shipments
+- *Note: Request View page overrides relation managers — primary service close-out on Completion Report tab; acceptance report resource available on request edit flows*
+
+### 5.9b Invoicing & Payments (backend + widgets)
+
+| Capability | UI today | Backend |
+|------------|----------|---------|
+| Buyer invoices (`BuyerInvoice`) | Tracked on dashboard widgets; payment status on Request View | Model, observer, overdue job — **no standalone Filament invoice CRUD yet** |
+| Buyer payments (`BuyerPayment`) | — | Model + observer (auto numbering) |
+| Supplier invoices (`SupplierInvoice`) | — | Model + policies |
+| Supplier payments (`SupplierPayment`) | — | Model + observer |
+| Credit limit transactions | **Finance → Transactions** (`BuyerCreditLimitOverviewResource`) | Per-buyer limit, used, available, pending requests |
+
+**Practical invoicing today:** Buyer order tab (“Invoices”) + completion/payment documents + dashboard **Awaiting Payment** / **Monthly Revenue** widgets.
 
 ### 5.10 Perpajakan (Tax & Multi-Currency)
 
@@ -418,40 +496,63 @@ Official documents follow a **generate → sign → re-upload** pattern:
 
 Dedicated storage per document type (Spatie Media Library); legacy paths remain backward compatible.
 
-### 5.13 Acceptance Report (Approval Hub)
+### 5.13 Acceptance Report & Approval Menus
 
-| Document type | Typical approver |
-|---------------|------------------|
-| QE / PNL / Supplier Order uploads | Key Account |
-| Payment / completion documents | Finance (CP) |
+Two different “acceptance” concepts:
 
-Actions: view document, approve. Approval updates entity status and records approver + timestamp.
+| Menu | Model / source | Approver | Purpose |
+|------|----------------|----------|---------|
+| **Approval → Acceptance Report** | Media on QE, PNL, Supplier PO, payment docs | Key Account (QE/PNL/PO) · Finance (payment docs) | Document sign-off; sets entity **Approved** |
+| **Approval → Goods Receive** | `GoodsReceiveBatch` uploads | Per approval policy | GR document approval |
+| **Approval → Quotation Evaluations** | `QuotationEvaluation` | Senior CP roles + document flow | QE list, export, view |
+| **Approval → Profit & Loss** | `ProfitAndLoss` | Senior CP roles + document flow | PNL list, export, view |
+| **Approval → Supplier Orders** | `SupplierOrder` (confirmed) | Dept Head / Deputy / Director (×2) | Dual PO approval before send |
+| **Approval → Credit Limit** | `BuyerCreditLimitRequest` | Finance (×2) | Credit limit increase |
+
+**Acceptance Report columns:** status, source (QE/PNL/PO number), request number, buyer, payment terms, uploaded/approved timestamps. Row actions: View Document, Approve.
+
+**QE / PNL senior workflow:** On status → Need Approval, email sent to eligible approvers (`QuotationEvaluationApprovalRequestMail`, `ProfitAndLossApprovalRequestMail`). Final document approval via Acceptance Report sets status **Approved**.
 
 ### 5.14 Master Data
 
-| Entity | Purpose |
-|--------|---------|
-| Companies | Buyers and suppliers, credit limits, tax flags |
-| Articles | Product catalog, supplier relationships |
-| Projects | Group related requests |
-| Currencies | Multi-currency with exchange rates |
-| Tax codes | Per-line tax rules |
-| People | Contacts linked to companies (CRM + PIC) |
-| Team members | CP roles and approvers |
+| Entity | Menu | Key fields / behaviour |
+|--------|------|------------------------|
+| **Buyers** | Master Data → Buyers | Credit limit, available credit, key accounts, import/export |
+| **Suppliers** | Master Data → Suppliers | `is_taxable` (PKP), delivery terms, import/export |
+| **Articles** | Master Data → Articles | Code auto-gen, `supplier_articles` pivot, import/export, custom fields |
+| **Tags** | Master Data → Tags | Labelling / classification |
+| **Companies** | Workspace → Companies | Unified company record (buyer and/or supplier flags) |
+| **People** | Workspace → People | Contacts, companies M2M, import/export, custom fields |
+| **Currencies** | Settings → Currencies | Default currency per team |
+| **Exchange rates** | Settings → Exchange Rates | Rate history; locked on orders |
+| **Tax codes** | Settings → Tax Codes | Per-line tax rules |
+| **Unit of measures** | Settings → Unit of Measures | UoM for items |
+| **Projects** | Workflow → Projects | Group requests; auto `PRJ-{YYYY}-{NNNN}` |
+| **Team members** | Workspace → Members | Administrator / Editor / Central Purchasing + sub-roles |
 
-### 5.15 CRM
+### 5.15 CRM & Workspace
 
-- People / contacts with company linkage
-- Opportunities pipeline
-- Tasks and notes on records
-- AI-powered record summaries
+| Feature | Detail |
+|---------|--------|
+| **Opportunities** | Pipeline resource + **Opportunities Board** (kanban page) |
+| **Tasks** | Task resource + **Tasks Board** (kanban); linkable to requests |
+| **Notes** | Notes on records; export (`NoteExporter`) |
+| **Companies** | CRM hub; links to opportunities, people |
+| **AI summaries** | `RecordSummaryService` — AI-generated record summaries |
+| **Activity log** | `RequestActivitiesRelationManager` — request audit trail (type, user, metadata) |
+| **Custom fields** | Relaticle Custom Fields on People, Opportunities, Tasks, BuyerQuote, BuyerOrder, Project, etc. |
+
+**On Request View:** Tasks and Notes relation managers available on standard request resource (not all on View page override).
 
 ### 5.16 Credit Limit Management
 
-- Buyers request credit limit increases
-- **Dual finance approval** required before active limit updates
-- Available credit reduced on confirmed orders, restored on cancellation
-- Email notifications to finance approvers
+- Per-buyer: `credit_limit`, `available_credit`, `requested_credit_limit`
+- **Credit limit increase requests** — **Approval → Credit Limit** (`BuyerCreditLimitRequestResource`)
+- **Dual finance approval** (2 approvers) before active limit updates
+- Email to finance approvers on new request (`CreditLimitIncreaseRequestMail`)
+- Available credit reduced on confirmed buyer orders; restored on cancellation
+- **Finance → Transactions** overview per buyer (`BuyerCreditLimitOverviewResource`)
+- Documented flow: `docs/credit-limit-request-flow.md`
 
 ### 5.17 Reminders & Alerts
 
@@ -464,45 +565,195 @@ Proactive notifications so quotes, supplier responses, and invoices do not slip:
 | 09:00 daily | Overdue invoices | Invoice creator (`InvoiceOverdueNotification`) |
 | 10:00 daily | Supplier quotes awaiting response (>7 days) | Request / quote creator |
 
-**Dashboard widgets:** Awaiting payment (overdue highlight), expiring quotes, and related operational alerts on the home screen.
+**Dashboard widgets** (home):
+
+| Widget | Shows |
+|--------|-------|
+| `ActiveRequestsWidget` | Counts by phase: quotation / ordering / fulfillment |
+| `QuotesExpiringWidget` | Buyer quotes expiring within window |
+| `PipelineByStageWidget` | Opportunity pipeline breakdown |
+| `MonthlyRevenueWidget` | Buyer invoice revenue trends |
+| `AwaitingPaymentWidget` | Outstanding buyer invoices with overdue highlight |
+| `RequiresAttentionWidget` | Mixed queue: expiring quotes, overdue invoices, stale orders/shipments |
 
 > *Invoice, quote, and supplier-follow-up reminders — tanpa follow-up manual di email.*
 
 ### 5.18 Platform & Automation
 
-**Multi-team**
+**Multi-team (Jetstream tenants)**
 
-- Isolated workspace per team (tenant)
-- Shared navigation; record-level permissions via policies
+- Subdomain panel `app.{domain}`; team = tenant
+- `ApplyTenantScopes` middleware; team switch on tenant change
+- Per-team ERP settings (`TeamErpSettings` on `teams` table)
 
 **Roles**
 
-| Role | Access |
-|------|--------|
-| Administrator | Full access |
+| Jetstream role | ERP access |
+|----------------|------------|
+| Administrator | Full |
 | Editor | Read, create, update |
-| Central Purchasing | Read, create, update + sub-roles |
+| Central Purchasing | Read, create, update + **sub-role** |
 
-**CP sub-roles:** Key Account · Dept Head of Sales · Deputy Director · Director
+**CP sub-roles** (`CentralPurchasingRole`): Key Account · Dept Head of Sales · Deputy Director · Director · **Finance**
 
-**Email**
+**Team settings** (`Settings → General`)
 
-- Template library per document type with variables (`{{buyer_name}}`, `{{quote_number}}`, …)
-- Team SMTP (encrypted), logo, signature, CC/BCC, test send
+- Company info (name, address, phone, email) for PDFs
+- Defaults: currency, tax %, quote validity days, payment terms days, default margin %
+- Document prefixes: REQ, PRJ, BQ, BO, PO, SHP, INV, SI, PAY, SP
+- SMTP (encrypted password), from address/name, logo, signature, test email
+
+**Email templates** (`Settings → Email Templates`)
+
+- Per document type; variables; load from blade defaults; team branding
 
 **Import / export**
 
 | Import + export | Export only |
 |-----------------|-------------|
-| People, Buyers, Suppliers, Articles | QE, PNL, Buyer/Supplier Quotes, Buyer/Supplier Orders |
+| People, Buyers, Suppliers, Articles, Opportunities | QE, PNL, Buyer/Supplier Quotes, Buyer/Supplier Orders, Notes, Companies |
 
-**Scheduled jobs** — see §5.17 Reminders & Alerts for full list.
+Export uses `ExportCompletion` job for reliable download links when queued.
 
-**Documents** — see §5.12 Documentation.
+**PDF generation** (`PdfGenerationService`)
+
+| Document | Method |
+|----------|--------|
+| Buyer quote | `generateBuyerQuotePdf` |
+| Buyer order | `generateBuyerOrderPdf` |
+| Buyer invoice | `generateBuyerInvoicePdf` |
+| Supplier order | `generateSupplierOrderPdf` |
+| Quotation evaluation | `generateQuotationEvaluationPdf` |
+| Profit & loss | `generateProfitAndLossPdf` |
+| Shipment DO | `generateShipmentDeliveryOrderPdf` |
+
+**Transactional emails** (`app/Mail/Erp/`)
+
+| Mailable | Trigger |
+|----------|---------|
+| `QuoteToSupplierMail` | Supplier quote request |
+| `QuoteToBuyerMail` | Buyer quote sent |
+| `QuoteExpiredMail` | Quote expired (daily job) |
+| `QuotationEvaluationApprovalRequestMail` | QE needs approval |
+| `ProfitAndLossApprovalRequestMail` | PNL needs approval |
+| `SupplierOrderApprovalRequestMail` | PO confirmed — notify approvers |
+| `PurchaseOrderToSupplierMail` | PO sent to supplier |
+| `BuyerOrderToBuyerMail` | Buyer order sent |
+| `ShipmentToBuyerMail` | Shipment / DO to buyer |
+| `InvoiceToBuyerMail` | Invoice to buyer |
+| `CreditLimitIncreaseRequestMail` | Credit limit request created |
+
+**Scheduled jobs** (`routes/console.php`) — see §5.17.
+
+**Documents** — see §5.12.
+
+**Other platform**
+
+- API tokens page (`ApiTokens`)
+- Email verification, password reset
+- Soft deletes on most transactional entities
+- Spatie Activity Log, Permission (team-scoped policies)
+- `approve:qe-or-pnl` artisan command for CLI approval
 
 ---
 
-## 6. Comparison to SAP
+## 6. Feature Usage Guide
+
+> For every major feature: **who** uses it, **when** in the deal lifecycle, **why** (business purpose), and **how** (typical actions).  
+> Roles: **CP** = Central Purchasing staff · **KA** = Key Account · **Senior** = Dept Head / Deputy Director / Director · **Fin** = Finance approver.
+
+### 6.1 Request View tabs (daily CP workflow)
+
+| Feature / tab | Who | When (stage) | Why (purpose) | How (typical use) |
+|---------------|-----|--------------|---------------|-------------------|
+| **Requested Items** | CP | Draft | Capture what the buyer wants | Create request, add lines, match each line to an **Article** |
+| **Supplier Quotes** | CP | Awaiting supplier response | Get vendor prices (auto tender) | Advance from Draft → quotes auto-created; email suppliers; enter/update prices |
+| **Buyer Quotes** | CP, KA | Preparing / awaiting buyer confirmation | Offer price to buyer with margin | Copy from supplier quote or build manually; send PDF/email; upload buyer PO when accepted |
+| **Purchases** (supplier POs) | CP | Preparing supplier order | Order from chosen vendors | Create PO per supplier; confirm → route to senior approval |
+| **Goods Receive** | CP, warehouse | Goods receive | Prove goods arrived from supplier | Upload GR documents; wait for **Approval → Goods Receive** |
+| **Invoices** (buyer orders) | CP | Awaiting buyer confirmation+ | Record customer order / billing basis | Create buyer order from accepted quote; send to buyer; track payment terms |
+| **Inbound Shipments** | CP, logistics | Awaiting shipment+ *(goods only)* | Deliver to customer; issue DO | Create shipment, set PIC, generate DO PDF, email buyer |
+| **Completion Report** | CP, Fin | Delivered / closing | Close job; payment evidence | Upload completion docs; mark payment documents for finance approval |
+
+### 6.2 Approval menu (control & sign-off)
+
+| Feature | Who | When | Why | How |
+|---------|-----|------|-----|-----|
+| **Quotation Evaluation** | CP prepares; Senior acknowledges; KA approves doc | After supplier quotes, before buyer quote | Internal compare vendors before committing sell price | Create QE from request; PDF; upload signed copy |
+| **Profit & Loss** | CP prepares; Senior + KA | After buyer accepts, before PO | Confirm margin before spending | Generate PNL from request; approve document |
+| **Supplier Orders** (approval) | Senior (×2 different) | PO confirmed, before send | Prevent unauthorized large purchases | Open **Approval → Supplier Orders**; approve twice; then send PO |
+| **Acceptance Report** | KA (QE/PNL/PO docs); Fin (payment docs) | After document upload | Official sign-off audit trail | Open pending row → View Document → Approve |
+| **Goods Receive** | Approver per policy | After GR upload | Verify receipt paperwork before shipping | Review GR batch → approve |
+| **Credit Limit** | Fin (×2) | Buyer needs higher limit | Control AR exposure | Review request → approve; limit updates automatically |
+
+### 6.3 Master data (setup & maintenance)
+
+| Feature | Who | When | Why | How |
+|---------|-----|------|-----|-----|
+| **Buyers** | CP, KA, admin | Before / during deals | Customer master, credit | Create buyer; assign key accounts; set credit limit |
+| **Suppliers** | CP, admin | Before tendering | Vendor master, PKP flag | Create supplier; set `is_taxable`; link to articles |
+| **Articles** | CP, admin | Before item matching | Product catalog for matching & tender | Create article; link **multiple suppliers**; import bulk |
+| **Tags** | Admin, CP | Anytime | Organize catalog / records | Tag articles or entities for filtering |
+| **Projects** | CP, KA | Multi-request deals | Group spend and revenue | Create project; link requests |
+
+### 6.4 Finance menu (cross-request visibility)
+
+| Feature | Who | When | Why | How |
+|---------|-----|------|-----|-----|
+| **Buyer Quotes** (list) | CP, KA, management | Anytime | Find quotes across requests | Filter, export, open linked request |
+| **Supplier Quotes** (list) | CP | Anytime | Monitor vendor responses | Track pending/expired quotes |
+| **Buyer Orders** (list) | CP, Fin | After order confirmed | Order register | View status, export |
+| **Supplier Orders** (list) | CP | After PO approved/sent | PO register | Track sent/delivered POs |
+| **Transactions** (credit) | Fin, KA | Ongoing | Monitor buyer credit usage | View limit, used, available per buyer |
+
+### 6.5 Workspace & CRM (relationships)
+
+| Feature | Who | When | Why | How |
+|---------|-----|------|-----|-----|
+| **Companies** | Sales, CP | Lead / account setup | Single company record | Create company; flag buyer/supplier |
+| **People** | Sales, CP | Contact management | Who to call (also **PIC** on shipments) | Add contact; link to companies |
+| **Opportunities** | Sales | Pre-request pipeline | Track deals before they become requests | Board or list; convert to request when won |
+| **Tasks** | All roles | Anytime | Follow-ups don’t get lost | Assign task on request or company |
+| **Notes** | All roles | Anytime | Institutional memory | Log call/meeting notes on records |
+| **Members** | Admin | Onboarding | Who can access team | Invite user; set role + CP sub-role |
+
+### 6.6 Settings & automation
+
+| Feature | Who | When | Why | How |
+|---------|-----|------|-----|-----|
+| **General** (ERP settings) | Admin | Go-live + changes | PDF branding, defaults, prefixes | Set company info, margin default, number prefixes |
+| **Email Templates** | Admin | Go-live | Branded outbound emails | Edit templates per document type |
+| **Email Settings** | Admin | Go-live | SMTP + test | Configure SMTP; send test |
+| **Currencies / rates** | Admin, Fin | Multi-currency deals | FX on quotes and orders | Maintain currencies; enter exchange rates |
+| **Tax codes** | Admin, Fin | Taxable lines | Correct PKP/non-PKP line tax | Define tax codes; assign on lines |
+| **Unit of measures** | Admin | Item setup | Consistent qty units | Maintain UoM list |
+| **Import / export** | Admin, CP | Data migration; reporting | Bulk load or extract | Use list-page Import/Export on supported resources |
+| **Dashboard widgets** | CP, Fin, management | Daily | What needs attention today | Home: expiring quotes, overdue payments, active requests |
+| **Scheduled reminders** | System | Daily 08:00–10:00 | No missed deadlines | Automatic — no user action |
+
+### 6.7 Goods vs service requests
+
+| Need | Use goods request | Use service request |
+|------|-------------------|---------------------|
+| Physical product buy/sell | ✅ | — |
+| Project-based services (consulting, works) | — | ✅ |
+| Child line detail on quote | Optional | ✅ Main + child items |
+| Inbound shipment / DO | ✅ | — (use Completion Report) |
+| Goods receive documents | ✅ | Optional / lighter |
+| QE / PNL / PO approval | ✅ Same approval pattern | ✅ Same pattern |
+
+### 6.8 Features with limited UI today
+
+| Feature | Intended use | Current state |
+|---------|--------------|---------------|
+| **Buyer invoice** (standalone) | AR billing separate from buyer order | Model + overdue widgets; **no create/edit screen yet** |
+| **Supplier invoice / payment** | AP tracking | Models only; **use PO + completion docs for now** |
+| **Request activity log** | Audit on request | Exists on resource; **not on Request View tabs** |
+| **Service acceptance reports** (AR- number) | Service delivery sign-off | Model exists; **Completion Report tab used on View** |
+
+---
+
+## 7. Comparison to SAP
 
 > SAP (e.g. S/4HANA with MM, SD, FI, CRM) is a **broad enterprise suite**. ERPC is **procurement-specific B2B middleware** for trading operations. The comparison below is from a **trading company business POV**, not a feature parity checklist.
 
@@ -584,7 +835,7 @@ flowchart LR
 
 ---
 
-## 7. Technology Stack (Summary)
+## 8. Technology Stack (Summary)
 
 | Layer | Technology |
 |-------|------------|
@@ -596,7 +847,7 @@ flowchart LR
 
 ---
 
-## 8. Summary
+## 9. Summary
 
 | Capability | Benefit |
 |------------|---------|
@@ -618,35 +869,116 @@ flowchart LR
 
 ---
 
-## Suggested Deck Outline (~21 slides)
+## 10. Verified Application Menu Map
 
-Use sections 1–6 above as speaker source. Suggested slide mapping:
+> Audited against `app/Filament/Resources/*` navigation groups, March 2026.
 
-| # | Title | Source section |
-|---|-------|----------------|
-| 1 | Title | §1 Big Picture |
-| 2 | What is ERPC? (Middleware / B2B) | §1 |
-| 3 | Who is it for? | §1 |
-| 4 | End-to-end lifecycle (diagram) | §2 Business Flow |
-| 5 | Quote → Purchase E2E | §2 Quote → Purchase Flow |
-| 6 | Request Management | §5.1 |
-| 7 | Data Entry & Master Data | §5.2 |
-| 8 | Auto Tender | §5.3 |
-| 9 | Project Tracking | §5.4 |
-| 10 | Supplier Quoting & QE | §5.5 |
-| 11 | Buyer Quoting & PNL | §5.6 · §5.7 |
-| 12 | Orders & Approvals | §5.8 |
-| 13 | Perpajakan & Multi-Currency | §5.10 |
-| 14 | Service (Jual Jasa) | §5.11 |
-| 15 | Documentation (Generate & Re-Upload) | §5.12 |
-| 16 | Acceptance Report | §5.13 |
-| 17 | Reminders & Alerts | §5.17 |
-| 18 | CRM & Master Data | §5.14 · §5.15 |
-| 19 | ERPC vs SAP (Bridge) | §6 |
-| 20 | Technology Stack | §7 |
-| 21 | Summary / Q&A | §8 |
+| Group | Menu item | Resource / page |
+|-------|-----------|-----------------|
+| **Workflow** | Requests | `RequestResource` |
+| **Workflow** | Projects | `ProjectResource` |
+| **Master Data** | Buyers | `BuyerResource` |
+| **Master Data** | Suppliers | `SupplierResource` |
+| **Master Data** | Articles | `ArticleResource` |
+| **Master Data** | Tags | `TagResource` |
+| **Approval** | Quotation Evaluations | `QuotationEvaluationResource` |
+| **Approval** | Profit & Loss | `ProfitAndLossResource` |
+| **Approval** | Supplier Orders | `SupplierOrderApprovalResource` |
+| **Approval** | Acceptance Report | `CreditLimitAcceptanceReportResource` |
+| **Approval** | Goods Receive | `GoodsReceiveApprovalResource` |
+| **Approval** | Credit Limit | `BuyerCreditLimitRequestResource` |
+| **Finance** | Buyer Quotes | `BuyerQuoteResource` |
+| **Finance** | Supplier Quotes | `SupplierQuoteResource` |
+| **Finance** | Buyer Orders | `BuyerOrderResource` |
+| **Finance** | Supplier Orders | `SupplierOrderResource` |
+| **Finance** | Transactions | `BuyerCreditLimitOverviewResource` (credit limits) |
+| **Workspace** | Companies | `CompanyResource` |
+| **Workspace** | People | `PeopleResource` |
+| **Workspace** | Opportunities | `OpportunityResource` + `OpportunitiesBoard` |
+| **Workspace** | Tasks | `TaskResource` + `TasksBoard` |
+| **Workspace** | Notes | `NoteResource` |
+| **Workspace** | Members | `MemberResource` |
+| **Settings** | General | `Settings` page (ERP + prefixes) |
+| **Settings** | Email Templates | `EmailTemplateResource` |
+| **Settings** | Email Settings | `EmailSettings` page |
+| **Settings** | Currencies | `CurrencyResource` |
+| **Settings** | Exchange Rates | `ExchangeRateResource` |
+| **Settings** | Tax Codes | `TaxCodeResource` |
+| **Settings** | Unit of Measures | `UnitOfMeasureResource` |
 
-**Design tips:** One idea per slide; max 5–6 bullets; use §2 mermaid diagrams as PPT process graphics; optional appendix for full role matrix and credit limit flow (`docs/credit-limit-request-flow.md`).
+---
+
+## 11. Feature Verification Notes
+
+Cross-check of marketing claims vs codebase (honest gaps for stakeholders).
+
+| Claim | Verified? | Notes |
+|-------|-----------|-------|
+| Auto tender on stage advance | ✅ | `RequestObserver` → `GenerateSupplierQuotesForRequest` |
+| QE / PNL PDF + upload + Acceptance Report | ✅ | Full flow with `PaymentDocumentApproval` |
+| Dual supplier PO approval | ✅ | `SupplierOrder::approve()` + approval resource |
+| PKP / non-PKP | ✅ | `Company.is_taxable` on suppliers |
+| Multi-currency | ✅ | Currencies, exchange rates, locked on orders |
+| Service + child items | ✅ | `RequestType::SERVICE`, parent/child `RequestItem` |
+| Quote expiry reminders | ✅ | `CheckExpiringQuotesJob`, `CheckExpiredQuotesJob` |
+| Overdue invoice alerts | ✅ | `CheckOverdueInvoicesJob` + widgets (buyer invoices) |
+| Project grouping | ✅ | `project_id` on requests |
+| SAP bridge positioning | 📋 | Architectural / business — not a technical integration |
+| Standalone buyer invoice UI | ⚠️ | `BuyerInvoice` model + widgets exist; **no Filament invoice resource** |
+| Standalone supplier invoice / payment UI | ⚠️ | Models exist; **no dedicated Filament resources** |
+| “Invoices” tab | ✅ | UI label for **Buyer Orders** tab — not separate AR module |
+| Service acceptance reports on View | ⚠️ | Model + RM exist; **not in `ViewRequest::getRelationManagers()`** — use Completion Report on view |
+| Request activity log on View | ⚠️ | `RequestActivitiesRelationManager` exists but not on View page override |
+| Expense module | ❌ | Not implemented — spend tracked via orders + credit limits |
+
+---
+
+## Suggested Deck Outline (~38 slides)
+
+Expanded outline — one feature area per slide; use **§5** (what it does), **§6** (who/when/why), **§7–§11** as needed.
+
+| # | Title | Source |
+|---|-------|--------|
+| 1 | Title — ERPC | §1 |
+| 2 | Problem: spreadsheets, email, SAP complexity | §1 |
+| 3 | What is ERPC? (middleware / B2B) | §1 |
+| 4 | Who is it for? | §1 · §6 |
+| 5 | Application menu map (6 groups) | §10 |
+| 6 | End-to-end lifecycle diagram | §2 |
+| 7 | Quote → purchase 10-step flow | §2 |
+| 8 | Request = one deal hub | §5.1 · §6.1 |
+| 9 | 8 tabs + stage gates | §2 · §6.1 |
+| 10 | Information Flow widget | §2 |
+| 11 | Data entry & master data | §5.2 · §6.3 |
+| 12 | Auto tender | §5.3 · §6.1 |
+| 13 | Project tracking | §5.4 · §6.3 |
+| 14 | Supplier quotes | §5.5 · §6.1 |
+| 15 | Quotation Evaluation (QE) | §5.5 · §6.2 |
+| 16 | Buyer quotes & margin | §5.6 · §6.1 |
+| 17 | Profit & Loss (PNL) | §5.7 · §6.2 |
+| 18 | Buyer orders (Invoices tab) | §5.8 · §6.1 |
+| 19 | Supplier orders & dual approval | §5.8 · §6.2 |
+| 20 | Goods receive approval | §5.9 · §6.2 |
+| 21 | Inbound shipments & DO PDF | §5.9 · §6.1 |
+| 22 | Completion & payment documents | §5.9 · §6.1 · §6.2 |
+| 23 | Service vs goods | §5.11 · §6.7 |
+| 24 | Perpajakan PKP / non-PKP | §5.10 |
+| 25 | Multi-currency | §5.10 · §6.6 |
+| 26 | Documentation generate + re-upload | §5.12 |
+| 27 | Acceptance Report hub | §5.13 · §6.2 |
+| 28 | Credit limit approval | §5.16 · §6.2 |
+| 29 | Finance / credit transactions | §5.9b · §6.4 |
+| 30 | Reminders & scheduled jobs | §5.17 · §6.6 |
+| 31 | Dashboard widgets | §5.18 · §6.6 |
+| 32 | CRM: People, Opportunities, Tasks | §5.15 · §6.5 |
+| 33 | Email templates & SMTP | §5.18 · §6.6 |
+| 34 | Import / export | §5.18 · §6.6 |
+| 35 | Roles & CP sub-roles | §5.18 |
+| 36 | Team settings & prefixes | §5.18 · §6.6 |
+| 37 | ERPC vs SAP (bridge) | §7 |
+| 38 | Summary & Q&A | §9 |
+
+**Design tips:** Pair capability slides (§5) with usage slides (§6) — e.g. slide 15 = what QE is, optional slide 15b = who approves QE and when. Show §10 menu map as overview. Technical gaps: §11.
 
 ---
 

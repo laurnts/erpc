@@ -64,7 +64,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                         'Pending' => 'warning',
                         default => 'gray',
                     })
-                    ->sortable(),
+                    ->sortable(false),
                 TextColumn::make('source')
                     ->label('Source')
                     ->getStateUsing(function (Media $record): string {
@@ -106,7 +106,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                         };
                     })
                     ->searchable()
-                    ->sortable(),
+                    ->sortable(false),
                 TextColumn::make('request_number')
                     ->label('Request Number')
                     ->getStateUsing(function (Media $record): ?string {
@@ -136,7 +136,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                         return null;
                     })
                     ->searchable()
-                    ->sortable(),
+                    ->sortable(false),
                 TextColumn::make('buyer_name')
                     ->label('Buyer')
                     ->getStateUsing(function (Media $record): ?string {
@@ -150,7 +150,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                         return null;
                     })
                     ->searchable()
-                    ->sortable(),
+                    ->sortable(false),
                 TextColumn::make('payment_terms_display')
                     ->label('Payment Terms')
                     ->getStateUsing(function (Media $record): string {
@@ -168,7 +168,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                         }
                         return '—';
                     })
-                    ->sortable(),
+                    ->sortable(false),
                 TextColumn::make('created_at')
                     ->label('Uploaded At')
                     ->dateTime()
@@ -183,7 +183,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                         return $approval?->user?->name;
                     })
                     ->searchable()
-                    ->sortable(),
+                    ->sortable(false),
                 TextColumn::make('approved_at')
                     ->label('Approved At')
                     ->getStateUsing(function (Media $record): ?string {
@@ -193,7 +193,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                         return $approval?->approved_at?->format('Y-m-d H:i:s');
                     })
                     ->dateTime()
-                    ->sortable(),
+                    ->sortable(false),
             ])
             ->filters([
                 SelectFilter::make('buyer_id')

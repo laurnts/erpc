@@ -60,7 +60,7 @@ final class CompletionReportsRelationManager extends RelationManager
                 TextColumn::make('is_payment_document')
                     ->label('Mark')
                     ->getStateUsing(fn (Media $record): string => (bool) $record->getCustomProperty('is_payment_document', false) ? 'Payment' : '-')
-                    ->sortable(),
+                    ->sortable(false),
                 TextColumn::make('approval_status')
                     ->label('Status')
                     ->getStateUsing(function (Media $record): string {
@@ -83,7 +83,7 @@ final class CompletionReportsRelationManager extends RelationManager
                         'Pending' => 'warning',
                         default => 'gray',
                     })
-                    ->sortable(),
+                    ->sortable(false),
                 TextColumn::make('mime_type')
                     ->label('Type')
                     ->sortable(),
