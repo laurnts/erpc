@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * @property int $id
@@ -338,5 +339,137 @@ final class BuyerQuoteItem extends Model
         }
 
         return $this->description;
+    }
+
+    public function isChildItem(): bool
+    {
+        return $this->requestItem?->parent_id !== null;
+    }
+
+    /**
+     * Line tax for PNL display, derived from stored values when line_tax is missing.
+     */
+    public function getEffectiveLineTax(): float
+    {
+        $lineTax = (float) $this->line_tax;
+        if ($lineTax > 0) {
+            return $lineTax;
+        }
+
+        $lineSubtotal = (float) $this->line_subtotal;
+        $lineTotal = (float) $this->line_total;
+
+        if ($lineTotal > $lineSubtotal) {
+            return $lineTotal - $lineSubtotal;
+        }
+
+        if ($lineSubtotal <= 0) {
+            return 0.0;
+        }
+
+        $taxRate = (float) $this->tax_rate;
+
+        if ($taxRate <= 0 && $this->isChildItem()) {
+            $mainItem = self::query()
+                ->where('buyer_quote_id', $this->buyer_quote_id)
+                ->where('request_item_id', $this->requestItem?->parent_id)
+                ->first();
+
+            if ($mainItem !== null && $mainItem->is_tax_inclusive && (float) $mainItem->tax_rate > 0) {
+                return round($lineSubtotal * (float) $mainItem->tax_rate / 100, 0);
+            }
+
+            return 0.0;
+        }
+
+        if ($taxRate <= 0) {
+            return 0.0;
+        }
+
+        if ($this->is_tax_inclusive || ($this->isChildItem() && $this->tax_code_id !== null)) {
+            return round($lineSubtotal * $taxRate / 100, 0);
+        }
+
+        return 0.0;
+    }
+
+    /**
+     * Line total for PNL display, including tax when applicable.
+     */
+    public function getEffectiveLineTotal(): float
+    {
+        $lineSubtotal = (float) $this->line_subtotal;
+        $lineTotal = (float) $this->line_total;
+        $effectiveTax = $this->getEffectiveLineTax();
+
+        if ($effectiveTax > 0 && $lineTotal <= $lineSubtotal) {
+            return $lineSubtotal + $effectiveTax;
+        }
+
+        return $lineTotal;
+    }
+
+    /**
+     * Margin % on cost, matching buyer quote form (margin_percent_input uses integer rounding).
+     */
+    public function getDisplayMarginPercent(): int
+    {
+        $costPrice = (float) $this->cost_price;
+        $unitPriceExcTax = (float) $this->unit_price_exc_tax;
+
+        if ($costPrice <= 0 || $unitPriceExcTax <= 0) {
+            return 0;
+        }
+
+        return (int) round((($unitPriceExcTax - $costPrice) / $costPrice) * 100);
+    }
+
+    /**
+     * Items to include in sell/cost totals (main items only for service requests).
+     *
+     * @param  Collection<int, self>  $items
+     * @return Collection<int, self>
+     */
+    public static function filterForServiceTotals(Collection $items, bool $isServiceRequest): Collection
+    {
+        if (! $isServiceRequest) {
+            return $items;
+        }
+
+        return $items->filter(fn (self $item): bool => ! $item->isChildItem());
+    }
+
+    /**
+     * Order items as main item followed by its child/detail items.
+     *
+     * @param  Collection<int, self>  $items
+     * @return Collection<int, array{item: self, is_child: bool}>
+     */
+    public static function organizeHierarchically(Collection $items): Collection
+    {
+        $mainItems = $items
+            ->filter(fn (self $item): bool => ! $item->isChildItem())
+            ->sortBy('sort_order')
+            ->values();
+
+        $childItemsByParentId = $items
+            ->filter(fn (self $item): bool => $item->isChildItem())
+            ->groupBy(fn (self $item): int => (int) $item->requestItem->parent_id);
+
+        $organized = collect();
+
+        foreach ($mainItems as $mainItem) {
+            $organized->push(['item' => $mainItem, 'is_child' => false]);
+
+            $children = $childItemsByParentId->get($mainItem->request_item_id, collect())
+                ->sortBy('sort_order')
+                ->values();
+
+            foreach ($children as $childItem) {
+                $organized->push(['item' => $childItem, 'is_child' => true]);
+            }
+        }
+
+        return $organized;
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\Company;
 
+use App\Enums\RequestType;
 use App\Enums\SupplierQuoteStatus;
 use App\Models\Article;
 use App\Models\Currency;
@@ -220,6 +221,56 @@ describe('SupplierQuote Totals', function (): void {
         expect((float) $quote->subtotal)->toBe(2000.0)
             ->and((float) $quote->tax_total)->toBe(200.0)
             ->and((float) $quote->total)->toBe(2200.0);
+    });
+
+    it('recalculates service request totals from main items only', function (): void {
+        $serviceRequest = Request::factory()
+            ->recycle($this->team)
+            ->recycle($this->buyer)
+            ->create(['request_type' => RequestType::SERVICE]);
+
+        $mainItem = RequestItem::factory()->recycle($serviceRequest)->create([
+            'parent_id' => null,
+            'quantity' => '1.0000',
+        ]);
+        $childItem = RequestItem::factory()->recycle($serviceRequest)->create([
+            'parent_id' => $mainItem->getKey(),
+            'quantity' => '1.0000',
+        ]);
+
+        $quote = SupplierQuote::factory()
+            ->recycle($this->team)
+            ->recycle($serviceRequest)
+            ->recycle($this->supplier)
+            ->recycle($this->currency)
+            ->create(['exchange_rate' => '1.00000000']);
+
+        SupplierQuoteItem::factory()->recycle($quote)->create([
+            'request_item_id' => $mainItem->getKey(),
+            'line_subtotal' => '5000.0000',
+            'line_tax' => '550.0000',
+            'line_total' => '5550.0000',
+        ]);
+
+        SupplierQuoteItem::factory()->recycle($quote)->create([
+            'request_item_id' => $childItem->getKey(),
+            'line_subtotal' => '3500.0000',
+            'line_tax' => '385.0000',
+            'line_total' => '3885.0000',
+        ]);
+
+        SupplierQuoteItem::factory()->recycle($quote)->create([
+            'request_item_id' => null,
+            'line_subtotal' => '30000.0000',
+            'line_tax' => '3300.0000',
+            'line_total' => '33300.0000',
+        ]);
+
+        $quote->recalculateTotals();
+
+        expect((float) $quote->subtotal)->toBe(5000.0)
+            ->and((float) $quote->tax_total)->toBe(550.0)
+            ->and((float) $quote->total)->toBe(5550.0);
     });
 
     it('calculates base currency values with exchange rate', function (): void {

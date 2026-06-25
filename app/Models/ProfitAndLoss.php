@@ -136,13 +136,34 @@ final class ProfitAndLoss extends Model implements HasMedia
     }
 
     /**
-     * The buyer quote this PNL is for.
+     * The buyer quote this PNL was created from (includes soft-deleted quotes).
      *
      * @return BelongsTo<BuyerQuote, $this>
      */
     public function buyerQuote(): BelongsTo
     {
-        return $this->belongsTo(BuyerQuote::class);
+        return $this->belongsTo(BuyerQuote::class)->withTrashed();
+    }
+
+    /**
+     * Buyer quote used for PNL line items. Re-links to the latest quote when the stored quote was deleted.
+     */
+    public function resolveSourceBuyerQuote(): ?BuyerQuote
+    {
+        if ($this->buyer_quote_id !== null) {
+            $linkedQuote = BuyerQuote::withTrashed()->find($this->buyer_quote_id);
+            if ($linkedQuote !== null && ! $linkedQuote->trashed()) {
+                return $linkedQuote;
+            }
+        }
+
+        $latestQuote = $this->request?->buyerQuotes()->latest()->first();
+        if ($latestQuote !== null && $this->buyer_quote_id !== $latestQuote->getKey()) {
+            $this->buyer_quote_id = $latestQuote->getKey();
+            $this->saveQuietly();
+        }
+
+        return $latestQuote;
     }
 
     /**

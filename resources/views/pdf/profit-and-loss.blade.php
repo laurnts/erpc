@@ -103,9 +103,35 @@
         background-color: #f9fafb;
     }
 
+    .items-table tbody tr.row-main {
+        background-color: #eff6ff;
+        font-weight: 600;
+        border-left: 3px solid #3b82f6;
+    }
+
+    .items-table tbody tr.row-child {
+        color: #9ca3af;
+        font-size: 7.5pt;
+    }
+
+    .items-table tbody tr.row-child td {
+        color: #9ca3af;
+    }
+
+    .items-table tbody tr.row-main td.line-total {
+        font-weight: bold;
+        color: #1d4ed8;
+    }
+
     .items-table tfoot td {
         font-weight: bold;
-        background-color: #f1f5f9;
+        background-color: #dbeafe;
+        border-top: 2px solid #3b82f6;
+    }
+
+    .items-table tfoot td.subtotal-amount {
+        color: #1d4ed8;
+        font-size: 9pt;
     }
 
     .positive {
@@ -183,19 +209,9 @@
     <div class="section-title">Items by Supplier</div>
     
     @php
-        // Always use the latest valid buyer quote (not REJECTED, EXPIRED, or SUPERSEDED)
-        // This ensures PNL always reflects the most recent quote changes
-        $buyerQuote = null;
-        if ($pnl->request !== null) {
-            $buyerQuote = $pnl->request->buyerQuotes()
-                ->whereNotIn('status', [
-                    \App\Enums\BuyerQuoteStatus::REJECTED,
-                    \App\Enums\BuyerQuoteStatus::EXPIRED,
-                    \App\Enums\BuyerQuoteStatus::SUPERSEDED
-                ])
-                ->latest()
-                ->first();
-        }
+        // Use the buyer quote this PNL was created from (includes soft-deleted quotes)
+        $buyerQuote = $pnl->resolveSourceBuyerQuote();
+        $buyerQuote?->loadMissing('currency');
         
         $groupedItems = collect();
         $buyerCurrency = null;
@@ -204,7 +220,8 @@
             $buyerCurrency = $buyerQuote->currency;
             
             $items = $buyerQuote->items()
-                ->with(['supplierQuoteItem.supplierQuote.supplier', 'article'])
+                ->whereNotNull('request_item_id')
+                ->with(['supplierQuoteItem.supplierQuote.supplier', 'article', 'requestItem'])
                 ->orderBy('sort_order')
                 ->get();
             
@@ -213,6 +230,7 @@
             });
         }
         
+        $isServiceRequest = $pnl->request?->isServiceRequest() ?? false;
         $grandTotalCost = 0;
         $grandTotalSell = 0;
     @endphp
@@ -223,9 +241,11 @@
                 $firstItem = $supplierItems->first();
                 $supplier = $firstItem->supplierQuoteItem?->supplierQuote?->supplier;
                 $supplierName = $supplier?->name ?? 'No Supplier';
-                $supplierTotal = $supplierItems->sum(fn ($item) => (float) $item->line_total);
-                $supplierCostTotal = $supplierItems->sum(fn ($item) => (float) $item->cost_price * (float) $item->quantity);
+                $itemsForTotal = \App\Models\BuyerQuoteItem::filterForServiceTotals($supplierItems, $isServiceRequest);
+                $supplierTotal = $itemsForTotal->sum(fn (\App\Models\BuyerQuoteItem $item): float => $item->getEffectiveLineTotal());
+                $supplierCostTotal = $itemsForTotal->sum(fn ($item) => (float) $item->cost_price * (float) $item->quantity);
                 $supplierMargin = $supplierTotal - $supplierCostTotal;
+                $organizedItems = \App\Models\BuyerQuoteItem::organizeHierarchically($supplierItems);
                 
                 $grandTotalCost += $supplierCostTotal;
                 $grandTotalSell += $supplierTotal;
@@ -253,15 +273,20 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($supplierItems as $item)
+                    @foreach($organizedItems as $entry)
                         @php
-                            $itemMargin = ((float) $item->unit_price_exc_tax - (float) $item->cost_price) * (float) $item->quantity;
-                            $marginPercent = (float) $item->cost_price > 0 
-                                ? (((float) $item->unit_price_exc_tax - (float) $item->cost_price) / (float) $item->cost_price) * 100 
-                                : 0;
+                            /** @var \App\Models\BuyerQuoteItem $item */
+                            $item = $entry['item'];
+                            $isChild = $entry['is_child'];
+                            $lineTax = $item->getEffectiveLineTax();
+                            $lineTotal = $item->getEffectiveLineTotal();
+                            $marginPercent = $item->getDisplayMarginPercent();
                         @endphp
-                        <tr>
+                        <tr class="{{ $isChild ? 'row-child' : 'row-main' }}">
                             <td>
+                                @if($isChild)
+                                    &nbsp;&nbsp;&nbsp;↳
+                                @endif
                                 @if($item->article)
                                     [{{ $item->article->code }}] {{ $item->article->name }}
                                 @else
@@ -271,16 +296,21 @@
                             <td class="text-center">{{ number_format((float) $item->quantity, 0) }} {{ $item->unit_label }}</td>
                             <td class="text-right">{{ number_format((float) $item->cost_price, 2) }}</td>
                             <td class="text-right">{{ number_format((float) $item->unit_price_exc_tax, 2) }}</td>
-                            <td class="text-right">{{ number_format((float) $item->line_tax, 2) }}</td>
-                            <td class="text-right {{ $marginPercent >= 0 ? 'positive' : 'negative' }}">{{ number_format($marginPercent, 1) }}%</td>
-                            <td class="text-right">{{ number_format((float) $item->line_total, 2) }}</td>
+                            <td class="text-right">{{ number_format($lineTax, 2) }}</td>
+                            <td class="text-right {{ $marginPercent >= 0 ? 'positive' : 'negative' }}">{{ number_format($marginPercent, 0) }}%</td>
+                            <td class="text-right line-total">{{ number_format($lineTotal, 2) }}</td>
                         </tr>
                     @endforeach
                 </tbody>
                 <tfoot>
                     <tr>
-                        <td colspan="6" class="text-right">Supplier Subtotal:</td>
-                        <td class="text-right">{{ number_format($supplierTotal, 2) }}</td>
+                        <td colspan="6" class="text-right">
+                            Supplier Subtotal
+                            @if($isServiceRequest)
+                                <br><span style="font-size: 7pt; font-weight: normal;">(main items)</span>
+                            @endif
+                        </td>
+                        <td class="text-right subtotal-amount">{{ number_format($supplierTotal, 2) }}</td>
                     </tr>
                 </tfoot>
             </table>

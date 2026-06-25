@@ -304,11 +304,13 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->relationship(
                             'items',
                             function ($query) use ($request) {
-                                // Only show main items (exclude child items) in the main items list
-                                // Child items will be nested within their parent items' Detail Items section
-                                $query->whereHas('requestItem', function ($q) {
-                                    $q->whereNull('parent_id');
-                                })->orWhereNull('request_item_id'); // Include items without request_item_id
+                                if ($request->isServiceRequest()) {
+                                    return $query->whereHas('requestItem', function ($q) {
+                                        $q->whereNull('parent_id');
+                                    });
+                                }
+
+                                return $query;
                             }
                         )
                         ->mutateRelationshipDataBeforeFillUsing(function (array $data, $record) use ($request): array {
@@ -1152,10 +1154,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                 ->first();
         }
 
-        $baseQuery = \App\Models\SupplierQuoteItem::query()
-            ->whereIn('supplier_quote_id', $supplierQuoteIds)
-            ->where('is_selected', true)
-            ->whereHas('requestItem', fn ($q) => $q->whereNull('parent_id'))
+        $baseQuery = $this->supplierQuoteItemsForBuyerQuoteQuery($supplierQuoteIds)
             ->with(['supplierQuote.supplier', 'requestItem.article', 'requestItem.unitOfMeasure', 'requestItem.children']);
 
         $selectedSupplierQuoteItems = (clone $baseQuery)->get();
@@ -1379,7 +1378,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                     ->icon('heroicon-o-plus')
                     ->size(Size::Small)
                     ->modalWidth('7xl')
-                    ->disabled(fn (): bool => ! $request->supplierQuotes()->where('status', SupplierQuoteStatus::SELECTED)->exists())
+                    ->disabled(fn (): bool => ! $this->supplierQuotesAvailableForBuyerQuoteQuery($request)->exists())
                     ->fillForm(function () use ($request): array {
                         $settings = Filament::getTenant()?->getErpSettings();
                         $defaultPaymentTermsDays = $settings->default_payment_terms_days ?? 30;
@@ -1476,9 +1475,10 @@ final class BuyerQuotesRelationManager extends RelationManager
                         // Refresh media relationship to ensure it's loaded
                         $record->load('media');
 
-                        // Get all main items that were just created, keyed by request_item_id
+                        // Get main items that were just created, keyed by request_item_id
                         $mainItems = $record->items()
                             ->whereNotNull('request_item_id')
+                            ->whereHas('requestItem', fn ($q) => $q->whereNull('parent_id'))
                             ->orderBy('sort_order')
                             ->get()
                             ->keyBy('request_item_id');
@@ -1501,21 +1501,15 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 $mainItem = $mainItems->get($requestItemId);
                                 
                                 if ($mainItem !== null && is_array($childItemsData) && !empty($childItemsData)) {
-                                    // Save child items as separate BuyerQuoteItem records
                                     foreach ($childItemsData as $childItemData) {
-                                        // Use tax information from form data, or inherit from main item, or fallback to default tax code
-                                        $taxCodeId = $childItemData['tax_code_id'] ?? $mainItem->tax_code_id ?? $defaultTaxCode?->getKey();
-                                        $taxRate = isset($childItemData['tax_code_id']) && $childItemData['tax_code_id'] !== null
-                                            ? (string) (int) round((float) ($childItemData['tax_rate'] ?? 0))
-                                            : ($mainItem->tax_code_id !== null
-                                                ? (string) (int) round((float) $mainItem->tax_rate)
-                                                : (string) (int) round((float) ($defaultTaxCode?->rate ?? 0)));
-                                        $isTaxInclusive = isset($childItemData['tax_code_id']) && $childItemData['tax_code_id'] !== null
-                                            ? ($childItemData['is_tax_inclusive'] ?? false)
-                                            : ($mainItem->tax_code_id !== null
-                                                ? $mainItem->is_tax_inclusive
-                                                : ($defaultTaxCode?->is_inclusive_default ?? false));
-                                        
+                                        $childRequestItemId = $childItemData['request_item_id'] ?? null;
+                                        if ($childRequestItemId !== null && $record->items()->where('request_item_id', $childRequestItemId)->exists()) {
+                                            continue;
+                                        }
+
+                                        $taxSettings = $this->resolveChildItemTaxSettings($childItemData, $mainItem, $defaultTaxCode);
+
+                                        $childSortOrder = $mainItem->sort_order;
                                         $record->items()->create([
                                             'request_item_id' => $childItemData['request_item_id'] ?? null,
                                             'supplier_quote_item_id' => $childItemData['supplier_quote_item_id'] ?? null,
@@ -1525,14 +1519,11 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             'cost_price' => $childItemData['cost_price'] ?? '0.0000',
                                             'unit_price' => $childItemData['unit_price'] ?? '0.0000',
                                             'unit_price_exc_tax' => $childItemData['unit_price_exc_tax'] ?? '0.0000',
-                                            'tax_code_id' => $taxCodeId,
-                                            'tax_rate' => $taxRate,
-                                            'is_tax_inclusive' => $isTaxInclusive,
-                                            'line_subtotal' => $childItemData['line_subtotal'] ?? '0.0000',
-                                            'line_tax' => $childItemData['line_tax'] ?? '0.0000',
-                                            'line_total' => $childItemData['line_total'] ?? '0.0000',
+                                            'tax_code_id' => $taxSettings['tax_code_id'],
+                                            'tax_rate' => $taxSettings['tax_rate'],
+                                            'is_tax_inclusive' => $taxSettings['is_tax_inclusive'],
                                             'hide_from_pdf' => $childItemData['hide_from_pdf'] ?? false,
-                                            'sort_order' => $mainItem->sort_order + 1, // Place after main item
+                                            'sort_order' => ++$childSortOrder,
                                         ]);
                                     }
                                     $processedRequestItemIds[] = $requestItemId;
@@ -1554,9 +1545,6 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 ->where('is_default', true)
                                 ->where('is_active', true)
                                 ->first();
-
-                            $taxRate = $defaultTaxCode !== null ? (float) $defaultTaxCode->rate : 0.0;
-                            $addTax = $defaultTaxCode !== null && $defaultTaxCode->is_inclusive_default;
 
                             foreach ($mainItems as $mainItem) {
                                 // Skip if already processed from form data
@@ -1599,11 +1587,15 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     $childUnitPrice = round($childUnitPriceExcTax, 0);
 
                                     $childLineSubtotal = $childQuantity * $childUnitPriceExcTax;
-                                    $childLineTax = $taxRate > 0 && $addTax ? $childLineSubtotal * $taxRate / 100 : 0;
-                                    $childLineTotal = $addTax && $taxRate > 0 ? $childLineSubtotal + $childLineTax : $childLineSubtotal;
 
                                     $childMarginAmount = $childUnitPriceExcTax - $childCostPrice;
                                     $childMarginPercent = $childCostPrice > 0 ? ($childMarginAmount / $childCostPrice) * 100 : 0;
+
+                                    $mainTaxSettings = $this->resolveChildItemTaxSettings([], $mainItem, $defaultTaxCode);
+                                    $childTaxRate = (float) $mainTaxSettings['tax_rate'];
+                                    $childAddTax = $mainTaxSettings['is_tax_inclusive'];
+                                    $childLineTax = $childTaxRate > 0 && $childAddTax ? $childLineSubtotal * $childTaxRate / 100 : 0;
+                                    $childLineTotal = $childAddTax && $childTaxRate > 0 ? $childLineSubtotal + $childLineTax : $childLineSubtotal;
 
                                     $record->items()->create([
                                         'request_item_id' => $childRequestItem->getKey(),
@@ -1614,9 +1606,9 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         'cost_price' => (string) $childCostPrice,
                                         'unit_price' => (string) $childUnitPrice,
                                         'unit_price_exc_tax' => (string) round($childUnitPriceExcTax, 0),
-                                        'tax_code_id' => $defaultTaxCode?->getKey(),
-                                        'tax_rate' => (string) $taxRate,
-                                        'is_tax_inclusive' => $addTax,
+                                        'tax_code_id' => $mainTaxSettings['tax_code_id'],
+                                        'tax_rate' => $mainTaxSettings['tax_rate'],
+                                        'is_tax_inclusive' => $mainTaxSettings['is_tax_inclusive'],
                                         'line_subtotal' => (string) round($childLineSubtotal, 4),
                                         'line_tax' => (string) round($childLineTax, 4),
                                         'line_total' => (string) round($childLineTotal, 0),
@@ -1646,10 +1638,14 @@ final class BuyerQuotesRelationManager extends RelationManager
                             $sortOrder = 0;
 
                             // Get all items from supplier quotes with status SELECTED for this request
-                            $selectedSupplierQuoteItems = \App\Models\SupplierQuoteItem::query()
-                                ->whereHas('supplierQuote', fn ($q) => $q->where('request_id', $request->getKey())
-                                    ->where('status', SupplierQuoteStatus::SELECTED))
-                                ->where('is_selected', true)
+                            $selectedSupplierQuoteItems = $this->supplierQuoteItemsForBuyerQuoteQuery(
+                                $request->supplierQuotes()
+                                    ->where('request_id', $request->getKey())
+                                    ->where('status', SupplierQuoteStatus::SELECTED)
+                                    ->pluck('id')
+                                    ->map(fn ($id): int => (int) $id)
+                                    ->all()
+                            )
                                 ->with(['requestItem.article', 'requestItem.unitOfMeasure'])
                                 ->get();
 
@@ -1724,6 +1720,24 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     'margin_percent' => round($marginPercent, 4),
                                     'sort_order' => $sortOrder++,
                                 ]);
+                            }
+                        }
+
+                        // Remove invalid orphan line items and re-link PNL when the linked quote was deleted
+                        $this->syncChildItemTaxFromParents($record);
+                        $record->items()->whereNull('request_item_id')->delete();
+
+                        $pnl = \App\Models\ProfitAndLoss::query()
+                            ->where('request_id', $request->getKey())
+                            ->latest()
+                            ->first();
+                        if ($pnl !== null) {
+                            $linkedQuote = $pnl->buyer_quote_id !== null
+                                ? BuyerQuote::withTrashed()->find($pnl->buyer_quote_id)
+                                : null;
+                            if ($linkedQuote === null || $linkedQuote->trashed()) {
+                                $pnl->buyer_quote_id = $record->getKey();
+                                $pnl->saveQuietly();
                             }
                         }
                     })
@@ -1837,7 +1851,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ];
                     })
                     ->action(function (array $data) use ($request): void {
-                        // Find the latest valid buyer quote (not rejected/superseded)
+                        // Link PNL to the latest valid buyer quote at creation time
                         $buyerQuote = $request->buyerQuotes()
                             ->whereNotIn('status', [BuyerQuoteStatus::REJECTED, BuyerQuoteStatus::SUPERSEDED])
                             ->latest()
@@ -1976,119 +1990,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->status->canEdit())
                         ->modalWidth('7xl')
                         ->form(fn (): array => $this->getFormSchema())
-                        ->fillForm(function (BuyerQuote $record) use ($request): array {
-                            // Eager load relationships to avoid N+1 queries
-                            // Get all items from the relationship with requestItem relationship loaded
-                            $allItems = $record->items()
-                                ->with('requestItem')
-                                ->orderBy('sort_order')
-                                ->get();
-                            
-                            // Filter to only main items (exclude child items from the main list)
-                            $mainItems = $allItems->filter(function ($item) {
-                                return $item->requestItem === null || $item->requestItem->parent_id === null;
-                            });
-                            
-                            // Get all child items grouped by their parent request_item_id
-                            $allChildItems = $allItems
-                                ->filter(function ($item) {
-                                    return $item->requestItem !== null && $item->requestItem->parent_id !== null;
-                                })
-                                ->groupBy(function ($item) {
-                                    // Group by parent request_item_id (the parent_id of the RequestItem)
-                                    // Convert to string to ensure consistent key matching
-                                    return (string) ($item->requestItem->parent_id ?? null);
-                                });
-                            
-                            // Build items array with child_items populated
-                            $items = [];
-                            foreach ($mainItems as $mainItem) {
-                                $itemData = [
-                                    'id' => $mainItem->id,
-                                    'request_item_id' => $mainItem->request_item_id,
-                                    'article_id' => $mainItem->article_id,
-                                    'supplier_quote_item_id' => $mainItem->supplier_quote_item_id,
-                                    'description' => $mainItem->description,
-                                    'quantity' => (string) (int) round((float) $mainItem->quantity),
-                                    'unit_of_measure_id' => $mainItem->unit_of_measure_id,
-                                    'unit' => $mainItem->unit instanceof \App\Enums\Unit ? $mainItem->unit->value : (string) $mainItem->unit,
-                                    'cost_price' => (string) $mainItem->cost_price,
-                                    'unit_price' => (string) $mainItem->unit_price,
-                                    'unit_price_exc_tax' => (string) $mainItem->unit_price_exc_tax,
-                                    'tax_code_id' => $mainItem->tax_code_id,
-                                    'tax_rate' => (string) (int) round((float) $mainItem->tax_rate),
-                                    'is_tax_inclusive' => $mainItem->is_tax_inclusive,
-                                    'line_subtotal' => (string) $mainItem->line_subtotal,
-                                    'line_tax' => (string) $mainItem->line_tax,
-                                    'line_total' => (string) $mainItem->line_total,
-                                    'margin_amount' => (string) $mainItem->margin_amount,
-                                    'margin_percent' => (string) $mainItem->margin_percent,
-                                    'hide_from_pdf' => $mainItem->hide_from_pdf ?? false,
-                                    'notes' => $mainItem->notes,
-                                    'sort_order' => $mainItem->sort_order,
-                                ];
-                                
-                                // Add child_items if this is a Service request
-                                if ($request->isServiceRequest() && $mainItem->request_item_id !== null) {
-                                    // Use the pre-computed grouped child items
-                                    // Convert to string to match the grouping key
-                                    $childBuyerQuoteItems = $allChildItems->get((string) $mainItem->request_item_id);
-                                    
-                                    if ($childBuyerQuoteItems !== null && $childBuyerQuoteItems->isNotEmpty()) {
-                                        // Get default tax code as fallback
-                                        $defaultTaxCode = TaxCode::query()
-                                            ->where('team_id', $request->team_id)
-                                            ->where('is_default', true)
-                                            ->where('is_active', true)
-                                            ->first();
-                                        
-                                        // Use main item's tax information as primary fallback, then default tax code
-                                        $mainItemTaxCodeId = $mainItem->tax_code_id ?? $defaultTaxCode?->getKey();
-                                        $mainItemTaxRate = $mainItem->tax_code_id !== null
-                                            ? (string) (int) round((float) $mainItem->tax_rate)
-                                            : (string) (int) round((float) ($defaultTaxCode?->rate ?? 0));
-                                        $mainItemIsTaxInclusive = $mainItem->tax_code_id !== null
-                                            ? $mainItem->is_tax_inclusive
-                                            : ($defaultTaxCode?->is_inclusive_default ?? false);
-                                        
-                                        $itemData['child_items'] = $childBuyerQuoteItems->map(function ($childItem) use ($defaultTaxCode, $mainItemTaxCodeId, $mainItemTaxRate, $mainItemIsTaxInclusive) {
-                                            // Use stored tax information, or fallback to main item's tax, then default tax code
-                                            $taxCodeId = $childItem->tax_code_id ?? $mainItemTaxCodeId;
-                                            $taxRate = $childItem->tax_code_id !== null
-                                                ? (string) (int) round((float) $childItem->tax_rate)
-                                                : $mainItemTaxRate;
-                                            $isTaxInclusive = $childItem->tax_code_id !== null
-                                                ? $childItem->is_tax_inclusive
-                                                : $mainItemIsTaxInclusive;
-                                            
-                                            return [
-                                                'request_item_id' => $childItem->request_item_id,
-                                                'supplier_quote_item_id' => $childItem->supplier_quote_item_id,
-                                                'description' => $childItem->description,
-                                                'quantity' => (string) (int) round((float) $childItem->quantity),
-                                                'unit_of_measure_id' => $childItem->unit_of_measure_id,
-                                                'cost_price' => (string) $childItem->cost_price,
-                                                'unit_price' => (string) $childItem->unit_price,
-                                                'unit_price_exc_tax' => (string) $childItem->unit_price_exc_tax,
-                                                'tax_code_id' => $taxCodeId,
-                                                'tax_rate' => $taxRate,
-                                                'is_tax_inclusive' => $isTaxInclusive,
-                                                'line_subtotal' => (string) $childItem->line_subtotal,
-                                                'line_tax' => (string) $childItem->line_tax,
-                                                'line_total' => (string) $childItem->line_total,
-                                                'hide_from_pdf' => $childItem->hide_from_pdf ?? false,
-                                            ];
-                                        })->values()->toArray();
-                                    } else {
-                                        // Initialize empty array so the repeater shows up
-                                        $itemData['child_items'] = [];
-                                    }
-                                }
-                                
-                                $items[] = $itemData;
-                            }
-                            
-                            // When type is PERCENT, value may be stored in prepayment_percent (e.g. after copyPaymentTermsFromSupplierQuote)
+                        ->fillForm(function (BuyerQuote $record): array {
                             $prepaymentAmount = $record->prepayment_type === PrepaymentType::PERCENT
                                 ? ((int) $record->prepayment_percent > 0 ? (string) $record->prepayment_percent : (string) (int) round((float) $record->prepayment_amount))
                                 : (string) (int) round((float) $record->prepayment_amount);
@@ -2100,7 +2002,6 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 'exchange_rate' => $record->exchange_rate ?? 1,
                                 'prepayment_type' => $record->prepayment_type,
                                 'prepayment_amount' => $prepaymentAmount,
-                                'items' => $items,
                             ];
                         })
                         ->mutateFormDataUsing(function (array $data): array {
@@ -2115,85 +2016,100 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 }
                             }
                             
-                            // Store child_items data keyed by request_item_id for reliable matching
+                            // Store child_items on request attributes; Filament does not pass _child_items to after()
                             if (isset($data['items']) && is_array($data['items'])) {
+                                $childItemsByRequestItemId = [];
                                 foreach ($data['items'] as $index => $item) {
-                                    if (isset($item['child_items']) && is_array($item['child_items']) && !empty($item['child_items'])) {
-                                        // Store child_items keyed by request_item_id for reliable matching
+                                    if (isset($item['child_items']) && is_array($item['child_items']) && ! empty($item['child_items'])) {
                                         $requestItemId = $item['request_item_id'] ?? null;
                                         if ($requestItemId !== null) {
-                                            $data['_child_items'][$requestItemId] = $item['child_items'];
+                                            $childItemsByRequestItemId[$requestItemId] = $item['child_items'];
                                         }
                                     }
-                                    // Always remove child_items from the item data so Filament doesn't try to save it
-                                    // This prevents "Array to string conversion" error
                                     unset($data['items'][$index]['child_items']);
                                 }
+                                if ($childItemsByRequestItemId !== []) {
+                                    request()->attributes->set('_buyer_quote_edit_child_items', $childItemsByRequestItemId);
+                                }
                             }
-                            
+                            unset($data['_child_items']);
+
                             return $data;
                         })
                         ->after(function (BuyerQuote $record, array $data): void {
-                            // Process child items from form data
-                            if (isset($data['_child_items']) && is_array($data['_child_items'])) {
-                                // Get all main items keyed by request_item_id
+                            $dataChildItems = request()->attributes->get('_buyer_quote_edit_child_items', []);
+                            request()->attributes->remove('_buyer_quote_edit_child_items');
+
+                            if (is_array($dataChildItems) && $dataChildItems !== []) {
+                                $record->loadMissing('request');
+                                $defaultTaxCode = TaxCode::query()
+                                    ->where('team_id', $record->request->team_id)
+                                    ->where('is_default', true)
+                                    ->where('is_active', true)
+                                    ->first();
+
                                 $mainItems = $record->items()
                                     ->whereNotNull('request_item_id')
                                     ->whereHas('requestItem', fn ($q) => $q->whereNull('parent_id'))
                                     ->orderBy('sort_order')
                                     ->get()
                                     ->keyBy('request_item_id');
-                                
-                                foreach ($data['_child_items'] as $requestItemId => $childItemsData) {
-                                    // Match by request_item_id instead of array index for reliability
+
+                                foreach ($dataChildItems as $requestItemId => $childItemsData) {
                                     $mainItem = $mainItems->get($requestItemId);
-                                    
-                                    if ($mainItem !== null) {
-                                        // Delete existing child items for this main item
-                                        $childRequestItemIds = $mainItem->requestItem?->children()->pluck('id')->toArray() ?? [];
-                                        if (!empty($childRequestItemIds)) {
-                                            $record->items()
-                                                ->whereIn('request_item_id', $childRequestItemIds)
-                                                ->delete();
-                                        }
-                                        
-                                        // Create/update child items
-                                        if (is_array($childItemsData) && !empty($childItemsData)) {
-                                            foreach ($childItemsData as $childItemData) {
-                                                $record->items()->create([
-                                                    'request_item_id' => $childItemData['request_item_id'] ?? null,
-                                                    'supplier_quote_item_id' => $childItemData['supplier_quote_item_id'] ?? null,
-                                                    'description' => $childItemData['description'] ?? '',
-                                                    'quantity' => $childItemData['quantity'] ?? '1.0000',
-                                                    'unit_of_measure_id' => $childItemData['unit_of_measure_id'] ?? null,
-                                                    'cost_price' => $childItemData['cost_price'] ?? '0.0000',
-                                                    'unit_price' => $childItemData['unit_price'] ?? '0.0000',
-                                                    'unit_price_exc_tax' => $childItemData['unit_price_exc_tax'] ?? '0.0000',
-                                                    'tax_code_id' => $childItemData['tax_code_id'] ?? null,
-                                                    'tax_rate' => $childItemData['tax_rate'] ?? '0.0000',
-                                                    'is_tax_inclusive' => $childItemData['is_tax_inclusive'] ?? false,
-                                                    'line_subtotal' => $childItemData['line_subtotal'] ?? '0.0000',
-                                                    'line_tax' => $childItemData['line_tax'] ?? '0.0000',
-                                                    'line_total' => $childItemData['line_total'] ?? '0.0000',
-                                                    'hide_from_pdf' => $childItemData['hide_from_pdf'] ?? false,
-                                                    'sort_order' => $mainItem->sort_order + 1,
-                                                ]);
-                                            }
-                                        }
+
+                                    if ($mainItem === null || ! is_array($childItemsData) || $childItemsData === []) {
+                                        continue;
+                                    }
+
+                                    $childRequestItemIds = $mainItem->requestItem?->children()->pluck('id')->toArray() ?? [];
+                                    if ($childRequestItemIds !== []) {
+                                        $record->items()
+                                            ->whereIn('request_item_id', $childRequestItemIds)
+                                            ->delete();
+                                    }
+
+                                    $childSortOrder = $mainItem->sort_order;
+                                    foreach ($childItemsData as $childItemData) {
+                                        $taxSettings = $this->resolveChildItemTaxSettings($childItemData, $mainItem, $defaultTaxCode);
+
+                                        $record->items()->create([
+                                            'request_item_id' => $childItemData['request_item_id'] ?? null,
+                                            'supplier_quote_item_id' => $childItemData['supplier_quote_item_id'] ?? null,
+                                            'description' => $childItemData['description'] ?? '',
+                                            'quantity' => $childItemData['quantity'] ?? '1.0000',
+                                            'unit_of_measure_id' => $childItemData['unit_of_measure_id'] ?? null,
+                                            'cost_price' => $childItemData['cost_price'] ?? '0.0000',
+                                            'unit_price' => $childItemData['unit_price'] ?? '0.0000',
+                                            'unit_price_exc_tax' => $childItemData['unit_price_exc_tax'] ?? '0.0000',
+                                            'tax_code_id' => $taxSettings['tax_code_id'],
+                                            'tax_rate' => $taxSettings['tax_rate'],
+                                            'is_tax_inclusive' => $taxSettings['is_tax_inclusive'],
+                                            'hide_from_pdf' => $childItemData['hide_from_pdf'] ?? false,
+                                            'sort_order' => ++$childSortOrder,
+                                        ]);
                                     }
                                 }
                             }
                             
+                            $this->syncChildItemTaxFromParents($record);
+
                             // Ensure all items have correct unit_price_exc_tax after save
                             $record->load('items');
                             foreach ($record->items as $item) {
-                                if ((float) $item->unit_price !== (float) $item->unit_price_exc_tax && (float) $item->unit_price > 0) {
+                                $needsRecalculate = ((float) $item->unit_price !== (float) $item->unit_price_exc_tax && (float) $item->unit_price > 0)
+                                    || ($item->is_tax_inclusive && (float) $item->tax_rate > 0 && (float) $item->line_tax <= 0);
+
+                                if ($needsRecalculate) {
                                     $item->recalculatePrices();
                                     $item->saveQuietly();
                                 }
                             }
                             // Recalculate quote totals
                             $record->recalculateTotals();
+
+                            // Remove invalid orphan line items (no request_item_id)
+                            $record->items()->whereNull('request_item_id')->delete();
                         }),
                     \Filament\Actions\DeleteAction::make()
                         ->hidden(function (?BuyerQuote $record): bool {
@@ -2530,13 +2446,44 @@ final class BuyerQuotesRelationManager extends RelationManager
     }
 
     /**
+     * Supplier quotes eligible for buyer quote creation (comparison-selected or obtained).
+     *
+     * @return \Illuminate\Database\Eloquent\Builder<\App\Models\SupplierQuote>
+     */
+    private function supplierQuotesAvailableForBuyerQuoteQuery(Request $request): \Illuminate\Database\Eloquent\Builder
+    {
+        return SupplierQuote::query()
+            ->where('request_id', $request->getKey())
+            ->where('status', SupplierQuoteStatus::SELECTED)
+            ->where(function ($query): void {
+                $query->where('obtained', true)
+                    ->orWhereHas('items', fn ($q) => $q->where('is_selected', true));
+            });
+    }
+
+    /**
+     * Supplier quote line items to include when building a buyer quote.
+     *
+     * @param  array<int, int>  $supplierQuoteIds
+     * @return \Illuminate\Database\Eloquent\Builder<\App\Models\SupplierQuoteItem>
+     */
+    private function supplierQuoteItemsForBuyerQuoteQuery(array $supplierQuoteIds): \Illuminate\Database\Eloquent\Builder
+    {
+        return \App\Models\SupplierQuoteItem::query()
+            ->whereIn('supplier_quote_id', $supplierQuoteIds)
+            ->whereHas('requestItem', fn ($q) => $q->whereNull('parent_id'))
+            ->where(function ($query): void {
+                $query->where('is_selected', true)
+                    ->orWhereHas('supplierQuote', fn ($q) => $q->where('obtained', true));
+            });
+    }
+
+    /**
      * @return array<int, string>
      */
     private function getSupplierQuoteOptions(Request $request): array
     {
-        return $request->supplierQuotes()
-            ->where('status', SupplierQuoteStatus::SELECTED)
-            ->whereHas('items', fn ($query) => $query->where('is_selected', true))
+        return $this->supplierQuotesAvailableForBuyerQuoteQuery($request)
             ->orderBy('quote_number')
             ->get()
             ->mapWithKeys(fn (SupplierQuote $sq): array => [
@@ -2599,9 +2546,7 @@ final class BuyerQuotesRelationManager extends RelationManager
      */
     private function getSelectedSupplierQuoteIds(Request $request): array
     {
-        return $request->supplierQuotes()
-            ->where('status', SupplierQuoteStatus::SELECTED)
-            ->whereHas('items', fn ($query) => $query->where('is_selected', true))
+        return $this->supplierQuotesAvailableForBuyerQuoteQuery($request)
             ->orderBy('quote_number')
             ->pluck('id')
             ->map(fn ($id): int => (int) $id)
@@ -2643,6 +2588,52 @@ final class BuyerQuotesRelationManager extends RelationManager
         $set('prepayment_amount', $prepaymentValue);
     }
 
+
+    /**
+     * @return array{tax_code_id: int|null, tax_rate: string, is_tax_inclusive: bool}
+     */
+    private function resolveChildItemTaxSettings(array $childItemData, BuyerQuoteItem $mainItem, ?TaxCode $defaultTaxCode): array
+    {
+        $childTaxCodeId = $childItemData['tax_code_id'] ?? null;
+        if ($childTaxCodeId === '' || $childTaxCodeId === '0') {
+            $childTaxCodeId = null;
+        }
+
+        $taxCodeId = $childTaxCodeId ?? $mainItem->tax_code_id ?? $defaultTaxCode?->getKey();
+        $inheritsFromMain = $childTaxCodeId === null
+            || (int) $childTaxCodeId === (int) $mainItem->tax_code_id;
+
+        if ($inheritsFromMain && $mainItem->tax_code_id !== null) {
+            return [
+                'tax_code_id' => $taxCodeId,
+                'tax_rate' => (string) (int) round((float) $mainItem->tax_rate),
+                'is_tax_inclusive' => $mainItem->is_tax_inclusive,
+            ];
+        }
+
+        if ($taxCodeId === null) {
+            return [
+                'tax_code_id' => null,
+                'tax_rate' => '0',
+                'is_tax_inclusive' => false,
+            ];
+        }
+
+        $taxRate = isset($childItemData['tax_rate']) && $childItemData['tax_rate'] !== '' && $childItemData['tax_rate'] !== null
+            ? (string) (int) round((float) $childItemData['tax_rate'])
+            : (string) (int) round((float) ($defaultTaxCode?->rate ?? 0));
+
+        return [
+            'tax_code_id' => $taxCodeId,
+            'tax_rate' => $taxRate,
+            'is_tax_inclusive' => filter_var($childItemData['is_tax_inclusive'] ?? false, FILTER_VALIDATE_BOOLEAN),
+        ];
+    }
+
+    private function syncChildItemTaxFromParents(BuyerQuote $record): void
+    {
+        $record->syncChildItemTaxFromParents();
+    }
 
     /**
      * Validate that payment terms percentages (and prepayment when type is percentage) sum to 100%.

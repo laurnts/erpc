@@ -273,25 +273,20 @@ final class SupplierQuote extends Model implements HasMedia
 
     /**
      * Recalculate totals from items.
-     * Only counts main items, not child items (for Service requests).
+     * For service requests, only main items are included (child/detail items are excluded from total).
      */
     public function recalculateTotals(): void
     {
-        // Get only main items (exclude child items)
-        // Child items are identified by having a request_item_id that points to a child request item
-        $items = $this->items()
-            ->where(function ($query) {
-                $query->whereHas('requestItem', function ($q) {
-                    // Only include items where the request_item has no parent (main items)
-                    $q->whereNull('parent_id');
-                })
-                ->orWhereNull('request_item_id'); // Include items without request_item_id (fallback)
-            })
-            ->get();
+        $this->load(['items.requestItem', 'request']);
 
-        $subtotal = $items->sum(fn (SupplierQuoteItem $item): float => (float) $item->line_subtotal);
-        $taxTotal = $items->sum(fn (SupplierQuoteItem $item): float => (float) $item->line_tax);
-        $total = $items->sum(fn (SupplierQuoteItem $item): float => (float) $item->line_total);
+        $itemsForTotal = $this->request?->isServiceRequest()
+            ? $this->items->filter(fn (SupplierQuoteItem $item): bool => $item->request_item_id !== null
+                && ($item->requestItem === null || $item->requestItem->parent_id === null))
+            : $this->items;
+
+        $subtotal = $itemsForTotal->sum(fn (SupplierQuoteItem $item): float => (float) $item->line_subtotal);
+        $taxTotal = $itemsForTotal->sum(fn (SupplierQuoteItem $item): float => (float) $item->line_tax);
+        $total = $itemsForTotal->sum(fn (SupplierQuoteItem $item): float => (float) $item->line_total);
 
         $exchangeRate = (float) $this->exchange_rate;
 

@@ -582,6 +582,51 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
     }
 
     /**
+     * Copy tax settings from parent main items onto child line items that are missing tax.
+     */
+    public function syncChildItemTaxFromParents(): void
+    {
+        $this->load(['items.requestItem']);
+
+        $mainItemsByRequestItemId = $this->items
+            ->filter(fn (BuyerQuoteItem $item): bool => $item->requestItem === null || $item->requestItem->parent_id === null)
+            ->keyBy('request_item_id');
+
+        foreach ($this->items as $childItem) {
+            if (! $childItem->isChildItem()) {
+                continue;
+            }
+
+            $parentRequestItemId = $childItem->requestItem?->parent_id;
+            if ($parentRequestItemId === null) {
+                continue;
+            }
+
+            /** @var BuyerQuoteItem|null $mainItem */
+            $mainItem = $mainItemsByRequestItemId->get($parentRequestItemId);
+            if ($mainItem === null || $mainItem->tax_code_id === null || ! $mainItem->is_tax_inclusive) {
+                continue;
+            }
+
+            $needsSync = $childItem->tax_code_id === null
+                || ! $childItem->is_tax_inclusive
+                || (float) $childItem->line_tax <= 0;
+
+            if (! $needsSync) {
+                continue;
+            }
+
+            $childItem->tax_code_id = $mainItem->tax_code_id;
+            $childItem->tax_rate = $mainItem->tax_rate;
+            $childItem->is_tax_inclusive = $mainItem->is_tax_inclusive;
+            $childItem->recalculatePrices();
+            $childItem->saveQuietly();
+        }
+
+        $this->recalculateTotals();
+    }
+
+    /**
      * Mark quote as sent.
      */
     public function markAsSent(): void

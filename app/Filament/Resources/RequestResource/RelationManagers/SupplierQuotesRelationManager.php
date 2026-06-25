@@ -1552,6 +1552,10 @@ final class SupplierQuotesRelationManager extends RelationManager
 
                             $this->storedChildItemsData = null;
 
+                            // Remove orphan line items (no request_item_id) on service requests
+                            $record->items()->whereNull('request_item_id')->delete();
+                            $record->recalculateTotals();
+
                             // Update quote status when prices are present: SELECTED if obtained, otherwise RECEIVED
                             $record->refresh();
                             $hasPrices = $record->items()->where('unit_price', '>', 0)->exists();
@@ -1578,6 +1582,9 @@ final class SupplierQuotesRelationManager extends RelationManager
                                 foreach ($items as $item) {
                                     if (isset($item['request_item_id'])) {
                                         $requestItem = $request->items()->with('children')->find($item['request_item_id']);
+                                        if ($requestItem !== null && $requestItem->isChildItem()) {
+                                            continue;
+                                        }
                                         if ($requestItem !== null && $requestItem->isMainItem() && $requestItem->children()->count() > 0) {
                                             $childRequestItems = $requestItem->children()->orderBy('sort_order')->get();
                                             $childQuoteItems = [];

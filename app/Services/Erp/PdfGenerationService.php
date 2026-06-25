@@ -363,7 +363,7 @@ final readonly class PdfGenerationService
      */
     public function generateProfitAndLossPdf(ProfitAndLoss $pnl): DomPDF
     {
-        $pnl->load(['request', 'buyerQuote', 'preparedBy', 'team']);
+        $pnl->load(['request', 'buyerQuote.currency', 'preparedBy', 'team']);
 
         $pdf = Pdf::loadView('pdf.profit-and-loss', [
             'pnl' => $pnl,
