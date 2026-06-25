@@ -720,14 +720,12 @@ final class SupplierOrdersRelationManager extends RelationManager
                         /** @var Request $request */
                         $request = $this->getOwnerRecord();
 
-                        // Get accepted buyer quotes and their items
-                        $acceptedQuotes = BuyerQuote::query()
+                        $hasAcceptedQuote = BuyerQuote::query()
                             ->where('request_id', $request->getKey())
                             ->where('status', BuyerQuoteStatus::ACCEPTED)
-                            ->with(['items.requestItem.supplier', 'items.supplierQuoteItem.supplierQuote.supplier', 'items.unitOfMeasure'])
-                            ->get();
+                            ->exists();
 
-                        if ($acceptedQuotes->isEmpty()) {
+                        if (! $hasAcceptedQuote) {
                             return [
                                 Placeholder::make('no_quote')
                                     ->label('')
@@ -736,49 +734,8 @@ final class SupplierOrdersRelationManager extends RelationManager
                         }
 
                         // Group quote items by supplier (from all accepted quotes)
-                        $itemsBySupplier = [];
-                        foreach ($acceptedQuotes as $quote) {
-                            foreach ($quote->items as $quoteItem) {
-                                /** @var BuyerQuoteItem $quoteItem */
-                                $requestItem = $quoteItem->requestItem;
-                                $supplier = null;
-                                $supplierId = null;
-
-                                if ($requestItem !== null && $requestItem->supplier_id !== null) {
-                                    $supplier = $requestItem->supplier;
-                                    $supplierId = $requestItem->supplier_id;
-                                } elseif ($quoteItem->supplierQuoteItem?->supplierQuote?->supplier !== null) {
-                                    $supplier = $quoteItem->supplierQuoteItem->supplierQuote->supplier;
-                                    $supplierId = $supplier->getKey();
-                                }
-
-                                if ($supplierId === null || $supplier === null) {
-                                    continue;
-                                }
-                                if (! isset($itemsBySupplier[$supplierId])) {
-                                    $itemsBySupplier[$supplierId] = [
-                                        'supplier' => $supplier,
-                                        'items' => [],
-                                        'total' => 0,
-                                    ];
-                                }
-
-                                $costPrice = $quoteItem->supplierQuoteItem !== null
-                                    ? (float) ($quoteItem->supplierQuoteItem->unit_price ?? 0)
-                                    : (float) ($quoteItem->cost_price ?? 0);
-                                $lineTotal = $costPrice * (float) $quoteItem->quantity;
-
-                                $itemsBySupplier[$supplierId]['items'][] = [
-                                    'description' => $quoteItem->description,
-                                    'quantity' => $quoteItem->quantity,
-                                    'unit_of_measure_id' => $quoteItem->unit_of_measure_id,
-                                    'unit' => $quoteItem->unitOfMeasure?->code ?? ($quoteItem->unit instanceof \App\Enums\Unit ? $quoteItem->unit->value : (string) ($quoteItem->unit ?? 'pcs')),
-                                    'unit_price' => $costPrice,
-                                    'line_total' => $lineTotal,
-                                ];
-                                $itemsBySupplier[$supplierId]['total'] += $lineTotal;
-                            }
-                        }
+                        $itemsBySupplier = $this->groupAcceptedBuyerQuoteItemsBySupplier($request);
+                        $isServiceRequest = $request->isServiceRequest();
 
                         if ($itemsBySupplier === []) {
                             return [
@@ -824,8 +781,9 @@ final class SupplierOrdersRelationManager extends RelationManager
                         foreach ($itemsBySupplier as $supplierId => $data) {
                             /** @var Company $supplier */
                             $supplier = $data['supplier'];
-                            $items = $data['items'];
-                            $supplierTotal = $data['total'];
+                            /** @var \Illuminate\Support\Collection<int, BuyerQuoteItem> $quoteItems */
+                            $quoteItems = $data['items'];
+                            $itemsToOrder = BuyerQuoteItem::filterForServiceTotals($quoteItems, $isServiceRequest);
 
                             $existingOrder = SupplierOrder::query()
                                 ->where('request_id', $request->getKey())
@@ -834,24 +792,10 @@ final class SupplierOrdersRelationManager extends RelationManager
                                 ->exists();
                             $statusBadge = $existingOrder ? ' ⚠️ (Order exists)' : '';
 
-                            $itemsHtml = '<div class="space-y-1 text-sm">';
-                            foreach ($items as $item) {
-                                $itemsHtml .= sprintf(
-                                    '<div class="flex justify-between"><span>• %s</span><span class="text-gray-500">%s %s × %s = <strong>%s</strong></span></div>',
-                                    e($item['description']),
-                                    number_format((float) $item['quantity'], 2),
-                                    e($item['unit']),
-                                    number_format($item['unit_price'], 2),
-                                    number_format($item['line_total'], 2)
-                                );
-                            }
-                            $itemsHtml .= sprintf(
-                                '</div><div class="mt-2 pt-2 border-t text-right font-semibold">Supplier Total: %s</div>',
-                                number_format($supplierTotal, 2)
-                            );
+                            $itemsHtml = $this->buildBuyerQuoteItemsPreviewHtml($quoteItems, $isServiceRequest);
 
                             $sections[] = \Filament\Schemas\Components\Section::make("[{$supplier->code}] {$supplier->name}{$statusBadge}")
-                                ->description(count($items).' item(s)')
+                                ->description($itemsToOrder->count().' item(s) to order')
                                 ->schema([
                                     Placeholder::make("items_{$supplierId}")
                                         ->label('')
@@ -886,11 +830,10 @@ final class SupplierOrdersRelationManager extends RelationManager
                             ->where('is_active', true)
                             ->value('id');
 
-                        // Get accepted buyer quotes and their items
+                        // Get accepted buyer quotes for notes
                         $acceptedQuotes = BuyerQuote::query()
                             ->where('request_id', $request->getKey())
                             ->where('status', BuyerQuoteStatus::ACCEPTED)
-                            ->with(['items.requestItem.supplier', 'items.supplierQuoteItem.supplierQuote.supplier'])
                             ->get();
 
                         if ($acceptedQuotes->isEmpty()) {
@@ -904,28 +847,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                         }
 
                         // Group quote items by supplier (from all accepted quotes)
-                        $itemsBySupplier = [];
-                        foreach ($acceptedQuotes as $quote) {
-                            foreach ($quote->items as $quoteItem) {
-                                /** @var BuyerQuoteItem $quoteItem */
-                                $requestItem = $quoteItem->requestItem;
-                                $supplierId = null;
-
-                                if ($requestItem !== null && $requestItem->supplier_id !== null) {
-                                    $supplierId = $requestItem->supplier_id;
-                                } elseif ($quoteItem->supplierQuoteItem?->supplierQuote?->supplier !== null) {
-                                    $supplierId = $quoteItem->supplierQuoteItem->supplierQuote->supplier->getKey();
-                                }
-
-                                if ($supplierId === null) {
-                                    continue;
-                                }
-                                if (! isset($itemsBySupplier[$supplierId])) {
-                                    $itemsBySupplier[$supplierId] = [];
-                                }
-                                $itemsBySupplier[$supplierId][] = $quoteItem;
-                            }
-                        }
+                        $itemsBySupplier = $this->groupAcceptedBuyerQuoteItemsBySupplier($request);
 
                         if ($itemsBySupplier === []) {
                             Notification::make()
@@ -948,7 +870,18 @@ final class SupplierOrdersRelationManager extends RelationManager
                             return;
                         }
 
-                        $quoteItems = $itemsBySupplier[$supplierId];
+                        $quoteItems = $itemsBySupplier[$supplierId]['items'];
+                        $itemsToOrder = BuyerQuoteItem::filterForServiceTotals($quoteItems, $request->isServiceRequest());
+
+                        if ($itemsToOrder->isEmpty()) {
+                            Notification::make()
+                                ->title('No items to order')
+                                ->body('No orderable items found for the selected supplier.')
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
 
                         // Check if a supplier order already exists for this request and supplier
                         $existingOrder = SupplierOrder::query()
@@ -988,45 +921,9 @@ final class SupplierOrdersRelationManager extends RelationManager
 
                         $supplierOrder->save();
 
-                        foreach ($quoteItems as $index => $quoteItem) {
+                        foreach ($itemsToOrder->values() as $index => $quoteItem) {
                             /** @var BuyerQuoteItem $quoteItem */
-                            $costPrice = $quoteItem->supplierQuoteItem !== null
-                                ? ($quoteItem->supplierQuoteItem->unit_price ?? '0.0000')
-                                : ($quoteItem->cost_price ?? '0.0000');
-
-                            $unitCode = 'pcs';
-                            if ($quoteItem->unit_of_measure_id !== null) {
-                                $unitOfMeasure = UnitOfMeasure::find($quoteItem->unit_of_measure_id);
-                                if ($unitOfMeasure !== null) {
-                                    $unitCode = $unitOfMeasure->code;
-                                } else {
-                                    $quoteUnit = $quoteItem->unit;
-                                    $unitCode = $quoteUnit instanceof \App\Enums\Unit ? $quoteUnit->value : (string) ($quoteUnit ?? 'pcs');
-                                }
-                            } else {
-                                $quoteUnit = $quoteItem->unit;
-                                $unitCode = $quoteUnit instanceof \App\Enums\Unit ? $quoteUnit->value : (string) ($quoteUnit ?? 'pcs');
-                            }
-
-                            $item = SupplierOrderItem::make([
-                                'supplier_order_id' => $supplierOrder->getKey(),
-                                'request_item_id' => $quoteItem->request_item_id,
-                                'article_id' => $quoteItem->article_id,
-                                'description' => $quoteItem->description,
-                                'quantity' => $quoteItem->quantity,
-                                'unit_of_measure_id' => $quoteItem->unit_of_measure_id,
-                                'unit_price' => $costPrice,
-                                'unit_price_exc_tax' => $costPrice,
-                                'tax_amount' => '0.0000',
-                                'line_total' => (string) ((float) $quoteItem->quantity * (float) $costPrice),
-                                'tax_rate' => '0.0000',
-                                'sort_order' => $index,
-                                'notes' => $quoteItem->notes,
-                            ]);
-
-                            $attributes = $item->getAttributes();
-                            $item->setRawAttributes(array_merge($attributes, ['unit' => (string) $unitCode]));
-                            $item->save();
+                            $this->createSupplierOrderItemFromBuyerQuoteItem($supplierOrder, $quoteItem, $index);
                         }
 
                         $supplierOrder->recalculateTotals();
@@ -1352,5 +1249,167 @@ final class SupplierOrdersRelationManager extends RelationManager
             ->exists();
 
         return $hasConfirmed ? 'success' : null;
+    }
+
+    /**
+     * @return array<int, array{supplier: Company, items: \Illuminate\Support\Collection<int, BuyerQuoteItem>}>
+     */
+    private function groupAcceptedBuyerQuoteItemsBySupplier(Request $request): array
+    {
+        $acceptedQuotes = BuyerQuote::query()
+            ->where('request_id', $request->getKey())
+            ->where('status', BuyerQuoteStatus::ACCEPTED)
+            ->with(['items.requestItem.supplier', 'items.supplierQuoteItem.supplierQuote.supplier', 'items.unitOfMeasure', 'items.article'])
+            ->get();
+
+        $itemsBySupplier = [];
+
+        foreach ($acceptedQuotes as $quote) {
+            foreach ($quote->items as $quoteItem) {
+                if ($quoteItem->request_item_id === null) {
+                    continue;
+                }
+
+                $supplierId = $this->resolveBuyerQuoteItemSupplierId($quoteItem);
+                if ($supplierId === null) {
+                    continue;
+                }
+
+                if (! isset($itemsBySupplier[$supplierId])) {
+                    $supplier = $quoteItem->requestItem?->supplier
+                        ?? $quoteItem->supplierQuoteItem?->supplierQuote?->supplier;
+
+                    if ($supplier === null) {
+                        continue;
+                    }
+
+                    $itemsBySupplier[$supplierId] = [
+                        'supplier' => $supplier,
+                        'items' => collect(),
+                    ];
+                }
+
+                $itemsBySupplier[$supplierId]['items']->push($quoteItem);
+            }
+        }
+
+        return $itemsBySupplier;
+    }
+
+    private function resolveBuyerQuoteItemSupplierId(BuyerQuoteItem $quoteItem): ?int
+    {
+        $requestItem = $quoteItem->requestItem;
+
+        if ($requestItem !== null && $requestItem->supplier_id !== null) {
+            return (int) $requestItem->supplier_id;
+        }
+
+        if ($quoteItem->supplierQuoteItem?->supplierQuote?->supplier !== null) {
+            return (int) $quoteItem->supplierQuoteItem->supplierQuote->supplier->getKey();
+        }
+
+        return null;
+    }
+
+    private function getBuyerQuoteItemCostUnitPrice(BuyerQuoteItem $quoteItem): float
+    {
+        return $quoteItem->supplierQuoteItem !== null
+            ? (float) ($quoteItem->supplierQuoteItem->unit_price ?? 0)
+            : (float) ($quoteItem->cost_price ?? 0);
+    }
+
+    private function getBuyerQuoteItemCostLineTotal(BuyerQuoteItem $quoteItem): float
+    {
+        return $this->getBuyerQuoteItemCostUnitPrice($quoteItem) * (float) $quoteItem->quantity;
+    }
+
+    private function getBuyerQuoteItemUnitLabel(BuyerQuoteItem $quoteItem): string
+    {
+        if ($quoteItem->unitOfMeasure !== null) {
+            return $quoteItem->unitOfMeasure->code;
+        }
+
+        $quoteUnit = $quoteItem->unit;
+
+        return $quoteUnit instanceof \App\Enums\Unit ? $quoteUnit->value : (string) ($quoteUnit ?? 'pcs');
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, BuyerQuoteItem>  $quoteItems
+     */
+    private function buildBuyerQuoteItemsPreviewHtml(\Illuminate\Support\Collection $quoteItems, bool $isServiceRequest): string
+    {
+        $itemsForTotal = BuyerQuoteItem::filterForServiceTotals($quoteItems, $isServiceRequest);
+        $supplierTotal = $itemsForTotal->sum(fn (BuyerQuoteItem $item): float => $this->getBuyerQuoteItemCostLineTotal($item));
+        $organizedItems = BuyerQuoteItem::organizeHierarchically($quoteItems);
+
+        $html = '<div class="space-y-1 text-sm">';
+
+        foreach ($organizedItems as $entry) {
+            /** @var BuyerQuoteItem $item */
+            $item = $entry['item'];
+            $isChild = $entry['is_child'];
+            $costPrice = $this->getBuyerQuoteItemCostUnitPrice($item);
+            $lineTotal = $this->getBuyerQuoteItemCostLineTotal($item);
+            $unit = $this->getBuyerQuoteItemUnitLabel($item);
+
+            $label = $item->article !== null
+                ? '['.$item->article->code.'] '.$item->article->name
+                : $item->description;
+
+            $rowClass = $isChild
+                ? 'flex justify-between gap-4 pl-4 text-gray-500 dark:text-gray-400 text-xs'
+                : 'flex justify-between gap-4 font-semibold bg-primary-50/80 dark:bg-primary-950/40 border-l-[3px] border-primary-500 px-2 py-1 rounded-r text-gray-900 dark:text-gray-100';
+
+            $prefix = $isChild ? '↳ ' : '• ';
+
+            $html .= sprintf(
+                '<div class="%s"><span>%s%s</span><span class="whitespace-nowrap">%s %s × %s = <strong>%s</strong></span></div>',
+                $rowClass,
+                $prefix,
+                e($label),
+                number_format((float) $item->quantity, 2),
+                e($unit),
+                number_format($costPrice, 2),
+                number_format($lineTotal, 2)
+            );
+        }
+
+        $html .= '</div>';
+        $html .= sprintf(
+            '<div class="mt-2 pt-2 border-t-2 border-primary-300 dark:border-primary-600 bg-primary-50/50 dark:bg-primary-950/30 -mx-1 px-2 py-2 rounded text-right"><span class="font-semibold text-primary-800 dark:text-primary-200">Supplier Total</span>%s<br><span class="text-base font-bold text-primary-700 dark:text-primary-300">%s</span></div>',
+            $isServiceRequest && $quoteItems->count() > $itemsForTotal->count()
+                ? '<br><span class="text-xs font-normal text-primary-600/80 dark:text-primary-400/80">(main items)</span>'
+                : '',
+            number_format($supplierTotal, 2)
+        );
+
+        return $html;
+    }
+
+    private function createSupplierOrderItemFromBuyerQuoteItem(SupplierOrder $supplierOrder, BuyerQuoteItem $quoteItem, int $sortOrder): void
+    {
+        $costPrice = $this->getBuyerQuoteItemCostUnitPrice($quoteItem);
+        $unitCode = $this->getBuyerQuoteItemUnitLabel($quoteItem);
+
+        $item = SupplierOrderItem::make([
+            'supplier_order_id' => $supplierOrder->getKey(),
+            'request_item_id' => $quoteItem->request_item_id,
+            'article_id' => $quoteItem->article_id,
+            'description' => $quoteItem->description,
+            'quantity' => $quoteItem->quantity,
+            'unit_of_measure_id' => $quoteItem->unit_of_measure_id,
+            'unit_price' => (string) $costPrice,
+            'unit_price_exc_tax' => (string) $costPrice,
+            'tax_amount' => '0.0000',
+            'line_total' => (string) round((float) $quoteItem->quantity * $costPrice, 4),
+            'tax_rate' => '0.0000',
+            'sort_order' => $sortOrder,
+            'notes' => $quoteItem->notes,
+        ]);
+
+        $attributes = $item->getAttributes();
+        $item->setRawAttributes(array_merge($attributes, ['unit' => $unitCode]));
+        $item->save();
     }
 }
