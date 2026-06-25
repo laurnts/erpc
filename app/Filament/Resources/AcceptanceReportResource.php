@@ -27,6 +27,8 @@ final class AcceptanceReportResource extends Resource
 {
     protected static ?string $model = AcceptanceReport::class;
 
+    protected static bool $isScopedToTenant = false;
+
     protected static ?string $recordTitleAttribute = 'report_number';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-check';

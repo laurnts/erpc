@@ -18,15 +18,14 @@ final class ApproveQeOrPnlCommand extends Command
      * @var string
      */
     protected $signature = 'approve:qe-or-pnl
-                            {number : The QE number (e.g., 010-DS/QE/II/2026) or PNL number (e.g., 0010/EL-PNL/II/2026)}
-                            {approver : The name of the approver (e.g., Sabrina)}';
+                            {number : The QE number (e.g., 010-DS/QE/II/2026) or PNL number (e.g., 0010/EL-PNL/II/2026)}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Approve a Quotation Evaluation (QE) or Profit & Loss (PNL) document by an approver without requiring login';
+    protected $description = 'Fully approve a Quotation Evaluation (QE) or Profit & Loss (PNL) document (all 3 approvers) without requiring login';
 
     /**
      * Execute the console command.
@@ -34,7 +33,6 @@ final class ApproveQeOrPnlCommand extends Command
     public function handle(): int
     {
         $number = $this->argument('number');
-        $approverName = $this->argument('approver');
 
         try {
             // Determine if it's QE or PNL based on number format
@@ -48,24 +46,13 @@ final class ApproveQeOrPnlCommand extends Command
                 return self::FAILURE;
             }
 
-            // Find the approver user by name
-            $approver = User::where('name', 'like', "%{$approverName}%")
-                ->first();
-
-            if ($approver === null) {
-                $this->error("Approver not found: {$approverName}");
-                $this->line("Please check the name and try again.");
-
-                return self::FAILURE;
-            }
-
             // Find and approve QE
             if ($isQE) {
-                return $this->approveQE($number, $approver);
+                return $this->approveQE($number);
             }
 
             // Find and approve PNL
-            return $this->approvePNL($number, $approver);
+            return $this->approvePNL($number);
         } catch (Throwable $e) {
             $this->error('Failed to approve:');
             $this->line($e->getMessage());
@@ -98,9 +85,9 @@ final class ApproveQeOrPnlCommand extends Command
     }
 
     /**
-     * Approve a Quotation Evaluation.
+     * Approve a Quotation Evaluation with all approvers.
      */
-    private function approveQE(string $qeNumber, User $approver): int
+    private function approveQE(string $qeNumber): int
     {
         $qe = QuotationEvaluation::where('qe_number', $qeNumber)->first();
 
@@ -110,40 +97,30 @@ final class ApproveQeOrPnlCommand extends Command
             return self::FAILURE;
         }
 
-        // Check if already approved
         if ($qe->status->isApproved()) {
             $this->warn("Quotation Evaluation {$qeNumber} is already approved.");
 
             return self::SUCCESS;
         }
 
-        // Check if user can approve
-        if (! $qe->canBeApprovedBy($approver)) {
-            $this->error("User '{$approver->name}' cannot approve this QE.");
-            $this->line("The user must be assigned as one of the approvers (Dept Head Sales, Deputy Director, or Director).");
+        $approver = $this->resolveApproverUser($qe);
+        if ($approver === null) {
+            $this->error("No approvers assigned to Quotation Evaluation {$qeNumber}.");
 
             return self::FAILURE;
         }
 
-        // Approve the QE
-        $qe->approve($approver);
+        $qe->approveViaDocumentAcceptance($approver);
 
-        $this->info("✅ Quotation Evaluation {$qeNumber} approved by {$approver->name}");
-
-        // Check if fully approved
-        if ($qe->fresh()->status->isApproved()) {
-            $this->info("✅ All approvers have approved. QE is now fully approved.");
-        } else {
-            $this->line("⏳ Waiting for other approvers to complete the approval process.");
-        }
+        $this->info("✅ Quotation Evaluation {$qeNumber} fully approved (all 3 approvers).");
 
         return self::SUCCESS;
     }
 
     /**
-     * Approve a Profit & Loss document.
+     * Approve a Profit & Loss document with all approvers.
      */
-    private function approvePNL(string $pnlNumber, User $approver): int
+    private function approvePNL(string $pnlNumber): int
     {
         $pnl = ProfitAndLoss::where('pnl_number', $pnlNumber)->first();
 
@@ -153,33 +130,42 @@ final class ApproveQeOrPnlCommand extends Command
             return self::FAILURE;
         }
 
-        // Check if already approved
         if ($pnl->status->isApproved()) {
             $this->warn("Profit & Loss {$pnlNumber} is already approved.");
 
             return self::SUCCESS;
         }
 
-        // Check if user can approve
-        if (! $pnl->canBeApprovedBy($approver)) {
-            $this->error("User '{$approver->name}' cannot approve this PNL.");
-            $this->line("The user must be assigned as one of the approvers (Dept Head Sales, Deputy Director, or Director).");
+        $approver = $this->resolveApproverUser($pnl);
+        if ($approver === null) {
+            $this->error("No approvers assigned to Profit & Loss {$pnlNumber}.");
 
             return self::FAILURE;
         }
 
-        // Approve the PNL
-        $pnl->approve($approver);
+        $pnl->approveViaDocumentAcceptance($approver);
 
-        $this->info("✅ Profit & Loss {$pnlNumber} approved by {$approver->name}");
-
-        // Check if fully approved
-        if ($pnl->fresh()->status->isApproved()) {
-            $this->info("✅ All approvers have approved. PNL is now fully approved.");
-        } else {
-            $this->line("⏳ Waiting for other approvers to complete the approval process.");
-        }
+        $this->info("✅ Profit & Loss {$pnlNumber} fully approved (all 3 approvers).");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Resolve any assigned approver user from a QE or PNL record.
+     */
+    private function resolveApproverUser(QuotationEvaluation|ProfitAndLoss $model): ?User
+    {
+        foreach ([$model->dept_head_sales_id, $model->deputy_director_id, $model->approved_by_id] as $userId) {
+            if ($userId === null) {
+                continue;
+            }
+
+            $user = User::find($userId);
+            if ($user !== null) {
+                return $user;
+            }
+        }
+
+        return null;
     }
 }

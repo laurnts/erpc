@@ -213,17 +213,17 @@ final class ArticleResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('code')
-                    
+                    ->searchable()
                     ->sortable()
                     ->copyable()
                     ->weight('bold'),
                 TextColumn::make('name')
-                    
+                    ->searchable()
                     ->sortable()
                     ->limit(50),
                 TextColumn::make('sku')
                     ->label('SKU')
-                    
+                    ->searchable()
                     ->sortable()
                     ->toggleable()
                     ->toggledHiddenByDefault(),

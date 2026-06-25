@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\RequestResource\RelationManagers;
 
+use App\Enums\BuyerQuoteCreationMode;
 use App\Enums\BuyerQuoteStatus;
 use App\Enums\CentralPurchasingRole;
 use App\Enums\PNLStatus;
@@ -97,58 +98,51 @@ final class BuyerQuotesRelationManager extends RelationManager
                 ->view('filament.forms.components.buyer-quote-expired-alert')
                 ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->exists && $record->is_expired)
                 ->dehydrated(false),
-            Section::make()
-                ->description('Select which supplier quotes to include.')
+            Section::make('Quote Creation')
                 ->schema([
-                    Select::make('supplier_quote_ids')
-                        ->label('Supplier quotes')
-                        ->multiple()
-                        ->required()
-                        ->options(function () use ($request): array {
-                            return $request->supplierQuotes()
-                                ->where('status', SupplierQuoteStatus::SELECTED)
-                                ->with('supplier')
-                                ->orderBy('quote_number')
-                                ->get()
-                                ->mapWithKeys(fn (SupplierQuote $sq): array => [
-                                    $sq->getKey() => sprintf('%s — %s', $sq->quote_number, $sq->supplier?->name ?? ''),
-                                ])
-                                ->all();
-                        })
-                        ->visible(fn (?Model $record): bool => $record === null || ! $record->exists)
-                        ->live()
-                        ->afterStateUpdated(function (Set $set, ?array $state) use ($request): void {
-                            $ids = is_array($state) ? array_filter(array_map('intval', $state)) : [];
-                            if ($ids === []) {
-                                $settings = Filament::getTenant()?->getErpSettings();
-                                $defaultPaymentTermsDays = $settings->default_payment_terms_days ?? 30;
-                                $set('items', []);
-                                $set('paymentTerms', [['due_days' => $defaultPaymentTermsDays, 'percentage' => 100, 'sort_order' => 0]]);
-                                $set('prepayment_type', PrepaymentType::PERCENT->value);
-                                $set('prepayment_amount', 0);
-                                return;
-                            }
-                            $built = $this->buildFormDataFromSupplierQuotes($request, $ids);
-                            $set('items', $built['items']);
-                            $set('paymentTerms', $built['paymentTerms']);
-                            if (isset($built['currency_id'])) {
-                                $set('currency_id', $built['currency_id']);
-                            }
-                            if (isset($built['valid_until'])) {
-                                $set('valid_until', $built['valid_until']);
-                            }
-                            if (isset($built['exchange_rate'])) {
-                                $set('exchange_rate', $built['exchange_rate']);
-                            }
-                            // Prepayment: set type first, then amount from supplier quote (or 0 for multiple)
-                            $set('prepayment_type', $built['prepayment_type']);
-                            $prepaymentValue = is_int($built['prepayment_amount']) || is_float($built['prepayment_amount'])
-                                ? (string) $built['prepayment_amount']
-                                : $built['prepayment_amount'];
-                            $set('prepayment_amount', $prepaymentValue);
-                        }),
+                    Grid::make(2)
+                        ->schema([
+                            Select::make('creation_mode')
+                                ->label('Creation mode')
+                                ->options(BuyerQuoteCreationMode::class)
+                                ->placeholder('Select creation mode')
+                                ->required()
+                                ->live()
+                                ->afterStateUpdated(function (Set $set, mixed $state) use ($request): void {
+                                    $set('supplier_quote_ids', []);
+                                    $set('supplier_quote_id', null);
+                                    $this->resetSupplierQuoteFormData($set);
+
+                                    $mode = $this->normalizeCreationMode($state);
+                                    if ($mode === BuyerQuoteCreationMode::CONSOLIDATED) {
+                                        $ids = $this->getSelectedSupplierQuoteIds($request);
+                                        $set('supplier_quote_ids', $ids);
+                                        $this->applyBuiltSupplierQuoteData($set, $request, $ids);
+                                    }
+                                }),
+                                Select::make('supplier_quote_ids')
+                                ->label('Supplier quotes')
+                                ->multiple()
+                                ->required(fn (Get $get): bool => $this->isConsolidatedMode($get))
+                                ->options(fn (): array => $this->getSupplierQuoteOptions($request))
+                                ->visible(fn (Get $get): bool => $this->isConsolidatedMode($get))
+                                ->live()
+                                ->afterStateUpdated(function (Set $set, ?array $state) use ($request): void {
+                                    $this->applyBuiltSupplierQuoteData($set, $request, is_array($state) ? array_filter(array_map('intval', $state)) : []);
+                                }),
+                            Select::make('supplier_quote_id')
+                                ->label('Supplier quote')
+                                ->required(fn (Get $get): bool => $this->isPerSupplierMode($get))
+                                ->options(fn (): array => $this->getSupplierQuoteOptions($request))
+                                ->visible(fn (Get $get): bool => $this->isPerSupplierMode($get))
+                                ->live()
+                                ->afterStateUpdated(function (Set $set, mixed $state) use ($request): void {
+                                    $supplierQuoteId = is_numeric($state) ? (int) $state : null;
+                                    $this->applyBuiltSupplierQuoteData($set, $request, $supplierQuoteId !== null ? [$supplierQuoteId] : []);
+                                }),
+                        ])
                 ])
-                ->visible(fn (?Model $record): bool => $record === null || ! $record->exists)
+                ->visible(fn (?Model $record): bool => $this->isCreatingBuyerQuote($record))
                 ->collapsible(false),
             Section::make('Quote Details')
                 ->schema([
@@ -201,7 +195,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 }),
                         ]),
                     Hidden::make('exchange_rate')->default(1),
-                ]),
+                ])
+                ->visible(fn (?Model $record, Get $get): bool => $this->showsSupplierQuoteDetails($record, $get)),
 
             Section::make('Payment Terms')
                 ->schema([
@@ -217,13 +212,13 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 ->label('Prepayment')
                                 ->numeric()
                                 ->default(function (Get $get) use ($request): int|float {
-                                    $ids = $get('supplier_quote_ids');
-                                    if (! is_array($ids) || count($ids) !== 1) {
+                                    $ids = $this->resolveSupplierQuoteIdsFromGet($get);
+                                    if (count($ids) !== 1) {
                                         return 0;
                                     }
                                     $sq = SupplierQuote::query()
                                         ->where('request_id', $request->getKey())
-                                        ->whereKey(reset($ids))
+                                        ->whereKey($ids[0])
                                         ->first();
                                     if ($sq === null) {
                                         return 0;
@@ -300,6 +295,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->reorderableWithButtons()
                         ->collapsible(),
                 ])
+                ->visible(fn (?Model $record, Get $get): bool => $this->showsSupplierQuoteDetails($record, $get))
                 ->collapsible(),
 
             Section::make('Line Items')
@@ -905,7 +901,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->deletable(fn (?BuyerQuote $record): bool => ! $record instanceof \App\Models\BuyerQuote || $record->status->canEdit())
                         ->addable(false)
                         ->itemLabel(fn (array $state): ?string => $state['description'] ?? null),
-                ]),
+                ])
+                ->visible(fn (?Model $record, Get $get): bool => $this->showsSupplierQuoteDetails($record, $get)),
 
             Section::make('Summary')
                 ->schema([
@@ -997,6 +994,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 }),
                         ]),
                 ])
+                ->visible(fn (?Model $record, Get $get): bool => $this->showsSupplierQuoteDetails($record, $get))
                 ->collapsible(),
 
             Section::make('Notes')
@@ -1012,6 +1010,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->label('Terms & Conditions')
                         ->rows(3),
                 ])
+                ->visible(fn (?Model $record, Get $get): bool => $this->showsSupplierQuoteDetails($record, $get))
                 ->collapsed(),
         ];
     }
@@ -1155,6 +1154,7 @@ final class BuyerQuotesRelationManager extends RelationManager
 
         $baseQuery = \App\Models\SupplierQuoteItem::query()
             ->whereIn('supplier_quote_id', $supplierQuoteIds)
+            ->where('is_selected', true)
             ->whereHas('requestItem', fn ($q) => $q->whereNull('parent_id'))
             ->with(['supplierQuote.supplier', 'requestItem.article', 'requestItem.unitOfMeasure', 'requestItem.children']);
 
@@ -1387,33 +1387,46 @@ final class BuyerQuotesRelationManager extends RelationManager
                             ->where('code', $settings->default_currency ?? 'USD')
                             ->where('is_active', true)
                             ->value('id');
+
                         return [
-                            'supplier_quote_ids' => [],
                             'status' => BuyerQuoteStatus::DRAFT,
                             'currency_id' => $currencyId,
                             'exchange_rate' => 1,
                             'valid_until' => now()->addDays($settings->quote_validity_days ?? 30),
                             'prepayment_type' => PrepaymentType::PERCENT->value,
-                            // prepayment_amount left unset so it is derived from selected supplier quote (default closure) or stays 0
+                            'prepayment_amount' => 0,
                             'paymentTerms' => [['due_days' => $defaultPaymentTermsDays, 'percentage' => 100, 'sort_order' => 0]],
                             'items' => [],
                         ];
                     })
+                    ->using(function (array $data) use ($request): BuyerQuote {
+                        $supplierQuoteIds = $this->resolveSupplierQuoteIdsFromData($data);
+                        unset($data['creation_mode'], $data['supplier_quote_ids'], $data['supplier_quote_id']);
+
+                        if (is_array($supplierQuoteIds)) {
+                            request()->attributes->set('_buyer_quote_create_supplier_quote_ids', $supplierQuoteIds);
+                        }
+
+                        return $request->buyerQuotes()->create(
+                            collect($data)->except(['items', 'paymentTerms'])->toArray()
+                        );
+                    })
                     ->mutateFormDataUsing(function (array $data) use ($request): array {
                         $data['request_id'] = $request->getKey();
                         $data['buyer_id'] = $request->buyer_id;
-                        // Form-only keys must not be passed to create() — store on request for after()
-                        $supplierQuoteIds = $data['supplier_quote_ids'] ?? [];
-                        unset($data['supplier_quote_ids'], $data['_supplier_quote_ids']);
+
+                        $supplierQuoteIds = $this->resolveSupplierQuoteIdsFromData($data);
+                        unset($data['creation_mode'], $data['supplier_quote_ids'], $data['supplier_quote_id'], $data['_supplier_quote_ids']);
+
                         if (is_array($supplierQuoteIds)) {
                             request()->attributes->set('_buyer_quote_create_supplier_quote_ids', $supplierQuoteIds);
                         }
 
                         // When exactly one supplier quote selected, ensure prepayment comes from that quote (form may not have set it)
-                        if (is_array($supplierQuoteIds) && count($supplierQuoteIds) === 1) {
+                        if (count($supplierQuoteIds) === 1) {
                             $sq = SupplierQuote::query()
                                 ->where('request_id', $request->getKey())
-                                ->whereKey(reset($supplierQuoteIds))
+                                ->whereKey($supplierQuoteIds[0])
                                 ->first();
                             if ($sq !== null) {
                                 $data['prepayment_type'] = $sq->prepayment_type->value;
@@ -1636,6 +1649,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                             $selectedSupplierQuoteItems = \App\Models\SupplierQuoteItem::query()
                                 ->whereHas('supplierQuote', fn ($q) => $q->where('request_id', $request->getKey())
                                     ->where('status', SupplierQuoteStatus::SELECTED))
+                                ->where('is_selected', true)
                                 ->with(['requestItem.article', 'requestItem.unitOfMeasure'])
                                 ->get();
 
@@ -2461,6 +2475,172 @@ final class BuyerQuotesRelationManager extends RelationManager
                     DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    private function isCreatingBuyerQuote(?Model $record): bool
+    {
+        return $record === null || ! $record->exists;
+    }
+
+    private function normalizeCreationMode(mixed $value): ?BuyerQuoteCreationMode
+    {
+        if ($value instanceof BuyerQuoteCreationMode) {
+            return $value;
+        }
+
+        if (is_string($value) && $value !== '') {
+            return BuyerQuoteCreationMode::tryFrom($value);
+        }
+
+        return null;
+    }
+
+    private function hasCreationModeSelected(Get $get): bool
+    {
+        return $this->normalizeCreationMode($get('creation_mode')) !== null;
+    }
+
+    private function isConsolidatedMode(Get $get): bool
+    {
+        return $this->normalizeCreationMode($get('creation_mode')) === BuyerQuoteCreationMode::CONSOLIDATED;
+    }
+
+    private function isPerSupplierMode(Get $get): bool
+    {
+        return $this->normalizeCreationMode($get('creation_mode')) === BuyerQuoteCreationMode::PER_SUPPLIER;
+    }
+
+    private function showsSupplierQuoteDetails(?Model $record, Get $get): bool
+    {
+        if ($record !== null && $record->exists) {
+            return true;
+        }
+
+        if (! $this->hasCreationModeSelected($get)) {
+            return false;
+        }
+
+        if ($this->isPerSupplierMode($get)) {
+            return filled($get('supplier_quote_id'));
+        }
+
+        $ids = $get('supplier_quote_ids');
+
+        return is_array($ids) && $ids !== [];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function getSupplierQuoteOptions(Request $request): array
+    {
+        return $request->supplierQuotes()
+            ->where('status', SupplierQuoteStatus::SELECTED)
+            ->whereHas('items', fn ($query) => $query->where('is_selected', true))
+            ->orderBy('quote_number')
+            ->get()
+            ->mapWithKeys(fn (SupplierQuote $sq): array => [
+                $sq->getKey() => $sq->quote_number,
+            ])
+            ->all();
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function resolveSupplierQuoteIdsFromGet(Get $get): array
+    {
+        if ($this->isPerSupplierMode($get)) {
+            $supplierQuoteId = $get('supplier_quote_id');
+
+            return is_numeric($supplierQuoteId) ? [(int) $supplierQuoteId] : [];
+        }
+
+        $ids = $get('supplier_quote_ids');
+
+        return is_array($ids) ? array_values(array_filter(array_map('intval', $ids))) : [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<int, int>
+     */
+    private function resolveSupplierQuoteIdsFromData(array $data): array
+    {
+        $mode = $this->normalizeCreationMode($data['creation_mode'] ?? null);
+
+        if ($mode === BuyerQuoteCreationMode::PER_SUPPLIER) {
+            $supplierQuoteId = $data['supplier_quote_id'] ?? null;
+
+            return is_numeric($supplierQuoteId) ? [(int) $supplierQuoteId] : [];
+        }
+
+        if ($mode === BuyerQuoteCreationMode::CONSOLIDATED) {
+            $ids = $data['supplier_quote_ids'] ?? [];
+
+            return is_array($ids) ? array_values(array_filter(array_map('intval', $ids))) : [];
+        }
+
+        return [];
+    }
+
+    private function resetSupplierQuoteFormData(Set $set): void
+    {
+        $settings = Filament::getTenant()?->getErpSettings();
+        $defaultPaymentTermsDays = $settings->default_payment_terms_days ?? 30;
+        $set('items', []);
+        $set('paymentTerms', [['due_days' => $defaultPaymentTermsDays, 'percentage' => 100, 'sort_order' => 0]]);
+        $set('prepayment_type', PrepaymentType::PERCENT->value);
+        $set('prepayment_amount', 0);
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function getSelectedSupplierQuoteIds(Request $request): array
+    {
+        return $request->supplierQuotes()
+            ->where('status', SupplierQuoteStatus::SELECTED)
+            ->whereHas('items', fn ($query) => $query->where('is_selected', true))
+            ->orderBy('quote_number')
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+    }
+
+    /**
+     * @param  array<int, int>  $supplierQuoteIds
+     */
+    private function applyBuiltSupplierQuoteData(Set $set, Request $request, array $supplierQuoteIds): void
+    {
+        if ($supplierQuoteIds === []) {
+            $settings = Filament::getTenant()?->getErpSettings();
+            $defaultPaymentTermsDays = $settings->default_payment_terms_days ?? 30;
+            $set('items', []);
+            $set('paymentTerms', [['due_days' => $defaultPaymentTermsDays, 'percentage' => 100, 'sort_order' => 0]]);
+            $set('prepayment_type', PrepaymentType::PERCENT->value);
+            $set('prepayment_amount', 0);
+
+            return;
+        }
+
+        $built = $this->buildFormDataFromSupplierQuotes($request, $supplierQuoteIds);
+        $set('items', $built['items']);
+        $set('paymentTerms', $built['paymentTerms']);
+        if (isset($built['currency_id'])) {
+            $set('currency_id', $built['currency_id']);
+        }
+        if (isset($built['valid_until'])) {
+            $set('valid_until', $built['valid_until']);
+        }
+        if (isset($built['exchange_rate'])) {
+            $set('exchange_rate', $built['exchange_rate']);
+        }
+        $set('prepayment_type', $built['prepayment_type']);
+        $prepaymentValue = is_int($built['prepayment_amount']) || is_float($built['prepayment_amount'])
+            ? (string) $built['prepayment_amount']
+            : $built['prepayment_amount'];
+        $set('prepayment_amount', $prepaymentValue);
     }
 
 
