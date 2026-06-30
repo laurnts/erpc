@@ -234,6 +234,18 @@ final class ViewRequest extends ViewRecord
                         TextEntry::make('updated_at')
                             ->label('Last Updated')
                             ->since(),
+                        TextEntry::make('submission_method')
+                            ->label('Portal Submission')
+                            ->badge()
+                            ->formatStateUsing(fn ($state) => $state?->getLabel() ?? '-')
+                            ->visible(fn (Request $record): bool => $record->isPortalSubmission()),
+                        TextEntry::make('submitted_at')
+                            ->label('Submitted At')
+                            ->dateTime()
+                            ->visible(fn (Request $record): bool => $record->isPortalSubmission()),
+                        TextEntry::make('submittedBy.name')
+                            ->label('Submitted By')
+                            ->visible(fn (Request $record): bool => $record->isPortalSubmission()),
                     ])
                     ->columns(2),
             ])->columnSpan('full'),

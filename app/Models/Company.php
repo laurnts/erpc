@@ -297,6 +297,34 @@ final class Company extends Model implements HasCustomFields, HasMedia
     }
 
     /**
+     * Portal users who can access this buyer company in the customer portal.
+     *
+     * @return BelongsToMany<User, $this>
+     */
+    public function portalUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'company_portal_users', 'company_id', 'user_id')
+            ->withPivot(['team_id', 'invited_by', 'is_active'])
+            ->withTimestamps();
+    }
+
+    /**
+     * @return HasMany<CompanyPortalUser, $this>
+     */
+    public function portalMemberships(): HasMany
+    {
+        return $this->hasMany(CompanyPortalUser::class, 'company_id');
+    }
+
+    /**
+     * @return HasMany<PortalInvitation, $this>
+     */
+    public function portalInvitations(): HasMany
+    {
+        return $this->hasMany(PortalInvitation::class, 'company_id');
+    }
+
+    /**
      * Generate the next company code for the given team.
      */
     public static function generateNextCode(int $teamId): string

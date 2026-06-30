@@ -12,8 +12,8 @@ use Filament\Models\Contracts\HasAvatar;
 use Filament\Models\Contracts\HasDefaultTenant;
 use Filament\Models\Contracts\HasTenants;
 use Filament\Panel;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -136,6 +136,49 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
             ->withTimestamps();
     }
 
+    /**
+     * Buyer companies this user can access via the customer portal.
+     *
+     * @return BelongsToMany<Company, $this>
+     */
+    public function portalCompanies(): BelongsToMany
+    {
+        return $this->belongsToMany(Company::class, 'company_portal_users')
+            ->withPivot(['team_id', 'invited_by', 'is_active'])
+            ->withTimestamps();
+    }
+
+    /**
+     * @return HasMany<CompanyPortalUser, $this>
+     */
+    public function portalMemberships(): HasMany
+    {
+        return $this->hasMany(CompanyPortalUser::class);
+    }
+
+    public function hasActivePortalAccess(): bool
+    {
+        return $this->portalMemberships()
+            ->where('is_active', true)
+            ->exists();
+    }
+
+    public function belongsToAnyInternalTeam(): bool
+    {
+        return $this->allTeams()->isNotEmpty();
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function activePortalCompanyIds(): array
+    {
+        return $this->portalMemberships()
+            ->where('is_active', true)
+            ->pluck('company_id')
+            ->all();
+    }
+
     public function getDefaultTenant(Panel $panel): ?Model
     {
         return $this->currentTeam;
@@ -146,7 +189,15 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        return $panel->getId() === 'app';
+        if (! $this->hasVerifiedEmail()) {
+            return false;
+        }
+
+        return match ($panel->getId()) {
+            'app' => $this->belongsToAnyInternalTeam(),
+            'customer' => $this->hasActivePortalAccess(),
+            default => false,
+        };
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use App\Enums\ShipmentType;
 use App\Models\Shipment;
 use App\Models\User;
 use Filament\Facades\Filament;
@@ -13,17 +14,42 @@ final readonly class ShipmentPolicy
 {
     use HandlesAuthorization;
 
+    private function isCustomerPanel(): bool
+    {
+        return Filament::getCurrentPanel()?->getId() === 'customer';
+    }
+
+    private function userCanAccessPortalShipment(User $user, Shipment $shipment): bool
+    {
+        if ($shipment->type !== ShipmentType::OUTBOUND) {
+            return false;
+        }
+
+        $buyerId = $shipment->request?->buyer_id;
+
+        if ($buyerId === null) {
+            return false;
+        }
+
+        return in_array($buyerId, $user->activePortalCompanyIds(), true);
+    }
+
     /**
      * Check if user is an administrator for the current team.
      */
     private function isAdmin(User $user): bool
     {
         $team = Filament::getTenant();
+
         return $team !== null && $user->hasTeamRole($team, 'admin');
     }
 
     public function viewAny(User $user): bool
     {
+        if ($this->isCustomerPanel()) {
+            return $user->hasActivePortalAccess();
+        }
+
         if ($this->isAdmin($user)) {
             return $user->hasVerifiedEmail() && $user->currentTeam !== null;
         }
@@ -35,6 +61,10 @@ final readonly class ShipmentPolicy
 
     public function view(User $user, Shipment $shipment): bool
     {
+        if ($this->isCustomerPanel()) {
+            return $this->userCanAccessPortalShipment($user, $shipment);
+        }
+
         if ($this->isAdmin($user)) {
             return $user->belongsToTeam($shipment->team);
         }
@@ -45,6 +75,10 @@ final readonly class ShipmentPolicy
 
     public function create(User $user): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->hasVerifiedEmail() && $user->currentTeam !== null;
         }
@@ -56,6 +90,10 @@ final readonly class ShipmentPolicy
 
     public function update(User $user, Shipment $shipment): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->belongsToTeam($shipment->team);
         }
@@ -66,6 +104,10 @@ final readonly class ShipmentPolicy
 
     public function delete(User $user, Shipment $shipment): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->belongsToTeam($shipment->team);
         }
@@ -76,6 +118,10 @@ final readonly class ShipmentPolicy
 
     public function deleteAny(User $user): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->hasVerifiedEmail() && $user->currentTeam !== null;
         }
@@ -87,6 +133,10 @@ final readonly class ShipmentPolicy
 
     public function restore(User $user, Shipment $shipment): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->belongsToTeam($shipment->team);
         }
@@ -97,6 +147,10 @@ final readonly class ShipmentPolicy
 
     public function restoreAny(User $user): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->hasVerifiedEmail() && $user->currentTeam !== null;
         }
@@ -108,6 +162,10 @@ final readonly class ShipmentPolicy
 
     public function forceDelete(User $user, Shipment $shipment): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->belongsToTeam($shipment->team);
         }
@@ -118,6 +176,10 @@ final readonly class ShipmentPolicy
 
     public function forceDeleteAny(User $user): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->hasVerifiedEmail() && $user->currentTeam !== null;
         }

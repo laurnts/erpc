@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Enums\RequestPriority;
 use App\Enums\RequestStage;
+use App\Enums\RequestSubmissionMethod;
 use App\Enums\RequestType;
 use App\Filament\Resources\RequestResource\Pages\CreateRequest;
 use App\Filament\Resources\RequestResource\Pages\ListRequests;
@@ -218,6 +219,12 @@ final class RequestResource extends Resource
                     ->sortable()
                     ->copyable()
                     ->weight('bold'),
+                TextColumn::make('submission_method')
+                    ->label('Source')
+                    ->badge()
+                    ->formatStateUsing(fn (?RequestSubmissionMethod $state): string => $state?->getLabel() ?? 'Internal')
+                    ->color(fn (?RequestSubmissionMethod $state): string => $state !== null ? 'info' : 'gray')
+                    ->toggleable(),
                 TextColumn::make('buyer.name')
                     ->label('Buyer')
                     
@@ -270,6 +277,23 @@ final class RequestResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
+                SelectFilter::make('submission_method')
+                    ->label('Submission Source')
+                    ->options([
+                        'portal' => 'From Portal',
+                        'internal' => 'Internal',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (($data['value'] ?? null) === 'portal') {
+                            return $query->whereNotNull('submission_method');
+                        }
+
+                        if (($data['value'] ?? null) === 'internal') {
+                            return $query->whereNull('submission_method');
+                        }
+
+                        return $query;
+                    }),
                 SelectFilter::make('stage')
                     ->options(RequestStage::class)
                     ->multiple(),

@@ -80,27 +80,13 @@ final class UpdateTeamCompanyInfo extends BaseLivewireComponent
         $data = $this->form->getState();
         $currentSettings = $this->team->getErpSettings();
 
-        $settings = new TeamErpSettings(
-            company_name: $data['company_name'] ?? '',
-            company_address: $data['company_address'] ?? '',
-            company_phone: $data['company_phone'] ?? '',
-            company_email: $data['company_email'] ?? '',
-            default_currency: $currentSettings->default_currency,
-            default_tax_percent: $currentSettings->default_tax_percent,
-            quote_validity_days: $currentSettings->quote_validity_days,
-            default_payment_terms_days: $currentSettings->default_payment_terms_days,
-            prices_include_tax: $currentSettings->prices_include_tax,
-            request_number_prefix: $currentSettings->request_number_prefix,
-            project_number_prefix: $currentSettings->project_number_prefix,
-            buyer_quote_number_prefix: $currentSettings->buyer_quote_number_prefix,
-            buyer_order_number_prefix: $currentSettings->buyer_order_number_prefix,
-            supplier_order_number_prefix: $currentSettings->supplier_order_number_prefix,
-            shipment_number_prefix: $currentSettings->shipment_number_prefix,
-            buyer_invoice_number_prefix: $currentSettings->buyer_invoice_number_prefix,
-            supplier_invoice_number_prefix: $currentSettings->supplier_invoice_number_prefix,
-            buyer_payment_number_prefix: $currentSettings->buyer_payment_number_prefix,
-            supplier_payment_number_prefix: $currentSettings->supplier_payment_number_prefix,
-        );
+        $settings = TeamErpSettings::from([
+            ...$currentSettings->toArray(),
+            'company_name' => $data['company_name'] ?? '',
+            'company_address' => $data['company_address'] ?? '',
+            'company_phone' => $data['company_phone'] ?? '',
+            'company_email' => $data['company_email'] ?? '',
+        ]);
 
         $this->team->erp_settings = $settings;
         $this->team->save();

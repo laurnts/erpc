@@ -31,6 +31,11 @@ enum CreationSource: string implements HasLabel
     case IMPORT = 'import';
 
     /**
+     * Created by a buyer contact through the customer portal.
+     */
+    case PORTAL = 'portal';
+
+    /**
      * Get the human-readable label for Filament UI components.
      */
     public function getLabel(): string
@@ -39,6 +44,7 @@ enum CreationSource: string implements HasLabel
             self::WEB => 'Web Interface',
             self::SYSTEM => 'System Process',
             self::IMPORT => 'Data Import',
+            self::PORTAL => 'Customer Portal',
         };
     }
 }

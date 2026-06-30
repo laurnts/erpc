@@ -20,7 +20,17 @@ return new class extends Migration
         }
 
         // Drop old foreign key constraint that references people table
-        DB::statement('ALTER TABLE key_account_buyers DROP CONSTRAINT IF EXISTS key_account_buyers_key_account_id_foreign');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE key_account_buyers DROP CONSTRAINT IF EXISTS key_account_buyers_key_account_id_foreign');
+        } else {
+            Schema::table('key_account_buyers', function (Blueprint $table): void {
+                try {
+                    $table->dropForeign(['key_account_id']);
+                } catch (\Exception) {
+                    // Foreign key might not exist
+                }
+            });
+        }
 
         // Clean up orphaned data - delete records where key_account_id doesn't exist in users table
         DB::statement('

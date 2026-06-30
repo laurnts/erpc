@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Data\TeamErpSettings;
+use App\Filament\Pages\EditTeam;
 use App\Filament\Resources\EmailTemplateResource;
 use App\Mail\TestEmailMail;
 use App\Models\EmailTemplate;
@@ -14,7 +15,6 @@ use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use DanHarrin\LivewireRateLimiting\WithRateLimiting;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
-use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -177,99 +177,17 @@ final class EmailSettings extends Page implements HasForms
                         ViewField::make('current_logo')
                             ->label('Current Logo')
                             ->view('filament.components.email-logo-preview')
-                            ->visible(function () {
+                            ->visible(function (): bool {
                                 /** @var Team $team */
                                 $team = Filament::getTenant();
-                                $settings = $team->getErpSettings();
-                                return !empty($settings->email_logo_media_id);
+
+                                return $team->getEmailLogoUrl() !== null;
                             }),
-                        
-                        FileUpload::make('email_logo')
-                            ->label('Upload New Logo')
-                            ->image()
-                            ->disk('public')
-                            ->directory('email-logos')
-                            ->helperText('Upload a new logo to replace the current one. Logo displayed at the top of email templates.')
-                            ->dehydrated(false)
-                            ->afterStateUpdated(function ($state) {
-                                // Save logo immediately when uploaded
-                                if ($state && (is_array($state) ? !empty($state) : !empty($state))) {
-                                    /** @var Team $team */
-                                    $team = Filament::getTenant();
-                                    $currentSettings = $team->getErpSettings();
-                                    
-                                    $filePath = is_array($state) ? $state[0] : $state;
-                                    if (is_string($filePath)) {
-                                        $fullPath = storage_path('app/public/'.ltrim($filePath, '/'));
-                                        
-                                        if (file_exists($fullPath)) {
-                                            // Delete old logo if exists
-                                            if ($currentSettings->email_logo_media_id) {
-                                                $oldMedia = $team->getMedia('email_logo')
-                                                    ->firstWhere('id', $currentSettings->email_logo_media_id);
-                                                if ($oldMedia) {
-                                                    $oldMedia->delete();
-                                                }
-                                            }
-                                            
-                                            // Add new logo
-                                            $media = $team->addMedia($fullPath)
-                                                ->toMediaCollection('email_logo');
-                                            
-                                            // Update settings immediately
-                                            $settings = new TeamErpSettings(
-                                                company_name: $currentSettings->company_name,
-                                                company_address: $currentSettings->company_address,
-                                                company_phone: $currentSettings->company_phone,
-                                                company_email: $currentSettings->company_email,
-                                                default_currency: $currentSettings->default_currency,
-                                                default_tax_percent: $currentSettings->default_tax_percent,
-                                                quote_validity_days: $currentSettings->quote_validity_days,
-                                                default_payment_terms_days: $currentSettings->default_payment_terms_days,
-                                                prices_include_tax: $currentSettings->prices_include_tax,
-                                                default_margin_percent: $currentSettings->default_margin_percent,
-                                                request_number_prefix: $currentSettings->request_number_prefix,
-                                                project_number_prefix: $currentSettings->project_number_prefix,
-                                                buyer_quote_number_prefix: $currentSettings->buyer_quote_number_prefix,
-                                                buyer_order_number_prefix: $currentSettings->buyer_order_number_prefix,
-                                                supplier_order_number_prefix: $currentSettings->supplier_order_number_prefix,
-                                                shipment_number_prefix: $currentSettings->shipment_number_prefix,
-                                                buyer_invoice_number_prefix: $currentSettings->buyer_invoice_number_prefix,
-                                                supplier_invoice_number_prefix: $currentSettings->supplier_invoice_number_prefix,
-                                                buyer_payment_number_prefix: $currentSettings->buyer_payment_number_prefix,
-                                                supplier_payment_number_prefix: $currentSettings->supplier_payment_number_prefix,
-                                                email_from_address: $currentSettings->email_from_address,
-                                                email_from_name: $currentSettings->email_from_name,
-                                                email_logo_media_id: (string) $media->id,
-                                                email_signature: $currentSettings->email_signature,
-                                                test_email_address: $currentSettings->test_email_address,
-                                                smtp_host: $currentSettings->smtp_host,
-                                                smtp_port: $currentSettings->smtp_port,
-                                                smtp_username: $currentSettings->smtp_username,
-                                                smtp_password: $currentSettings->smtp_password,
-                                                smtp_encryption: $currentSettings->smtp_encryption,
-                                                email_template_buyer_quote: $currentSettings->email_template_buyer_quote,
-                                                email_template_buyer_order: $currentSettings->email_template_buyer_order,
-                                                email_template_supplier_order: $currentSettings->email_template_supplier_order,
-                                                email_template_delivery_order: $currentSettings->email_template_delivery_order,
-                                            );
-                                            
-                                            $team->erp_settings = $settings;
-                                            $team->save();
-                                            
-                                            // Refresh team to ensure latest data
-                                            $team->refresh();
-                                            
-                                            // Notify user
-                                            Notification::make()
-                                                ->title('Logo Uploaded')
-                                                ->body('Email logo has been uploaded successfully.')
-                                                ->success()
-                                                ->send();
-                                        }
-                                    }
-                                }
-                            }),
+
+                        Placeholder::make('email_logo_info')
+                            ->label('Company Logo')
+                            ->content('The company logo from Edit Team → Branding is used in email templates.')
+                            ->helperText(fn (): string => 'Manage branding at: '.EditTeam::getUrl()),
 
                         TextInput::make('email_from_address')
                             ->label('Default Sender Email')

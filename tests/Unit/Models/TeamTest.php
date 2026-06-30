@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Data\TeamErpSettings;
 use App\Models\Company;
 use App\Models\Note;
 use App\Models\Opportunity;
@@ -91,6 +92,46 @@ test('team has avatar', function () {
     ]);
 
     expect($team->getFilamentAvatarUrl())->not->toBeNull();
+});
+
+test('team uses company logo for avatar when uploaded', function () {
+    $team = Team::factory()->create([
+        'name' => 'Test Team',
+    ]);
+
+    $team->addMedia(base_path('public/favicon.svg'))
+        ->preservingOriginal()
+        ->toMediaCollection('company_logo');
+
+    expect($team->getCompanyLogoUrl())->not->toBeNull()
+        ->and($team->getFilamentAvatarUrl())->toBe($team->getCompanyLogoUrl());
+});
+
+test('team email logo prefers company logo over legacy email logo', function () {
+    $team = Team::factory()->create();
+
+    $legacyLogo = $team->addMedia(base_path('public/favicon.svg'))
+        ->preservingOriginal()
+        ->toMediaCollection('email_logo');
+
+    $team->update([
+        'erp_settings' => TeamErpSettings::from([
+            ...$team->getErpSettings()->toArray(),
+            'email_logo_media_id' => (string) $legacyLogo->id,
+        ]),
+    ]);
+
+    $companyLogo = $team->addMedia(base_path('public/relaticle-logomark.svg'))
+        ->preservingOriginal()
+        ->toMediaCollection('company_logo');
+
+    expect($team->getEmailLogoUrl())->toBe($companyLogo->getUrl());
+});
+
+test('team favicon url returns null when not uploaded', function () {
+    $team = Team::factory()->create();
+
+    expect($team->getFaviconUrl())->toBeNull();
 });
 
 test('team events are dispatched', function () {

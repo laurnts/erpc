@@ -8,6 +8,7 @@ use App\Livewire\App\Teams\AddTeamMember;
 use App\Livewire\App\Teams\DeleteTeam;
 use App\Livewire\App\Teams\PendingTeamInvitations;
 use App\Livewire\App\Teams\TeamMembers;
+use App\Livewire\App\Teams\UpdateTeamBranding;
 use App\Livewire\App\Teams\UpdateTeamCompanyInfo;
 use App\Livewire\App\Teams\UpdateTeamName;
 use App\Models\Team;
@@ -32,6 +33,8 @@ final class EditTeam extends EditTenantProfile
             Livewire::make(UpdateTeamName::class)
                 ->data(['team' => $tenant]),
             Livewire::make(UpdateTeamCompanyInfo::class)
+                ->data(['team' => $tenant]),
+            Livewire::make(UpdateTeamBranding::class)
                 ->data(['team' => $tenant]),
             Livewire::make(AddTeamMember::class)
                 ->data(['team' => $tenant]),

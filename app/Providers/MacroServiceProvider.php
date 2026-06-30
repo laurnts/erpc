@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Support\PanelDomain;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
@@ -12,10 +13,9 @@ final class MacroServiceProvider extends ServiceProvider
     public function boot(): void
     {
         URL::macro('getAppUrl', function (string $path = ''): string {
-            $baseUrl = config('app.url');
-            $parsed = parse_url((string) $baseUrl);
+            $parsed = parse_url((string) config('app.url'));
             $scheme = $parsed['scheme'] ?? 'https';
-            $host = config('app.panel_domain') ?: 'app.'.($parsed['host'] ?? 'localhost');
+            $host = PanelDomain::appHost();
 
             return $scheme.'://'.$host.'/'.ltrim($path, '/');
         });
@@ -27,6 +27,19 @@ final class MacroServiceProvider extends ServiceProvider
             $host = $parsed['host'] ?? 'localhost';
 
             return $scheme.'://'.$host.'/'.ltrim($path, '/');
+        });
+
+        URL::macro('getCustomerPortalUrl', function (string $path = ''): string {
+            $parsed = parse_url((string) config('app.url'));
+            $scheme = $parsed['scheme'] ?? 'https';
+            $host = PanelDomain::customerHost();
+            $prefix = trim((string) config('app.customer_path', 'customer'), '/');
+
+            if ($path === '') {
+                return $scheme.'://'.$host.'/'.$prefix;
+            }
+
+            return $scheme.'://'.$host.'/'.$prefix.'/'.ltrim($path, '/');
         });
     }
 }

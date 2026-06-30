@@ -43,6 +43,11 @@ return [
             'provider' => 'users',
         ],
 
+        'customer' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+
         'sysadmin' => [
             'driver' => 'session',
             'provider' => 'system_administrators',

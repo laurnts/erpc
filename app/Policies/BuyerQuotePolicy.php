@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use App\Enums\BuyerQuoteStatus;
 use App\Models\BuyerQuote;
 use App\Models\User;
 use Filament\Facades\Filament;
@@ -13,22 +14,42 @@ final readonly class BuyerQuotePolicy
 {
     use HandlesAuthorization;
 
+    private function isCustomerPanel(): bool
+    {
+        return Filament::getCurrentPanel()?->getId() === 'customer';
+    }
+
+    private function userCanAccessPortalQuote(User $user, BuyerQuote $buyerQuote): bool
+    {
+        return in_array($buyerQuote->buyer_id, $user->activePortalCompanyIds(), true);
+    }
+
     /**
      * Check if user is an administrator for the current team.
      */
     private function isAdmin(User $user): bool
     {
         $team = Filament::getTenant();
+
         return $team !== null && $user->hasTeamRole($team, 'admin');
     }
 
     public function viewAny(User $user): bool
     {
+        if ($this->isCustomerPanel()) {
+            return $user->hasActivePortalAccess();
+        }
+
         return $user->hasVerifiedEmail() && $user->currentTeam !== null;
     }
 
     public function view(User $user, BuyerQuote $buyerQuote): bool
     {
+        if ($this->isCustomerPanel()) {
+            return $this->userCanAccessPortalQuote($user, $buyerQuote)
+                && $buyerQuote->status !== BuyerQuoteStatus::DRAFT;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->belongsToTeam($buyerQuote->team);
         }
@@ -39,6 +60,10 @@ final readonly class BuyerQuotePolicy
 
     public function create(User $user): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->hasVerifiedEmail() && $user->currentTeam !== null;
         }
@@ -50,6 +75,10 @@ final readonly class BuyerQuotePolicy
 
     public function update(User $user, BuyerQuote $buyerQuote): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->belongsToTeam($buyerQuote->team);
         }
@@ -60,6 +89,10 @@ final readonly class BuyerQuotePolicy
 
     public function delete(User $user, BuyerQuote $buyerQuote): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->belongsToTeam($buyerQuote->team);
         }
@@ -70,6 +103,10 @@ final readonly class BuyerQuotePolicy
 
     public function deleteAny(User $user): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->hasVerifiedEmail() && $user->currentTeam !== null;
         }
@@ -81,6 +118,10 @@ final readonly class BuyerQuotePolicy
 
     public function restore(User $user, BuyerQuote $buyerQuote): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->belongsToTeam($buyerQuote->team);
         }
@@ -91,6 +132,10 @@ final readonly class BuyerQuotePolicy
 
     public function restoreAny(User $user): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->hasVerifiedEmail() && $user->currentTeam !== null;
         }
@@ -102,6 +147,10 @@ final readonly class BuyerQuotePolicy
 
     public function forceDelete(User $user, BuyerQuote $buyerQuote): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->belongsToTeam($buyerQuote->team);
         }
@@ -112,6 +161,10 @@ final readonly class BuyerQuotePolicy
 
     public function forceDeleteAny(User $user): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->hasVerifiedEmail() && $user->currentTeam !== null;
         }
@@ -122,10 +175,35 @@ final readonly class BuyerQuotePolicy
     }
 
     /**
+     * Customer portal: accept or reject a sent quote.
+     */
+    public function respond(User $user, BuyerQuote $buyerQuote): bool
+    {
+        if (! $this->isCustomerPanel()) {
+            return false;
+        }
+
+        return $this->userCanAccessPortalQuote($user, $buyerQuote)
+            && $buyerQuote->status === BuyerQuoteStatus::SENT;
+    }
+
+    /**
+     * Customer portal: upload purchase order for a sent quote.
+     */
+    public function uploadPo(User $user, BuyerQuote $buyerQuote): bool
+    {
+        return $this->respond($user, $buyerQuote);
+    }
+
+    /**
      * Determine if the user can send the quote.
      */
     public function send(User $user, BuyerQuote $buyerQuote): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->belongsToTeam($buyerQuote->team) && $buyerQuote->status->canSend();
         }
@@ -140,6 +218,10 @@ final readonly class BuyerQuotePolicy
      */
     public function createVersion(User $user, BuyerQuote $buyerQuote): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->belongsToTeam($buyerQuote->team);
         }
@@ -153,6 +235,10 @@ final readonly class BuyerQuotePolicy
      */
     public function extendValidity(User $user, BuyerQuote $buyerQuote): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->belongsToTeam($buyerQuote->team) && $buyerQuote->status->isActive();
         }

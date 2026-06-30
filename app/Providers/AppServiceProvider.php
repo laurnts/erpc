@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Filament\Customer\Pages\Auth\CustomerLogin;
+use App\Filament\Pages\Auth\Login;
 use App\Http\Responses\LoginResponse;
 use App\Models\Company;
 use App\Models\GoodsReceiveBatch;
@@ -12,6 +14,7 @@ use App\Models\Note;
 use App\Models\Opportunity;
 use App\Models\People;
 use App\Models\Task;
+use App\Support\PanelDomain;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\GitHubService;
@@ -20,10 +23,13 @@ use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
+use Filament\Support\Facades\FilamentView;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\View;
 use Relaticle\SystemAdmin\Models\SystemAdministrator;
@@ -58,6 +64,7 @@ final class AppServiceProvider extends ServiceProvider
         $this->configurePolicies();
         $this->configureModels();
         $this->configureFilament();
+        $this->configureLegacyCustomerPortalRedirects();
         $this->configureGitHubStars();
         $this->configureLivewire();
     }
@@ -175,6 +182,35 @@ final class AppServiceProvider extends ServiceProvider
     }
 
     /**
+     * Redirect legacy public-domain customer portal URLs to the app subdomain.
+     */
+    private function configureLegacyCustomerPortalRedirects(): void
+    {
+        if (! config('app.customer_portal_enabled', true)) {
+            return;
+        }
+
+        $publicHost = PanelDomain::publicHost();
+        $customerHost = PanelDomain::customerHost();
+
+        if ($publicHost === $customerHost) {
+            return;
+        }
+
+        $prefix = trim((string) config('app.customer_path', 'customer'), '/');
+
+        Route::domain($publicHost)
+            ->middleware('web')
+            ->group(function () use ($prefix): void {
+                Route::get($prefix, fn () => redirect()->away(url()->getCustomerPortalUrl()));
+
+                Route::get($prefix.'/{path}', fn (string $path) => redirect()->away(
+                    url()->getCustomerPortalUrl($path),
+                ))->where('path', '.*');
+            });
+    }
+
+    /**
      * Configure Filament.
      */
     private function configureFilament(): void
@@ -194,6 +230,15 @@ final class AppServiceProvider extends ServiceProvider
             Css::make('qe-disabled-tabs', resource_path('css/qe-disabled-tabs.css')),
             Css::make('equal-height-grid', resource_path('css/equal-height-grid.css')),
         ], 'app');
+
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
+            fn (): string => view('filament.hooks.login-autofill-sync')->render(),
+            scopes: [
+                Login::class,
+                CustomerLogin::class,
+            ],
+        );
     }
 
     /**

@@ -88,6 +88,16 @@ describe('Authentication redirects', function () {
         $expectedUrl = rtrim(url()->getAppUrl(), '/');
         $response->assertRedirect($expectedUrl);
     });
+
+    it('does not expose sysadmin login on app subdomain', function () {
+        config([
+            'app.url' => 'http://erpc.test',
+            'app.panel_domain' => 'app.erpc.test',
+        ]);
+
+        $this->get('http://app.erpc.test/sysadmin/login', ['Host' => 'app.erpc.test'])
+            ->assertNotFound();
+    });
 });
 
 describe('Community redirects', function () {

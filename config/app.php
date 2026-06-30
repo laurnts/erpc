@@ -74,6 +74,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Customer Portal Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Path-based customer portal on the app subdomain (e.g. app.example.com/customer/login).
+    | Optional CUSTOMER_DOMAIN overrides the host; defaults to the app panel domain.
+    |
+    */
+
+    'customer_path' => env('CUSTOMER_PATH', 'customer'),
+    'customer_domain' => env('CUSTOMER_DOMAIN'),
+    'customer_session_cookie' => env('CUSTOMER_SESSION_COOKIE', 'erpc_customer_session'),
+    'customer_portal_enabled' => (bool) env('CUSTOMER_PORTAL_ENABLED', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

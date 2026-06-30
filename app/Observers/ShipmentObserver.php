@@ -8,6 +8,8 @@ use App\Data\TeamErpSettings;
 use App\Models\Shipment;
 use App\Models\Team;
 use App\Models\User;
+use App\Actions\CustomerPortal\NotifyPortalUsers;
+use App\Notifications\PortalShipmentStatusChangedNotification;
 
 final readonly class ShipmentObserver
 {
@@ -67,5 +69,23 @@ final readonly class ShipmentObserver
         }
 
         return sprintf('%s-%s-%04d', $prefix, $year, $nextNumber);
+    }
+
+    public function updated(Shipment $shipment): void
+    {
+        if (! $shipment->wasChanged('status')) {
+            return;
+        }
+
+        $shipment->loadMissing('request');
+
+        if ($shipment->request?->buyer_id === null) {
+            return;
+        }
+
+        app(NotifyPortalUsers::class)->forRequest(
+            $shipment->request,
+            new PortalShipmentStatusChangedNotification($shipment),
+        );
     }
 }

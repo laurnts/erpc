@@ -83,7 +83,7 @@ final class UnitOfMeasureFactory extends Factory
     /**
      * Create a "set" (Sets) unit.
      */
-    public function set(): static
+    public function asSet(): static
     {
         return $this->state(fn (array $attributes): array => [
             'code' => 'set',

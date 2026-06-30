@@ -6,19 +6,20 @@ namespace App\Providers\Filament;
 
 use App\Filament\Pages\ApiTokens;
 use App\Filament\Pages\Auth\Login;
-use App\Filament\Pages\Auth\Register;
 use App\Filament\Pages\CreateTeam;
 use App\Filament\Pages\EditProfile;
 use App\Filament\Pages\EditTeam;
 use App\Filament\Resources\CompanyResource;
 use App\Http\Middleware\ApplyTenantScopes;
+use App\Http\Middleware\AuthenticateAppPanel;
+use App\Support\PanelDomain;
 use App\Listeners\SwitchTeam;
 use App\Models\Team;
 use Exception;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Filament\Actions\Action;
 use Filament\Events\TenantSet;
 use Filament\Facades\Filament;
-use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationGroup;
@@ -38,7 +39,6 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
@@ -75,11 +75,10 @@ final class AppPanelProvider extends PanelProvider
         $panel
             ->default()
             ->id('app')
-            ->domain(config('app.panel_domain') ?: 'app.'.parse_url((string) config('app.url'))['host'])
+            ->domain(PanelDomain::appHost())
             ->homeUrl(fn (): string => CompanyResource::getUrl())
             ->brandName('Relaticle')
             ->login(Login::class)
-            ->registration(Register::class)
             ->authGuard('web')
             ->authPasswordBroker('users')
             ->passwordReset()
@@ -88,6 +87,15 @@ final class AppPanelProvider extends PanelProvider
             ->databaseNotifications()
             ->brandLogoHeight('2.6rem')
             ->brandLogo(fn (): View|Factory => view('filament.app.logo'))
+            ->favicon(function (): string {
+                $tenant = Filament::getTenant();
+
+                if ($tenant instanceof Team) {
+                    return $tenant->getFaviconUrl() ?? asset('favicon.svg');
+                }
+
+                return asset('favicon.svg');
+            })
             ->viteTheme('resources/css/app.css')
             ->colors([
                 'primary' => [
@@ -163,7 +171,7 @@ final class AppPanelProvider extends PanelProvider
             ->authGuard('web')
             ->authPasswordBroker('users')
             ->authMiddleware([
-                Authenticate::class,
+                AuthenticateAppPanel::class,
             ])
             ->tenantMiddleware(
                 [
@@ -175,18 +183,6 @@ final class AppPanelProvider extends PanelProvider
                 CustomFieldsPlugin::make()
                     ->authorize(fn () => Gate::check('update', Filament::getTenant())),
             ])
-            ->renderHook(
-                PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
-                fn (): string => Blade::render('@env(\'local\')<x-login-link email="manuk.minasyan1@gmail.com" redirect-url="'.url('/').'" />@endenv'),
-            )
-            ->renderHook(
-                PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
-                fn (): View|Factory => view('filament.auth.social_login_buttons')
-            )
-            ->renderHook(
-                PanelsRenderHook::AUTH_REGISTER_FORM_BEFORE,
-                fn (): View|Factory => view('filament.auth.social_login_buttons')
-            )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): View|Factory => view('filament.app.analytics')
@@ -207,7 +203,22 @@ final class AppPanelProvider extends PanelProvider
             $panel
                 ->tenant(Team::class, ownershipRelationship: 'team')
                 ->tenantRegistration(CreateTeam::class)
-                ->tenantProfile(EditTeam::class);
+                ->tenantProfile(EditTeam::class)
+                ->resolveTenantUsing(function (string $key): Team {
+                    $customerPrefix = trim((string) config('app.customer_path', 'customer'), '/');
+
+                    if ($key === $customerPrefix) {
+                        throw (new ModelNotFoundException)->setModel(Team::class, [$key]);
+                    }
+
+                    $record = app(Team::class)->resolveRouteBinding($key, null);
+
+                    if ($record === null) {
+                        throw (new ModelNotFoundException)->setModel(Team::class, [$key]);
+                    }
+
+                    return $record;
+                });
         }
 
         return $panel;

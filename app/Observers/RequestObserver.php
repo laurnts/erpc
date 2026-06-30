@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Observers;
 
+use App\Actions\CustomerPortal\NotifyPortalUsers;
 use App\Actions\Erp\GenerateSupplierQuotesForRequest;
 use App\Data\TeamErpSettings;
 use App\Enums\RequestStage;
 use App\Models\Request;
 use App\Models\Team;
 use App\Models\User;
+use App\Notifications\PortalRequestStageChangedNotification;
 
 final readonly class RequestObserver
 {
@@ -80,6 +82,10 @@ final readonly class RequestObserver
      */
     public function updated(Request $request): void
     {
+        if ($request->wasChanged('stage')) {
+            $this->notifyPortalUsersOfStageChange($request);
+        }
+
         // Check if stage changed to AWAITING_SUPPLIER_RESPONSE
         if (! $request->wasChanged('stage')) {
             return;
@@ -107,5 +113,17 @@ final readonly class RequestObserver
         // Generate supplier quotes
         $action = new GenerateSupplierQuotesForRequest;
         $action->execute($request);
+    }
+
+    private function notifyPortalUsersOfStageChange(Request $request): void
+    {
+        if ($request->buyer_id === null) {
+            return;
+        }
+
+        app(NotifyPortalUsers::class)->forRequest(
+            $request,
+            new PortalRequestStageChangedNotification($request),
+        );
     }
 }

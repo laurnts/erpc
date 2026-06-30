@@ -8,6 +8,7 @@ use App\Enums\CreationSource;
 use App\Filament\Resources\BuyerResource\Pages\CreateBuyer;
 use App\Filament\Resources\BuyerResource\Pages\ListBuyers;
 use App\Filament\Resources\BuyerResource\Pages\ViewBuyer;
+use App\Filament\Resources\BuyerResource\RelationManagers\PortalUsersRelationManager;
 use App\Models\Company;
 use App\Models\Currency;
 use App\Models\People;
@@ -357,6 +358,13 @@ final class BuyerResource extends Resource
                     RestoreBulkAction::make(),
                 ]),
             ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            PortalUsersRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

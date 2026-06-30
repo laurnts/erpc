@@ -8,6 +8,7 @@ use App\Enums\BuyerQuoteStatus;
 use App\Enums\OrderStatus;
 use App\Enums\RequestPriority;
 use App\Enums\RequestStage;
+use App\Enums\RequestSubmissionMethod;
 use App\Enums\RequestType;
 use App\Enums\SupplierQuoteStatus;
 use App\Models\Concerns\HasCreator;
@@ -43,6 +44,9 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property bool $is_active
  * @property int $buyer_id
  * @property int|null $project_id
+ * @property RequestSubmissionMethod|null $submission_method
+ * @property Carbon|null $submitted_at
+ * @property int|null $submitted_by_user_id
  * @property Carbon|null $deleted_at
  * @property-read string $created_by
  * @property-read bool $all_items_matched
@@ -94,6 +98,9 @@ final class Request extends Model implements HasCustomFields, HasMedia
         'is_active',
         'buyer_id',
         'project_id',
+        'submission_method',
+        'submitted_at',
+        'submitted_by_user_id',
     ];
 
     /**
@@ -115,8 +122,10 @@ final class Request extends Model implements HasCustomFields, HasMedia
             'stage' => RequestStage::class,
             'priority' => RequestPriority::class,
             'request_type' => RequestType::class,
+            'submission_method' => RequestSubmissionMethod::class,
             'requested_at' => 'date',
             'required_by' => 'date',
+            'submitted_at' => 'datetime',
             'is_active' => 'boolean',
         ];
     }
@@ -142,6 +151,27 @@ final class Request extends Model implements HasCustomFields, HasMedia
     public function buyer(): BelongsTo
     {
         return $this->belongsTo(Company::class, 'buyer_id');
+    }
+
+    /**
+     * Portal user who submitted this request.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function submittedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'submitted_by_user_id');
+    }
+
+    public function isPortalSubmission(): bool
+    {
+        return $this->submission_method !== null;
+    }
+
+    public function isEditableByCustomer(): bool
+    {
+        return $this->isPortalSubmission()
+            && $this->stage === RequestStage::DRAFT;
     }
 
     /**

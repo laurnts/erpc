@@ -16,6 +16,7 @@ use Laravel\Jetstream\Events\TeamUpdated;
 use Laravel\Jetstream\Team as JetstreamTeam;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
  * @property string $name
@@ -75,9 +76,31 @@ final class Team extends JetstreamTeam implements HasAvatar, HasMedia
         return $this->erp_settings ?? new TeamErpSettings;
     }
 
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('company_logo')->singleFile();
+        $this->addMediaCollection('favicon')->singleFile();
+        $this->addMediaCollection('email_logo')->singleFile();
+    }
+
+    public function getCompanyLogoUrl(): ?string
+    {
+        $url = $this->getFirstMediaUrl('company_logo');
+
+        return $url === '' || $url === '0' ? null : $url;
+    }
+
+    public function getFaviconUrl(): ?string
+    {
+        $url = $this->getFirstMediaUrl('favicon');
+
+        return $url === '' || $url === '0' ? null : $url;
+    }
+
     public function getFilamentAvatarUrl(): string
     {
-        return app(AvatarService::class)->generate(name: $this->name, bgColor: '#000000', textColor: '#ffffff');
+        return $this->getCompanyLogoUrl()
+            ?? app(AvatarService::class)->generate(name: $this->name, bgColor: '#000000', textColor: '#ffffff');
     }
 
     /**
@@ -161,6 +184,11 @@ final class Team extends JetstreamTeam implements HasAvatar, HasMedia
      */
     public function getEmailLogoUrl(): ?string
     {
+        return $this->getCompanyLogoUrl() ?? $this->getLegacyEmailLogoUrl();
+    }
+
+    private function getLegacyEmailLogoUrl(): ?string
+    {
         $settings = $this->getErpSettings();
 
         if (! $settings->email_logo_media_id) {
@@ -170,6 +198,10 @@ final class Team extends JetstreamTeam implements HasAvatar, HasMedia
         $media = $this->getMedia('email_logo')
             ->firstWhere('id', $settings->email_logo_media_id);
 
-        return $media?->getUrl();
+        if (! $media instanceof Media) {
+            return null;
+        }
+
+        return $media->getUrl();
     }
 }

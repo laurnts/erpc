@@ -13,22 +13,41 @@ final readonly class RequestPolicy
 {
     use HandlesAuthorization;
 
+    private function isCustomerPanel(): bool
+    {
+        return Filament::getCurrentPanel()?->getId() === 'customer';
+    }
+
+    private function userCanAccessPortalRequest(User $user, Request $request): bool
+    {
+        return in_array($request->buyer_id, $user->activePortalCompanyIds(), true);
+    }
+
     /**
      * Check if user is an administrator for the current team.
      */
     private function isAdmin(User $user): bool
     {
         $team = Filament::getTenant();
+
         return $team !== null && $user->hasTeamRole($team, 'admin');
     }
 
     public function viewAny(User $user): bool
     {
+        if ($this->isCustomerPanel()) {
+            return $user->hasActivePortalAccess();
+        }
+
         return $user->hasVerifiedEmail() && $user->currentTeam !== null;
     }
 
     public function view(User $user, Request $request): bool
     {
+        if ($this->isCustomerPanel()) {
+            return $this->userCanAccessPortalRequest($user, $request);
+        }
+
         if ($this->isAdmin($user)) {
             return $user->belongsToTeam($request->team);
         }
@@ -39,6 +58,10 @@ final readonly class RequestPolicy
 
     public function create(User $user): bool
     {
+        if ($this->isCustomerPanel()) {
+            return $user->hasActivePortalAccess();
+        }
+
         if ($this->isAdmin($user)) {
             return $user->hasVerifiedEmail() && $user->currentTeam !== null;
         }
@@ -50,6 +73,11 @@ final readonly class RequestPolicy
 
     public function update(User $user, Request $request): bool
     {
+        if ($this->isCustomerPanel()) {
+            return $this->userCanAccessPortalRequest($user, $request)
+                && $request->isEditableByCustomer();
+        }
+
         if ($this->isAdmin($user)) {
             return $user->belongsToTeam($request->team);
         }
@@ -60,6 +88,10 @@ final readonly class RequestPolicy
 
     public function delete(User $user, Request $request): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->belongsToTeam($request->team);
         }
@@ -70,6 +102,10 @@ final readonly class RequestPolicy
 
     public function deleteAny(User $user): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->hasVerifiedEmail() && $user->currentTeam !== null;
         }
@@ -81,6 +117,10 @@ final readonly class RequestPolicy
 
     public function restore(User $user, Request $request): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->belongsToTeam($request->team);
         }
@@ -91,6 +131,10 @@ final readonly class RequestPolicy
 
     public function restoreAny(User $user): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->hasVerifiedEmail() && $user->currentTeam !== null;
         }
@@ -102,6 +146,10 @@ final readonly class RequestPolicy
 
     public function forceDelete(User $user, Request $request): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->belongsToTeam($request->team);
         }
@@ -112,6 +160,10 @@ final readonly class RequestPolicy
 
     public function forceDeleteAny(User $user): bool
     {
+        if ($this->isCustomerPanel()) {
+            return false;
+        }
+
         if ($this->isAdmin($user)) {
             return $user->hasVerifiedEmail() && $user->currentTeam !== null;
         }

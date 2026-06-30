@@ -5,9 +5,14 @@ declare(strict_types=1);
 namespace App\Filament\Resources\BuyerResource\Pages;
 
 use App\Filament\Resources\BuyerResource;
+use App\Actions\CustomerPortal\InvitePortalUser;
+use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Facades\Filament;
+use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 
 final class ViewBuyer extends ViewRecord
@@ -17,6 +22,40 @@ final class ViewBuyer extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('invitePortalUser')
+                ->label('Invite Portal User')
+                ->icon('heroicon-o-envelope')
+                ->color('primary')
+                ->visible(fn (): bool => (bool) config('app.customer_portal_enabled', true))
+                ->schema([
+                    TextInput::make('name')
+                        ->label('Contact Name')
+                        ->required()
+                        ->maxLength(255),
+                    TextInput::make('email')
+                        ->label('Email')
+                        ->email()
+                        ->required()
+                        ->maxLength(255),
+                ])
+                ->action(function (array $data, \App\Models\Company $record): void {
+                    /** @var \App\Models\Team $team */
+                    $team = Filament::getTenant();
+
+                    app(InvitePortalUser::class)->execute(
+                        team: $team,
+                        buyer: $record,
+                        email: $data['email'],
+                        name: $data['name'],
+                        invitedBy: auth()->user(),
+                    );
+
+                    Notification::make()
+                        ->title('Invitation sent')
+                        ->body('Portal invitation email has been sent to '.$data['email'])
+                        ->success()
+                        ->send();
+                }),
             ActionGroup::make([
                 EditAction::make()
                     ->slideOver()
