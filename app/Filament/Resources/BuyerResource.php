@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Enums\CreationSource;
+use App\Filament\Exports\BuyerExporter;
 use App\Filament\Resources\BuyerResource\Pages\CreateBuyer;
 use App\Filament\Resources\BuyerResource\Pages\ListBuyers;
 use App\Filament\Resources\BuyerResource\Pages\ViewBuyer;
@@ -14,7 +15,6 @@ use App\Models\Currency;
 use App\Models\People;
 use App\Models\Tag;
 use App\Models\Team;
-use App\Filament\Exports\BuyerExporter;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ExportBulkAction;
@@ -116,7 +116,7 @@ final class BuyerResource extends Resource
                 ->relationship('people', 'name')
                 ->multiple()
                 ->preload()
-                
+
                 ->helperText('Add people associated with this buyer')
                 ->createOptionForm(PeopleResource::getFormSchema(excludeCompaniesField: true))
                 ->createOptionUsing(function (array $data): int {
@@ -163,7 +163,7 @@ final class BuyerResource extends Resource
                             return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
                         })
                         ->nullable()
-                        
+
                         ->preload()
                         ->createOptionForm(CurrencyResource::getFormSchema(excludeDefaultField: true))
                         ->createOptionUsing(function (array $data): int {
@@ -179,11 +179,16 @@ final class BuyerResource extends Resource
                         ->minValue(0)
                         ->suffix('days'),
                     Select::make('account_owner_id')
-                        ->relationship('accountOwner', 'name')
+                        ->relationship(
+                            'accountOwner',
+                            'name',
+                            fn (Builder $query): Builder => $query->whereKey(
+                                Filament::getTenant()?->allUsers()->modelKeys() ?? []
+                            )
+                        )
                         ->label('Account Owner')
                         ->nullable()
-                        ->preload()
-                        ,
+                        ->preload(),
                 ])
                 ->columns(1),
             Section::make('Credit Settings')
@@ -278,10 +283,10 @@ final class BuyerResource extends Resource
                 ImageColumn::make('logo')->label('')->imageSize(28)->square(),
                 TextColumn::make('code')
                     ->label('Code')
-                    
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('name')
-                    
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('people_count')
                     ->label('Contacts')
@@ -289,7 +294,7 @@ final class BuyerResource extends Resource
                     ->sortable()
                     ->toggleable(),
                 TextColumn::make('country')
-                    
+
                     ->sortable()
                     ->toggleable(),
                 TextColumn::make('credit_limit')
@@ -336,7 +341,7 @@ final class BuyerResource extends Resource
                     ]),
                 SelectFilter::make('country')
                     ->label('Country')
-                    
+
                     ->preload()
                     ->options(fn () => Company::query()
                         ->where('is_buyer', true)

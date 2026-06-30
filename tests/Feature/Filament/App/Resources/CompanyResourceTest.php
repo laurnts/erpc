@@ -66,6 +66,22 @@ it('can search `:dataset` column', function (string $column): void {
         ->assertCountTableRecords($visibleRecords->count());
 })->with(['name', 'accountOwner.name', 'creator.name']);
 
+it('scopes the account owner select to team members and the owner only', function (): void {
+    $teamMember = App\Models\User::factory()->create(['name' => 'Zelda TeamMember']);
+    $this->user->personalTeam()->users()->attach($teamMember, ['role' => 'member']);
+
+    $outsider = App\Models\User::factory()->withPersonalTeam()->create(['name' => 'Oscar Outsider']);
+
+    livewire(App\Filament\Resources\CompanyResource\Pages\CreateCompany::class)
+        ->assertFormFieldExists('account_owner_id', function (\Filament\Forms\Components\Select $field) use ($teamMember, $outsider): bool {
+            $options = $field->getOptions();
+
+            return array_key_exists($this->user->id, $options)      // team owner
+                && array_key_exists($teamMember->id, $options)      // team member
+                && ! array_key_exists($outsider->id, $options);     // user from another team
+        });
+});
+
 it('cannot display trashed records by default', function (): void {
     $records = App\Models\Company::factory()->count(4)->for($this->user->personalTeam())->create();
     $trashedRecords = App\Models\Company::factory()->trashed()->count(6)->create();
