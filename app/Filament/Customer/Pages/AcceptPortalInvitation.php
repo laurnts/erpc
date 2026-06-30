@@ -132,12 +132,9 @@ final class AcceptPortalInvitation extends Page implements HasForms
                     'password' => Hash::make($data['password']),
                     'email_verified_at' => now(),
                 ]);
-            } else {
-                $user->forceFill([
-                    'name' => $data['name'],
-                    'password' => Hash::make($data['password']),
-                ])->save();
             }
+            // If a user with this email already exists (e.g. race condition), portal access
+            // is granted below without modifying their existing credentials.
 
             CompanyPortalUser::query()->updateOrCreate(
                 [

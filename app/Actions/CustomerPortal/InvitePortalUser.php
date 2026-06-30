@@ -10,6 +10,7 @@ use App\Models\PortalInvitation;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 
 final class InvitePortalUser
 {
@@ -20,6 +21,12 @@ final class InvitePortalUser
         string $name,
         User $invitedBy,
     ): PortalInvitation {
+        if (User::query()->where('email', $email)->exists()) {
+            throw ValidationException::withMessages([
+                'email' => ['A user with this email address already has an account. Only new users can be invited to the customer portal.'],
+            ]);
+        }
+
         PortalInvitation::query()
             ->where('company_id', $buyer->getKey())
             ->where('email', $email)

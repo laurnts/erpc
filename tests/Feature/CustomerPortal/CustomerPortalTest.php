@@ -3,10 +3,10 @@
 declare(strict_types=1);
 
 use App\Actions\CustomerPortal\InvitePortalUser;
-use App\Filament\Customer\Pages\Auth\CustomerLogin;
-use App\Filament\Customer\Pages\CustomerDashboard;
 use App\Enums\RequestStage;
 use App\Enums\RequestSubmissionMethod;
+use App\Filament\Customer\Pages\Auth\CustomerLogin;
+use App\Filament\Customer\Pages\CustomerDashboard;
 use App\Filament\Pages\Auth\Login as AppLogin;
 use App\Filament\Resources\CompanyResource;
 use App\Http\Middleware\UseCustomerPanelSession;
@@ -233,6 +233,46 @@ describe('Customer Portal Access', function (): void {
             ->assertHasNoErrors();
 
         $this->assertAuthenticatedAs($this->portalUser, 'customer');
+    });
+});
+
+describe('Portal Invitation Security', function (): void {
+    it('rejects invitation when email belongs to an existing user', function (): void {
+        Mail::fake();
+
+        $this->actingAs($this->admin);
+        Filament::setTenant($this->team);
+        Filament::setCurrentPanel('app');
+
+        expect(fn () => app(InvitePortalUser::class)->execute(
+            team: $this->team,
+            buyer: $this->buyer,
+            email: $this->portalUser->email, // already has a User record
+            name: 'Portal Contact',
+            invitedBy: $this->admin,
+        ))->toThrow(\Illuminate\Validation\ValidationException::class);
+
+        Mail::assertNothingSent();
+    });
+
+    it('does not create an invitation record when email belongs to existing user', function (): void {
+        Mail::fake();
+
+        $this->actingAs($this->admin);
+
+        try {
+            app(InvitePortalUser::class)->execute(
+                team: $this->team,
+                buyer: $this->buyer,
+                email: $this->portalUser->email,
+                name: 'Portal Contact',
+                invitedBy: $this->admin,
+            );
+        } catch (\Illuminate\Validation\ValidationException) {
+            // expected
+        }
+
+        expect(PortalInvitation::query()->where('email', $this->portalUser->email)->exists())->toBeFalse();
     });
 });
 
