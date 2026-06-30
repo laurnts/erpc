@@ -192,13 +192,13 @@ describe('BuyerOrder Status Transitions', function (): void {
             ->create();
 
         $order->progressStatus();
+        expect($order->status)->toBe(OrderStatus::APPROVED);
+
+        $order->progressStatus();
         expect($order->status)->toBe(OrderStatus::PROCESSING);
 
         $order->progressStatus();
         expect($order->status)->toBe(OrderStatus::SHIPPED);
-
-        $order->progressStatus();
-        expect($order->status)->toBe(OrderStatus::DELIVERED);
     });
 });
 
@@ -524,8 +524,10 @@ describe('BuyerOrder Status Methods', function (): void {
     });
 
     it('returns correct next status', function (): void {
-        expect(OrderStatus::DRAFT->getNextStatus())->toBe(OrderStatus::CONFIRMED)
-            ->and(OrderStatus::CONFIRMED->getNextStatus())->toBe(OrderStatus::PROCESSING)
+        expect(OrderStatus::DRAFT->getNextStatus())->toBe(OrderStatus::SENT)
+            ->and(OrderStatus::SENT->getNextStatus())->toBe(OrderStatus::CONFIRMED)
+            ->and(OrderStatus::CONFIRMED->getNextStatus())->toBe(OrderStatus::APPROVED)
+            ->and(OrderStatus::APPROVED->getNextStatus())->toBe(OrderStatus::PROCESSING)
             ->and(OrderStatus::PROCESSING->getNextStatus())->toBe(OrderStatus::SHIPPED)
             ->and(OrderStatus::SHIPPED->getNextStatus())->toBe(OrderStatus::DELIVERED)
             ->and(OrderStatus::DELIVERED->getNextStatus())->toBe(OrderStatus::INVOICED)
