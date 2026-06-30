@@ -18,13 +18,13 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Filament\Notifications\Notification;
 
 final class SupplierOrderApprovalResource extends Resource
 {
@@ -57,14 +57,17 @@ final class SupplierOrderApprovalResource extends Resource
             ->columns([
                 TextColumn::make('po_number')
                     ->label('PO #')
+                    ->searchable()
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('request.request_number')
                     ->label('Request')
+                    ->searchable()
                     ->sortable()
                     ->url(fn (SupplierOrder $record): string => \App\Filament\Resources\RequestResource::getUrl('view', ['record' => $record->request_id])),
                 TextColumn::make('supplier.name')
                     ->label('Supplier')
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('currency.code')
                     ->label('Currency')
@@ -88,6 +91,7 @@ final class SupplierOrderApprovalResource extends Resource
                         if (! $record->relationLoaded('approver1')) {
                             $record->load('approver1');
                         }
+
                         return $record->approver1->name ?? 'Unknown';
                     })
                     ->badge()
@@ -102,6 +106,7 @@ final class SupplierOrderApprovalResource extends Resource
                         if (! $record->relationLoaded('approver2')) {
                             $record->load('approver2');
                         }
+
                         return $record->approver2->name ?? 'Unknown';
                     })
                     ->badge()
@@ -207,7 +212,7 @@ final class SupplierOrderApprovalResource extends Resource
 
                             $remaining = 2 - $approverCount;
                             $description = 'This order requires approval from at least 2 approvers. ';
-                            
+
                             if ($approverCount === 0) {
                                 $description .= 'You will be the first approver. One more approval is needed.';
                             } elseif ($approverCount === 1) {
@@ -219,10 +224,10 @@ final class SupplierOrderApprovalResource extends Resource
                         ->action(function (SupplierOrder $record): void {
                             /** @var \App\Models\User $user */
                             $user = auth()->user();
-                            
+
                             try {
                                 $record->approve($user);
-                                
+
                                 $approverCount = 0;
                                 if ($record->approver_1_id !== null) {
                                     $approverCount++;
@@ -279,7 +284,7 @@ final class SupplierOrderApprovalResource extends Resource
     {
         /** @var \App\Models\Team|null $team */
         $team = Filament::getTenant();
-        
+
         if ($team === null) {
             return parent::getEloquentQuery()->whereRaw('1 = 0'); // Return empty query
         }
@@ -294,12 +299,12 @@ final class SupplierOrderApprovalResource extends Resource
         // Note: Admin check is handled in canBeApprovedBy() method
         // This query filter shows orders to all users with approval roles or admin permissions
         $hasApprovalRole = false;
-        
+
         // Administrators can see approval orders
         if ($user->hasTeamRole($team, 'admin')) {
             $hasApprovalRole = true;
         }
-        
+
         // Check Central Purchasing approval roles
         if (! $hasApprovalRole) {
             $approvalRoles = [
@@ -323,7 +328,7 @@ final class SupplierOrderApprovalResource extends Resource
         // SENT orders: show those that are fully approved (both approvers set)
         // This ensures approved orders stay visible and show approver names
         return parent::getEloquentQuery()
-            ->where(function (Builder $query) use ($user): void {
+            ->where(function (Builder $query): void {
                 // Always show APPROVED orders (fully approved, ready to send)
                 $query->where('status', OrderStatus::APPROVED)
                     // OR show SENT orders that are fully approved (both approvers set)

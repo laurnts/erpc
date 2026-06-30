@@ -51,10 +51,10 @@ final class OpportunityResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ,
+                    ->searchable(),
                 TextColumn::make('creator.name')
                     ->label('Created By')
-                    
+                    ->searchable()
                     ->sortable()
                     ->toggleable()
                     ->getStateUsing(fn (Opportunity $record): string => $record->created_by)

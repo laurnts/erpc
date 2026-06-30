@@ -46,17 +46,17 @@ final class SupplierOrderResource extends Resource
             ->columns([
                 TextColumn::make('po_number')
                     ->label('PO #')
-                    
+                    ->searchable()
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('request.request_number')
                     ->label('Request')
-                    
+                    ->searchable()
                     ->sortable()
                     ->url(fn (SupplierOrder $record): string => RequestResource::getUrl('view', ['record' => $record->request_id])),
                 TextColumn::make('supplier.name')
                     ->label('Supplier')
-                    
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('supplierQuote.quote_number')
                     ->label('From Quote')
@@ -119,13 +119,11 @@ final class SupplierOrderResource extends Resource
                 SelectFilter::make('supplier_id')
                     ->relationship('supplier', 'name', fn ($query) => $query->where('is_supplier', true))
                     ->label('Supplier')
-                    ->preload()
-                    ,
+                    ->preload(),
                 SelectFilter::make('request_id')
                     ->relationship('request', 'request_number')
                     ->label('Request')
-                    ->preload()
-                    ,
+                    ->preload(),
                 TrashedFilter::make(),
             ])
             ->recordUrl(fn (SupplierOrder $record): string => RequestResource::getUrl('view', ['record' => $record->request_id]))

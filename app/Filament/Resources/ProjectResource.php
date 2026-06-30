@@ -76,7 +76,7 @@ final class ProjectResource extends Resource
                 ->label('Associated Buyer')
                 ->nullable()
                 ->preload()
-                
+
                 ->selectablePlaceholder(false)
                 ->helperText('Optional: Link this project to a buyer')
                 ->createOptionForm(BuyerResource::getFormSchema(excludePeopleField: true))
@@ -158,16 +158,16 @@ final class ProjectResource extends Resource
             ->columns([
                 TextColumn::make('project_number')
                     ->label('Project #')
-                    
+                    ->searchable()
                     ->sortable()
                     ->copyable()
                     ->weight('bold'),
                 TextColumn::make('name')
-                    
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('buyer.name')
                     ->label('Buyer')
-                    
+                    ->searchable()
                     ->sortable()
                     ->toggleable(),
                 TextColumn::make('status')
@@ -215,7 +215,7 @@ final class ProjectResource extends Resource
                     ]),
                 SelectFilter::make('buyer')
                     ->relationship('buyer', 'name', fn ($query) => $query->where('is_buyer', true))
-                    
+
                     ->preload(),
                 TrashedFilter::make(),
             ])

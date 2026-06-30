@@ -9,23 +9,19 @@ use App\Filament\Resources\EmailTemplateResource\Pages\EditEmailTemplate;
 use App\Filament\Resources\EmailTemplateResource\Pages\ListEmailTemplates;
 use App\Models\EmailTemplate;
 use App\Models\Team;
-use App\Services\Email\EmailTemplateService;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Facades\Filament;
-use Filament\Actions\Action;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Actions\ActionGroup;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\EditAction;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -53,11 +49,11 @@ final class EmailTemplateResource extends Resource
      * Get the form components for creating/editing email templates.
      * This can be reused in other contexts like EmailSettings page.
      *
-     * @param string|null $defaultType The default template type (for createOptionForm context)
-     * @param bool $showLoadButton Whether to show the "Load Default Template" button
-     * @param string|null $loadButtonMethod The Livewire method to call when loading default template (null uses default)
-     * @param bool $useAlpineJs Whether to use Alpine.js $wire.call() instead of wire:click (for modal contexts)
-     * @param string|null $loadButtonParam Additional parameter to pass to the load method (e.g., template type key)
+     * @param  string|null  $defaultType  The default template type (for createOptionForm context)
+     * @param  bool  $showLoadButton  Whether to show the "Load Default Template" button
+     * @param  string|null  $loadButtonMethod  The Livewire method to call when loading default template (null uses default)
+     * @param  bool  $useAlpineJs  Whether to use Alpine.js $wire.call() instead of wire:click (for modal contexts)
+     * @param  string|null  $loadButtonParam  Additional parameter to pass to the load method (e.g., template type key)
      * @return array<int, \Filament\Forms\Components\Component>
      */
     public static function getTemplateFormComponents(
@@ -68,7 +64,7 @@ final class EmailTemplateResource extends Resource
         ?string $loadButtonParam = null
     ): array {
         $loadButtonMethod = $loadButtonMethod ?? 'loadDefaultTemplate';
-        
+
         $components = [
             Select::make('type')
                 ->label('Template Type')
@@ -126,7 +122,7 @@ final class EmailTemplateResource extends Resource
                          ">
                         <button 
                             type="button"
-                            x-on:click="loading = true; $wire.call(\'' . $loadButtonMethod . '\'' . ($loadButtonParam ? ', \'' . $loadButtonParam . '\'' : '') . ').then(() => { loading = false; })"
+                            x-on:click="loading = true; $wire.call(\''.$loadButtonMethod.'\''.($loadButtonParam ? ', \''.$loadButtonParam.'\'' : '').').then(() => { loading = false; })"
                             x-bind:disabled="loading"
                             class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none disabled:opacity-50"
                         >
@@ -147,23 +143,23 @@ final class EmailTemplateResource extends Resource
                     <div class="flex justify-start mt-[-0.5rem] mb-2">
                         <button 
                             type="button"
-                            wire:click.prevent="' . $loadButtonMethod . '"
+                            wire:click.prevent="'.$loadButtonMethod.'"
                             wire:loading.attr="disabled"
                             class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none disabled:opacity-50"
                         >
-                            <svg wire:loading.remove wire:target="' . $loadButtonMethod . '" class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg wire:loading.remove wire:target="'.$loadButtonMethod.'" class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                             </svg>
-                            <svg wire:loading wire:target="' . $loadButtonMethod . '" class="animate-spin w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24">
+                            <svg wire:loading wire:target="'.$loadButtonMethod.'" class="animate-spin w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <span wire:loading.remove wire:target="' . $loadButtonMethod . '">Load Default Template</span>
-                            <span wire:loading wire:target="' . $loadButtonMethod . '">Loading...</span>
+                            <span wire:loading.remove wire:target="'.$loadButtonMethod.'">Load Default Template</span>
+                            <span wire:loading wire:target="'.$loadButtonMethod.'">Loading...</span>
                         </button>
                     </div>';
             }
-            
+
             $components[] = Placeholder::make('load_default_template')
                 ->label('')
                 ->content(new \Illuminate\Support\HtmlString($buttonHtml))
@@ -205,7 +201,7 @@ final class EmailTemplateResource extends Resource
             ->columns([
                 TextColumn::make('name')
                     ->label('Template Name')
-                    
+                    ->searchable()
                     ->sortable()
                     ->wrap(),
 
@@ -263,69 +259,69 @@ final class EmailTemplateResource extends Resource
                 ActionGroup::make([
                     EditAction::make(),
                     DeleteAction::make()
-                        ->visible(fn (EmailTemplate $record): bool => !$record->is_default)
+                        ->visible(fn (EmailTemplate $record): bool => ! $record->is_default)
                         ->requiresConfirmation()
                         ->action(function (EmailTemplate $record): void {
-                        /** @var Team $team */
-                        $team = Filament::getTenant();
-                        $settings = $team->getErpSettings();
-                        $templateType = $record->type;
-                        $templateIdField = "email_template_{$templateType}_id";
+                            /** @var Team $team */
+                            $team = Filament::getTenant();
+                            $settings = $team->getErpSettings();
+                            $templateType = $record->type;
+                            $templateIdField = "email_template_{$templateType}_id";
 
-                        // Check if this template is currently selected
-                        $isSelected = isset($settings->{$templateIdField}) && $settings->{$templateIdField} === $record->id;
+                            // Check if this template is currently selected
+                            $isSelected = isset($settings->{$templateIdField}) && $settings->{$templateIdField} === $record->id;
 
-                        // Delete the template
-                        $record->delete();
+                            // Delete the template
+                            $record->delete();
 
-                        // If template was selected, reset to default (null)
-                        if ($isSelected) {
-                            $updatedSettings = new \App\Data\TeamErpSettings(
-                                company_name: $settings->company_name,
-                                company_address: $settings->company_address,
-                                company_phone: $settings->company_phone,
-                                company_email: $settings->company_email,
-                                default_currency: $settings->default_currency,
-                                default_tax_percent: $settings->default_tax_percent,
-                                quote_validity_days: $settings->quote_validity_days,
-                                default_payment_terms_days: $settings->default_payment_terms_days,
-                                prices_include_tax: $settings->prices_include_tax,
-                                default_margin_percent: $settings->default_margin_percent,
-                                request_number_prefix: $settings->request_number_prefix,
-                                project_number_prefix: $settings->project_number_prefix,
-                                buyer_quote_number_prefix: $settings->buyer_quote_number_prefix,
-                                buyer_order_number_prefix: $settings->buyer_order_number_prefix,
-                                supplier_order_number_prefix: $settings->supplier_order_number_prefix,
-                                shipment_number_prefix: $settings->shipment_number_prefix,
-                                buyer_invoice_number_prefix: $settings->buyer_invoice_number_prefix,
-                                supplier_invoice_number_prefix: $settings->supplier_invoice_number_prefix,
-                                buyer_payment_number_prefix: $settings->buyer_payment_number_prefix,
-                                supplier_payment_number_prefix: $settings->supplier_payment_number_prefix,
-                                email_from_address: $settings->email_from_address,
-                                email_from_name: $settings->email_from_name,
-                                email_logo_media_id: $settings->email_logo_media_id,
-                                email_signature: $settings->email_signature,
-                                test_email_address: $settings->test_email_address,
-                                smtp_host: $settings->smtp_host,
-                                smtp_port: $settings->smtp_port,
-                                smtp_username: $settings->smtp_username,
-                                smtp_password: $settings->smtp_password,
-                                smtp_encryption: $settings->smtp_encryption,
-                                email_template_buyer_quote_id: $templateType === EmailTemplate::TYPE_BUYER_QUOTE ? null : $settings->email_template_buyer_quote_id,
-                                email_template_buyer_order_id: $templateType === EmailTemplate::TYPE_BUYER_ORDER ? null : $settings->email_template_buyer_order_id,
-                                email_template_supplier_order_id: $templateType === EmailTemplate::TYPE_SUPPLIER_ORDER ? null : $settings->email_template_supplier_order_id,
-                                email_template_delivery_order_id: $templateType === EmailTemplate::TYPE_DELIVERY_ORDER ? null : $settings->email_template_delivery_order_id,
-                            );
-                            $team->setErpSettings($updatedSettings);
-                        }
+                            // If template was selected, reset to default (null)
+                            if ($isSelected) {
+                                $updatedSettings = new \App\Data\TeamErpSettings(
+                                    company_name: $settings->company_name,
+                                    company_address: $settings->company_address,
+                                    company_phone: $settings->company_phone,
+                                    company_email: $settings->company_email,
+                                    default_currency: $settings->default_currency,
+                                    default_tax_percent: $settings->default_tax_percent,
+                                    quote_validity_days: $settings->quote_validity_days,
+                                    default_payment_terms_days: $settings->default_payment_terms_days,
+                                    prices_include_tax: $settings->prices_include_tax,
+                                    default_margin_percent: $settings->default_margin_percent,
+                                    request_number_prefix: $settings->request_number_prefix,
+                                    project_number_prefix: $settings->project_number_prefix,
+                                    buyer_quote_number_prefix: $settings->buyer_quote_number_prefix,
+                                    buyer_order_number_prefix: $settings->buyer_order_number_prefix,
+                                    supplier_order_number_prefix: $settings->supplier_order_number_prefix,
+                                    shipment_number_prefix: $settings->shipment_number_prefix,
+                                    buyer_invoice_number_prefix: $settings->buyer_invoice_number_prefix,
+                                    supplier_invoice_number_prefix: $settings->supplier_invoice_number_prefix,
+                                    buyer_payment_number_prefix: $settings->buyer_payment_number_prefix,
+                                    supplier_payment_number_prefix: $settings->supplier_payment_number_prefix,
+                                    email_from_address: $settings->email_from_address,
+                                    email_from_name: $settings->email_from_name,
+                                    email_logo_media_id: $settings->email_logo_media_id,
+                                    email_signature: $settings->email_signature,
+                                    test_email_address: $settings->test_email_address,
+                                    smtp_host: $settings->smtp_host,
+                                    smtp_port: $settings->smtp_port,
+                                    smtp_username: $settings->smtp_username,
+                                    smtp_password: $settings->smtp_password,
+                                    smtp_encryption: $settings->smtp_encryption,
+                                    email_template_buyer_quote_id: $templateType === EmailTemplate::TYPE_BUYER_QUOTE ? null : $settings->email_template_buyer_quote_id,
+                                    email_template_buyer_order_id: $templateType === EmailTemplate::TYPE_BUYER_ORDER ? null : $settings->email_template_buyer_order_id,
+                                    email_template_supplier_order_id: $templateType === EmailTemplate::TYPE_SUPPLIER_ORDER ? null : $settings->email_template_supplier_order_id,
+                                    email_template_delivery_order_id: $templateType === EmailTemplate::TYPE_DELIVERY_ORDER ? null : $settings->email_template_delivery_order_id,
+                                );
+                                $team->setErpSettings($updatedSettings);
+                            }
 
-                        \Filament\Notifications\Notification::make()
-                            ->title('Template Deleted')
-                            ->body($isSelected 
-                                ? "Template '{$record->name}' has been deleted. The default template is now selected for this type."
-                                : "Template '{$record->name}' has been deleted successfully.")
-                            ->success()
-                            ->send();
+                            \Filament\Notifications\Notification::make()
+                                ->title('Template Deleted')
+                                ->body($isSelected
+                                    ? "Template '{$record->name}' has been deleted. The default template is now selected for this type."
+                                    : "Template '{$record->name}' has been deleted successfully.")
+                                ->success()
+                                ->send();
                         }),
                 ]),
             ])
@@ -406,9 +402,8 @@ final class EmailTemplateResource extends Resource
                         ->deselectRecordsAfterCompletion(),
                 ]),
             ])
-            ->recordUrl(fn (EmailTemplate $record): string => 
-                $record->is_default 
-                    ? null 
+            ->recordUrl(fn (EmailTemplate $record): string => $record->is_default
+                    ? null
                     : EmailTemplateResource::getUrl('edit', ['record' => $record])
             )
             ->recordAction('edit');

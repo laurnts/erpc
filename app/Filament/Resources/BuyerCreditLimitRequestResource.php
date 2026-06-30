@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
-use App\Enums\CentralPurchasingRole;
 use App\Enums\CreditLimitRequestStatus;
 use App\Filament\Resources\BuyerCreditLimitRequestResource\Pages\ListCreditLimitRequests;
 use App\Models\BuyerCreditLimitRequest;
-use App\Services\TeamMemberService;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Textarea;
@@ -41,12 +39,12 @@ final class BuyerCreditLimitRequestResource extends Resource
             ->columns([
                 TextColumn::make('buyer.name')
                     ->label('Buyer')
-                    
+                    ->searchable()
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('buyer.code')
                     ->label('Code')
-                    
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('current_limit')
                     ->label('Max Credit Limit')
@@ -68,7 +66,7 @@ final class BuyerCreditLimitRequestResource extends Resource
                     ->sortable(),
                 TextColumn::make('approval_count')
                     ->label('Approvals')
-                    ->getStateUsing(fn (BuyerCreditLimitRequest $record): string => $record->approvalCount() . '/2')
+                    ->getStateUsing(fn (BuyerCreditLimitRequest $record): string => $record->approvalCount().'/2')
                     ->badge()
                     ->color(fn (BuyerCreditLimitRequest $record): string => $record->approvalCount() >= 2 ? 'success' : 'warning'),
                 TextColumn::make('approvers.name')
@@ -91,12 +89,12 @@ final class BuyerCreditLimitRequestResource extends Resource
                 SelectFilter::make('buyer_id')
                     ->label('Buyer')
                     ->relationship('buyer', 'name')
-                    
+
                     ->preload(),
                 SelectFilter::make('requested_by_id')
                     ->label('Requested By')
                     ->relationship('requestedBy', 'name')
-                    
+
                     ->preload(),
             ])
             ->actions([
@@ -175,7 +173,7 @@ final class BuyerCreditLimitRequestResource extends Resource
                     ->modalCancelActionLabel('Close')
                     ->modalContent(function (BuyerCreditLimitRequest $record): \Illuminate\Contracts\View\View {
                         $approvals = $record->approvals()->with('user')->orderBy('approved_at', 'desc')->get();
-                        
+
                         return view('filament.resources.buyer-credit-limit-request-resource.approval-notes-modal', [
                             'approvals' => $approvals,
                         ]);
