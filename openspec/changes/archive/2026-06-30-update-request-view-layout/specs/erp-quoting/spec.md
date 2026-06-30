@@ -1,4 +1,4 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Request View Page Summary
 The Request view page SHALL display a summary section with three columns: Financial Summary, Payment Terms, and Shipment information.
@@ -39,10 +39,3 @@ The Request view page SHALL display a summary section with three columns: Financ
 - **THEN** Payment Terms section shows empty state or placeholder
 - **WHEN** a Request has no Shipments
 - **THEN** Shipment section shows empty state or placeholder
-
-## REMOVED Requirements
-
-### Requirement: Requested Items Summary Section
-**Reason**: Requested Items information is redundant as it's already available in the Items relation manager tab. Removing it improves information density and focuses the summary on financial and operational status.
-
-**Migration**: Users can still access requested items information via the "Items" relation manager tab on the same page.

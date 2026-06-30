@@ -9,4 +9,4 @@
 - [x] 1.6 Create Shipment section with:
   - [x] Shipment list displaying shipment_number, status, carrier_name, tracking_number
 - [x] 1.7 Handle empty states (no payment terms, no shipments)
-- [ ] 1.8 Test the layout with various data scenarios
+- [x] 1.8 Test the layout with various data scenarios
