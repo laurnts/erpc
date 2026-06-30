@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\CentralPurchasingRole;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Laravel\Jetstream\Jetstream;
@@ -12,6 +13,9 @@ use Laravel\Jetstream\Membership as JetstreamMembership;
 
 final class Membership extends JetstreamMembership
 {
+    /** @use HasFactory<\Database\Factories\MembershipFactory> */
+    use HasFactory;
+
     /**
      * Indicates if the IDs are auto-incrementing.
      *
@@ -73,12 +77,12 @@ final class Membership extends JetstreamMembership
     {
         // @phpstan-ignore-next-line nullCoalesce.expr
         $roleName = Jetstream::findRole($this->role)?->name ?? 'Unknown';
-        
+
         // Append sub-role for Central Purchasing role
         if ($this->role === 'central_purchasing' && $this->central_purchasing_role) {
-            $roleName .= ' - ' . $this->central_purchasing_role->getLabel();
+            $roleName .= ' - '.$this->central_purchasing_role->getLabel();
         }
-        
+
         return $roleName;
     }
 }
