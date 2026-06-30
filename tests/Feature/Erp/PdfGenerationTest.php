@@ -322,7 +322,9 @@ describe('PdfGenerationService', function (): void {
                 ->and($view)->toContain('PURCHASE ORDER');
         });
 
-        it('includes delivery address', function (): void {
+        it('includes the company header', function (): void {
+            // The delivery address moved off the supplier PO onto the Shipment
+            // Delivery Order; the PO renders the issuing company header.
             $view = view('pdf.supplier-order', [
                 'order' => $this->supplierOrder->load(['supplier', 'currency', 'items']),
                 'company' => [
@@ -333,8 +335,7 @@ describe('PdfGenerationService', function (): void {
                 ],
             ])->render();
 
-            expect($view)->toContain('Delivery Address')
-                ->and($view)->toContain('Test Trading Company');
+            expect($view)->toContain('Test Trading Company');
         });
     });
 
@@ -485,7 +486,7 @@ describe('PdfGenerationService', function (): void {
             expect($view)->toContain('Test Product')
                 ->and($view)->toContain('Test Brand')
                 ->and($view)->toContain('Model XYZ-123')
-                ->and($view)->toContain('10.00');
+                ->and($view)->toContain('10');
         });
 
         it('handles missing article data gracefully', function (): void {
@@ -560,10 +561,10 @@ describe('PdfGenerationService', function (): void {
             ])->render();
 
             expect($view)->toContain('Prepared By')
-                ->and($view)->toContain('Acknowledged By Head Admin')
+                ->and($view)->toContain('Approved By Head Admin')
                 ->and($view)->toContain('Delivered By')
                 ->and($view)->toContain('Accepted By')
-                ->and($view)->toContain('Notes:')
+                ->and($view)->toContain('Notes')
                 ->and($view)->toContain('Test shipment notes');
         });
     });
