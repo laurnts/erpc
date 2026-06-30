@@ -23,6 +23,9 @@ final class BuyerCreditLimitRequestApprovalFactory extends Factory
     {
         return [
             'buyer_credit_limit_request_id' => BuyerCreditLimitRequest::factory(),
+            'team_id' => fn (array $attributes): int => BuyerCreditLimitRequest::query()
+                ->whereKey($attributes['buyer_credit_limit_request_id'])
+                ->value('team_id'),
             'user_id' => User::factory(),
             'approved_at' => now(),
             'notes' => $this->faker->optional()->sentence(),

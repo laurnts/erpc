@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\HasTeam;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -23,6 +24,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 final class BuyerCreditLimitRequestApproval extends Model
 {
+    /** @use HasFactory<\Database\Factories\BuyerCreditLimitRequestApprovalFactory> */
+    use HasFactory;
+
     use HasTeam;
 
     /**
