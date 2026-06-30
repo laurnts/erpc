@@ -459,8 +459,8 @@ describe('BuyerQuoteItem Margin Calculation', function (): void {
             ->withPricing(costPrice: 100, unitPrice: 125, quantity: 1)
             ->create();
 
-        // 25% margin on cost price
-        expect((float) $item->margin_percent)->toBe(25.0);
+        // margin_percent is stored on-selling (canonical): (125 - 100) / 125 * 100
+        expect((float) $item->margin_percent)->toBe(20.0);
     });
 
     it('handles zero cost price for margin calculation', function (): void {
@@ -476,12 +476,15 @@ describe('BuyerQuoteItem Margin Calculation', function (): void {
             ->withPricing(costPrice: 0, unitPrice: 100, quantity: 1)
             ->create();
 
-        expect((float) $item->calculated_margin_percent)->toBe(0.0);
+        // Zero cost on a 100 sell is a 100% on-selling margin (all revenue is margin).
+        expect((float) $item->calculated_margin_percent)->toBe(100.0);
     });
 });
 
 describe('BuyerQuoteItem Tax Calculation', function (): void {
-    it('calculates line totals with tax exclusive pricing', function (): void {
+    // On buyer items, unit_price is always the net price and is_tax_inclusive is the
+    // "+ Tax" toggle: when off, no tax is added; when on, tax is added on top.
+    it('adds no tax when the + Tax toggle is off', function (): void {
         $quote = BuyerQuote::factory()
             ->recycle($this->team)
             ->recycle($this->buyer)
@@ -504,11 +507,11 @@ describe('BuyerQuoteItem Tax Calculation', function (): void {
         $item->save();
 
         expect((float) $item->line_subtotal)->toBe(1000.0)
-            ->and((float) $item->line_tax)->toBe(100.0)
-            ->and((float) $item->line_total)->toBe(1100.0);
+            ->and((float) $item->line_tax)->toBe(0.0)
+            ->and((float) $item->line_total)->toBe(1000.0);
     });
 
-    it('calculates line totals with tax inclusive pricing', function (): void {
+    it('adds tax on top of the net price when the + Tax toggle is on', function (): void {
         $quote = BuyerQuote::factory()
             ->recycle($this->team)
             ->recycle($this->buyer)
@@ -521,7 +524,7 @@ describe('BuyerQuoteItem Tax Calculation', function (): void {
             ->taxInclusive()
             ->create([
                 'quantity' => '10.0000',
-                'unit_price' => '110.0000',
+                'unit_price' => '100.0000',
                 'cost_price' => '80.0000',
                 'tax_rate' => '10.0000',
             ]);
@@ -530,9 +533,9 @@ describe('BuyerQuoteItem Tax Calculation', function (): void {
         $item->recalculatePrices();
         $item->save();
 
-        expect((float) $item->line_total)->toBe(1100.0)
-            ->and((float) $item->line_subtotal)->toBe(1000.0)
-            ->and((float) $item->line_tax)->toBe(100.0);
+        expect((float) $item->line_subtotal)->toBe(1000.0)
+            ->and((float) $item->line_tax)->toBe(100.0)
+            ->and((float) $item->line_total)->toBe(1100.0);
     });
 });
 
@@ -545,8 +548,7 @@ describe('BuyerQuote Totals Recalculation', function (): void {
             ->withCurrency($this->currency)
             ->create();
 
-        // Create item with input values that produce expected totals
-        // qty=10, price=100, tax=10% → subtotal=1000, tax=100, total=1100
+        // qty=10, price=100, + Tax on at 10% → subtotal=1000, tax=100, total=1100
         BuyerQuoteItem::factory()
             ->forBuyerQuote($quote)
             ->create([
@@ -554,7 +556,7 @@ describe('BuyerQuote Totals Recalculation', function (): void {
                 'unit_price' => '100.0000',
                 'cost_price' => '80.0000',
                 'tax_rate' => '10.0000',
-                'is_tax_inclusive' => false,
+                'is_tax_inclusive' => true,
             ]);
 
         // Manually recalculate totals
@@ -574,7 +576,7 @@ describe('BuyerQuote Totals Recalculation', function (): void {
             ->withCurrency($this->currency)
             ->create();
 
-        // Item 1: qty=5, price=100, tax=10% → subtotal=500, tax=50, total=550
+        // Item 1: qty=5, price=100, + Tax on at 10% → subtotal=500, tax=50, total=550
         BuyerQuoteItem::factory()
             ->forBuyerQuote($quote)
             ->create([
@@ -582,10 +584,10 @@ describe('BuyerQuote Totals Recalculation', function (): void {
                 'unit_price' => '100.0000',
                 'cost_price' => '80.0000',
                 'tax_rate' => '10.0000',
-                'is_tax_inclusive' => false,
+                'is_tax_inclusive' => true,
             ]);
 
-        // Item 2: qty=3, price=100, tax=10% → subtotal=300, tax=30, total=330
+        // Item 2: qty=3, price=100, + Tax on at 10% → subtotal=300, tax=30, total=330
         BuyerQuoteItem::factory()
             ->forBuyerQuote($quote)
             ->create([
@@ -593,7 +595,7 @@ describe('BuyerQuote Totals Recalculation', function (): void {
                 'unit_price' => '100.0000',
                 'cost_price' => '80.0000',
                 'tax_rate' => '10.0000',
-                'is_tax_inclusive' => false,
+                'is_tax_inclusive' => true,
             ]);
 
         // Manually recalculate totals
