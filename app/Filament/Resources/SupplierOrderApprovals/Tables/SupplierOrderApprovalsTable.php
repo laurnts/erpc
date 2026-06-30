@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Filament\Resources\SupplierOrderApprovals\Tables;
 
 use Filament\Actions\BulkActionGroup;
@@ -8,7 +10,7 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Table;
 
-class SupplierOrderApprovalsTable
+final class SupplierOrderApprovalsTable
 {
     public static function configure(Table $table): Table
     {

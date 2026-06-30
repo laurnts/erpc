@@ -11,7 +11,7 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Mail;
 
-final class EmailTemplateService
+final readonly class EmailTemplateService
 {
     /**
      * Get team email settings with fallbacks to global config.
@@ -30,7 +30,7 @@ final class EmailTemplateService
             $template = EmailTemplate::find($templateId);
             if ($template && $template->type === $type) {
                 // Check if template is accessible to team (belongs to team or is default)
-                if ($team && !$template->is_default) {
+                if ($team && ! $template->is_default) {
                     // For non-default templates, must belong to the team
                     if ($template->team_id !== $team->id) {
                         \Log::warning('Template does not belong to team, falling back to default', [
@@ -39,9 +39,11 @@ final class EmailTemplateService
                             'requested_team_id' => $team->id,
                             'type' => $type,
                         ]);
+
                         return $this->getDefaultTemplate($type);
                     }
                 }
+
                 return $template;
             }
         }
@@ -65,13 +67,14 @@ final class EmailTemplateService
     public function getTemplateForSending(?int $templateId, string $type, ?Team $team = null): ?EmailTemplate
     {
         $template = $this->getTemplate($templateId, $type, $team);
-        
+
         // If template was deleted but ID still exists, fallback to default
-        if ($templateId && !$template) {
+        if ($templateId && ! $template) {
             \Log::warning('Selected template not found, falling back to default', [
                 'template_id' => $templateId,
                 'type' => $type,
             ]);
+
             return $this->getDefaultTemplate($type);
         }
 
@@ -86,7 +89,7 @@ final class EmailTemplateService
      */
     public function renderTemplateContent(?EmailTemplate $template, array $variables): array
     {
-        if (!$template || empty($template->content) || trim($template->content) === '') {
+        if (! $template || empty($template->content) || trim($template->content) === '') {
             return ['content' => '', 'is_full_html' => false];
         }
 
@@ -110,11 +113,11 @@ final class EmailTemplateService
      */
     public function getSenderEmailFromTemplate(?EmailTemplate $template, TeamErpSettings $settings): ?string
     {
-        if ($template && !empty($template->sender_email)) {
+        if ($template && ! empty($template->sender_email)) {
             return $template->sender_email;
         }
 
-        return !empty($settings->email_from_address) ? $settings->email_from_address : config('mail.from.address');
+        return ! empty($settings->email_from_address) ? $settings->email_from_address : config('mail.from.address');
     }
 
     /**
@@ -124,7 +127,7 @@ final class EmailTemplateService
      */
     public function getCcEmailsFromTemplate(?EmailTemplate $template): array
     {
-        if (!$template || empty($template->cc_emails)) {
+        if (! $template || empty($template->cc_emails)) {
             return [];
         }
 
@@ -138,7 +141,7 @@ final class EmailTemplateService
      */
     public function getBccEmailsFromTemplate(?EmailTemplate $template): array
     {
-        if (!$template || empty($template->bcc_emails)) {
+        if (! $template || empty($template->bcc_emails)) {
             return [];
         }
 
@@ -178,6 +181,7 @@ final class EmailTemplateService
                 'content_length' => strlen($content),
                 'content_preview' => substr($content, 0, 100),
             ]);
+
             return '';
         }
 
@@ -245,7 +249,7 @@ final class EmailTemplateService
             return null; // Use default mailer
         }
 
-        $mailerName = 'team_smtp_'.md5($settings->smtp_host.$settings->smtp_port);
+        $mailerName = 'team_smtp_'.hash('xxh128', $settings->smtp_host.$settings->smtp_port);
 
         // Decrypt password and trim whitespace (Gmail App Passwords should have no spaces)
         $password = null;
@@ -276,9 +280,9 @@ final class EmailTemplateService
         config(["mail.mailers.{$mailerName}" => $mailerConfig]);
 
         // Warn if using Gmail SMTP with different sender email
-        if (str_contains(strtolower($settings->smtp_host ?? ''), 'gmail') 
-            && !empty($settings->email_from_address)
-            && !str_contains(strtolower($settings->email_from_address), 'gmail.com')) {
+        if (str_contains(strtolower($settings->smtp_host ?? ''), 'gmail')
+            && ! empty($settings->email_from_address)
+            && ! str_contains(strtolower($settings->email_from_address), 'gmail.com')) {
             \Log::warning('Gmail SMTP with non-Gmail sender address - emails may be rejected or marked as spam', [
                 'smtp_host' => $settings->smtp_host,
                 'smtp_username' => $settings->smtp_username,
@@ -333,7 +337,7 @@ final class EmailTemplateService
         // Get CC/BCC from new template system if available, otherwise use old system
         $ccEmails = [];
         $bccEmails = [];
-        
+
         if ($templateId && $templateType) {
             $template = $this->getTemplateForSending($templateId, $templateType, $team);
             if ($template) {
@@ -378,7 +382,7 @@ final class EmailTemplateService
 
         // Send the email
         $pendingMail->send($mailable);
-        
+
         \Log::info('Email sent successfully', [
             'to' => is_array($to) ? $to : [$to],
             'mailable' => get_class($mailable),

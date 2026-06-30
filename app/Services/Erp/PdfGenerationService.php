@@ -68,7 +68,7 @@ final readonly class PdfGenerationService
             $lineSubtotal = (float) $item->line_subtotal;
             $taxRate = (float) $item->tax_rate;
             $isTaxInclusive = (bool) $item->is_tax_inclusive;
-            
+
             if ($isTaxInclusive && $taxRate > 0) {
                 // Tax is added on top of the net price
                 $lineTax = $lineSubtotal * $taxRate / 100;
@@ -78,14 +78,14 @@ final readonly class PdfGenerationService
                 $lineTax = 0;
                 $lineTotal = $lineSubtotal;
             }
-            
+
             $item->line_tax = (string) round($lineTax, 0);
             $item->line_total = (string) round($lineTotal, 0);
             $item->tax_amount = (string) round($lineTax / max((float) $item->quantity, 0.0001), 0);
-            
+
             return $item;
         });
-        
+
         // Calculate totals from processed items (matching form calculation)
         // Use actual line_subtotal, line_tax, and line_total from items to match form summary
         $processedSubtotal = $processedItems->sum(fn ($item): float => (float) $item->line_subtotal);
@@ -120,6 +120,7 @@ final readonly class PdfGenerationService
             if ($item->buyerQuoteItem !== null) {
                 return ! $item->buyerQuoteItem->hide_from_pdf;
             }
+
             // If no quote item, show it (backward compatibility)
             return true;
         });
@@ -129,6 +130,7 @@ final readonly class PdfGenerationService
             if ($item->buyerQuoteItem !== null) {
                 return $item->buyerQuoteItem->hide_from_pdf;
             }
+
             // If no quote item, don't hide it (backward compatibility)
             return false;
         });

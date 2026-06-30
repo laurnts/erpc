@@ -17,6 +17,7 @@ arch()->preset()
     ->ignoring([
         'App\Providers\AppServiceProvider',
         'App\Providers\Filament\AppPanelProvider',
+        'App\Providers\Filament\CustomerPanelProvider',
         'Relaticle\Admin\AdminPanelProvider',
         'App\Enums\EnumValues',
         'App\Enums\CustomFields\CustomFieldTrait',
@@ -68,6 +69,7 @@ arch('avoid mutation')
         'App\View',
         'App\Services\Favicon\Drivers',
         'App\Providers\Filament',
+        'App\Http\Middleware', // middleware extend framework base classes
     ]);
 
 arch('avoid inheritance')
@@ -88,6 +90,7 @@ arch('avoid inheritance')
         'App\Providers',
         'App\Settings', // Spatie Settings requires extending Settings base class
         'App\View',
+        'App\Http\Middleware', // middleware extend framework base classes (e.g. Filament Authenticate)
     ]);
 
 // arch('annotations')

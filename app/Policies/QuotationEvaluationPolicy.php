@@ -9,7 +9,7 @@ use App\Models\User;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
-final class QuotationEvaluationPolicy
+final readonly class QuotationEvaluationPolicy
 {
     use HandlesAuthorization;
 

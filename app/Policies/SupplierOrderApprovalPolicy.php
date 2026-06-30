@@ -10,7 +10,7 @@ use App\Models\User;
 use App\Services\TeamMemberService;
 use Filament\Facades\Filament;
 
-class SupplierOrderApprovalPolicy
+final readonly class SupplierOrderApprovalPolicy
 {
     /**
      * Determine whether the user can view any models.

@@ -5,11 +5,9 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\CentralPurchasingRole;
-use App\Models\Membership;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\DB;
 
 final readonly class TeamMemberService
 {
@@ -80,7 +78,7 @@ final readonly class TeamMemberService
      *
      * @param  Team  $team  The team to query
      * @param  CentralPurchasingRole  $role  The Central Purchasing sub-role
-     * @return array<int, string>  Array of [user_id => user_name]
+     * @return array<int, string> Array of [user_id => user_name]
      */
     public static function getTeamMemberOptionsByRole(Team $team, CentralPurchasingRole $role): array
     {
@@ -94,19 +92,19 @@ final readonly class TeamMemberService
      * Attempts to match by email (from custom fields) or name.
      *
      * @param  int  $peopleId  The People record ID
-     * @return int|null  The User ID if found, null otherwise
+     * @return int|null The User ID if found, null otherwise
      */
     public static function getUserIdFromPeopleId(int $peopleId): ?int
     {
         $people = \App\Models\People::find($peopleId);
-        
+
         if (! $people) {
             return null;
         }
 
         // Try to get email from custom fields
         $email = $people->getCustomFieldValue('email');
-        
+
         if ($email) {
             $user = User::where('email', $email)->first();
             if ($user) {
@@ -116,7 +114,7 @@ final readonly class TeamMemberService
 
         // Fallback: try to match by name (less reliable)
         $user = User::where('name', $people->name)->first();
-        
+
         return $user?->id;
     }
 }

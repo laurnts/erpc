@@ -18,7 +18,7 @@ use Spatie\MediaLibrary\Support\PathGenerator\PathGenerator;
  * Path generator for document uploads: stores files under dedicated folders per feature
  * e.g. storage/app/supplierquote/{id}/uploaded_document_files/
  */
-final class DocumentPathGenerator implements PathGenerator
+final readonly class DocumentPathGenerator implements PathGenerator
 {
     private const SUBFOLDER = 'uploaded_document_files';
 
@@ -105,6 +105,7 @@ final class DocumentPathGenerator implements PathGenerator
             return false;
         }
         $modelClass = self::resolveModelClass($media);
+
         return $modelClass === SupplierOrder::class
             || $modelClass === Request::class
             || $modelClass === QuotationEvaluation::class

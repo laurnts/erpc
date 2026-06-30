@@ -19,6 +19,7 @@ final readonly class ArticlePolicy
     private function isAdmin(User $user): bool
     {
         $team = Filament::getTenant();
+
         return $team !== null && $user->hasTeamRole($team, 'admin');
     }
 

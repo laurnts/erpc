@@ -11,7 +11,7 @@ use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Facades\Mail;
 
-final class InvitePortalUser
+final readonly class InvitePortalUser
 {
     public function execute(
         Team $team,

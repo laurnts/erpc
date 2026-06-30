@@ -10,7 +10,7 @@ use Illuminate\Notifications\Notification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
 
-final class NotifyPortalUsers
+final readonly class NotifyPortalUsers
 {
     public function forRequest(Request $request, Notification $notification): void
     {

@@ -11,7 +11,7 @@ use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Session;
 
-final class PortalContext
+final readonly class PortalContext
 {
     private const SESSION_TEAM_KEY = 'customer_portal.team_id';
 

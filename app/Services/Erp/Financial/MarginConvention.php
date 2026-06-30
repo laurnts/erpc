@@ -8,7 +8,7 @@ namespace App\Services\Erp\Financial;
  * The single canonical margin convention for the whole system: on-selling
  * (gross margin). No other margin formula may exist anywhere in the codebase.
  */
-final class MarginConvention
+final readonly class MarginConvention
 {
     /**
      * Gross margin percentage on the net selling price.
