@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Customer\Resources;
 
+use App\Enums\RequestStage;
 use App\Filament\Customer\Resources\CustomerRequestResource\Pages\CreateCustomerRequest;
 use App\Filament\Customer\Resources\CustomerRequestResource\Pages\EditCustomerRequest;
 use App\Filament\Customer\Resources\CustomerRequestResource\Pages\ListCustomerRequests;
 use App\Filament\Customer\Resources\CustomerRequestResource\Pages\ViewCustomerRequest;
 use App\Filament\Customer\Resources\CustomerRequestResource\RelationManagers\BuyerQuotesRelationManager;
+use App\Filament\Customer\Resources\CustomerRequestResource\RelationManagers\InvoicesRelationManager;
 use App\Filament\Customer\Resources\CustomerRequestResource\RelationManagers\ShipmentsRelationManager;
 use App\Filament\Customer\Resources\CustomerRequestResource\Schemas\CustomerRequestForm;
 use App\Models\Request;
@@ -17,6 +19,7 @@ use App\Services\Portal\CustomerPortalContext;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -79,6 +82,49 @@ final class CustomerRequestResource extends Resource
                     ->date()
                     ->sortable(),
             ])
+            ->filters([
+                SelectFilter::make('status_group')
+                    ->label('Status')
+                    ->options([
+                        'active' => 'Active',
+                        'awaiting_confirmation' => 'Awaiting Confirmation',
+                        'in_fulfillment' => 'In Fulfillment',
+                        'completed' => 'Completed',
+                        'cancelled' => 'Cancelled',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+
+                        if (blank($value)) {
+                            return $query;
+                        }
+
+                        return match ($value) {
+                            'active' => $query->whereNotIn('stage', [
+                                RequestStage::COMPLETED,
+                                RequestStage::CANCELLED,
+                            ]),
+                            'awaiting_confirmation' => $query->where(
+                                'stage',
+                                RequestStage::AWAITING_BUYER_CONFIRMATION,
+                            ),
+                            'in_fulfillment' => $query->whereIn('stage', [
+                                RequestStage::PREPARING_SUPPLIER_ORDER,
+                                RequestStage::GOODS_RECEIVE,
+                                RequestStage::AWAITING_SHIPMENT,
+                                RequestStage::SHIPPED,
+                                RequestStage::DELIVERED,
+                            ]),
+                            'completed' => $query->whereIn('stage', [
+                                RequestStage::COMPLETED,
+                                RequestStage::PAID,
+                                RequestStage::INVOICED,
+                            ]),
+                            'cancelled' => $query->where('stage', RequestStage::CANCELLED),
+                            default => $query,
+                        };
+                    }),
+            ])
             ->defaultSort('submitted_at', 'desc')
             ->recordUrl(fn (Request $record): string => self::getUrl('view', ['record' => $record]));
     }
@@ -88,6 +134,7 @@ final class CustomerRequestResource extends Resource
         return [
             BuyerQuotesRelationManager::class,
             ShipmentsRelationManager::class,
+            InvoicesRelationManager::class,
         ];
     }
 

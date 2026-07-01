@@ -12,6 +12,7 @@ use App\Services\CustomerPortal\CustomerRequestStagePresenter;
 use Filament\Actions\EditAction;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\ViewEntry;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -86,28 +87,18 @@ final class ViewCustomerRequest extends ViewRecord
                 Section::make('Attached Documents')
                     ->visible(fn (Request $record): bool => $record->submission_method === RequestSubmissionMethod::DOCUMENT)
                     ->schema([
-                        TextEntry::make('attachments_list')
+                        ViewEntry::make('attachments_list')
                             ->label('')
-                            ->state(fn (Request $record): string => $record->getMedia('attachments')
-                                ->map(fn ($media): string => '- '.$media->file_name)
-                                ->implode("\n") ?: 'No documents yet')
-                            ->markdown(),
+                            ->view('filament.customer.components.request-attachments-list'),
                     ]),
                 Section::make('Request Progress')
                     ->schema([
-                        TextEntry::make('stage_timeline')
+                        ViewEntry::make('stage_timeline')
                             ->label('')
-                            ->state(function (Request $record) use ($presenter): string {
-                                return collect($presenter->timeline($record))
-                                    ->map(fn (array $step): string => sprintf(
-                                        '%s %s',
-                                        $step['current'] ? '▶' : ($step['completed'] ? '✓' : '○'),
-                                        $step['label'],
-                                    ))
-                                    ->implode("\n");
-                            })
-                            ->markdown(),
-                    ]),
+                            ->state(fn (Request $record): array => $presenter->timeline($record))
+                            ->view('filament.customer.components.request-progress-timeline'),
+                    ])
+                    ->columnSpanFull(),
             ]);
     }
 

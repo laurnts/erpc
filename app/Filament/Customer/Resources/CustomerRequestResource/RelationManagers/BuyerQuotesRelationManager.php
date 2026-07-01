@@ -6,6 +6,7 @@ namespace App\Filament\Customer\Resources\CustomerRequestResource\RelationManage
 
 use App\Actions\Media\AttachUploadedFiles;
 use App\Enums\BuyerQuoteStatus;
+use App\Filament\Actions\DownloadPdfAction;
 use App\Models\BuyerQuote;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
@@ -57,6 +58,9 @@ final class BuyerQuotesRelationManager extends RelationManager
                     ->badge(),
             ])
             ->recordActions([
+                DownloadPdfAction::make()
+                    ->label('PDF')
+                    ->authorize(fn (BuyerQuote $record): bool => auth()->user()?->can('view', $record) ?? false),
                 Action::make('accept')
                     ->label('Accept')
                     ->icon('heroicon-o-check-circle')

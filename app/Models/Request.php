@@ -333,6 +333,16 @@ final class Request extends Model implements HasCustomFields, HasMedia
     }
 
     /**
+     * The buyer invoices for this request.
+     *
+     * @return HasMany<BuyerInvoice, $this>
+     */
+    public function buyerInvoices(): HasMany
+    {
+        return $this->hasMany(BuyerInvoice::class);
+    }
+
+    /**
      * The quotation evaluations for this request.
      *
      * @return HasMany<QuotationEvaluation, $this>

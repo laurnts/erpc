@@ -15,7 +15,7 @@
         $maxContentWidth = Width::tryFrom($maxContentWidth) ?? $maxContentWidth;
     }
 
-    $isAppPanel = filament()->getId() === 'app';
+    $usesSplitSidebarLayout = in_array(filament()->getId(), ['app', 'customer'], true);
 @endphp
 
 <x-filament-panels::layout.base
@@ -28,8 +28,8 @@
         'fi-body-has-top-navigation' => $hasTopNavigation,
     ])
 >
-    @if ($isAppPanel)
-        {{-- Custom layout structure with full height sidebar and topbar for App panel --}}
+    @if ($usesSplitSidebarLayout)
+        {{-- Custom layout structure with full height sidebar and topbar --}}
         <div class="fi-app-layout">
             {{-- Sidebar overlay for mobile --}}
             @if ($hasNavigation)

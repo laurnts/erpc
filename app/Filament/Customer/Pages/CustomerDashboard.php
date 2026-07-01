@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Customer\Pages;
 
+use App\Filament\Customer\Widgets\PortalActionItemsWidget;
 use App\Filament\Customer\Widgets\PortalActiveShipmentsWidget;
 use App\Filament\Customer\Widgets\PortalRecentRequestsWidget;
 use App\Filament\Customer\Widgets\PortalRequestsOverviewWidget;
@@ -23,6 +24,7 @@ final class CustomerDashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
+            PortalActionItemsWidget::class,
             PortalRequestsOverviewWidget::class,
             PortalActiveShipmentsWidget::class,
             PortalRecentRequestsWidget::class,

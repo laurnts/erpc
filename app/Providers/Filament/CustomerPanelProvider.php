@@ -53,7 +53,9 @@ final class CustomerPanelProvider extends PanelProvider
             ->authMiddleware([
                 AuthenticatePanelUser::class,
                 InitializeCustomerPortalContext::class,
-            ]);
+            ])
+            ->sidebarCollapsibleOnDesktop()
+            ->font('Inter');
 
         return PortalPanelConfigurator::apply(
             $panel,

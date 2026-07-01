@@ -885,3 +885,114 @@ it('rejects path traversal in uploaded file attachment and accepts files inside 
 
     @unlink($legit);
 });
+
+describe('Customer Portal Phase 4', function (): void {
+    it('shows action items widget for quotes awaiting confirmation', function (): void {
+        $request = Request::factory()->for($this->team)->for($this->buyer, 'buyer')->create([
+            'submission_method' => RequestSubmissionMethod::MANUAL,
+            'submitted_at' => now(),
+            'stage' => RequestStage::AWAITING_BUYER_CONFIRMATION,
+        ]);
+
+        \App\Models\BuyerQuote::factory()
+            ->for($this->team)
+            ->for($request)
+            ->for($this->buyer, 'buyer')
+            ->sent()
+            ->withTotals(1000, 100, 1100)
+            ->create();
+
+        $this->actingAs($this->portalUser, 'customer');
+        Filament::setCurrentPanel('customer');
+        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
+
+        livewire(\App\Filament\Customer\Widgets\PortalActionItemsWidget::class)
+            ->assertSee('Needs Your Attention')
+            ->assertSee('Quote awaiting confirmation');
+    });
+
+    it('renders request progress timeline on request detail', function (): void {
+        $request = Request::factory()->for($this->team)->for($this->buyer, 'buyer')->create([
+            'submission_method' => RequestSubmissionMethod::MANUAL,
+            'submitted_at' => now(),
+            'stage' => RequestStage::SHIPPED,
+        ]);
+
+        $this->actingAs($this->portalUser, 'customer');
+        Filament::setCurrentPanel('customer');
+        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
+
+        livewire(
+            \App\Filament\Customer\Resources\CustomerRequestResource\Pages\ViewCustomerRequest::class,
+            ['record' => $request->getRouteKey()],
+        )
+            ->assertOk()
+            ->assertSee('Request Progress')
+            ->assertSee('In Transit')
+            ->assertSee('Current stage');
+    });
+
+    it('filters customer requests by status group', function (): void {
+        $active = Request::factory()->for($this->team)->for($this->buyer, 'buyer')->create([
+            'submission_method' => RequestSubmissionMethod::MANUAL,
+            'submitted_at' => now(),
+            'stage' => RequestStage::AWAITING_SUPPLIER_RESPONSE,
+            'title' => 'Active Request Alpha',
+        ]);
+
+        $completed = Request::factory()->for($this->team)->for($this->buyer, 'buyer')->create([
+            'submission_method' => RequestSubmissionMethod::MANUAL,
+            'submitted_at' => now(),
+            'stage' => RequestStage::COMPLETED,
+            'title' => 'Completed Request Beta',
+        ]);
+
+        $this->actingAs($this->portalUser, 'customer');
+        Filament::setCurrentPanel('customer');
+        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
+
+        livewire(\App\Filament\Customer\Resources\CustomerRequestResource\Pages\ListCustomerRequests::class)
+            ->filterTable('status_group', 'completed')
+            ->assertCanSeeTableRecords([$completed])
+            ->assertCanNotSeeTableRecords([$active]);
+    });
+
+    it('allows customer to view sent invoices but not drafts', function (): void {
+        $request = Request::factory()->for($this->team)->for($this->buyer, 'buyer')->create([
+            'submission_method' => RequestSubmissionMethod::MANUAL,
+            'submitted_at' => now(),
+        ]);
+
+        $sentInvoice = \App\Models\BuyerInvoice::factory()
+            ->for($this->team)
+            ->for($request)
+            ->sent()
+            ->create([
+                'total' => '1100.0000',
+            ]);
+
+        $draftInvoice = \App\Models\BuyerInvoice::factory()
+            ->for($this->team)
+            ->for($request)
+            ->draft()
+            ->create();
+
+        $this->actingAs($this->portalUser, 'customer');
+        Filament::setCurrentPanel('customer');
+        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
+
+        expect($this->portalUser->can('view', $sentInvoice))->toBeTrue()
+            ->and($this->portalUser->can('view', $draftInvoice))->toBeFalse();
+
+        livewire(
+            \App\Filament\Customer\Resources\CustomerRequestResource\RelationManagers\InvoicesRelationManager::class,
+            [
+                'ownerRecord' => $request,
+                'pageClass' => \App\Filament\Customer\Resources\CustomerRequestResource\Pages\ViewCustomerRequest::class,
+            ],
+        )
+            ->assertOk()
+            ->assertCanSeeTableRecords([$sentInvoice])
+            ->assertCanNotSeeTableRecords([$draftInvoice]);
+    });
+});

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Customer\Resources\CustomerRequestResource\RelationManagers;
 
 use App\Enums\ShipmentType;
+use App\Filament\Actions\DownloadPdfAction;
 use App\Models\Request;
 use App\Models\Shipment;
 use Filament\Actions\ViewAction;
@@ -74,6 +75,9 @@ final class ShipmentsRelationManager extends RelationManager
                     ->placeholder('-'),
             ])
             ->recordActions([
+                DownloadPdfAction::make()
+                    ->label('DO PDF')
+                    ->authorize(fn (Shipment $record): bool => auth()->user()?->can('view', $record) ?? false),
                 ViewAction::make()
                     ->modalHeading('Shipment Details')
                     ->schema(fn (Shipment $record): array => $this->getShipmentDetailSchema($record)),
