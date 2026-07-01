@@ -27,11 +27,13 @@ final class SupplierOrderApprovalInfolist
                                     ->label('Status')
                                     ->getStateUsing(function ($record): string {
                                         $bothApproved = $record->approver_1_id !== null && $record->approver_2_id !== null;
+
                                         return $bothApproved ? 'Approved' : 'Pending';
                                     })
                                     ->badge()
                                     ->color(function ($record): string {
                                         $bothApproved = $record->approver_1_id !== null && $record->approver_2_id !== null;
+
                                         return $bothApproved ? 'success' : 'warning';
                                     }),
                                 TextEntry::make('request.request_number')
@@ -72,6 +74,7 @@ final class SupplierOrderApprovalInfolist
                                             return 'Pending';
                                         }
                                         $record->loadMissing('approver1');
+
                                         return $record->approver1->name ?? 'Unknown';
                                     })
                                     ->badge()
@@ -83,6 +86,7 @@ final class SupplierOrderApprovalInfolist
                                             return 'Pending';
                                         }
                                         $record->loadMissing('approver2');
+
                                         return $record->approver2->name ?? 'Unknown';
                                     })
                                     ->badge()

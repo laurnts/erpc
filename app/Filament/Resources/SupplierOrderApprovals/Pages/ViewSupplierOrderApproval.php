@@ -172,7 +172,7 @@ final class ViewSupplierOrderApproval extends ViewRecord
                 ->modalDescription(function (): string {
                     /** @var SupplierOrder $record */
                     $record = $this->getRecord();
-                    
+
                     $approverCount = 0;
                     if ($record->approver_1_id !== null) {
                         $approverCount++;
@@ -182,7 +182,7 @@ final class ViewSupplierOrderApproval extends ViewRecord
                     }
 
                     $description = 'This order requires approval from at least 2 approvers. ';
-                    
+
                     if ($approverCount === 0) {
                         $description .= 'You will be the first approver. One more approval is needed.';
                     } elseif ($approverCount === 1) {
@@ -196,13 +196,13 @@ final class ViewSupplierOrderApproval extends ViewRecord
                     $record = $this->getRecord();
                     /** @var User $user */
                     $user = auth()->user();
-                    
+
                     try {
                         $record->approve($user);
-                        
+
                         // Refresh the record to get updated data
                         $record->refresh();
-                        
+
                         $approverCount = 0;
                         if ($record->approver_1_id !== null) {
                             $approverCount++;
@@ -217,7 +217,7 @@ final class ViewSupplierOrderApproval extends ViewRecord
                                 ->body('Order has been fully approved and is now ready to send to supplier.')
                                 ->success()
                                 ->send();
-                            
+
                             // Redirect back to list if fully approved (order is now APPROVED, won't show in approval list)
                             $this->redirect(SupplierOrderApprovalResource::getUrl('index'));
                         } else {
@@ -226,7 +226,7 @@ final class ViewSupplierOrderApproval extends ViewRecord
                                 ->body('Your approval has been recorded. One more approval is needed.')
                                 ->success()
                                 ->send();
-                            
+
                             // Refresh the current page to show updated approval status
                             $this->refresh();
                         }
