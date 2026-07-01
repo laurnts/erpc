@@ -62,6 +62,13 @@ final class BuyerOrder extends Model implements HasCustomFields
     use UsesCustomFields;
 
     /**
+     * Transient flag: when cancel()/progressStatus() restore credit themselves,
+     * they set this so BuyerOrderObserver does not double-restore on the same save.
+     * Not persisted (it is a plain property, not an Eloquent attribute).
+     */
+    public bool $creditRestoreHandled = false;
+
+    /**
      * @var list<string>
      */
     protected $fillable = [
@@ -308,6 +315,7 @@ final class BuyerOrder extends Model implements HasCustomFields
         $orderTotal = $wasConfirmed ? (float) $this->total : 0;
 
         $this->status = OrderStatus::CANCELLED;
+        $this->creditRestoreHandled = true; // this method restores credit itself
         $this->save();
 
         // If order was confirmed, restore credit
@@ -339,6 +347,7 @@ final class BuyerOrder extends Model implements HasCustomFields
 
         // Update status
         $this->status = $nextStatus;
+        $this->creditRestoreHandled = true; // this method restores credit itself
         $this->save();
 
         // If moving away from CONFIRMED status, restore credit

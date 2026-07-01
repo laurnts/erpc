@@ -369,6 +369,61 @@ describe('BuyerOrder Credit Limit Check', function (): void {
     });
 });
 
+describe('BuyerOrder Credit Restoration', function (): void {
+    it('restores credit exactly once when a confirmed order is cancelled', function (): void {
+        $buyer = Company::factory()->buyer()->recycle($this->team)->create([
+            'credit_status' => true,
+            'credit_limit' => 10000,
+            'credit_used' => 1000,
+            'available_credit' => 9000,
+        ]);
+
+        $order = BuyerOrder::factory()
+            ->recycle($this->team)
+            ->forBuyer($buyer)
+            ->forRequest($this->request)
+            ->withTotals(2000, 0, 2000)
+            ->create(['status' => OrderStatus::DRAFT]);
+
+        $order->confirm();
+        $buyer->refresh();
+        expect((float) $buyer->credit_used)->toBe(3000.0)
+            ->and((float) $buyer->available_credit)->toBe(7000.0);
+
+        $order->cancel();
+        $buyer->refresh();
+
+        // Credit restored once (cancel() handles it); the observer must not double-restore.
+        expect((float) $buyer->credit_used)->toBe(1000.0)
+            ->and((float) $buyer->available_credit)->toBe(9000.0);
+    });
+
+    it('restores credit once on a direct status change away from confirmed', function (): void {
+        $buyer = Company::factory()->buyer()->recycle($this->team)->create([
+            'credit_status' => true,
+            'credit_limit' => 10000,
+            'credit_used' => 1000,
+            'available_credit' => 9000,
+        ]);
+
+        $order = BuyerOrder::factory()
+            ->recycle($this->team)
+            ->forBuyer($buyer)
+            ->forRequest($this->request)
+            ->withTotals(2000, 0, 2000)
+            ->create(['status' => OrderStatus::DRAFT]);
+
+        $order->confirm();
+
+        // Direct status change (no cancel()/progressStatus()) — the observer restores.
+        $order->update(['status' => OrderStatus::SHIPPED]);
+        $buyer->refresh();
+
+        expect((float) $buyer->credit_used)->toBe(1000.0)
+            ->and((float) $buyer->available_credit)->toBe(9000.0);
+    });
+});
+
 describe('BuyerOrderItem Model', function (): void {
     it('can create item with pricing', function (): void {
         $order = BuyerOrder::factory()
