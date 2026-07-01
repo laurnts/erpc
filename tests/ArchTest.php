@@ -28,6 +28,14 @@ arch()->preset()
         'App\Mail',
     ]);
 
+// Excluding App\Mail from the laravel preset above also drops its debug-output
+// guard for mailables; restore it explicitly so config-heavy mailables can't ship
+// a stray env()/dd()/dump().
+arch('mailables avoid debug output')
+    ->expect('App\Mail')
+    ->not
+    ->toUse(['env', 'dd', 'ddd', 'dump', 'ray', 'var_dump', 'exit']);
+
 arch('strict types')
     ->expect('App')
     ->toUseStrictTypes();
