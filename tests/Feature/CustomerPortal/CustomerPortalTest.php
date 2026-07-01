@@ -255,7 +255,7 @@ describe('Portal Invitation', function (): void {
         expect($invitation)->toBeInstanceOf(PortalInvitation::class)
             ->and($invitation->email)->toBe('new.portal@buyer.test');
 
-        Mail::assertQueued(\App\Mail\PortalUserInvitationMail::class);
+        Mail::assertSent(\App\Mail\PortalUserInvitationMail::class);
     });
 
     it('accepts invitation and creates portal access', function (): void {

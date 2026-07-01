@@ -7,13 +7,12 @@ namespace App\Mail;
 use App\Models\Team;
 use App\Services\Email\EmailTemplateService;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-final class TestEmailMail extends Mailable implements ShouldQueue
+final class TestEmailMail extends Mailable
 {
     use Queueable, SerializesModels;
 

@@ -21,6 +21,11 @@ arch()->preset()
         'Relaticle\Admin\AdminPanelProvider',
         'App\Enums\EnumValues',
         'App\Enums\CustomFields\CustomFieldTrait',
+        // Mailables intentionally do NOT implement ShouldQueue: team SMTP mailers
+        // are registered at runtime via config() in the sending process, so a
+        // queue worker cannot resolve them. Queuing would require reworking team
+        // SMTP to be re-established in the worker (tracked as a follow-up).
+        'App\Mail',
     ]);
 
 arch('strict types')

@@ -7,7 +7,6 @@ namespace App\Mail\Erp;
 use App\Models\BuyerQuote;
 use App\Services\Email\EmailTemplateService;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -17,7 +16,7 @@ use Illuminate\Queue\SerializesModels;
  * Email sent when a buyer quote has expired.
  * Sent to the buyer and to key accounts assigned to that buyer.
  */
-final class QuoteExpiredMail extends Mailable implements ShouldQueue
+final class QuoteExpiredMail extends Mailable
 {
     use Queueable, SerializesModels;
 

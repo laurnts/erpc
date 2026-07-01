@@ -8,13 +8,12 @@ use App\Models\EmailTemplate;
 use App\Models\Shipment;
 use App\Services\Email\EmailTemplateService;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-final class ShipmentToBuyerMail extends Mailable implements ShouldQueue
+final class ShipmentToBuyerMail extends Mailable
 {
     use Queueable, SerializesModels;
 

@@ -96,7 +96,7 @@ describe('Email Notification', function (): void {
             Mail::to($approver->email)->send(new CreditLimitIncreaseRequestMail($request));
         }
 
-        Mail::assertQueued(CreditLimitIncreaseRequestMail::class, 2);
+        Mail::assertSent(CreditLimitIncreaseRequestMail::class, 2);
     });
 });
 
