@@ -7,12 +7,13 @@ namespace App\Mail\Erp;
 use App\Models\SupplierQuote;
 use App\Services\Email\EmailTemplateService;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-final class QuoteToSupplierMail extends Mailable
+final class QuoteToSupplierMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 

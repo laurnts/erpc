@@ -5,17 +5,17 @@ declare(strict_types=1);
 namespace App\Mail\Erp;
 
 use App\Filament\Resources\SupplierOrderApprovals\SupplierOrderApprovalResource;
-use App\Models\EmailTemplate;
 use App\Models\SupplierOrder;
 use App\Models\User;
 use App\Services\Email\EmailTemplateService;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-final class SupplierOrderApprovalRequestMail extends Mailable
+final class SupplierOrderApprovalRequestMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 

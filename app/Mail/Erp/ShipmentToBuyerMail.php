@@ -8,12 +8,13 @@ use App\Models\EmailTemplate;
 use App\Models\Shipment;
 use App\Services\Email\EmailTemplateService;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-final class ShipmentToBuyerMail extends Mailable
+final class ShipmentToBuyerMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
@@ -25,7 +26,7 @@ final class ShipmentToBuyerMail extends Mailable
     {
         $emailService = app(EmailTemplateService::class);
         $settings = $this->shipment->team->getErpSettings();
-        
+
         // Get template using new system (template ID) with fallback to old system
         $template = null;
         if (isset($settings->email_template_delivery_order_id) && $settings->email_template_delivery_order_id) {
@@ -36,7 +37,7 @@ final class ShipmentToBuyerMail extends Mailable
             );
         }
 
-        $fromAddress = $template 
+        $fromAddress = $template
             ? $emailService->getSenderEmailFromTemplate($template, $settings)
             : $emailService->getSenderEmail($settings->email_template_delivery_order ?? null, $settings);
         $fromName = $emailService->getSenderName($settings);
@@ -59,10 +60,10 @@ final class ShipmentToBuyerMail extends Mailable
         // If using Gmail SMTP and sender email doesn't match SMTP username,
         // Gmail will only accept the From address if it's verified in Gmail Settings → Send mail as
         // If not verified, Gmail will force From to match SMTP account, so we set Reply-To as fallback
-        if (!empty($settings->smtp_host) 
+        if (! empty($settings->smtp_host)
             && str_contains(strtolower($settings->smtp_host), 'gmail')
-            && !empty($settings->smtp_username)
-            && !empty($fromAddress)
+            && ! empty($settings->smtp_username)
+            && ! empty($fromAddress)
             && strtolower($fromAddress) !== strtolower($settings->smtp_username)) {
             // Set Reply-To to ensure replies go to the desired address
             // If From address is verified in Gmail, it will work; otherwise Reply-To provides fallback
@@ -119,11 +120,11 @@ final class ShipmentToBuyerMail extends Mailable
 
         $emailService = app(EmailTemplateService::class);
         $settings = $this->shipment->team->getErpSettings();
-        
+
         // Get template using new system (template ID) with fallback to default template
         $templateId = $settings->email_template_delivery_order_id ?? null;
         $template = null;
-        
+
         if ($templateId) {
             // Use selected template
             $template = $emailService->getTemplateForSending(
@@ -161,20 +162,20 @@ final class ShipmentToBuyerMail extends Mailable
         // Use template content if available, otherwise fallback to old system for backward compatibility
         $content = '';
         $isFullHtml = false;
-        
+
         if ($template) {
             $result = $emailService->renderTemplateContent($template, $variables);
             $content = $result['content'];
             $isFullHtml = $result['is_full_html'];
         }
-        
+
         // Fallback to old system only if template content is empty
         if (empty($content) && $settings->email_template_delivery_order) {
             $content = $emailService->renderTemplate($settings->email_template_delivery_order, $variables);
         }
 
         // If template is full HTML, render it as Blade template with all necessary variables
-        if ($isFullHtml && !empty($content)) {
+        if ($isFullHtml && ! empty($content)) {
             try {
                 $renderedContent = \Illuminate\Support\Facades\Blade::render($content, [
                     'shipment' => $this->shipment,
@@ -183,7 +184,7 @@ final class ShipmentToBuyerMail extends Mailable
                     'team' => $this->shipment->team,
                     'buyer' => $buyer,
                 ]);
-                
+
                 return new Content(
                     htmlString: $renderedContent,
                 );

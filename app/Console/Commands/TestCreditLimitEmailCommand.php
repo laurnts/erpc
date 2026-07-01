@@ -11,7 +11,7 @@ use App\Models\Team;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Mail;
 
-final class TestCreditLimitEmail extends Command
+final class TestCreditLimitEmailCommand extends Command
 {
     /**
      * The name and signature of the console command.
@@ -38,7 +38,7 @@ final class TestCreditLimitEmail extends Command
         // Check Mailpit connection before proceeding
         $mailpitHost = config('mail.mailers.mailpit.host');
         $mailpitPort = config('mail.mailers.mailpit.port');
-        
+
         if ($mailpitHost && $mailpitPort) {
             $this->info("Using Mailpit at {$mailpitHost}:{$mailpitPort}");
         }
@@ -73,7 +73,7 @@ final class TestCreditLimitEmail extends Command
             Mail::to($email)->send(new CreditLimitIncreaseRequestMail($request));
 
             $this->info('✅ Test email sent successfully!');
-            $this->info("Check Mailpit at http://mailpit.test/ to view the email.");
+            $this->info('Check Mailpit at http://mailpit.test/ to view the email.');
 
             return self::SUCCESS;
         } catch (\Exception $e) {

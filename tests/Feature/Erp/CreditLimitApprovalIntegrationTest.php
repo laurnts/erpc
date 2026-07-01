@@ -70,7 +70,7 @@ test('full workflow: request creation → email → approve (2x) → credit limi
         );
     }
 
-    Mail::assertSent(CreditLimitIncreaseRequestMail::class, 2);
+    Mail::assertQueued(CreditLimitIncreaseRequestMail::class, 2);
 
     // Step 3: First approval
     $this->actingAs($this->financeApprover1);
@@ -189,8 +189,8 @@ test('email notification sent only to finance approvers', function (): void {
     }
 
     // Should only send to approvers, not non-approver finance users
-    Mail::assertSent(CreditLimitIncreaseRequestMail::class, 2);
-    Mail::assertNotSent(CreditLimitIncreaseRequestMail::class, function ($mail) {
+    Mail::assertQueued(CreditLimitIncreaseRequestMail::class, 2);
+    Mail::assertNotQueued(CreditLimitIncreaseRequestMail::class, function ($mail) {
         return $mail->hasTo('nonapprover@test.com');
     });
 });
