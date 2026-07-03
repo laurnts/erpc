@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Mail\Erp;
 
 use App\Filament\Resources\ProfitAndLossResource;
-use App\Models\EmailTemplate;
 use App\Models\ProfitAndLoss;
 use App\Models\User;
 use App\Services\Email\EmailTemplateService;

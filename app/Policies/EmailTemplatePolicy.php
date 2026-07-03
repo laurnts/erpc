@@ -19,6 +19,7 @@ final readonly class EmailTemplatePolicy
     private function isAdmin(User $user): bool
     {
         $team = Filament::getTenant();
+
         return $team !== null && $user->hasTeamRole($team, 'admin');
     }
 
@@ -58,14 +59,14 @@ final readonly class EmailTemplatePolicy
         if ($this->isAdmin($user)) {
             return $user->hasVerifiedEmail()
                 && $user->currentTeam !== null
-                && !$emailTemplate->is_default
+                && ! $emailTemplate->is_default
                 && ($emailTemplate->team_id === null || $user->belongsToTeam($emailTemplate->team));
         }
 
         // Only allow updating if template belongs to user's team and is not a default template
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
-            && !$emailTemplate->is_default
+            && ! $emailTemplate->is_default
             && ($emailTemplate->team_id === null || $user->belongsToTeam($emailTemplate->team))
             && $user->hasPermissionTo('update email templates');
     }
@@ -75,14 +76,14 @@ final readonly class EmailTemplatePolicy
         if ($this->isAdmin($user)) {
             return $user->hasVerifiedEmail()
                 && $user->currentTeam !== null
-                && !$emailTemplate->is_default
+                && ! $emailTemplate->is_default
                 && ($emailTemplate->team_id === null || $user->belongsToTeam($emailTemplate->team));
         }
 
         // Only allow deleting if template belongs to user's team and is not a default template
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
-            && !$emailTemplate->is_default
+            && ! $emailTemplate->is_default
             && ($emailTemplate->team_id === null || $user->belongsToTeam($emailTemplate->team))
             && $user->hasPermissionTo('delete email templates');
     }
@@ -103,13 +104,13 @@ final readonly class EmailTemplatePolicy
         if ($this->isAdmin($user)) {
             return $user->hasVerifiedEmail()
                 && $user->currentTeam !== null
-                && !$emailTemplate->is_default
+                && ! $emailTemplate->is_default
                 && ($emailTemplate->team_id === null || $user->belongsToTeam($emailTemplate->team));
         }
 
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
-            && !$emailTemplate->is_default
+            && ! $emailTemplate->is_default
             && ($emailTemplate->team_id === null || $user->belongsToTeam($emailTemplate->team))
             && $user->hasPermissionTo('update email templates');
     }
@@ -130,13 +131,13 @@ final readonly class EmailTemplatePolicy
         if ($this->isAdmin($user)) {
             return $user->hasVerifiedEmail()
                 && $user->currentTeam !== null
-                && !$emailTemplate->is_default
+                && ! $emailTemplate->is_default
                 && ($emailTemplate->team_id === null || $user->belongsToTeam($emailTemplate->team));
         }
 
         return $user->hasVerifiedEmail()
             && $user->currentTeam !== null
-            && !$emailTemplate->is_default
+            && ! $emailTemplate->is_default
             && ($emailTemplate->team_id === null || $user->belongsToTeam($emailTemplate->team))
             && $user->hasPermissionTo('delete email templates');
     }

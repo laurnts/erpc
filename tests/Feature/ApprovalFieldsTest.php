@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Models\People;
 use App\Models\ProfitAndLoss;
 use App\Models\QuotationEvaluation;
 use App\Models\Request;
@@ -17,29 +16,18 @@ beforeEach(function (): void {
     $this->user->teams()->attach($this->team);
     actingAs($this->user);
 
-    $this->preparedBy = People::factory()->create([
-        'team_id' => $this->team->id,
-        'is_key_account' => true,
-        'creator_id' => $this->user->id,
-    ]);
+    // Approval fields reference team members (User), not People records.
+    $this->preparedBy = User::factory()->create();
+    $this->preparedBy->teams()->attach($this->team);
 
-    $this->deptHead = People::factory()->create([
-        'team_id' => $this->team->id,
-        'is_key_account' => true,
-        'creator_id' => $this->user->id,
-    ]);
+    $this->deptHead = User::factory()->create();
+    $this->deptHead->teams()->attach($this->team);
 
-    $this->deputyDirector = People::factory()->create([
-        'team_id' => $this->team->id,
-        'is_key_account' => true,
-        'creator_id' => $this->user->id,
-    ]);
+    $this->deputyDirector = User::factory()->create();
+    $this->deputyDirector->teams()->attach($this->team);
 
-    $this->approvedBy = People::factory()->create([
-        'team_id' => $this->team->id,
-        'is_key_account' => true,
-        'creator_id' => $this->user->id,
-    ]);
+    $this->approvedBy = User::factory()->create();
+    $this->approvedBy->teams()->attach($this->team);
 });
 
 test('QuotationEvaluation can have approval relationships', function (): void {
@@ -58,13 +46,13 @@ test('QuotationEvaluation can have approval relationships', function (): void {
         'creator_id' => $this->user->id,
     ]);
 
-    expect($qe->preparedBy)->toBeInstanceOf(People::class)
+    expect($qe->preparedBy)->toBeInstanceOf(User::class)
         ->and($qe->preparedBy->id)->toBe($this->preparedBy->id)
-        ->and($qe->deptHeadSales)->toBeInstanceOf(People::class)
+        ->and($qe->deptHeadSales)->toBeInstanceOf(User::class)
         ->and($qe->deptHeadSales->id)->toBe($this->deptHead->id)
-        ->and($qe->deputyDirector)->toBeInstanceOf(People::class)
+        ->and($qe->deputyDirector)->toBeInstanceOf(User::class)
         ->and($qe->deputyDirector->id)->toBe($this->deputyDirector->id)
-        ->and($qe->approvedBy)->toBeInstanceOf(People::class)
+        ->and($qe->approvedBy)->toBeInstanceOf(User::class)
         ->and($qe->approvedBy->id)->toBe($this->approvedBy->id);
 });
 
@@ -84,13 +72,13 @@ test('ProfitAndLoss can have approval relationships', function (): void {
         'creator_id' => $this->user->id,
     ]);
 
-    expect($pnl->preparedBy)->toBeInstanceOf(People::class)
+    expect($pnl->preparedBy)->toBeInstanceOf(User::class)
         ->and($pnl->preparedBy->id)->toBe($this->preparedBy->id)
-        ->and($pnl->deptHeadSales)->toBeInstanceOf(People::class)
+        ->and($pnl->deptHeadSales)->toBeInstanceOf(User::class)
         ->and($pnl->deptHeadSales->id)->toBe($this->deptHead->id)
-        ->and($pnl->deputyDirector)->toBeInstanceOf(People::class)
+        ->and($pnl->deputyDirector)->toBeInstanceOf(User::class)
         ->and($pnl->deputyDirector->id)->toBe($this->deputyDirector->id)
-        ->and($pnl->approvedBy)->toBeInstanceOf(People::class)
+        ->and($pnl->approvedBy)->toBeInstanceOf(User::class)
         ->and($pnl->approvedBy->id)->toBe($this->approvedBy->id);
 });
 

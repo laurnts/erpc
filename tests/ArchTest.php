@@ -17,10 +17,24 @@ arch()->preset()
     ->ignoring([
         'App\Providers\AppServiceProvider',
         'App\Providers\Filament\AppPanelProvider',
+        'App\Providers\Filament\CustomerPanelProvider',
         'Relaticle\Admin\AdminPanelProvider',
         'App\Enums\EnumValues',
         'App\Enums\CustomFields\CustomFieldTrait',
+        // Mailables intentionally do NOT implement ShouldQueue: team SMTP mailers
+        // are registered at runtime via config() in the sending process, so a
+        // queue worker cannot resolve them. Queuing would require reworking team
+        // SMTP to be re-established in the worker (tracked as a follow-up).
+        'App\Mail',
     ]);
+
+// Excluding App\Mail from the laravel preset above also drops its debug-output
+// guard for mailables; restore it explicitly so config-heavy mailables can't ship
+// a stray env()/dd()/dump().
+arch('mailables avoid debug output')
+    ->expect('App\Mail')
+    ->not
+    ->toUse(['env', 'dd', 'ddd', 'dump', 'ray', 'var_dump', 'exit']);
 
 arch('strict types')
     ->expect('App')
@@ -68,6 +82,7 @@ arch('avoid mutation')
         'App\View',
         'App\Services\Favicon\Drivers',
         'App\Providers\Filament',
+        'App\Http\Middleware', // middleware extend framework base classes
     ]);
 
 arch('avoid inheritance')
@@ -88,6 +103,7 @@ arch('avoid inheritance')
         'App\Providers',
         'App\Settings', // Spatie Settings requires extending Settings base class
         'App\View',
+        'App\Http\Middleware', // middleware extend framework base classes (e.g. Filament Authenticate)
     ]);
 
 // arch('annotations')

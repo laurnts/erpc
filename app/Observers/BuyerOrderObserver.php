@@ -44,50 +44,34 @@ final readonly class BuyerOrderObserver
 
     /**
      * Handle the BuyerOrder "updating" event.
-     * 
-     * Note: This observer handles credit restoration when status is changed directly via update() or save().
-     * The cancel() and progressStatus() methods handle credit restoration themselves, so we check the stack trace
-     * to avoid double restoration.
+     *
+     * Restores credit when a CONFIRMED order's status is changed directly via
+     * update()/save(). The cancel() and progressStatus() methods restore credit
+     * themselves and signal this by setting the transient creditRestoreHandled
+     * flag, so this observer skips them to avoid double restoration.
      */
     public function updating(BuyerOrder $buyerOrder): void
     {
-        // Check if status is changing from CONFIRMED to another status
-        if ($buyerOrder->isDirty('status')) {
-            $originalStatusValue = $buyerOrder->getOriginal('status');
-            
-            // Handle both string and enum values from getOriginal()
-            $originalStatus = $originalStatusValue instanceof OrderStatus 
-                ? $originalStatusValue 
-                : OrderStatus::from((string) $originalStatusValue);
-            
-            $newStatus = $buyerOrder->status;
+        if (! $buyerOrder->isDirty('status')) {
+            return;
+        }
 
-            // If status changes from CONFIRMED to non-CONFIRMED
-            // Check if this is coming from cancel() or progressStatus() methods (they handle it themselves)
-            $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 10);
-            $calledFromCancel = false;
-            $calledFromProgressStatus = false;
+        // cancel()/progressStatus() already restore credit; consume the flag and skip.
+        if ($buyerOrder->creditRestoreHandled) {
+            $buyerOrder->creditRestoreHandled = false;
 
-            foreach ($backtrace as $frame) {
-                if (isset($frame['function'])) {
-                    if ($frame['function'] === 'cancel' && isset($frame['class']) && str_contains($frame['class'], 'BuyerOrder')) {
-                        $calledFromCancel = true;
-                        break;
-                    }
-                    if ($frame['function'] === 'progressStatus' && isset($frame['class']) && str_contains($frame['class'], 'BuyerOrder')) {
-                        $calledFromProgressStatus = true;
-                        break;
-                    }
-                }
-            }
+            return;
+        }
 
-            // Only restore credit if not called from cancel() or progressStatus() methods
-            if ($originalStatus === OrderStatus::CONFIRMED && $newStatus !== OrderStatus::CONFIRMED && ! $calledFromCancel && ! $calledFromProgressStatus) {
-                $orderTotal = (float) $buyerOrder->total;
-                if ($orderTotal > 0) {
-                    $buyerOrder->restoreCredit();
-                }
-            }
+        $originalStatusValue = $buyerOrder->getOriginal('status');
+        $originalStatus = $originalStatusValue instanceof OrderStatus
+            ? $originalStatusValue
+            : OrderStatus::from((string) $originalStatusValue);
+
+        if ($originalStatus === OrderStatus::CONFIRMED
+            && $buyerOrder->status !== OrderStatus::CONFIRMED
+            && (float) $buyerOrder->total > 0) {
+            $buyerOrder->restoreCredit();
         }
     }
 }

@@ -8,7 +8,7 @@ use App\Models\ProfitAndLoss;
 use App\Models\User;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
-final class ProfitAndLossPolicy
+final readonly class ProfitAndLossPolicy
 {
     use HandlesAuthorization;
 

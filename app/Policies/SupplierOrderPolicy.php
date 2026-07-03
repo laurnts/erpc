@@ -21,6 +21,7 @@ final readonly class SupplierOrderPolicy
     private function isAdmin(User $user): bool
     {
         $team = Filament::getTenant() ?? $user->currentTeam;
+
         return $team !== null && $user->hasTeamRole($team, 'admin');
     }
 

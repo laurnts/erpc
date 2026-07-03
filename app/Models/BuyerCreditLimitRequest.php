@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Enums\CentralPurchasingRole;
 use App\Enums\CreditLimitRequestStatus;
 use App\Models\Concerns\HasTeam;
 use App\Services\TeamMemberService;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -35,6 +35,9 @@ use Illuminate\Support\Facades\DB;
  */
 final class BuyerCreditLimitRequest extends Model
 {
+    /** @use HasFactory<\Database\Factories\BuyerCreditLimitRequestFactory> */
+    use HasFactory;
+
     use HasTeam;
 
     /**
@@ -142,7 +145,7 @@ final class BuyerCreditLimitRequest extends Model
 
         // User must be a finance approver
         $financeApprovers = TeamMemberService::getFinanceApprovers($this->team);
-        
+
         if (! $financeApprovers->contains('id', $user->id)) {
             return false;
         }
@@ -163,7 +166,7 @@ final class BuyerCreditLimitRequest extends Model
 
         // User must be a finance approver
         $financeApprovers = TeamMemberService::getFinanceApprovers($this->team);
-        
+
         return $financeApprovers->contains('id', $user->id);
     }
 
@@ -198,16 +201,16 @@ final class BuyerCreditLimitRequest extends Model
             if ($this->approvalCount() >= 2) {
                 // Update buyer's credit limit
                 $buyer = $this->buyer;
-                
+
                 // Calculate change amount and update available credit
                 $currentLimit = (float) $buyer->credit_limit;
                 $requestedLimit = (float) $this->requested_limit;
                 $changeAmount = $requestedLimit - $currentLimit;
                 $currentAvailableCredit = (float) $buyer->available_credit;
-                
+
                 // Update credit_limit to requested_limit
                 $buyer->credit_limit = $this->requested_limit;
-                
+
                 // Update available_credit based on increase or decrease
                 if ($changeAmount > 0) {
                     // Increase: add the change amount to current available credit
@@ -216,17 +219,17 @@ final class BuyerCreditLimitRequest extends Model
                     // Decrease: subtract the absolute change amount (can be negative, representing debt)
                     $buyer->available_credit = $currentAvailableCredit - abs($changeAmount);
                 }
-                
+
                 // Ensure available_credit doesn't exceed credit_limit (safety check)
                 $buyer->available_credit = min((float) $buyer->available_credit, $requestedLimit);
-                
+
                 $buyer->requested_credit_limit = null;
                 $buyer->save();
 
                 // Create credit usage history record for approved limit change
                 $isIncrease = $requestedLimit >= $currentLimit;
                 $absoluteChangeAmount = abs($changeAmount);
-                
+
                 BuyerCreditUsageHistory::create([
                     'team_id' => $buyer->team_id,
                     'buyer_id' => $buyer->id,
@@ -241,8 +244,8 @@ final class BuyerCreditLimitRequest extends Model
                     'related_type' => self::class,
                     'related_id' => $this->id,
                     'description' => $isIncrease
-                        ? "Credit limit increased from " . number_format($currentLimit, 2) . " to " . number_format($requestedLimit, 2)
-                        : "Credit limit decreased from " . number_format($currentLimit, 2) . " to " . number_format($requestedLimit, 2),
+                        ? 'Credit limit increased from '.number_format($currentLimit, 2).' to '.number_format($requestedLimit, 2)
+                        : 'Credit limit decreased from '.number_format($currentLimit, 2).' to '.number_format($requestedLimit, 2),
                     'created_by_id' => auth()->id(),
                 ]);
 

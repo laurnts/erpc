@@ -12,7 +12,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
-final class InvitePortalUser
+final readonly class InvitePortalUser
 {
     public function execute(
         Team $team,

@@ -100,7 +100,7 @@ final readonly class GenerateSupplierQuotesForRequest
         $sortOrder = 0;
         foreach ($items as $item) {
             $this->createQuoteItem($quote, $item, $supplierId, $sortOrder++);
-            
+
             // For Service requests, also create child items
             if ($request->isServiceRequest() && $item->isMainItem() && $item->children()->count() > 0) {
                 $childItems = $item->children()->orderBy('sort_order')->get();

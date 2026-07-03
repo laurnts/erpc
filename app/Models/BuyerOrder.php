@@ -62,6 +62,13 @@ final class BuyerOrder extends Model implements HasCustomFields
     use UsesCustomFields;
 
     /**
+     * Transient flag: when cancel()/progressStatus() restore credit themselves,
+     * they set this so BuyerOrderObserver does not double-restore on the same save.
+     * Not persisted (it is a plain property, not an Eloquent attribute).
+     */
+    public bool $creditRestoreHandled = false;
+
+    /**
      * @var list<string>
      */
     protected $fillable = [
@@ -175,9 +182,10 @@ final class BuyerOrder extends Model implements HasCustomFields
                 }
 
                 $creditLimit = (float) $buyer->credit_limit;
+                $availableCredit = $creditLimit - (float) $buyer->credit_used;
                 $orderTotal = (float) $this->total;
 
-                return $orderTotal > $creditLimit && $creditLimit > 0;
+                return $creditLimit > 0 && $orderTotal > $availableCredit;
             },
         );
     }
@@ -203,14 +211,16 @@ final class BuyerOrder extends Model implements HasCustomFields
             $this->status = OrderStatus::CONFIRMED;
             $this->confirmed_at = now();
             $this->save();
+
             return;
         }
 
         // Skip credit checks if credit_status is disabled or useCredit is false
-        if (!$buyer->credit_status || !$useCredit) {
+        if (! $buyer->credit_status || ! $useCredit) {
             $this->status = OrderStatus::CONFIRMED;
             $this->confirmed_at = now();
             $this->save();
+
             return;
         }
 
@@ -305,6 +315,7 @@ final class BuyerOrder extends Model implements HasCustomFields
         $orderTotal = $wasConfirmed ? (float) $this->total : 0;
 
         $this->status = OrderStatus::CANCELLED;
+        $this->creditRestoreHandled = true; // this method restores credit itself
         $this->save();
 
         // If order was confirmed, restore credit
@@ -330,11 +341,13 @@ final class BuyerOrder extends Model implements HasCustomFields
             // Use confirm() method to handle credit check and reduction
             // confirm() will save the order, so we don't need to save again
             $this->confirm();
+
             return;
         }
 
         // Update status
         $this->status = $nextStatus;
+        $this->creditRestoreHandled = true; // this method restores credit itself
         $this->save();
 
         // If moving away from CONFIRMED status, restore credit
@@ -527,6 +540,8 @@ final class BuyerOrder extends Model implements HasCustomFields
         }
 
         $creditLimit = (float) $buyer->credit_limit;
+        $creditUsed = (float) $buyer->credit_used;
+        $availableCredit = $creditLimit - $creditUsed;
         $orderTotal = (float) $this->total;
 
         // No credit limit set
@@ -534,14 +549,14 @@ final class BuyerOrder extends Model implements HasCustomFields
             return null;
         }
 
-        // Check if order exceeds credit limit
-        if ($orderTotal > $creditLimit) {
+        // Check if order exceeds the buyer's available credit (limit minus already used)
+        if ($orderTotal > $availableCredit) {
             return sprintf(
-                'Warning: Order total (%s) exceeds credit limit (%s). Credit limit: %s, Used: %s.',
+                'Warning: Order total (%s) exceeds available credit (%s). Credit limit: %s, Used: %s.',
                 number_format($orderTotal, 2),
+                number_format($availableCredit, 2),
                 number_format($creditLimit, 2),
-                number_format($creditLimit, 2),
-                number_format((float) $buyer->credit_used, 2)
+                number_format($creditUsed, 2)
             );
         }
 

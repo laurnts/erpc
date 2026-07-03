@@ -9,7 +9,7 @@ use App\Models\Team;
 use App\Notifications\PortalRequestSubmittedNotification;
 use Illuminate\Support\Facades\Notification;
 
-final class NotifyTeamOfPortalRequest
+final readonly class NotifyTeamOfPortalRequest
 {
     public function execute(Request $request): void
     {

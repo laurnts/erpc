@@ -245,25 +245,31 @@ describe('SupplierQuote Totals', function (): void {
             ->recycle($this->currency)
             ->create(['exchange_rate' => '1.00000000']);
 
+        // Seed the calculation inputs (unit_price/quantity/tax_rate); the item
+        // observer derives line_subtotal/line_tax/line_total on save, so seeding
+        // those directly would be overwritten. Supplier is taxable, 11% added.
         SupplierQuoteItem::factory()->recycle($quote)->create([
             'request_item_id' => $mainItem->getKey(),
-            'line_subtotal' => '5000.0000',
-            'line_tax' => '550.0000',
-            'line_total' => '5550.0000',
+            'quantity' => '1.0000',
+            'unit_price' => '5000.0000',
+            'tax_rate' => '11.0000',
+            'is_tax_inclusive' => false,
         ]);
 
         SupplierQuoteItem::factory()->recycle($quote)->create([
             'request_item_id' => $childItem->getKey(),
-            'line_subtotal' => '3500.0000',
-            'line_tax' => '385.0000',
-            'line_total' => '3885.0000',
+            'quantity' => '1.0000',
+            'unit_price' => '3500.0000',
+            'tax_rate' => '11.0000',
+            'is_tax_inclusive' => false,
         ]);
 
         SupplierQuoteItem::factory()->recycle($quote)->create([
             'request_item_id' => null,
-            'line_subtotal' => '30000.0000',
-            'line_tax' => '3300.0000',
-            'line_total' => '33300.0000',
+            'quantity' => '1.0000',
+            'unit_price' => '30000.0000',
+            'tax_rate' => '11.0000',
+            'is_tax_inclusive' => false,
         ]);
 
         $quote->recalculateTotals();

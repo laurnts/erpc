@@ -27,7 +27,7 @@ use Illuminate\Support\Facades\Event;
 */
 
 pest()->extend(Tests\TestCase::class)
-    ->in('Unit/Enums');
+    ->in('Unit/Enums', 'Unit/Erp');
 
 pest()->extend(Tests\TestCase::class)
     ->use(RefreshDatabase::class)

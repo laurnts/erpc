@@ -142,7 +142,7 @@ enum OrderStatus: string implements HasColor, HasIcon, HasLabel
             self::DRAFT => self::SENT,
             self::SENT => self::CONFIRMED,
             self::CONFIRMED => self::APPROVED,
-            self::APPROVED => self::SENT,
+            self::APPROVED => self::PROCESSING,
             self::PROCESSING => self::SHIPPED,
             self::SHIPPED => self::DELIVERED,
             self::DELIVERED => self::INVOICED,

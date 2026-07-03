@@ -7,7 +7,7 @@ namespace App\Services\CustomerPortal;
 use App\Enums\RequestStage;
 use App\Models\Request;
 
-final class CustomerRequestStagePresenter
+final readonly class CustomerRequestStagePresenter
 {
     public function label(Request $request): string
     {
