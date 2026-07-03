@@ -175,6 +175,9 @@ final class CompanyResource extends Resource
                         ->label('Credit Limit')
                         ->numeric()
                         ->default(0)
+                        ->disabled()
+                        ->dehydrated(false)
+                        ->helperText('This is the approved credit limit. It only changes when a credit limit request is approved.')
                         ->prefix(function (): string {
                             /** @var Team|null $team */
                             $team = Filament::getTenant();

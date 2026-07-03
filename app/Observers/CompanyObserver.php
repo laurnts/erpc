@@ -37,6 +37,22 @@ final readonly class CompanyObserver
     }
 
     /**
+     * Handle the Company "updating" event.
+     *
+     * The approved credit limit is governed by the credit limit request approval workflow.
+     * Any attempt to change it outside that workflow is rejected so the audit ledger
+     * (BuyerCreditUsageHistory) can never be bypassed.
+     */
+    public function updating(Company $company): void
+    {
+        if ($company->isDirty('credit_limit') && ! Company::creditLimitChangeAuthorized()) {
+            throw new \RuntimeException(
+                'Credit limit can only be changed through the credit limit request approval workflow.'
+            );
+        }
+    }
+
+    /**
      * Handle the Company "created" event.
      */
     public function created(Company $company): void
