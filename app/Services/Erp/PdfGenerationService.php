@@ -23,6 +23,22 @@ final readonly class PdfGenerationService
      */
     public function generateBuyerQuotePdf(BuyerQuote $quote): string
     {
+        $pdf = Pdf::loadView('pdf.buyer-quote', $this->buildBuyerQuotePdfData($quote));
+
+        $pdf->setPaper('a4', 'portrait');
+
+        return $pdf->output();
+    }
+
+    /**
+     * Build the view data for the buyer-quote PDF. The footer totals come from the
+     * stored document columns so the customer PDF total always matches the system's
+     * records; service child/detail lines never inflate it.
+     *
+     * @return array<string, mixed>
+     */
+    public function buildBuyerQuotePdfData(BuyerQuote $quote): array
+    {
         $quote->load(['buyer', 'currency', 'items', 'paymentTerms', 'team']);
 
         // Process items: filter hidden items and distribute their prices
@@ -86,24 +102,17 @@ final readonly class PdfGenerationService
             return $item;
         });
 
-        // Calculate totals from processed items (matching form calculation)
-        // Use actual line_subtotal, line_tax, and line_total from items to match form summary
-        $processedSubtotal = $processedItems->sum(fn ($item): float => (float) $item->line_subtotal);
-        $processedTaxTotal = $processedItems->sum(fn ($item): float => (float) $item->line_tax);
-        $processedTotal = $processedItems->sum(fn ($item): float => (float) $item->line_total);
-
-        $pdf = Pdf::loadView('pdf.buyer-quote', [
+        // Footer totals are the stored document totals (main items only for service
+        // requests, hidden items included) — never a re-sum of the displayed lines,
+        // which would double-count service child/detail rows.
+        return [
             'quote' => $quote,
             'items' => $processedItems,
-            'processedSubtotal' => $processedSubtotal,
-            'processedTaxTotal' => $processedTaxTotal,
-            'processedTotal' => $processedTotal,
+            'processedSubtotal' => (float) $quote->subtotal,
+            'processedTaxTotal' => (float) $quote->tax_total,
+            'processedTotal' => (float) $quote->total,
             'company' => $this->getCompanyDetails($quote->team),
-        ]);
-
-        $pdf->setPaper('a4', 'portrait');
-
-        return $pdf->output();
+        ];
     }
 
     /**
