@@ -224,7 +224,9 @@ final class BuyerCreditLimitRequest extends Model
                 $buyer->available_credit = min((float) $buyer->available_credit, $requestedLimit);
 
                 $buyer->requested_credit_limit = null;
-                $buyer->save();
+                Company::withAuthorizedCreditLimitChange(function () use ($buyer): void {
+                    $buyer->save();
+                });
 
                 // Create credit usage history record for approved limit change
                 $isIncrease = $requestedLimit >= $currentLimit;

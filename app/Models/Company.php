@@ -15,7 +15,6 @@ use App\Observers\CompanyObserver;
 use App\Services\AvatarService;
 use Database\Factories\CompanyFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -167,7 +166,6 @@ final class Company extends Model implements HasCustomFields, HasMedia
         return $logo === '' || $logo === '0' ? app(AvatarService::class)->generateAuto(name: $this->name) : $logo;
     }
 
-
     /**
      * Team member responsible for managing the company account.
      *
@@ -285,8 +283,6 @@ final class Company extends Model implements HasCustomFields, HasMedia
 
     /**
      * Get the current pending credit limit request for this buyer.
-     *
-     * @return BuyerCreditLimitRequest|null
      */
     public function pendingCreditLimitRequest(): ?BuyerCreditLimitRequest
     {
@@ -294,6 +290,42 @@ final class Company extends Model implements HasCustomFields, HasMedia
             ->where('status', \App\Enums\CreditLimitRequestStatus::PENDING)
             ->latest()
             ->first();
+    }
+
+    /**
+     * Whether the current execution is inside an authorized credit-limit mutation scope.
+     */
+    private static bool $creditLimitChangeAuthorized = false;
+
+    /**
+     * Execute a callback within a scope that is permitted to change the credit_limit column.
+     *
+     * The CompanyObserver rejects any credit_limit change made outside this scope, ensuring the
+     * approved credit limit can only ever move through the credit limit request approval workflow.
+     *
+     * @template TReturn
+     *
+     * @param  \Closure(): TReturn  $callback
+     * @return TReturn
+     */
+    public static function withAuthorizedCreditLimitChange(\Closure $callback): mixed
+    {
+        $previous = self::$creditLimitChangeAuthorized;
+        self::$creditLimitChangeAuthorized = true;
+
+        try {
+            return $callback();
+        } finally {
+            self::$creditLimitChangeAuthorized = $previous;
+        }
+    }
+
+    /**
+     * Whether a credit_limit change is currently authorized.
+     */
+    public static function creditLimitChangeAuthorized(): bool
+    {
+        return self::$creditLimitChangeAuthorized;
     }
 
     /**
