@@ -2728,17 +2728,20 @@ final class BuyerQuotesRelationManager extends RelationManager
         $unitPriceExcTaxStored = (float) ($get($prefix.'unit_price_exc_tax') ?? 0);
         $unitPriceExcTax = $unitPrice > 0 ? round($unitPrice, 0) : ($unitPriceExcTaxStored > 0 ? $unitPriceExcTaxStored : 0);
         $taxRate = (float) ($get($prefix.'tax_rate') ?? 0);
-        $lineSubtotal = $quantity * $unitPriceExcTax;
-        if ($isTaxInclusive && $taxRate > 0) {
-            $lineTax = $lineSubtotal * $taxRate / 100;
-            $lineTotal = $lineSubtotal + $lineTax;
-        } else {
-            $lineTax = 0;
-            $lineTotal = $lineSubtotal;
-        }
-        $set($prefix.'line_subtotal', round($lineSubtotal, 0));
-        $set($prefix.'line_tax', round($lineTax, 0));
-        $set($prefix.'line_total', round($lineTotal, 0));
+
+        // Same shared LineCalculator as the parent-item preview and the observer.
+        $amounts = (new LineCalculator)->calculate(
+            unitPriceInput: $unitPriceExcTax,
+            priceBasis: PriceBasis::NET,
+            taxable: $isTaxInclusive && $taxRate > 0,
+            taxRate: $taxRate,
+            quantity: $quantity,
+            currencyDecimals: 0,
+        );
+
+        $set($prefix.'line_subtotal', $amounts->lineSubtotal);
+        $set($prefix.'line_tax', $amounts->lineTax);
+        $set($prefix.'line_total', $amounts->lineTotal);
     }
 
     /**
