@@ -542,6 +542,8 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
             $pnl->dept_head_sales_approved_at = null;
             $pnl->deputy_director_approved_at = null;
             $pnl->director_approved_at = null;
+            // Clear the frozen figures so the next approval re-captures them.
+            $pnl->financial_snapshot = null;
             $pnl->saveQuietly();
         }
     }

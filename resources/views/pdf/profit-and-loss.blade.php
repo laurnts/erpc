@@ -319,8 +319,17 @@
         
         {{-- Grand Total --}}
         @php
-            $grandTotalMargin = $grandTotalSell - $grandTotalCost;
-            $grandTotalMarginPercent = $grandTotalSell > 0 ? ($grandTotalMargin / $grandTotalSell) * 100 : 0;
+            // Approved PNLs read the frozen snapshot so the total never changes.
+            $snapshot = $pnl->financialSnapshotData();
+            if ($snapshot !== null) {
+                $grandTotalCost = $snapshot->costTotal;
+                $grandTotalSell = $snapshot->subtotal;
+                $grandTotalMargin = $snapshot->marginAmount;
+                $grandTotalMarginPercent = $snapshot->marginPercent;
+            } else {
+                $grandTotalMargin = $grandTotalSell - $grandTotalCost;
+                $grandTotalMarginPercent = $grandTotalSell > 0 ? ($grandTotalMargin / $grandTotalSell) * 100 : 0;
+            }
         @endphp
         <table class="items-table" style="margin-top: 15px;">
             <tr style="background-color: #1e40af; color: white;">

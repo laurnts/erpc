@@ -30,8 +30,11 @@
 
     // Team target (minimum) margin — below it we warn the approver, never block.
     $targetMargin = (float) ($record->team?->getErpSettings()->default_margin_percent ?? 3.0);
-    $overallTotals = \App\Models\BuyerQuoteItem::collectTotals($items);
-    $overallMarginPercent = (int) round($overallTotals->marginPercent);
+    // Approved PNLs read the frozen snapshot; otherwise compute live.
+    $snapshot = $record->financialSnapshotData();
+    $overallMarginPercent = (int) round(
+        $snapshot?->marginPercent ?? \App\Models\BuyerQuoteItem::collectTotals($items)->marginPercent
+    );
     $overallBelowTarget = $overallMarginPercent < $targetMargin;
 @endphp
 

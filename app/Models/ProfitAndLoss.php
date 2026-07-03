@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Data\Erp\FinancialSnapshot;
 use App\Enums\CentralPurchasingRole;
 use App\Enums\PNLStatus;
 use App\Models\Concerns\HasCreator;
@@ -11,6 +12,7 @@ use App\Models\Concerns\HasTeam;
 use App\Observers\ProfitAndLossObserver;
 use App\Services\TeamMemberService;
 use App\Support\RomanNumerals;
+use Carbon\CarbonImmutable;
 use Database\Factories\ProfitAndLossFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -76,6 +78,7 @@ final class ProfitAndLoss extends Model implements HasMedia
         'deputy_director_approved_at',
         'director_approved_at',
         'data',
+        'financial_snapshot',
     ];
 
     /**
@@ -90,6 +93,7 @@ final class ProfitAndLoss extends Model implements HasMedia
             'deputy_director_approved_at' => 'datetime',
             'director_approved_at' => 'datetime',
             'data' => 'array',
+            'financial_snapshot' => 'array',
         ];
     }
 
@@ -161,6 +165,46 @@ final class ProfitAndLoss extends Model implements HasMedia
         // the link as a side effect of resolving, since the only callers are the
         // P&L view/PDF blades and writing during render is a write-on-read bug.
         return $this->request?->buyerQuotes()->latest()->first();
+    }
+
+    /**
+     * The frozen financial figures captured at approval, or null if not approved.
+     */
+    public function financialSnapshotData(): ?FinancialSnapshot
+    {
+        if ($this->financial_snapshot === null) {
+            return null;
+        }
+
+        return FinancialSnapshot::from($this->financial_snapshot);
+    }
+
+    /**
+     * Freeze the current financial figures onto this PNL. Computed once at
+     * approval from the linked buyer quote's main items so an approved value
+     * never changes even if the quote is later revised.
+     */
+    public function captureFinancialSnapshot(): void
+    {
+        $quote = $this->resolveSourceBuyerQuote();
+        if ($quote === null) {
+            return;
+        }
+
+        $items = $quote->items()->whereNotNull('request_item_id')->get();
+        $totals = BuyerQuoteItem::collectTotals($items);
+
+        $this->financial_snapshot = (new FinancialSnapshot(
+            subtotal: $totals->subtotal,
+            taxTotal: $totals->taxTotal,
+            grandTotal: $totals->grandTotal,
+            costTotal: $totals->costTotal,
+            marginAmount: $totals->marginAmount,
+            marginPercent: $totals->marginPercent,
+            currency: $quote->currency?->code ?? '',
+            snapshotAt: CarbonImmutable::now(),
+            buyerQuoteId: $quote->getKey(),
+        ))->toArray();
     }
 
     /**

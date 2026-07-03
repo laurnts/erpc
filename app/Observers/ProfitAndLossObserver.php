@@ -12,7 +12,6 @@ use App\Models\User;
 use App\Services\Email\EmailTemplateService;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 final readonly class ProfitAndLossObserver
 {
@@ -51,6 +50,20 @@ final readonly class ProfitAndLossObserver
         // Set initial status to NEED_APPROVAL if not set
         if ($profitAndLoss->status === null) {
             $profitAndLoss->status = PNLStatus::NEED_APPROVAL;
+        }
+    }
+
+    /**
+     * Handle the ProfitAndLoss "updating" event.
+     */
+    public function updating(ProfitAndLoss $profitAndLoss): void
+    {
+        // Freeze the financial figures the first time the PNL becomes approved,
+        // so the approved value never changes even if the quote is later revised.
+        if ($profitAndLoss->isDirty('status')
+            && $profitAndLoss->status === PNLStatus::APPROVED
+            && $profitAndLoss->financial_snapshot === null) {
+            $profitAndLoss->captureFinancialSnapshot();
         }
     }
 
@@ -101,6 +114,7 @@ final readonly class ProfitAndLossObserver
                 'profit_and_loss_id' => $profitAndLoss->id,
                 'team_id' => $team->id,
             ]);
+
             return;
         }
 
