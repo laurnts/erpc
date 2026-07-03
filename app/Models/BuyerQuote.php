@@ -9,6 +9,8 @@ use App\Enums\PrepaymentType;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use App\Observers\BuyerQuoteObserver;
+use App\Services\Erp\Financial\TotalsCollector;
+use App\Services\Erp\Financial\TotalsLine;
 use Database\Factories\BuyerQuoteFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -353,7 +355,7 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
         // Check if there are any request items with selected quotes that aren't in this buyer quote
         $additionalItemIds = array_diff($selectedSupplierQuoteItems, $existingRequestItemIds);
 
-        return !empty($additionalItemIds);
+        return ! empty($additionalItemIds);
     }
 
     /**
@@ -571,13 +573,24 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
     {
         $this->load(['items.requestItem', 'request']);
 
-        $itemsForTotal = $this->request?->isServiceRequest()
-            ? $this->items->filter(fn (BuyerQuoteItem $item): bool => $item->requestItem === null || $item->requestItem->parent_id === null)
-            : $this->items;
+        $itemsForTotal = BuyerQuoteItem::filterForServiceTotals(
+            $this->items,
+            $this->request?->isServiceRequest() ?? false,
+        );
 
-        $this->subtotal = (string) $itemsForTotal->sum('line_subtotal');
-        $this->tax_total = (string) $itemsForTotal->sum('line_tax');
-        $this->total = (string) $itemsForTotal->sum('line_total');
+        $totals = (new TotalsCollector)->collect(
+            $itemsForTotal->map(fn (BuyerQuoteItem $item): TotalsLine => new TotalsLine(
+                lineSubtotal: (float) $item->line_subtotal,
+                lineTax: (float) $item->line_tax,
+                lineTotal: (float) $item->line_total,
+                costPrice: (float) $item->cost_price,
+                quantity: (float) $item->quantity,
+            ))->values(),
+        );
+
+        $this->subtotal = (string) $totals->subtotal;
+        $this->tax_total = (string) $totals->taxTotal;
+        $this->total = (string) $totals->grandTotal;
         $this->saveQuietly();
     }
 

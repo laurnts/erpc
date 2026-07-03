@@ -9,6 +9,8 @@ use App\Enums\SupplierQuoteStatus;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use App\Observers\SupplierQuoteObserver;
+use App\Services\Erp\Financial\TotalsCollector;
+use App\Services\Erp\Financial\TotalsLine;
 use Database\Factories\SupplierQuoteFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -284,9 +286,22 @@ final class SupplierQuote extends Model implements HasMedia
                 && ($item->requestItem === null || $item->requestItem->parent_id === null))
             : $this->items;
 
-        $subtotal = $itemsForTotal->sum(fn (SupplierQuoteItem $item): float => (float) $item->line_subtotal);
-        $taxTotal = $itemsForTotal->sum(fn (SupplierQuoteItem $item): float => (float) $item->line_tax);
-        $total = $itemsForTotal->sum(fn (SupplierQuoteItem $item): float => (float) $item->line_total);
+        // Transaction-currency totals via the shared collector. Supplier documents
+        // carry no cost-vs-sell margin, so costPrice is 0 and the margin outputs are
+        // ignored; FX conversion to base currency is applied below.
+        $totals = (new TotalsCollector)->collect(
+            $itemsForTotal->map(fn (SupplierQuoteItem $item): TotalsLine => new TotalsLine(
+                lineSubtotal: (float) $item->line_subtotal,
+                lineTax: (float) $item->line_tax,
+                lineTotal: (float) $item->line_total,
+                costPrice: 0.0,
+                quantity: (float) $item->quantity,
+            ))->values(),
+        );
+
+        $subtotal = $totals->subtotal;
+        $taxTotal = $totals->taxTotal;
+        $total = $totals->grandTotal;
 
         $exchangeRate = (float) $this->exchange_rate;
 

@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Casts\SafeUnitCast;
+use App\Enums\Erp\PriceBasis;
 use App\Enums\Unit;
 use App\Observers\BuyerQuoteItemObserver;
+use App\Services\Erp\Financial\LineCalculator;
+use App\Services\Erp\Financial\MarginConvention;
 use Database\Factories\BuyerQuoteItemFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -244,42 +247,31 @@ final class BuyerQuoteItem extends Model
      */
     public function recalculatePrices(): void
     {
-        $quantity = (float) $this->quantity;
-        // unit_price always represents the net price (Selling Price Net), regardless of tax checkbox
-        $unitPrice = (float) $this->unit_price;
+        // Buyer items: unit_price is always the net (ex-tax) price, and the
+        // is_tax_inclusive "+ Tax" checkbox decides whether tax is added on top.
         $taxRate = (float) $this->tax_rate;
-        $isTaxInclusive = $this->is_tax_inclusive;
 
-        // unit_price_exc_tax should always equal unit_price (they're both net price before tax)
-        $unitPriceExcTax = $unitPrice;
-        
-        // Line subtotal is always quantity * net price
-        $lineSubtotal = $quantity * $unitPriceExcTax;
-        
-        // Calculate tax amount
-        $lineTax = $lineSubtotal * $taxRate / 100;
-        
-        // Line total depends on whether tax is included
-        if ($isTaxInclusive && $taxRate > 0) {
-            // Tax is added on top of the net price
-            $lineTotal = $lineSubtotal + $lineTax;
-        } else {
-            // No tax added - line total equals line subtotal
-            $lineTax = 0;
-            $lineTotal = $lineSubtotal;
-        }
+        $amounts = (new LineCalculator)->calculate(
+            unitPriceInput: (float) $this->unit_price,
+            priceBasis: PriceBasis::NET,
+            taxable: $this->is_tax_inclusive && $taxRate > 0,
+            taxRate: $taxRate,
+            quantity: (float) $this->quantity,
+            currencyDecimals: 0,
+        );
 
-        $this->unit_price_exc_tax = (string) round($unitPriceExcTax, 0);
-        $this->line_subtotal = (string) round($lineSubtotal, 0);
-        $this->line_tax = (string) round($lineTax, 0);
-        $this->line_total = (string) round($lineTotal, 0);
-        $this->tax_amount = (string) round($lineTax / max($quantity, 0.0001), 0);
+        $this->unit_price_exc_tax = (string) $amounts->unitPriceExcTax;
+        $this->line_subtotal = (string) $amounts->lineSubtotal;
+        $this->line_tax = (string) $amounts->lineTax;
+        $this->line_total = (string) $amounts->lineTotal;
+        $this->tax_amount = (string) $amounts->taxAmountPerUnit;
 
-        // Calculate margin on selling: ((selling_price - cost_price) / selling_price) * 100
         $costPrice = (float) $this->cost_price;
-        $this->margin_amount = (string) round($unitPriceExcTax - $costPrice, 0);
-
-        $this->margin_percent = $unitPriceExcTax > 0 ? (string) round((($unitPriceExcTax - $costPrice) / $unitPriceExcTax) * 100, 4) : '0.0000';
+        $this->margin_amount = (string) round($amounts->unitPriceExcTax - $costPrice, 0);
+        $this->margin_percent = (string) round(
+            MarginConvention::marginPercent($costPrice, $amounts->unitPriceExcTax),
+            4,
+        );
     }
 
     /**

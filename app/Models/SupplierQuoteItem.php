@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Casts\SafeUnitCast;
+use App\Enums\Erp\PriceBasis;
 use App\Enums\Unit;
 use App\Observers\SupplierQuoteItemObserver;
+use App\Services\Erp\Financial\LineCalculator;
 use Database\Factories\SupplierQuoteItemFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -224,48 +226,35 @@ final class SupplierQuoteItem extends Model
      */
     public function calculateTotals(): void
     {
-        $quantity = (float) $this->quantity;
-        $unitPrice = (float) $this->unit_price;
-        $lineAmount = $quantity * $unitPrice;
-
-        // Check if supplier is taxable
+        // Default to taxable if the supplier record can't be resolved.
         $supplier = $this->supplierQuote?->supplier;
-        $isSupplierTaxable = $supplier?->is_taxable ?? true; // Default to taxable if supplier not found
+        $isSupplierTaxable = $supplier?->is_taxable ?? true;
 
-        // If supplier is not taxable, set all tax values to 0 and line_total = quantity * unit_price
+        // A non-taxable supplier carries no tax; clear any stale tax metadata.
         if (! $isSupplierTaxable) {
-            $this->line_subtotal = (string) round($lineAmount, 4);
-            $this->line_tax = '0.0000';
-            $this->line_total = (string) round($lineAmount, 4);
-            $this->unit_price_exc_tax = $this->unit_price;
-            $this->tax_amount = '0.0000';
-            // Clear tax-related fields
             $this->tax_rate = '0.0000';
             $this->tax_code_id = null;
             $this->is_tax_inclusive = false;
-
-            return;
         }
 
-        // Supplier is taxable - proceed with tax calculations
         $taxRate = (float) $this->tax_rate;
-        $isTaxInclusive = $this->is_tax_inclusive;
 
-        if ($isTaxInclusive) {
-            // Unit price includes tax
-            $this->line_total = (string) round($lineAmount, 4);
-            $this->line_subtotal = (string) round($lineAmount / (1 + $taxRate / 100), 4);
-            $this->line_tax = (string) round((float) $this->line_total - (float) $this->line_subtotal, 4);
-            $this->unit_price_exc_tax = (string) round($unitPrice / (1 + $taxRate / 100), 4);
-            $this->tax_amount = (string) round($unitPrice - (float) $this->unit_price_exc_tax, 4);
-        } else {
-            // Unit price excludes tax
-            $this->line_subtotal = (string) round($lineAmount, 4);
-            $this->line_tax = (string) round($lineAmount * $taxRate / 100, 4);
-            $this->line_total = (string) round((float) $this->line_subtotal + (float) $this->line_tax, 4);
-            $this->unit_price_exc_tax = $this->unit_price;
-            $this->tax_amount = (string) round($unitPrice * $taxRate / 100, 4);
-        }
+        // Supplier prices may be entered gross (tax-inclusive) or net; map the
+        // stored flag onto the shared calculator's explicit price basis.
+        $amounts = (new LineCalculator)->calculate(
+            unitPriceInput: (float) $this->unit_price,
+            priceBasis: $this->is_tax_inclusive ? PriceBasis::GROSS : PriceBasis::NET,
+            taxable: $isSupplierTaxable && $taxRate > 0,
+            taxRate: $taxRate,
+            quantity: (float) $this->quantity,
+            currencyDecimals: 4,
+        );
+
+        $this->unit_price_exc_tax = (string) $amounts->unitPriceExcTax;
+        $this->line_subtotal = (string) $amounts->lineSubtotal;
+        $this->line_tax = (string) $amounts->lineTax;
+        $this->line_total = (string) $amounts->lineTotal;
+        $this->tax_amount = (string) $amounts->taxAmountPerUnit;
     }
 
     /**
