@@ -7,6 +7,7 @@ namespace App\Filament\Resources\RequestResource\RelationManagers;
 use App\Enums\BuyerQuoteCreationMode;
 use App\Enums\BuyerQuoteStatus;
 use App\Enums\CentralPurchasingRole;
+use App\Enums\Erp\PriceBasis;
 use App\Enums\PrepaymentType;
 use App\Enums\RequestStage;
 use App\Enums\SupplierQuoteStatus;
@@ -23,6 +24,7 @@ use App\Models\SupplierQuote;
 use App\Models\TaxCode;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
+use App\Services\Erp\Financial\LineCalculator;
 use App\Services\TeamMemberService;
 use App\Support\Media\DocumentPathGenerator;
 use Filament\Actions\Action;
@@ -2769,29 +2771,27 @@ final class BuyerQuotesRelationManager extends RelationManager
             $unitPriceExcTax = 0;
         }
 
-        // Calculate line totals based on tax inclusivity
-        // When is_tax_inclusive is true (checkbox checked), tax is added to line total
-        // When is_tax_inclusive is false (checkbox unchecked), no tax is added
-        $lineSubtotal = $quantity * $unitPriceExcTax;
+        // Line totals via the shared LineCalculator (same engine the observer uses
+        // on save), so the live preview matches the persisted values exactly. Buyer
+        // items are net; the "+ Tax" checkbox decides whether tax is added on top.
+        $amounts = (new LineCalculator)->calculate(
+            unitPriceInput: $unitPriceExcTax,
+            priceBasis: PriceBasis::NET,
+            taxable: $isTaxInclusive && $taxRate > 0,
+            taxRate: $taxRate,
+            quantity: $quantity,
+            currencyDecimals: 0,
+        );
 
-        if ($isTaxInclusive && $taxRate > 0) {
-            // Tax is added on top of the net price
-            $lineTax = $lineSubtotal * $taxRate / 100;
-            $lineTotal = $lineSubtotal + $lineTax;
-        } else {
-            // No tax added - line total equals line subtotal
-            $lineTax = 0;
-            $lineTotal = $lineSubtotal;
-        }
-
-        // Margin on cost: margin% = (selling_price - cost_price) / cost_price * 100
+        // Margin shown in the quote form is markup-on-cost (the quoting convention),
+        // distinct from the P&L's gross-margin-on-selling.
         $marginAmount = $unitPriceExcTax - $costPrice;
         $marginPercent = $costPrice > 0 ? ($marginAmount / $costPrice) * 100 : 0;
 
         $set('unit_price_exc_tax', round($unitPriceExcTax, 0));
-        $set('line_subtotal', round($lineSubtotal, 0));
-        $set('line_tax', round($lineTax, 0));
-        $set('line_total', round($lineTotal, 0));
+        $set('line_subtotal', $amounts->lineSubtotal);
+        $set('line_tax', $amounts->lineTax);
+        $set('line_total', $amounts->lineTotal);
         $set('margin_amount', round($marginAmount, 4));
         $set('margin_percent', round($marginPercent, 4));
     }
