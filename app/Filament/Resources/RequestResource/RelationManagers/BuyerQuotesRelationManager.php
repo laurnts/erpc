@@ -2817,6 +2817,13 @@ final class BuyerQuotesRelationManager extends RelationManager
     }
 
     /**
+     * Memoized ids of the owner request's services items (per Livewire render).
+     *
+     * @var list<int>|null
+     */
+    private ?array $serviceItemIds = null;
+
+    /**
      * Whether a quote line's child-items section should show: the line already
      * carries child data, or its request item is a services item.
      */
@@ -2834,9 +2841,12 @@ final class BuyerQuotesRelationManager extends RelationManager
         /** @var Request $request */
         $request = $this->getOwnerRecord();
 
-        return $request->items()
-            ->whereKey($requestItemId)
+        $this->serviceItemIds ??= $request->items()
             ->where('item_type', \App\Enums\ItemType::SERVICE)
-            ->exists();
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        return in_array((int) $requestItemId, $this->serviceItemIds, true);
     }
 }

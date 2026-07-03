@@ -43,6 +43,7 @@ final class CustomerRequestResource extends Resource
         $presenter = app(CustomerRequestStagePresenter::class);
 
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->withExists(Request::itemPresenceExistsConstraints()))
             ->columns([
                 TextColumn::make('request_number')
                     ->label('Request No.')

@@ -8,6 +8,13 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasIcon;
 use Filament\Support\Contracts\HasLabel;
 
+/**
+ * Classifies a request item's fulfillment channel. The capability methods
+ * below are the single source of the type→behavior mapping; with two cases
+ * some are mirrored 1:1 by Request's presence helpers (hasGoodsItems/
+ * hasServiceItems) — keep both in sync when adding a case, and the
+ * exhaustive matches here will flag every rule that needs an answer.
+ */
 enum ItemType: string implements HasColor, HasIcon, HasLabel
 {
     case GOODS = 'goods';

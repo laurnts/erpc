@@ -112,6 +112,13 @@ final class RequestItem extends Model
                 $item->unit = 'pcs';
             }
         });
+
+        self::updated(function (RequestItem $item): void {
+            // Keep the child-inherits-parent-type invariant on type changes
+            if ($item->wasChanged('item_type') && $item->parent_id === null) {
+                $item->children()->update(['item_type' => $item->item_type]);
+            }
+        });
     }
 
     /**

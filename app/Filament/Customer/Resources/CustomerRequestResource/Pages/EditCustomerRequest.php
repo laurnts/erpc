@@ -26,6 +26,7 @@ final class EditCustomerRequest extends EditRecord
             ...$this->getRecord()->attributesToArray(),
             'items' => $this->getRecord()->items->map(fn (RequestItem $item): array => [
                 'description' => $item->description,
+                'item_type' => $item->item_type->value,
                 'quantity' => $item->quantity,
                 'unit_of_measure_id' => $item->unit_of_measure_id,
             ])->all(),
@@ -45,7 +46,7 @@ final class EditCustomerRequest extends EditRecord
      */
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        unset($data['items']);
+        unset($data['items'], $data['attachment_files'], $data['submission_method_choice']);
 
         return $data;
     }
@@ -62,6 +63,7 @@ final class EditCustomerRequest extends EditRecord
             RequestItem::query()->create([
                 'request_id' => $this->getRecord()->getKey(),
                 'description' => $item['description'],
+                'item_type' => $item['item_type'] ?? \App\Enums\ItemType::GOODS,
                 'quantity' => $item['quantity'],
                 'unit_of_measure_id' => $item['unit_of_measure_id'],
                 'unit' => $uom?->code ?? 'pcs',

@@ -1004,7 +1004,9 @@ final class SupplierQuotesRelationManager extends RelationManager
                                         }
                                         $requestItem = $request->items()->find($requestItemId);
 
-                                        return $requestItem !== null && $requestItem->isMainItem();
+                                        return $requestItem !== null
+                                            && $requestItem->isMainItem()
+                                            && $requestItem->supportsItemHierarchy();
                                     }),
                             ])
                             ->columns(1)

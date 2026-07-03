@@ -198,6 +198,22 @@ final class SupplierOrder extends Model implements HasMedia
     }
 
     /**
+     * Items eligible for shipment: remaining quantity to receive, and not a
+     * services item (services fulfill via acceptance reports).
+     *
+     * @return \Illuminate\Support\Collection<int, SupplierOrderItem>
+     */
+    public function shippableItems(): \Illuminate\Support\Collection
+    {
+        return $this->items()
+            ->with('requestItem')
+            ->get()
+            ->filter(fn (SupplierOrderItem $item): bool => $item->getRemainingQuantity() > 0
+                && ($item->requestItem === null || $item->requestItem->requiresShipments()))
+            ->values();
+    }
+
+    /**
      * The shipments for this order (inbound).
      *
      * @return HasMany<Shipment, $this>
@@ -376,6 +392,7 @@ final class SupplierOrder extends Model implements HasMedia
      * Status automatically changes to APPROVED after second approval.
      *
      * @param  User  $approver  The user approving the order
+     *
      * @throws \InvalidArgumentException If user cannot approve or already approved
      */
     public function approve(User $approver): void
@@ -393,6 +410,7 @@ final class SupplierOrder extends Model implements HasMedia
         if ($this->approver_1_id === null) {
             $this->approver_1_id = $approver->id;
             $this->save();
+
             return;
         }
 
@@ -532,7 +550,7 @@ final class SupplierOrder extends Model implements HasMedia
                 $quoteUnit = $quoteItem->unit;
                 $unitCode = $quoteUnit instanceof \App\Enums\Unit ? $quoteUnit->value : ($quoteUnit ?? 'pcs');
             }
-            
+
             $item = SupplierOrderItem::make([
                 'supplier_order_id' => $order->getKey(),
                 'supplier_quote_item_id' => $quoteItem->getKey(),
@@ -551,16 +569,16 @@ final class SupplierOrder extends Model implements HasMedia
                 'sort_order' => $quoteItem->sort_order,
                 'notes' => $quoteItem->notes,
             ]);
-            
+
             // Use setRawAttributes to bypass SafeUnitCast and ensure unit is set
             $attributes = $item->getAttributes();
             $item->setRawAttributes(array_merge($attributes, ['unit' => (string) $unitCode]));
-            
+
             // If supplier is taxable and item has tax, recalculate line total to include tax
             if ($quote->supplier !== null && $quote->supplier->is_taxable && (float) $item->tax_rate > 0) {
                 $item->calculateLineTotal();
             }
-            
+
             $item->save();
         }
 

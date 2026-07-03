@@ -31,22 +31,18 @@ The system SHALL classify each request item as Goods or Services, with the item'
 
 ---
 
-### Requirement: Item-Level Fulfillment Completion
-The system SHALL consider a request's fulfillment complete when every item is satisfied through its own channel: goods items via received shipments, service main items via acceptance reports.
+### Requirement: Item-Level Fulfillment Channels
+The system SHALL fulfill each item through the channel of its type — goods items via shipments, services main items via acceptance reports — and SHALL restrict each fulfillment document to items of its channel. (Derived request-level completion tracking — "all items satisfied through their own channel" — is deferred to a follow-up change; stage progression remains manual.)
 
-#### Scenario: Mixed request completes through both channels
-- **WHEN** a request has one goods item fully received via an inbound shipment
-- **AND** one service main item included on an acceptance report
-- **THEN** the request's fulfillment is complete
+#### Scenario: Mixed request exposes both channels
+- **WHEN** a request has one goods item and one services main item
+- **THEN** shipments are available for the goods item
+- **AND** acceptance reports are available for the services main item
 
-#### Scenario: Mixed request incomplete when one channel lags
-- **WHEN** the goods item is fully received but no acceptance report covers the service main item
-- **THEN** the request's fulfillment is not complete
-- **AND** the delivery/completion overview shows the service item as outstanding
-
-#### Scenario: Service child items do not gate completion
-- **WHEN** a service main item is covered by an acceptance report
+#### Scenario: Service child items follow their parent
+- **WHEN** a services main item is covered by an acceptance report
 - **THEN** its child items are considered covered with it
+- **AND** child items are never individually selectable on fulfillment documents
 
 ---
 

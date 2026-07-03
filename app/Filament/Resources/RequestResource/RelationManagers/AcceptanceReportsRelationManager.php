@@ -49,7 +49,7 @@ final class AcceptanceReportsRelationManager extends RelationManager
         $request = $this->getOwnerRecord();
 
         return $schema
-            ->components(AcceptanceReportResource::form($schema)->getComponents());
+            ->components(AcceptanceReportResource::getFormComponents($request));
     }
 
     public function table(Table $table): Table

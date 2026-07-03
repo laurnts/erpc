@@ -66,6 +66,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property-read bool $has_buyer_order_confirmed
  * @property-read bool $has_supplier_order_confirmed
  * @property-read string $financial_status
+ * @property-read string $item_type_summary
  */
 #[ObservedBy(RequestObserver::class)]
 final class Request extends Model implements HasCustomFields, HasMedia
@@ -711,11 +712,30 @@ final class Request extends Model implements HasCustomFields, HasMedia
 
     private function hasItemsOfType(ItemType $type): bool
     {
+        $annotation = $type === ItemType::GOODS ? 'has_goods_items' : 'has_services_items';
+        if (array_key_exists($annotation, $this->attributes)) {
+            return (bool) $this->attributes[$annotation];
+        }
+
         if ($this->relationLoaded('items')) {
             return $this->items->contains(fn (RequestItem $item): bool => $item->item_type === $type);
         }
 
         return $this->items()->where('item_type', $type)->exists();
+    }
+
+    /**
+     * Eager `withExists` constraints matching hasGoodsItems()/hasServiceItems(),
+     * for annotating list queries (avoids two exists() queries per row).
+     *
+     * @return array<string, \Closure>
+     */
+    public static function itemPresenceExistsConstraints(): array
+    {
+        return [
+            'items as has_goods_items' => fn ($query) => $query->where('item_type', ItemType::GOODS),
+            'items as has_services_items' => fn ($query) => $query->where('item_type', ItemType::SERVICE),
+        ];
     }
 
     /**

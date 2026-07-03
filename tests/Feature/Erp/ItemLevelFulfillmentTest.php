@@ -46,6 +46,87 @@ describe('Item type classification', function (): void {
 
         expect($child->refresh()->item_type)->toBe(ItemType::SERVICE);
     });
+
+    it('cascades a main item type change to its children', function (): void {
+        $main = RequestItem::factory()->recycle($this->request)->matched()->create([
+            'item_type' => ItemType::SERVICE,
+        ]);
+        $child = RequestItem::factory()->recycle($this->request)->create([
+            'parent_id' => $main->getKey(),
+        ]);
+
+        $main->update(['item_type' => ItemType::GOODS]);
+
+        expect($child->refresh()->item_type)->toBe(ItemType::GOODS);
+    });
+});
+
+describe('Admin item form type switch', function (): void {
+    it('clears children when a services item is switched to goods', function (): void {
+        $this->artisan('db:seed', ['--class' => 'ErpPermissionSeeder']);
+        $this->user->assignRole('admin');
+        $this->team->users()->attach($this->user, ['role' => 'admin']);
+
+        $uom = \App\Models\UnitOfMeasure::factory()->for($this->team)->create();
+        $article = \App\Models\Article::factory()->recycle($this->team)->create();
+        $main = RequestItem::factory()->recycle($this->request)->matched($article)->create([
+            'item_type' => ItemType::SERVICE,
+            'unit_of_measure_id' => $uom->getKey(),
+        ]);
+        RequestItem::factory()->recycle($this->request)->create(['parent_id' => $main->getKey()]);
+
+        \Filament\Facades\Filament::setCurrentPanel('admin');
+        \Filament\Facades\Filament::setTenant($this->team);
+
+        Pest\Livewire\livewire(
+            \App\Filament\Resources\RequestResource\RelationManagers\ItemsRelationManager::class,
+            [
+                'ownerRecord' => $this->request,
+                'pageClass' => \App\Filament\Resources\RequestResource\Pages\ViewRequest::class,
+            ],
+        )
+            ->callTableAction('edit', $main, data: [
+                'item_type' => ItemType::GOODS->value,
+            ])
+            ->assertHasNoTableActionErrors();
+
+        expect($main->refresh()->item_type)->toBe(ItemType::GOODS)
+            ->and($main->children()->count())->toBe(0);
+    });
+});
+
+describe('Shipment item eligibility', function (): void {
+    it('excludes services items from shippable order items', function (): void {
+        $supplier = Company::factory()->supplier()->recycle($this->team)->create();
+        $goodsItem = RequestItem::factory()->recycle($this->request)->create(['item_type' => ItemType::GOODS]);
+        $serviceItem = RequestItem::factory()->recycle($this->request)->create(['item_type' => ItemType::SERVICE]);
+
+        $order = \App\Models\SupplierOrder::factory()
+            ->recycle($this->team)
+            ->recycle($this->request)
+            ->recycle($supplier)
+            ->create();
+
+        $goodsLine = \App\Models\SupplierOrderItem::factory()->recycle($order)->create([
+            'request_item_id' => $goodsItem->getKey(),
+            'quantity' => 5,
+        ]);
+        \App\Models\SupplierOrderItem::factory()->recycle($order)->create([
+            'request_item_id' => $serviceItem->getKey(),
+            'quantity' => 1,
+        ]);
+        $unlinkedLine = \App\Models\SupplierOrderItem::factory()->recycle($order)->create([
+            'request_item_id' => null,
+            'quantity' => 2,
+        ]);
+
+        $shippable = $order->shippableItems();
+
+        expect($shippable->pluck('id')->all())
+            ->toContain($goodsLine->getKey())
+            ->toContain($unlinkedLine->getKey())
+            ->and($shippable)->toHaveCount(2);
+    });
 });
 
 describe('Item presence helpers', function (): void {

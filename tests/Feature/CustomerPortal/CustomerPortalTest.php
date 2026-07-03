@@ -371,6 +371,37 @@ describe('Customer Request Submission', function (): void {
             ->and($request->item_type_summary)->toBe('Mixed');
     });
 
+    it('preserves item types when a customer edits a draft request', function (): void {
+        $request = Request::factory()->for($this->team)->for($this->buyer, 'buyer')->create([
+            'submission_method' => RequestSubmissionMethod::MANUAL,
+            'submitted_at' => now(),
+            'submitted_by_user_id' => $this->portalUser->getKey(),
+            'stage' => RequestStage::DRAFT,
+        ]);
+        $uom = UnitOfMeasure::factory()->for($this->team)->create();
+        RequestItem::factory()->for($request)->create([
+            'description' => 'Machine maintenance',
+            'item_type' => \App\Enums\ItemType::SERVICE,
+            'unit_of_measure_id' => $uom->getKey(),
+        ]);
+
+        $this->actingAs($this->portalUser, 'customer');
+        Filament::setCurrentPanel('customer');
+        app(PortalContext::class)->setCompany($this->buyer->getKey());
+
+        livewire(\App\Filament\Customer\Resources\CustomerRequestResource\Pages\EditCustomerRequest::class, [
+            'record' => $request->getKey(),
+        ])
+            ->fillForm(['submission_method_choice' => RequestSubmissionMethod::MANUAL->value])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $item = $request->refresh()->items()->first();
+
+        expect($item->description)->toBe('Machine maintenance')
+            ->and($item->item_type)->toBe(\App\Enums\ItemType::SERVICE);
+    });
+
     it('scopes customer request list to portal company only', function (): void {
         $otherBuyer = Company::factory()->buyer()->for($this->team)->create();
 

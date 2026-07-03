@@ -14,7 +14,7 @@ The 2026-07-03 capability refactor (`RequestType::supportsItemHierarchy()`, `use
   - Shipments tab shown when the request has ≥1 goods item; shipment item pickers offer goods items only.
   - Acceptance Reports tab shown when the request has ≥1 service item; report item pickers offer service items only.
   - Both tabs coexist on mixed requests.
-- **MODIFIED**: Completion/stage validation: every item must be satisfied through its own channel; matching validation requires goods items and service *main* items to be matched (service child items exempt).
+- **MODIFIED**: Stage matching validation requires goods items and service *main* items to be matched (service child items exempt). Derived request-level completion ("every item satisfied through its own channel") is deferred to a follow-up change — stage progression remains manual, as before.
 - **MODIFIED**: Quotation Evaluation is available when the request has ≥1 goods item and covers goods items only; service items never appear in QE.
 - **MODIFIED**: Item hierarchy (main/child) and job-progress payment terms attach to service *items* rather than service *requests*. Totals continue to exclude child items of service main items.
 - **BREAKING**: Existing `requests.request_type` is migrated by copying the type onto each of the request's items, then dropped. External consumers of `request_type` (none known in-repo outside the migrated call sites) must switch to item-level queries.

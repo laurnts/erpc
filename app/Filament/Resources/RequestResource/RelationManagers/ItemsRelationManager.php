@@ -763,8 +763,13 @@ final class ItemsRelationManager extends RelationManager
                         // Update the record
                         $record->update($data);
 
-                        // Re-sync children; a services→goods switch clears them since the
-                        // form hides the section and submits no children data
+                        // Goods items never carry children — a services→goods switch drops
+                        // any child data regardless of what the hidden repeater submitted
+                        if (! $record->refresh()->supportsItemHierarchy()) {
+                            $childrenData = [];
+                        }
+
+                        // Re-sync children from the submitted data
                         if ($record->isMainItem()) {
                             // Delete existing children
                             $record->children()->delete();

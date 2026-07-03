@@ -39,11 +39,10 @@ Presence checks use `items()->where('item_type', …)->exists()` (or the loaded 
 
 Today `filterForTotals(bool $hasItemHierarchy)` is gated per request. After this change, only service items can have children, and children are never priced independently — so the exclusion becomes unconditional: `filterForTotals()` drops any line whose request item is a child. The boolean parameter disappears. Goods items are unaffected (they have no children to exclude).
 
-### D4. Completion = every item satisfied through its own channel
+### D4. Completion = every item satisfied through its own channel *(partially deferred)*
 
-- Goods items: covered by received shipments (existing shipment-item quantity logic, scoped to goods items).
-- Service items: covered when a main item appears on ≥1 acceptance report (existing pivot, scoped to service items).
-- Stage matching validation: goods items and service *main* items require `article_id`; service child items are exempt (unchanged rule, re-keyed from request type to item type).
+- Stage matching validation: goods items and service *main* items require `article_id`; service child items are exempt (unchanged rule, re-keyed from request type to item type). **Shipped.**
+- Derived completion (goods items covered by received shipments, service main items covered by acceptance reports) is **deferred to a follow-up change**: no request-level shipment-coverage computation existed to re-key, and stage progression is fully manual today, so inventing per-channel coverage here would have widened this change's blast radius. The acceptance-report Covered Items pivot and item-filtered pickers shipped here are the inputs that follow-up will need.
 
 ### D5. Quotation Evaluation scopes to goods items
 
@@ -74,6 +73,8 @@ QE remains a goods-only comparison instrument. Availability: request has ≥1 go
 3. Ship code cutover keyed to `item_type` (request selector removed the same release).
 4. Ship column-drop migration one release later.
 5. At apply time, extend this change's deltas with `REMOVED: Request Type Classification`, `REMOVED: Service Request Child Items` (superseded by item-level requirements) once archiving makes them referenceable.
+
+**Rollout amendment (as implemented):** both migrations and the code cutover ship in a single release, deployed with `php artisan migrate` running before the new code serves traffic (maintenance-window deploy, not rolling). The two-release split above is unnecessary at the current deployment scale; if this ever deploys rolling/multi-node, split the drop migration back out into the following release.
 
 ## Open Questions
 

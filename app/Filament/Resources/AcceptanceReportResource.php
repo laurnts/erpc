@@ -47,102 +47,134 @@ final class AcceptanceReportResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema
-            ->components([
-                Select::make('request_id')
-                    ->label('Request')
-                    ->relationship('request', 'request_number', modifyQueryUsing: fn ($query) => $query->whereHas('items', fn ($itemQuery) => $itemQuery->where('item_type', \App\Enums\ItemType::SERVICE)))
-                    ->required()
-                    ->searchable()
-                    ->preload()
-                    ->live()
-                    ->disabled(fn ($record) => $record !== null)
-                    ->helperText('Only requests with services items are available'),
-                Select::make('items')
-                    ->label('Covered Items')
-                    ->multiple()
-                    ->relationship(
-                        'items',
-                        'description',
-                        modifyQueryUsing: fn ($query, \Filament\Schemas\Components\Utilities\Get $get) => $query
-                            ->where('request_id', $get('request_id'))
-                            ->whereNull('parent_id')
-                            ->where('item_type', \App\Enums\ItemType::SERVICE),
-                    )
-                    ->preload()
-                    ->helperText('Services main items covered by this report; child items are covered with their parent'),
-                Section::make('Report Details')
-                    ->schema([
-                        \Filament\Forms\Components\TextInput::make('report_number')
-                            ->label('Report Number')
-                            ->maxLength(50)
-                            ->placeholder('Auto-generated')
-                            ->helperText('Leave empty to auto-generate')
-                            ->disabled(fn ($record) => $record !== null),
-                        DatePicker::make('reported_at')
-                            ->label('Reported Date')
-                            ->required()
-                            ->default(now()),
-                        Textarea::make('notes')
-                            ->label('Notes')
-                            ->rows(3)
-                            ->columnSpanFull(),
-                    ])
-                    ->columns(2),
-                Section::make('Attachments')
-                    ->schema([
-                        FileUpload::make('attachments')
-                            ->label('Files')
-                            ->helperText('Upload PDF, Word documents, or images')
-                            ->acceptedFileTypes([
-                                'application/pdf',
-                                'application/msword',
-                                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                                'image/jpeg',
-                                'image/png',
-                                'image/gif',
-                            ])
-                            ->disk('local')
-                            ->directory('acceptance-reports/attachments')
-                            ->visibility('private')
-                            ->downloadable()
-                            ->openable()
-                            ->previewable()
-                            ->multiple()
-                            ->maxFiles(10)
-                            ->maxSize(5120) // 5MB in KB
-                            ->dehydrated(false)
-                            ->afterStateUpdated(function ($state, $record, $set): void {
-                                // Process uploaded files immediately when they're uploaded
-                                if ($record && $record->exists && $state && is_array($state) && ! empty($state)) {
-                                    foreach ($state as $file) {
-                                        if (is_string($file)) {
-                                            // Filament stores files relative to storage/app
-                                            $filePath = storage_path('app/'.ltrim($file, '/'));
+            ->components(self::getFormComponents())
+            ->columns(1);
+    }
 
-                                            if (file_exists($filePath)) {
-                                                try {
-                                                    $record->addMedia($filePath)
-                                                        ->toMediaCollection('attachments');
+    /**
+     * Form components, optionally scoped to a fixed request (relation-manager context).
+     *
+     * @return array<int, \Filament\Schemas\Components\Component|\Filament\Forms\Components\Field>
+     */
+    public static function getFormComponents(?\App\Models\Request $request = null): array
+    {
+        $resolveRequestId = fn (\Filament\Schemas\Components\Utilities\Get $get): mixed => $request?->getKey() ?? $get('request_id');
 
-                                                    // Refresh the record to load new media
-                                                    $record->refresh();
-                                                } catch (\Exception $e) {
-                                                    \Illuminate\Support\Facades\Log::error('Failed to add acceptance report media: '.$e->getMessage(), [
-                                                        'file' => $file,
-                                                        'filePath' => $filePath,
-                                                        'acceptance_report_id' => $record->id,
-                                                    ]);
-                                                }
+        return [
+            Select::make('request_id')
+                ->label('Request')
+                ->relationship('request', 'request_number', modifyQueryUsing: fn ($query) => $query->whereHas('items', fn ($itemQuery) => $itemQuery->where('item_type', \App\Enums\ItemType::SERVICE)))
+                ->required()
+                ->searchable()
+                ->preload()
+                ->live()
+                ->default($request?->getKey())
+                ->disabled(fn ($record): bool => $record !== null || $request !== null)
+                ->dehydrated()
+                ->hidden($request !== null)
+                ->helperText('Only requests with services items are available'),
+            Select::make('items')
+                ->label('Covered Items')
+                ->multiple()
+                ->relationship(
+                    'items',
+                    'description',
+                    modifyQueryUsing: fn ($query, \Filament\Schemas\Components\Utilities\Get $get) => $query
+                        ->where('request_id', $resolveRequestId($get))
+                        ->whereNull('parent_id')
+                        ->where('item_type', \App\Enums\ItemType::SERVICE),
+                )
+                ->preload()
+                ->rule(fn (\Filament\Schemas\Components\Utilities\Get $get): \Closure => function (string $attribute, mixed $value, \Closure $fail) use ($get, $resolveRequestId): void {
+                    if (! is_array($value) || $value === []) {
+                        return;
+                    }
+
+                    $foreign = \App\Models\RequestItem::query()
+                        ->whereIn('id', $value)
+                        ->where(fn ($query) => $query
+                            ->where('request_id', '!=', $resolveRequestId($get))
+                            ->orWhereNotNull('parent_id')
+                            ->orWhere('item_type', '!=', \App\Enums\ItemType::SERVICE))
+                        ->exists();
+
+                    if ($foreign) {
+                        $fail('Covered items must be services main items of this report\'s request.');
+                    }
+                })
+                ->helperText('Services main items covered by this report; child items are covered with their parent'),
+            Section::make('Report Details')
+                ->schema([
+                    \Filament\Forms\Components\TextInput::make('report_number')
+                        ->label('Report Number')
+                        ->maxLength(50)
+                        ->placeholder('Auto-generated')
+                        ->helperText('Leave empty to auto-generate')
+                        ->disabled(fn ($record) => $record !== null),
+                    DatePicker::make('reported_at')
+                        ->label('Reported Date')
+                        ->required()
+                        ->default(now()),
+                    Textarea::make('notes')
+                        ->label('Notes')
+                        ->rows(3)
+                        ->columnSpanFull(),
+                ])
+                ->columns(2),
+            Section::make('Attachments')
+                ->schema([
+                    FileUpload::make('attachments')
+                        ->label('Files')
+                        ->helperText('Upload PDF, Word documents, or images')
+                        ->acceptedFileTypes([
+                            'application/pdf',
+                            'application/msword',
+                            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                            'image/jpeg',
+                            'image/png',
+                            'image/gif',
+                        ])
+                        ->disk('local')
+                        ->directory('acceptance-reports/attachments')
+                        ->visibility('private')
+                        ->downloadable()
+                        ->openable()
+                        ->previewable()
+                        ->multiple()
+                        ->maxFiles(10)
+                        ->maxSize(5120) // 5MB in KB
+                        ->dehydrated(false)
+                        ->afterStateUpdated(function ($state, $record, $set): void {
+                            // Process uploaded files immediately when they're uploaded
+                            if ($record && $record->exists && $state && is_array($state) && ! empty($state)) {
+                                foreach ($state as $file) {
+                                    if (is_string($file)) {
+                                        // Filament stores files relative to storage/app
+                                        $filePath = storage_path('app/'.ltrim($file, '/'));
+
+                                        if (file_exists($filePath)) {
+                                            try {
+                                                $record->addMedia($filePath)
+                                                    ->toMediaCollection('attachments');
+
+                                                // Refresh the record to load new media
+                                                $record->refresh();
+                                            } catch (\Exception $e) {
+                                                \Illuminate\Support\Facades\Log::error('Failed to add acceptance report media: '.$e->getMessage(), [
+                                                    'file' => $file,
+                                                    'filePath' => $filePath,
+                                                    'acceptance_report_id' => $record->id,
+                                                ]);
                                             }
                                         }
                                     }
                                 }
-                            })
-                            ->columnSpanFull(),
-                    ])
-                    ->collapsible(),
-            ])
-            ->columns(1);
+                            }
+                        })
+                        ->columnSpanFull(),
+                ])
+                ->collapsible(),
+        ];
     }
 
     public static function table(Table $table): Table

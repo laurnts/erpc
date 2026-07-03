@@ -12,9 +12,9 @@
 ## 2. Enum & Models
 - [x] 2.1 Rename `RequestType` → `ItemType` (class + imports; DB values unchanged); keep all five capability methods and `casesUsingAcceptanceReports()`
 - [x] 2.2 `RequestItem`: add `item_type` fillable + cast, capability passthroughs (`supportsItemHierarchy()` etc.), enforce child items inherit parent type (observer or mutator)
-- [x] 2.3 `Request`: add `hasGoodsItems()` / `hasServiceItems()`; rewire completion (`isFullyShipped` scoped to goods items, acceptance coverage scoped to service main items); matching validation per item type; remove request-level capability passthroughs
+- [x] 2.3 `Request`: add `hasGoodsItems()` / `hasServiceItems()`; matching validation unified to main-level items; remove request-level capability passthroughs. (Derived per-channel completion deferred — no request-level shipment-coverage logic existed to re-key; see design.md D4 amendment)
 - [x] 2.4 `BuyerQuoteItem::filterForTotals()`: drop the `$hasItemHierarchy` parameter — always exclude child lines; update `collectTotals()` and all callers (BuyerQuote, SupplierQuote, SupplierOrdersRelationManager, blades, unit tests)
-- [x] 2.5 Unit/feature tests for 2.2–2.4 (mixed request completion, totals with mixed items)
+- [x] 2.5 Unit/feature tests for 2.2–2.4 (item defaults/inheritance, presence helpers, matching validation, totals with mixed items)
 
 ## 3. Request & Item Forms
 - [x] 3.1 `RequestResource`: remove `request_type` select from create/edit
@@ -38,7 +38,7 @@
 - [x] 6.2 Verify quote/order/invoice PDFs render mixed item lists correctly
 - [x] 6.3 Feature test: P&L totals on a mixed request
 
-## 7. Column Drop (follow-up release)
+## 7. Column Drop (shipped in the same release — maintenance-window deploy; see design.md rollout amendment)
 - [x] 7.1 Migration: drop `requests.request_type` (+ index); `down()` re-derives type (all-service → services, else goods)
 - [x] 7.2 Sweep for any remaining `request_type` references (code, queries, exports)
 
