@@ -14,9 +14,6 @@ use App\Models\Request;
 use App\Models\SupplierQuote;
 use App\Models\SupplierQuoteItem;
 use Filament\Facades\Filament;
-use Filament\Actions\Action;
-use Filament\Actions\Concerns\InteractsWithActions;
-use Filament\Actions\Contracts\HasActions;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Textarea;
@@ -27,7 +24,6 @@ use Filament\Schemas\Schema;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -51,15 +47,6 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
 
     public ?int $approvedById = null;
 
-    // Modal state management
-    public bool $showKeyAccountForm = false;
-
-    public string $newKeyAccountName = '';
-
-    public string $newKeyAccountEmail = '';
-
-    public string $newKeyAccountPhone = '';
-
     public function mount(Request $request): void
     {
         // Verify request belongs to current team
@@ -81,7 +68,7 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
         $this->request = $request;
         $this->description = $request->title;
         $this->qeDate = now()->format('Y-m-d');
-        
+
         // Fill the form with initial data
         $this->form->fill([
             'qeDate' => $this->qeDate,
@@ -196,90 +183,6 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
             $team,
             CentralPurchasingRole::DIRECTOR
         );
-    }
-
-    /**
-     * Create a new key account team member from inline form.
-     *
-     * @param  array<string, mixed>  $data
-     */
-    public function createKeyAccount(array $data): int
-    {
-        /** @var \App\Models\Team $team */
-        $team = Filament::getTenant();
-
-        /** @var \App\Models\User $user */
-        $user = \App\Models\User::create([
-            'name' => $data['name'],
-            'email' => $data['email'] ?? $data['name'] . '@' . $team->name . '.local',
-            'password' => \Illuminate\Support\Facades\Hash::make(\Illuminate\Support\Str::random(32)), // Temporary password
-        ]);
-
-        // Add user to team with Central Purchasing Key Account role
-        $team->users()->attach($user->id, [
-            'role' => 'central_purchasing',
-            'central_purchasing_role' => \App\Enums\CentralPurchasingRole::KEY_ACCOUNT->value,
-        ]);
-
-        return $user->id;
-    }
-
-    /**
-     * Open the key account creation form.
-     */
-    public function openKeyAccountForm(): void
-    {
-        $this->showKeyAccountForm = true;
-        $this->newKeyAccountName = '';
-        $this->newKeyAccountEmail = '';
-        $this->newKeyAccountPhone = '';
-    }
-
-    /**
-     * Cancel and go back to QE form.
-     */
-    public function cancelKeyAccountForm(): void
-    {
-        $this->showKeyAccountForm = false;
-    }
-
-    /**
-     * Save the new key account and go back to QE form.
-     */
-    public function saveNewKeyAccount(): void
-    {
-        // Check authorization - user must be able to add team members
-        $team = Filament::getTenant();
-        if (! Gate::check('addTeamMember', $team)) {
-            Notification::make()
-                ->title('Permission Denied')
-                ->body('You do not have permission to add team members.')
-                ->danger()
-                ->send();
-
-            return;
-        }
-
-        $this->validate([
-            'newKeyAccountName' => 'required|string|max:255',
-            'newKeyAccountEmail' => 'nullable|email|max:255',
-            'newKeyAccountPhone' => 'nullable|string|max:50',
-        ]);
-
-        $id = $this->createKeyAccount([
-            'name' => $this->newKeyAccountName,
-            'email' => $this->newKeyAccountEmail ?: null,
-            'phone' => $this->newKeyAccountPhone ?: null,
-        ]);
-
-        $this->preparedById = $id;
-        $this->showKeyAccountForm = false;
-
-        Notification::make()
-            ->title('Key Account created')
-            ->body('The new key account has been selected.')
-            ->success()
-            ->send();
     }
 
     /**

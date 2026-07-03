@@ -92,7 +92,7 @@ final class CompanyResource extends Resource
                 ->relationship('tags', 'name')
                 ->multiple()
                 ->preload()
-                
+
                 ->helperText('What products/services they supply')
                 ->createOptionForm(TagResource::getFormSchema())
                 ->createOptionUsing(function (array $data): int {
@@ -115,8 +115,7 @@ final class CompanyResource extends Resource
                 ->schema([
                     Select::make('country')
                         ->options(self::getCountryOptions())
-                        ->default('Indonesia')
-                        ,
+                        ->default('Indonesia'),
                     Textarea::make('address')
                         ->label('Address')
                         ->rows(2),
@@ -141,7 +140,7 @@ final class CompanyResource extends Resource
                             return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
                         })
                         ->nullable()
-                        
+
                         ->preload()
                         ->createOptionForm(CurrencyResource::getFormSchema(excludeDefaultField: true))
                         ->createOptionUsing(function (array $data): int {
@@ -157,11 +156,16 @@ final class CompanyResource extends Resource
                         ->minValue(0)
                         ->suffix('days'),
                     Select::make('account_owner_id')
-                        ->relationship('accountOwner', 'name')
+                        ->relationship(
+                            'accountOwner',
+                            'name',
+                            fn (Builder $query): Builder => $query->whereKey(
+                                Filament::getTenant()?->allUsers()->modelKeys() ?? []
+                            )
+                        )
                         ->label('Account Owner')
                         ->nullable()
-                        ->preload()
-                        ,
+                        ->preload(),
                 ])
                 ->columns(3),
 
@@ -210,7 +214,7 @@ final class CompanyResource extends Resource
                         ->relationship('articles', 'name')
                         ->multiple()
                         ->preload()
-                        
+
                         ->helperText('Articles this supplier provides. Manage pricing details in the Articles tab.')
                         ->createOptionForm(ArticleResource::getFormSchema(forModal: true))
                         ->createOptionUsing(function (array $data): int {
@@ -248,7 +252,7 @@ final class CompanyResource extends Resource
                     ->relationship('people', 'name')
                     ->multiple()
                     ->preload()
-                    
+
                     ->helperText('Add people associated with this company')
                     ->createOptionForm(PeopleResource::getFormSchema(excludeCompaniesField: true))
                     ->createOptionUsing(function (array $data): int {
@@ -297,13 +301,13 @@ final class CompanyResource extends Resource
                 ImageColumn::make('logo')->label('')->imageSize(28)->square(),
                 TextColumn::make('code')
                     ->label('Code')
-                    
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('name')
-                    
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('domain')
-                    
+                    ->searchable()
                     ->sortable()
                     ->toggleable()
                     ->url(fn (?string $state): ?string => $state ? "https://{$state}" : null)
@@ -314,7 +318,7 @@ final class CompanyResource extends Resource
                     ->sortable()
                     ->toggleable(),
                 TextColumn::make('country')
-                    
+
                     ->sortable()
                     ->toggleable(),
                 IconColumn::make('is_buyer')
@@ -341,13 +345,13 @@ final class CompanyResource extends Resource
                     ->sortable(),
                 TextColumn::make('accountOwner.name')
                     ->label('Account Owner')
-                    
+                    ->searchable()
                     ->sortable()
                     ->toggleable()
                     ->toggledHiddenByDefault(),
                 TextColumn::make('creator.name')
                     ->label('Created By')
-                    
+                    ->searchable()
                     ->sortable()
                     ->toggleable()
                     ->toggledHiddenByDefault()
@@ -379,7 +383,7 @@ final class CompanyResource extends Resource
                     ]),
                 SelectFilter::make('country')
                     ->label('Country')
-                    
+
                     ->preload()
                     ->options(fn () => Company::query()->whereNotNull('country')->distinct()->pluck('country', 'country')->toArray()),
                 SelectFilter::make('default_currency_id')
@@ -387,8 +391,7 @@ final class CompanyResource extends Resource
                     ->options(fn () => Currency::query()
                         ->where('is_active', true)
                         ->pluck('code', 'id')
-                        ->all())
-                    ,
+                        ->all()),
                 SelectFilter::make('creation_source')
                     ->label('Creation Source')
                     ->options(CreationSource::class)

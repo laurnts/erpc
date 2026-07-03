@@ -46,17 +46,17 @@ final class BuyerOrderResource extends Resource
             ->columns([
                 TextColumn::make('order_number')
                     ->label('Order #')
-                    
+                    ->searchable()
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('request.request_number')
                     ->label('Request')
-                    
+                    ->searchable()
                     ->sortable()
                     ->url(fn (BuyerOrder $record): string => RequestResource::getUrl('view', ['record' => $record->request_id])),
                 TextColumn::make('buyer.name')
                     ->label('Buyer')
-                    
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('buyerQuote.quote_number')
                     ->label('From Quote')
@@ -104,13 +104,11 @@ final class BuyerOrderResource extends Resource
                 SelectFilter::make('buyer_id')
                     ->relationship('buyer', 'name', fn ($query) => $query->where('is_buyer', true))
                     ->label('Buyer')
-                    ->preload()
-                    ,
+                    ->preload(),
                 SelectFilter::make('request_id')
                     ->relationship('request', 'request_number')
                     ->label('Request')
-                    ->preload()
-                    ,
+                    ->preload(),
                 TrashedFilter::make(),
             ])
             ->recordUrl(fn (BuyerOrder $record): string => RequestResource::getUrl('view', ['record' => $record->request_id]))

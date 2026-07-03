@@ -46,16 +46,18 @@ final class NoteResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('title')
-                    ,
+                    ->searchable(),
                 TextColumn::make('companies.name')
                     ->label('Companies')
+                    ->searchable()
                     ->toggleable(),
                 TextColumn::make('people.name')
                     ->label('People')
+                    ->searchable()
                     ->toggleable(),
                 TextColumn::make('creator.name')
                     ->label('Created By')
-                    
+                    ->searchable()
                     ->sortable()
                     ->toggleable()
                     ->getStateUsing(fn (Note $record): string => $record->created_by)

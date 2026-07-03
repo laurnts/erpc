@@ -4,14 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
-use App\Enums\CentralPurchasingRole;
+use App\Filament\Exports\QuotationEvaluationExporter;
 use App\Filament\Forms\Components\ApprovalPersonnelSchema;
 use App\Filament\Resources\QuotationEvaluationResource\Pages\ListQuotationEvaluations;
 use App\Filament\Resources\QuotationEvaluationResource\Pages\ViewQuotationEvaluation;
-use App\Filament\Exports\QuotationEvaluationExporter;
 use App\Models\QuotationEvaluation;
 use App\Policies\QuotationEvaluationPolicy;
-use App\Services\TeamMemberService;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\ExportBulkAction;
 use Filament\Facades\Filament;
@@ -70,7 +68,7 @@ final class QuotationEvaluationResource extends Resource
         /** @var \App\Models\User $user */
         $user = \App\Models\User::create([
             'name' => $data['name'],
-            'email' => $data['email'] ?? $data['name'] . '@' . $team->name . '.local',
+            'email' => $data['email'] ?? $data['name'].'@'.$team->name.'.local',
             'password' => \Illuminate\Support\Facades\Hash::make(\Illuminate\Support\Str::random(32)), // Temporary password
         ]);
 
@@ -112,7 +110,7 @@ final class QuotationEvaluationResource extends Resource
             ->columns([
                 TextColumn::make('qe_number')
                     ->label('QE Number')
-                    
+                    ->searchable()
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('status')
@@ -120,7 +118,7 @@ final class QuotationEvaluationResource extends Resource
                     ->sortable(),
                 TextColumn::make('approval_count')
                     ->label('Approvals')
-                    ->getStateUsing(fn (\App\Models\QuotationEvaluation $record): string => $record->approvalCount() . '/' . $record->totalApproversCount())
+                    ->getStateUsing(fn (\App\Models\QuotationEvaluation $record): string => $record->approvalCount().'/'.$record->totalApproversCount())
                     ->badge()
                     ->color(fn (\App\Models\QuotationEvaluation $record): string => $record->approvalCount() >= $record->totalApproversCount() ? 'success' : 'warning'),
                 TextColumn::make('approvers.name')
@@ -130,11 +128,11 @@ final class QuotationEvaluationResource extends Resource
                     ->separator(','),
                 TextColumn::make('request.request_number')
                     ->label('Request')
-                    
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('description')
                     ->limit(40)
-                    
+                    ->searchable()
                     ->toggleable(),
                 TextColumn::make('qe_date')
                     ->label('Date')

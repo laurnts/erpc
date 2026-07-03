@@ -110,11 +110,11 @@ final class CurrencyResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('code')
-                    
+                    ->searchable()
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('name')
-                    
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('symbol')
                     ->sortable(),

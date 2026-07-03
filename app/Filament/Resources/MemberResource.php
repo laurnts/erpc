@@ -7,8 +7,6 @@ namespace App\Filament\Resources;
 use App\Enums\CentralPurchasingRole;
 use App\Filament\Resources\MemberResource\Pages\ListMembers;
 use App\Models\Membership;
-use Filament\Actions\Action;
-use Filament\Actions\ActionGroup;
 use Filament\Facades\Filament;
 use Filament\Resources\Resource;
 use Filament\Tables\Columns\ImageColumn;
@@ -47,12 +45,12 @@ final class MemberResource extends Resource
                     ->size(32),
                 TextColumn::make('user.name')
                     ->label('Name')
-                    
+                    ->searchable()
                     ->sortable()
                     ->weight('medium'),
                 TextColumn::make('user.email')
                     ->label('Email')
-                    
+                    ->searchable()
                     ->sortable()
                     ->copyable(),
                 TextColumn::make('role')
@@ -69,8 +67,7 @@ final class MemberResource extends Resource
                 TextColumn::make('is_approver')
                     ->label('Approver')
                     ->badge()
-                    ->getStateUsing(fn (Membership $record): ?string => 
-                        ($record->role === 'central_purchasing' && 
+                    ->getStateUsing(fn (Membership $record): ?string => ($record->role === 'central_purchasing' &&
                          $record->central_purchasing_role === CentralPurchasingRole::FINANCE &&
                          $record->is_approver) ? 'Approver' : null
                     )
@@ -102,7 +99,7 @@ final class MemberResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $team = Filament::getTenant();
-        
+
         return parent::getEloquentQuery()
             ->where('team_id', $team->id)
             ->with('user');
