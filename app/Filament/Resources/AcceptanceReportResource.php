@@ -8,7 +8,6 @@ use App\Filament\Resources\AcceptanceReportResource\Pages\CreateAcceptanceReport
 use App\Filament\Resources\AcceptanceReportResource\Pages\ListAcceptanceReports;
 use App\Filament\Resources\AcceptanceReportResource\Pages\ViewAcceptanceReport;
 use App\Models\AcceptanceReport;
-use App\Models\Request;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -51,7 +50,7 @@ final class AcceptanceReportResource extends Resource
             ->components([
                 Select::make('request_id')
                     ->label('Request')
-                    ->relationship('request', 'request_number', modifyQueryUsing: fn ($query) => $query->where('request_type', \App\Enums\RequestType::SERVICE))
+                    ->relationship('request', 'request_number', modifyQueryUsing: fn ($query) => $query->whereIn('request_type', \App\Enums\RequestType::casesUsingAcceptanceReports()))
                     ->required()
                     ->searchable()
                     ->preload()

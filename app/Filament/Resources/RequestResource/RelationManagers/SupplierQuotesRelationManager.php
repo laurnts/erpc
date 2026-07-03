@@ -5,20 +5,18 @@ declare(strict_types=1);
 namespace App\Filament\Resources\RequestResource\RelationManagers;
 
 use App\Enums\PrepaymentType;
-use App\Enums\QEStatus;
 use App\Enums\RequestStage;
 use App\Enums\SupplierQuoteStatus;
 use App\Filament\Resources\QuotationEvaluationResource;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Models\Company;
 use App\Models\Currency;
-use App\Models\QuotationEvaluation;
 use App\Models\Request;
 use App\Models\SupplierQuote;
 use App\Models\SupplierQuoteItem;
 use App\Models\TaxCode;
-use App\Support\Media\DocumentPathGenerator;
 use App\Models\UnitOfMeasure;
+use App\Support\Media\DocumentPathGenerator;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -166,7 +164,7 @@ final class SupplierQuotesRelationManager extends RelationManager
 
                                         return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
                                     })
-                                    
+
                                     ->required()
                                     ->selectablePlaceholder(false)
                                     ->live()
@@ -254,15 +252,15 @@ final class SupplierQuotesRelationManager extends RelationManager
                                         if ($record instanceof \App\Models\SupplierQuote) {
                                             $hasPrices = $record->items()->where('unit_price', '>', 0)->exists();
                                             $total = (float) $record->total;
-                                            
+
                                             // Auto-update status from PENDING to RECEIVED if prices exist
                                             if ($record->status === SupplierQuoteStatus::PENDING && ($hasPrices || $total > 0)) {
                                                 return SupplierQuoteStatus::RECEIVED;
                                             }
-                                            
+
                                             return $record->status;
                                         }
-                                        
+
                                         return SupplierQuoteStatus::PENDING;
                                     })
                                     ->required()
@@ -328,7 +326,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                             ->minValue(0)
                                             ->maxValue(100)
                                             ->suffix('%')
-                                            ->visible(fn (): bool => $this->getOwnerRecord()->isServiceRequest())
+                                            ->visible(fn (): bool => $this->getOwnerRecord()->hasJobProgress())
                                             ->live(),
                                     ]),
                             ])
@@ -338,9 +336,10 @@ final class SupplierQuotesRelationManager extends RelationManager
                                     return null;
                                 }
                                 $label = "{$state['due_days']} days - {$state['percentage']}%";
-                                if ($this->getOwnerRecord()->isServiceRequest() && isset($state['job_progress']) && $state['job_progress'] !== '' && $state['job_progress'] !== null) {
+                                if ($this->getOwnerRecord()->hasJobProgress() && isset($state['job_progress']) && $state['job_progress'] !== '' && $state['job_progress'] !== null) {
                                     $label .= " - {$state['job_progress']}%";
                                 }
+
                                 return $label;
                             })
                             ->addActionLabel('Add Payment Terms')
@@ -353,14 +352,16 @@ final class SupplierQuotesRelationManager extends RelationManager
                     ->schema([
                         (function () use ($request) {
                             $relationManager = $this; // Capture RelationManager instance
+
                             return Repeater::make('items')
                                 ->relationship('items', function ($query) use ($request) {
                                     // Only load main items, not child items (child items will be nested within main items)
-                                    if ($request->isServiceRequest()) {
+                                    if ($request->supportsItemHierarchy()) {
                                         return $query->whereHas('requestItem', function ($q) {
                                             $q->whereNull('parent_id');
                                         });
                                     }
+
                                     return $query;
                                 })
                                 ->mutateRelationshipDataBeforeFillUsing(function (array $data, SupplierQuote|SupplierQuoteItem $record) use ($request): array {
@@ -369,7 +370,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                     if (! $record instanceof SupplierQuoteItem) {
                                         return $data;
                                     }
-                                    if (! $request->isServiceRequest() || ! isset($data['request_item_id'])) {
+                                    if (! $request->supportsItemHierarchy() || ! isset($data['request_item_id'])) {
                                         return $data;
                                     }
                                     $requestItem = $request->items()->find($data['request_item_id']);
@@ -433,7 +434,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                     if (isset($data['child_items']) && is_array($data['child_items'])) {
                                         $itemId = $data['id'] ?? null;
                                         if ($itemId !== null) {
-                                            if (!isset($relationManager->storedChildItemsData)) {
+                                            if (! isset($relationManager->storedChildItemsData)) {
                                                 $relationManager->storedChildItemsData = [];
                                             }
                                             $relationManager->storedChildItemsData[$itemId] = $data['child_items'];
@@ -445,6 +446,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                         // Remove child_items from data so Filament doesn't try to save it
                                         unset($data['child_items']);
                                     }
+
                                     return $data;
                                 })
                                 ->mutateRelationshipDataBeforeSaveUsing(function (array $data, SupplierQuoteItem $record) use ($relationManager): array {
@@ -460,15 +462,16 @@ final class SupplierQuotesRelationManager extends RelationManager
                                         }
                                         unset($data['child_items']);
                                     }
+
                                     return $data;
                                 });
                         })()
                             ->afterStateHydrated(function (Set $set, Get $get, $state, $record) use ($request): void {
                                 // Populate child_items for each main item after items are loaded from relationship
-                                if (!$request->isServiceRequest() || !is_array($state) || empty($state)) {
+                                if (! $request->supportsItemHierarchy() || ! is_array($state) || empty($state)) {
                                     return;
                                 }
-                                
+
                                 // Get the SupplierQuote record
                                 // In a relationship repeater, $record is the individual item, so we need to get the quote differently
                                 $supplierQuote = null;
@@ -481,37 +484,37 @@ final class SupplierQuotesRelationManager extends RelationManager
                                     if ($supplierQuote === null && method_exists($relationManager, 'getRecord')) {
                                         $supplierQuote = $relationManager->getRecord();
                                     }
-                                    
-                                    if (!($supplierQuote instanceof SupplierQuote)) {
+
+                                    if (! ($supplierQuote instanceof SupplierQuote)) {
                                         return;
                                     }
                                 } catch (\Exception $e) {
                                     return;
                                 }
-                                
+
                                 // Process each item and populate child_items
                                 foreach ($state as $index => $item) {
-                                    if (!isset($item['request_item_id']) || !isset($item['id'])) {
+                                    if (! isset($item['request_item_id']) || ! isset($item['id'])) {
                                         continue;
                                     }
-                                    
+
                                     $requestItem = $request->items()->find($item['request_item_id']);
-                                    if ($requestItem === null || !$requestItem->isMainItem()) {
+                                    if ($requestItem === null || ! $requestItem->isMainItem()) {
                                         continue;
                                     }
-                                    
+
                                     $childRequestItems = $requestItem->children()->orderBy('sort_order')->get();
                                     if ($childRequestItems->isEmpty()) {
                                         continue;
                                     }
-                                    
+
                                     // Get child quote items for this main item
                                     $childQuoteItems = [];
                                     foreach ($childRequestItems as $childRequestItem) {
                                         $existingQuoteItem = $supplierQuote->items()
                                             ->where('request_item_id', $childRequestItem->id)
                                             ->first();
-                                        
+
                                         if ($existingQuoteItem !== null) {
                                             $childQuoteItems[] = [
                                                 'id' => $existingQuoteItem->id,
@@ -545,7 +548,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                         }
                                     }
 
-                                    if (!empty($childQuoteItems)) {
+                                    if (! empty($childQuoteItems)) {
                                         $set("items.{$index}.child_items", $childQuoteItems);
                                     }
                                 }
@@ -562,7 +565,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                     $item->getKey() => $item->display_text,
                                                 ])
                                                 ->all())
-                                            
+
                                             ->selectablePlaceholder(false)
                                             ->columnSpan(4)
                                             ->live()
@@ -588,16 +591,16 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                     }
 
                                                     // For Service requests, automatically add child items as separate line items
-                                                    if ($request->isServiceRequest() && $requestItem->isMainItem() && $requestItem->children()->count() > 0) {
+                                                    if ($request->supportsItemHierarchy() && $requestItem->isMainItem() && $requestItem->children()->count() > 0) {
                                                         // Get child items
                                                         $childItems = $requestItem->children()->orderBy('sort_order')->get();
-                                                        
+
                                                         // Get the form's livewire component to manipulate repeater state
                                                         $livewire = $this->getLivewire();
                                                         if (method_exists($livewire, 'form')) {
                                                             $formState = $livewire->form->getState();
                                                             $currentItems = $formState['items'] ?? [];
-                                                            
+
                                                             // Find the index of the current item (the one we're editing)
                                                             $currentItemIndex = null;
                                                             foreach ($currentItems as $idx => $item) {
@@ -606,18 +609,18 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                                     break;
                                                                 }
                                                             }
-                                                            
+
                                                             // If not found, it's the last item (being added)
-                                                            if ($currentItemIndex === null && !empty($currentItems)) {
+                                                            if ($currentItemIndex === null && ! empty($currentItems)) {
                                                                 $currentItemIndex = count($currentItems) - 1;
                                                             }
-                                                            
+
                                                             // Build new items array with child items inserted after main item
                                                             if ($currentItemIndex !== null) {
                                                                 $newItems = [];
                                                                 foreach ($currentItems as $idx => $item) {
                                                                     $newItems[] = $item;
-                                                                    
+
                                                                     // After inserting the main item, add its children
                                                                     if ($idx === $currentItemIndex && $childItems->isNotEmpty()) {
                                                                         foreach ($childItems as $childItem) {
@@ -638,7 +641,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                                         }
                                                                     }
                                                                 }
-                                                                
+
                                                                 // Update the form state
                                                                 $livewire->form->fill(['items' => $newItems]);
                                                             }
@@ -662,7 +665,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                         Select::make('unit_of_measure_id')
                                             ->label('Unit')
                                             ->relationship('unitOfMeasure', 'label', fn ($query) => $query->where('team_id', $request->team_id)->where('is_active', true))
-                                            
+
                                             ->preload()
                                             ->selectablePlaceholder(false)
                                             ->default(fn (): ?int => UnitOfMeasure::query()
@@ -711,7 +714,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                 ->where('is_default', true)
                                                 ->where('is_active', true)
                                                 ->value('id'))
-                                            
+
                                             ->selectablePlaceholder(false)
                                             ->columnSpan(3)
                                             ->live()
@@ -752,15 +755,16 @@ final class SupplierQuotesRelationManager extends RelationManager
                                             ->columnSpan(2)
                                             ->live()
                                             ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get))
-                                                            ->visible(function (Get $get): bool {
-                                                                // For nested child_items, we need to go up more levels to get supplier_id
-                                                                $supplierId = $get('../../supplier_id') ?? $get('../../../supplier_id');
-                                                                if ($supplierId === null) {
-                                                                    return false;
-                                                                }
-                                                                $supplier = Company::find($supplierId);
-                                                                return $supplier !== null && $supplier->is_taxable;
-                                                            }),
+                                            ->visible(function (Get $get): bool {
+                                                // For nested child_items, we need to go up more levels to get supplier_id
+                                                $supplierId = $get('../../supplier_id') ?? $get('../../../supplier_id');
+                                                if ($supplierId === null) {
+                                                    return false;
+                                                }
+                                                $supplier = Company::find($supplierId);
+
+                                                return $supplier !== null && $supplier->is_taxable;
+                                            }),
                                         TextInput::make('tax_rate')
                                             ->label('Tax %')
                                             ->numeric()
@@ -876,6 +880,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                                     return false;
                                                                 }
                                                                 $supplier = Company::find($supplierId);
+
                                                                 return $supplier !== null && $supplier->is_taxable;
                                                             }),
                                                         TextInput::make('line_total')
@@ -899,33 +904,34 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                 // Load child_items from parent item's data when repeater hydrates
                                                 // Get request_item_id from parent item context
                                                 $requestItemId = $get('../../request_item_id');
-                                                if ($requestItemId === null || !$request->isServiceRequest()) {
+                                                if ($requestItemId === null || ! $request->supportsItemHierarchy()) {
                                                     return;
                                                 }
-                                                
+
                                                 // Try to get from parent item's child_items first (set by fillForm)
                                                 $parentItemData = $get('../../');
-                                                if (isset($parentItemData['child_items']) && is_array($parentItemData['child_items']) && !empty($parentItemData['child_items'])) {
+                                                if (isset($parentItemData['child_items']) && is_array($parentItemData['child_items']) && ! empty($parentItemData['child_items'])) {
                                                     $set('child_items', $parentItemData['child_items']);
+
                                                     return;
                                                 }
-                                                
+
                                                 // If state is already populated, use it
-                                                if (is_array($state) && !empty($state)) {
+                                                if (is_array($state) && ! empty($state)) {
                                                     return; // Already has data
                                                 }
-                                                
+
                                                 // Fallback: load from request items and existing quote items
                                                 $requestItem = $request->items()->find($requestItemId);
-                                                if ($requestItem === null || !$requestItem->isMainItem()) {
+                                                if ($requestItem === null || ! $requestItem->isMainItem()) {
                                                     return;
                                                 }
-                                                
+
                                                 $childRequestItems = $requestItem->children()->orderBy('sort_order')->get();
                                                 if ($childRequestItems->isEmpty()) {
                                                     return;
                                                 }
-                                                
+
                                                 // Try to get the SupplierQuote record to load existing child quote items
                                                 $supplierQuote = null;
                                                 try {
@@ -940,7 +946,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                 } catch (\Exception $e) {
                                                     // Can't get supplier quote, continue with defaults
                                                 }
-                                                
+
                                                 $taxCode = $requestItem->article?->defaultTaxCode;
                                                 $childQuoteItems = [];
                                                 foreach ($childRequestItems as $childRequestItem) {
@@ -951,7 +957,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                             ->where('request_item_id', $childRequestItem->id)
                                                             ->first();
                                                     }
-                                                    
+
                                                     if ($existingQuoteItem !== null) {
                                                         $childQuoteItems[] = [
                                                             'id' => $existingQuoteItem->id,
@@ -984,8 +990,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                         ];
                                                     }
                                                 }
-                                                
-                                                if (!empty($childQuoteItems)) {
+
+                                                if (! empty($childQuoteItems)) {
                                                     $set('child_items', $childQuoteItems);
                                                 }
                                             }),
@@ -993,7 +999,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                     ->collapsible()
                                     ->collapsed()
                                     ->visible(function (Get $get, $record) use ($request): bool {
-                                        if (!$request->isServiceRequest()) {
+                                        if (! $request->supportsItemHierarchy()) {
                                             return false;
                                         }
                                         $requestItemId = $get('request_item_id');
@@ -1004,8 +1010,9 @@ final class SupplierQuotesRelationManager extends RelationManager
                                             return false;
                                         }
                                         $requestItem = $request->items()->find($requestItemId);
+
                                         return $requestItem !== null && $requestItem->isMainItem();
-                                    })
+                                    }),
                             ])
                             ->columns(1)
                             ->defaultItems(0)
@@ -1018,7 +1025,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                 if ($description === null) {
                                     return null;
                                 }
-                                
+
                                 // Check if this is a child item and indent it visually
                                 $requestItemId = $state['request_item_id'] ?? null;
                                 if ($requestItemId !== null) {
@@ -1028,7 +1035,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                         return '  └─ '.$description;
                                     }
                                 }
-                                
+
                                 return $description;
                             }),
                     ]),
@@ -1126,15 +1133,15 @@ final class SupplierQuotesRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('quote_number')
                     ->label('Quote #')
-                    
+
                     ->sortable(),
                 TextColumn::make('supplier.name')
                     ->label('Supplier')
-                    
+
                     ->sortable(),
                 TextColumn::make('supplier_reference')
                     ->label('Supplier Ref')
-                    
+
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('status')
                     ->badge()
@@ -1291,6 +1298,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                 return 'Edit';
                             }
                             $record->load('media');
+
                             return $record->getMedia('quotation')->isNotEmpty() ? 'Input price' : 'Edit';
                         })
                         ->icon('heroicon-o-pencil-square')
@@ -1300,6 +1308,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                 return false;
                             }
                             $record->load('media');
+
                             // Show when quotation document is uploaded so user can input supplier prices (per post-upload notification)
                             return $record->getMedia('quotation')->isNotEmpty();
                         })
@@ -1320,7 +1329,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                             foreach ($mainItems as $mainQuoteItem) {
                                 $requestItemId = $mainQuoteItem->request_item_id;
                                 $childItemsData = null;
-                                $itemDataByKey = $itemsData['record-' . $mainQuoteItem->id] ?? null;
+                                $itemDataByKey = $itemsData['record-'.$mainQuoteItem->id] ?? null;
                                 if (is_array($itemDataByKey) && ! empty($itemDataByKey['child_items'] ?? [])) {
                                     $childItemsData = $itemDataByKey['child_items'];
                                 }
@@ -1437,7 +1446,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                         })
                         ->after(function (SupplierQuote $record, array $data): void {
                             $request = $record->request;
-                            if ($request === null || ! $request->isServiceRequest()) {
+                            if ($request === null || ! $request->supportsItemHierarchy()) {
                                 return;
                             }
 
@@ -1454,7 +1463,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                 $requestItemId = $mainQuoteItem->request_item_id;
                                 $childItemsData = null;
                                 if (is_array($itemsData) && ! empty($itemsData)) {
-                                    $itemDataByKey = $itemsData['record-' . $mainQuoteItem->id] ?? null;
+                                    $itemDataByKey = $itemsData['record-'.$mainQuoteItem->id] ?? null;
                                     if (is_array($itemDataByKey) && ! empty($itemDataByKey['child_items'] ?? [])) {
                                         $childItemsData = $itemDataByKey['child_items'];
                                     }
@@ -1575,7 +1584,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                 return $data;
                             }
 
-                            if ($request->isServiceRequest() && isset($data['items'])) {
+                            if ($request->supportsItemHierarchy() && isset($data['items'])) {
                                 $items = $data['items'];
                                 $newItems = [];
 
@@ -1636,6 +1645,7 @@ final class SupplierQuotesRelationManager extends RelationManager
 
                                 $data['items'] = $newItems;
                             }
+
                             return $data;
                         }),
                     Action::make('quotation')
@@ -1715,7 +1725,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                     ->send();
                             }
                         }),
-                ])
+                ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

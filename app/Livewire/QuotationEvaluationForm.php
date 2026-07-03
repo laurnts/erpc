@@ -52,8 +52,8 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
         // Verify request belongs to current team
         $this->ensureTeamOwnership($request);
 
-        // Prevent creating Quotation Evaluation for Service requests
-        if ($request->isServiceRequest()) {
+        // Prevent creating Quotation Evaluation for request types that don't use it
+        if (! $request->canCreateQuotationEvaluation()) {
             Notification::make()
                 ->title('Quotation Evaluation not available')
                 ->body('Quotation Evaluation documents are only available for Goods requests. Service requests use Acceptance Reports instead.')

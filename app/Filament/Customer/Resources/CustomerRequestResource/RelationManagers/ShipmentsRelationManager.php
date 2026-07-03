@@ -28,7 +28,7 @@ final class ShipmentsRelationManager extends RelationManager
     public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
     {
         /** @var Request $ownerRecord */
-        if (! $ownerRecord->isGoodsRequest()) {
+        if (! $ownerRecord->requiresShipments()) {
             return false;
         }
 

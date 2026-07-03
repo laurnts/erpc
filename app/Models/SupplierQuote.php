@@ -275,13 +275,13 @@ final class SupplierQuote extends Model implements HasMedia
 
     /**
      * Recalculate totals from items.
-     * For service requests, only main items are included (child/detail items are excluded from total).
+     * With an item hierarchy, only main items are included (child/detail items are excluded from total).
      */
     public function recalculateTotals(): void
     {
         $this->load(['items.requestItem', 'request']);
 
-        $itemsForTotal = $this->request?->isServiceRequest()
+        $itemsForTotal = $this->request?->supportsItemHierarchy()
             ? $this->items->filter(fn (SupplierQuoteItem $item): bool => $item->request_item_id !== null
                 && ($item->requestItem === null || $item->requestItem->parent_id === null))
             : $this->items;

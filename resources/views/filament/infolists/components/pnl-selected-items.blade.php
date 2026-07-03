@@ -27,17 +27,35 @@
     }
     
     $buyerCurrency = $buyerQuote->currency;
-    $isServiceRequest = $record->request?->isServiceRequest() ?? false;
+    $hasItemHierarchy = $record->request?->supportsItemHierarchy() ?? false;
+
+    // Team target (minimum) margin — below it we warn the approver, never block.
+    $targetMargin = (float) ($record->team?->getErpSettings()->default_margin_percent ?? 3.0);
+    $overallTotals = \App\Models\BuyerQuoteItem::collectTotals($items, $hasItemHierarchy);
+    $overallMarginPercent = (int) round($overallTotals->marginPercent);
+    $overallBelowTarget = $overallMarginPercent < $targetMargin;
 @endphp
 
 <div class="space-y-6">
+    @if($overallBelowTarget)
+        <div class="flex items-start gap-3 rounded-lg border border-warning-300 bg-warning-50 px-4 py-3 dark:border-warning-500/40 dark:bg-warning-500/10">
+            <x-heroicon-o-exclamation-triangle class="mt-0.5 h-5 w-5 shrink-0 text-warning-600 dark:text-warning-400" />
+            <div class="text-sm">
+                <span class="font-semibold text-warning-800 dark:text-warning-200">
+                    Overall margin {{ $overallMarginPercent }}% is below the {{ (int) round($targetMargin) }}% target.
+                </span>
+                <span class="text-warning-700 dark:text-warning-300">Review before approving.</span>
+            </div>
+        </div>
+    @endif
+
     @foreach($groupedItems as $supplierId => $supplierItems)
         @php
             $firstItem = $supplierItems->first();
             $supplier = $firstItem->supplierQuoteItem?->supplierQuote?->supplier;
             $supplierCurrency = $firstItem->supplierQuoteItem?->supplierQuote?->currency;
             $supplierName = $supplier?->name ?? 'No Supplier';
-            $groupTotals = \App\Models\BuyerQuoteItem::collectTotals($supplierItems, $isServiceRequest);
+            $groupTotals = \App\Models\BuyerQuoteItem::collectTotals($supplierItems, $hasItemHierarchy);
             $supplierCostTotal = $groupTotals->costTotal;
             $supplierNetSell = $groupTotals->subtotal;      // net revenue (margin base)
             $supplierMargin = $groupTotals->marginAmount;   // net sell - cost (VAT excluded)
@@ -105,7 +123,8 @@
                             $lineTax = $item->getEffectiveLineTax();
                             $lineTotal = $item->getEffectiveLineTotal();
                             $marginPercent = $item->getDisplayMarginPercent();
-                            $itemMargin = ((float) $item->unit_price_exc_tax - (float) $item->cost_price) * (float) $item->quantity;
+                            $marginNegative = ! $isChild && $marginPercent < 0;
+                            $marginBelowTarget = ! $isChild && ! $marginNegative && $item->isMarginBelowTarget($targetMargin);
                         @endphp
                         <tr class="{{ $isChild
                             ? 'text-gray-500 dark:text-gray-400'
@@ -140,7 +159,16 @@
                             <td class="px-4 py-2 text-right {{ $isChild ? 'text-sm' : '' }}">
                                 {{ $buyerCurrency?->formatNumber($lineTax) ?? number_format($lineTax, 2) }}
                             </td>
-                            <td class="px-4 py-2 text-right {{ $isChild ? 'text-sm' : '' }} {{ ! $isChild && $itemMargin >= 0 ? 'text-success-600 dark:text-success-400' : '' }} {{ ! $isChild && $itemMargin < 0 ? 'text-danger-600 dark:text-danger-400' : '' }}">
+                            <td @class([
+                                'px-4 py-2 text-right',
+                                'text-sm' => $isChild,
+                                'text-danger-600 dark:text-danger-400' => $marginNegative,
+                                'text-warning-600 dark:text-warning-400 font-semibold' => $marginBelowTarget,
+                                'text-success-600 dark:text-success-400' => ! $isChild && ! $marginNegative && ! $marginBelowTarget,
+                            ])>
+                                @if($marginBelowTarget)
+                                    <x-heroicon-m-exclamation-triangle class="inline-block h-3.5 w-3.5 -mt-0.5 mr-0.5" title="Below {{ (int) round($targetMargin) }}% target" />
+                                @endif
                                 {{ number_format($marginPercent, 0) }}%
                             </td>
                             <td class="px-4 py-2 text-right {{ $isChild ? 'text-sm font-normal' : 'font-bold text-primary-700 dark:text-primary-300' }}">
@@ -153,7 +181,7 @@
                     <tr class="bg-primary-100 dark:bg-primary-950/50 border-t-2 border-primary-400 dark:border-primary-600">
                         <td colspan="6" class="px-4 py-2.5 text-right font-semibold text-primary-800 dark:text-primary-200">
                             Supplier Subtotal
-                            @if($isServiceRequest)
+                            @if($hasItemHierarchy)
                                 <span class="block text-xs font-normal text-primary-600/80 dark:text-primary-400/80">(main items)</span>
                             @endif
                         </td>

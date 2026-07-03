@@ -101,8 +101,8 @@ final readonly class GenerateSupplierQuotesForRequest
         foreach ($items as $item) {
             $this->createQuoteItem($quote, $item, $supplierId, $sortOrder++);
 
-            // For Service requests, also create child items
-            if ($request->isServiceRequest() && $item->isMainItem() && $item->children()->count() > 0) {
+            // With an item hierarchy, also create child items
+            if ($request->supportsItemHierarchy() && $item->isMainItem() && $item->children()->count() > 0) {
                 $childItems = $item->children()->orderBy('sort_order')->get();
                 foreach ($childItems as $childItem) {
                     $this->createChildQuoteItem($quote, $childItem, $item, $supplierId, $sortOrder++);

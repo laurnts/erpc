@@ -9,7 +9,6 @@ use App\Enums\OrderStatus;
 use App\Enums\RequestStage;
 use App\Enums\ShipmentStatus;
 use App\Enums\ShipmentType;
-use App\Filament\Actions\DownloadPdfAction;
 use App\Filament\Resources\PeopleResource;
 use App\Filament\Resources\RequestResource;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
@@ -19,11 +18,10 @@ use App\Models\People;
 use App\Models\Request;
 use App\Models\Shipment;
 use App\Models\SupplierOrder;
-use Filament\Facades\Filament;
 use App\Services\Email\EmailTemplateService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
-use Illuminate\Support\Facades\Log;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
@@ -40,6 +38,7 @@ use Filament\Support\Enums\Size;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\HtmlString;
 
 final class ShipmentsRelationManager extends RelationManager
@@ -65,8 +64,8 @@ final class ShipmentsRelationManager extends RelationManager
     public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
     {
         /** @var Request $ownerRecord */
-        // Only show inbound shipments for Goods requests
-        return $ownerRecord->isGoodsRequest();
+        // Only show inbound shipments when the request type ships physically
+        return $ownerRecord->requiresShipments();
     }
 
     public function mount(): void
@@ -75,7 +74,7 @@ final class ShipmentsRelationManager extends RelationManager
 
         /** @var Request $request */
         $request = $this->getOwnerRecord();
-        if (static::hasUnapprovedGoodsReceiveDocuments($request)) {
+        if (self::hasUnapprovedGoodsReceiveDocuments($request)) {
             Notification::make()
                 ->title('Access Restricted')
                 ->body('All Goods Receive documents must be approved before you can access Inbound Shipments.')
@@ -86,15 +85,12 @@ final class ShipmentsRelationManager extends RelationManager
         }
     }
 
-    /**
-     * @return Tab
-     */
     public static function getTabComponent(Model $ownerRecord, string $pageClass): Tab
     {
         $tab = parent::getTabComponent($ownerRecord, $pageClass);
 
         /** @var Request $ownerRecord */
-        if (static::hasUnapprovedGoodsReceiveDocuments($ownerRecord)) {
+        if (self::hasUnapprovedGoodsReceiveDocuments($ownerRecord)) {
             $tab->disabled()
                 ->badgeColor('gray')
                 ->badgeTooltip('All Goods Receive documents must be approved first')
@@ -194,7 +190,7 @@ final class ShipmentsRelationManager extends RelationManager
                                                 ->all()
                                         )
                                         ->required()
-                                        
+
                                         ->selectablePlaceholder(false)
                                         ->live()
                                         ->afterStateUpdated(function (Set $set, ?int $state) use ($supplierOrder): void {
@@ -226,7 +222,7 @@ final class ShipmentsRelationManager extends RelationManager
                                             $totalShipped = $orderItem->getTotalShippedQuantity();
                                             $orderedQty = (float) $orderItem->quantity;
                                             $remainingQty = $orderItem->getRemainingQuantity();
-                                            
+
                                             if ($totalShipped > 0) {
                                                 return sprintf(
                                                     '%s out of %s shipped. %s remaining.',
@@ -235,7 +231,7 @@ final class ShipmentsRelationManager extends RelationManager
                                                     number_format($remainingQty, 0)
                                                 );
                                             }
-                                            
+
                                             return sprintf('Total ordered: %s', number_format($orderedQty, 0));
                                         })
                                         ->columnSpan(3),
@@ -262,6 +258,7 @@ final class ShipmentsRelationManager extends RelationManager
                             if ($buyer === null) {
                                 return [];
                             }
+
                             return $buyer->people()
                                 ->select('people.id', 'people.name')
                                 ->orderBy('people.name')
@@ -291,6 +288,7 @@ final class ShipmentsRelationManager extends RelationManager
                             if ($buyer !== null) {
                                 $buyer->people()->syncWithoutDetaching([$person->id]);
                             }
+
                             return $person->id;
                         }),
                     Textarea::make('notes')
@@ -324,7 +322,7 @@ final class ShipmentsRelationManager extends RelationManager
             $shipmentId = $shipment->id;
             $shipmentType = $shipment->type;
             $shipmentStatus = $shipment->status;
-            
+
             $sections[] = Section::make($shipment->shipment_number)
                 ->description(sprintf('%s • %s', $shipment->status->getLabel(), $shipment->carrier_name ?? 'No carrier'))
                 ->icon($this->getShipmentStatusIcon($shipment->status))
@@ -362,18 +360,20 @@ final class ShipmentsRelationManager extends RelationManager
 
         return $sections;
     }
+
     /**
      * Send or resend delivery order email to buyer.
      */
     public function sendDeliveryOrder(int $shipmentId): void
     {
         $shipment = Shipment::find($shipmentId);
-        
-        if (!$shipment) {
+
+        if (! $shipment) {
             Notification::make()
                 ->title('Shipment not found')
                 ->danger()
                 ->send();
+
             return;
         }
 
@@ -386,6 +386,7 @@ final class ShipmentsRelationManager extends RelationManager
                 ->body('You do not have access to this shipment.')
                 ->danger()
                 ->send();
+
             return;
         }
 
@@ -396,6 +397,7 @@ final class ShipmentsRelationManager extends RelationManager
                 ->body('Only inbound shipments can send delivery orders.')
                 ->warning()
                 ->send();
+
             return;
         }
 
@@ -405,6 +407,7 @@ final class ShipmentsRelationManager extends RelationManager
                 ->body('Delivery order can only be sent for shipments in transit.')
                 ->warning()
                 ->send();
+
             return;
         }
 
@@ -419,6 +422,7 @@ final class ShipmentsRelationManager extends RelationManager
                 ->body("Delivery order email was not sent because the buyer ({$buyerName}) does not have an email address configured.")
                 ->warning()
                 ->send();
+
             return;
         }
 
@@ -469,12 +473,13 @@ final class ShipmentsRelationManager extends RelationManager
     public function shipShipment(int $shipmentId): void
     {
         $shipment = Shipment::find($shipmentId);
-        
-        if (!$shipment) {
+
+        if (! $shipment) {
             Notification::make()
                 ->title('Shipment not found')
                 ->danger()
                 ->send();
+
             return;
         }
 
@@ -487,6 +492,7 @@ final class ShipmentsRelationManager extends RelationManager
                 ->body('You do not have access to this shipment.')
                 ->danger()
                 ->send();
+
             return;
         }
 
@@ -497,12 +503,13 @@ final class ShipmentsRelationManager extends RelationManager
                 ->body('Only pending shipments can be marked as shipped.')
                 ->warning()
                 ->send();
+
             return;
         }
 
         try {
             $shipment->markAsInTransit();
-            
+
             Notification::make()
                 ->title('Shipment marked as shipped')
                 ->body("Shipment {$shipment->shipment_number} has been marked as in transit.")
@@ -523,12 +530,13 @@ final class ShipmentsRelationManager extends RelationManager
     public function deliverShipment(int $shipmentId): void
     {
         $shipment = Shipment::find($shipmentId);
-        
-        if (!$shipment) {
+
+        if (! $shipment) {
             Notification::make()
                 ->title('Shipment not found')
                 ->danger()
                 ->send();
+
             return;
         }
 
@@ -541,22 +549,24 @@ final class ShipmentsRelationManager extends RelationManager
                 ->body('You do not have access to this shipment.')
                 ->danger()
                 ->send();
+
             return;
         }
 
         // Verify shipment is in transit or partial
-        if (!in_array($shipment->status, [ShipmentStatus::IN_TRANSIT, ShipmentStatus::PARTIAL])) {
+        if (! in_array($shipment->status, [ShipmentStatus::IN_TRANSIT, ShipmentStatus::PARTIAL])) {
             Notification::make()
                 ->title('Invalid shipment status')
                 ->body('Only shipments in transit or partial can be marked as delivered.')
                 ->warning()
                 ->send();
+
             return;
         }
 
         try {
             $shipment->markAsDelivered();
-            
+
             Notification::make()
                 ->title('Shipment delivered')
                 ->body("Shipment {$shipment->shipment_number} has been marked as delivered.")
@@ -701,11 +711,11 @@ final class ShipmentsRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('supplier.name')
                     ->label('Supplier')
-                    
+
                     ->sortable(),
                 TextColumn::make('po_number')
                     ->label('PO #')
-                    
+
                     ->sortable(),
                 TextColumn::make('items_count')
                     ->label('Items')
