@@ -37,10 +37,11 @@
             $supplier = $firstItem->supplierQuoteItem?->supplierQuote?->supplier;
             $supplierCurrency = $firstItem->supplierQuoteItem?->supplierQuote?->currency;
             $supplierName = $supplier?->name ?? 'No Supplier';
-            $itemsForTotal = \App\Models\BuyerQuoteItem::filterForServiceTotals($supplierItems, $isServiceRequest);
-            $supplierTotal = $itemsForTotal->sum(fn (\App\Models\BuyerQuoteItem $item): float => $item->getEffectiveLineTotal());
-            $supplierCostTotal = $itemsForTotal->sum(fn ($item) => (float) $item->cost_price * (float) $item->quantity);
-            $supplierMargin = $supplierTotal - $supplierCostTotal;
+            $groupTotals = \App\Models\BuyerQuoteItem::collectTotals($supplierItems, $isServiceRequest);
+            $supplierCostTotal = $groupTotals->costTotal;
+            $supplierNetSell = $groupTotals->subtotal;      // net revenue (margin base)
+            $supplierMargin = $groupTotals->marginAmount;   // net sell - cost (VAT excluded)
+            $supplierGrossTotal = $groupTotals->grandTotal; // gross, for the Line Total footer
             $organizedItems = \App\Models\BuyerQuoteItem::organizeHierarchically($supplierItems);
         @endphp
         
@@ -69,7 +70,7 @@
                         <div>
                             <span class="text-gray-500">Sell:</span>
                             <span class="font-medium text-gray-900 dark:text-gray-100">
-                                {{ $buyerCurrency?->formatNumber($supplierTotal) ?? number_format($supplierTotal, 2) }}
+                                {{ $buyerCurrency?->formatNumber($supplierNetSell) ?? number_format($supplierNetSell, 2) }}
                             </span>
                         </div>
                         <div>
@@ -157,7 +158,7 @@
                             @endif
                         </td>
                         <td class="px-4 py-2.5 text-right text-base font-bold text-primary-700 dark:text-primary-300">
-                            {{ $buyerCurrency?->formatNumber($supplierTotal) ?? number_format($supplierTotal, 2) }}
+                            {{ $buyerCurrency?->formatNumber($supplierGrossTotal) ?? number_format($supplierGrossTotal, 2) }}
                         </td>
                     </tr>
                 </tfoot>

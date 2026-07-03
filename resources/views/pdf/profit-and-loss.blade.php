@@ -241,21 +241,22 @@
                 $firstItem = $supplierItems->first();
                 $supplier = $firstItem->supplierQuoteItem?->supplierQuote?->supplier;
                 $supplierName = $supplier?->name ?? 'No Supplier';
-                $itemsForTotal = \App\Models\BuyerQuoteItem::filterForServiceTotals($supplierItems, $isServiceRequest);
-                $supplierTotal = $itemsForTotal->sum(fn (\App\Models\BuyerQuoteItem $item): float => $item->getEffectiveLineTotal());
-                $supplierCostTotal = $itemsForTotal->sum(fn ($item) => (float) $item->cost_price * (float) $item->quantity);
-                $supplierMargin = $supplierTotal - $supplierCostTotal;
+                $groupTotals = \App\Models\BuyerQuoteItem::collectTotals($supplierItems, $isServiceRequest);
+                $supplierCostTotal = $groupTotals->costTotal;
+                $supplierNetSell = $groupTotals->subtotal;      // net revenue (margin base)
+                $supplierMargin = $groupTotals->marginAmount;   // net sell - cost (VAT excluded)
+                $supplierGrossTotal = $groupTotals->grandTotal; // gross, for the Line Total footer
                 $organizedItems = \App\Models\BuyerQuoteItem::organizeHierarchically($supplierItems);
-                
+
                 $grandTotalCost += $supplierCostTotal;
-                $grandTotalSell += $supplierTotal;
+                $grandTotalSell += $supplierNetSell;
             @endphp
             
             <div class="supplier-header">
                 {{ $supplierName }}
                 <span class="supplier-totals">
                     Cost: {{ number_format($supplierCostTotal, 2) }} | 
-                    Sell: {{ number_format($supplierTotal, 2) }} | 
+                    Sell: {{ number_format($supplierNetSell, 2) }} |
                     Margin: {{ number_format($supplierMargin, 2) }}
                 </span>
             </div>
@@ -310,7 +311,7 @@
                                 <br><span style="font-size: 7pt; font-weight: normal;">(main items)</span>
                             @endif
                         </td>
-                        <td class="text-right subtotal-amount">{{ number_format($supplierTotal, 2) }}</td>
+                        <td class="text-right subtotal-amount">{{ number_format($supplierGrossTotal, 2) }}</td>
                     </tr>
                 </tfoot>
             </table>
@@ -319,7 +320,7 @@
         {{-- Grand Total --}}
         @php
             $grandTotalMargin = $grandTotalSell - $grandTotalCost;
-            $grandTotalMarginPercent = $grandTotalCost > 0 ? ($grandTotalMargin / $grandTotalCost) * 100 : 0;
+            $grandTotalMarginPercent = $grandTotalSell > 0 ? ($grandTotalMargin / $grandTotalSell) * 100 : 0;
         @endphp
         <table class="items-table" style="margin-top: 15px;">
             <tr style="background-color: #1e40af; color: white;">

@@ -8,8 +8,11 @@ use App\Casts\SafeUnitCast;
 use App\Enums\Erp\PriceBasis;
 use App\Enums\Unit;
 use App\Observers\BuyerQuoteItemObserver;
+use App\Services\Erp\Financial\DocumentTotals;
 use App\Services\Erp\Financial\LineCalculator;
 use App\Services\Erp\Financial\MarginConvention;
+use App\Services\Erp\Financial\TotalsCollector;
+use App\Services\Erp\Financial\TotalsLine;
 use Database\Factories\BuyerQuoteItemFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -429,6 +432,27 @@ final class BuyerQuoteItem extends Model
         }
 
         return $items->filter(fn (self $item): bool => ! $item->isChildItem());
+    }
+
+    /**
+     * Aggregate a group of items into P&L totals via the shared collector.
+     * The margin base is the net sell (line_subtotal), never the gross line total.
+     *
+     * @param  Collection<int, self>  $items
+     */
+    public static function collectTotals(Collection $items, bool $isServiceRequest): DocumentTotals
+    {
+        $filtered = self::filterForServiceTotals($items, $isServiceRequest);
+
+        return (new TotalsCollector)->collect(
+            $filtered->map(fn (self $item): TotalsLine => new TotalsLine(
+                lineSubtotal: (float) $item->line_subtotal,
+                lineTax: (float) $item->line_tax,
+                lineTotal: (float) $item->line_total,
+                costPrice: (float) $item->cost_price,
+                quantity: (float) $item->quantity,
+            ))->values(),
+        );
     }
 
     /**
