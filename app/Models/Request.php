@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\BuyerQuoteStatus;
+use App\Enums\ItemType;
 use App\Enums\OrderStatus;
 use App\Enums\RequestPriority;
 use App\Enums\RequestStage;
 use App\Enums\RequestSubmissionMethod;
-use App\Enums\RequestType;
 use App\Enums\SupplierQuoteStatus;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasNotes;
@@ -37,7 +37,6 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string|null $description
  * @property RequestStage $stage
  * @property RequestPriority $priority
- * @property RequestType $request_type
  * @property Carbon|null $requested_at
  * @property Carbon|null $required_by
  * @property string|null $internal_notes
@@ -91,7 +90,6 @@ final class Request extends Model implements HasCustomFields, HasMedia
         'description',
         'stage',
         'priority',
-        'request_type',
         'requested_at',
         'required_by',
         'internal_notes',
@@ -109,7 +107,6 @@ final class Request extends Model implements HasCustomFields, HasMedia
     protected $attributes = [
         'stage' => RequestStage::DRAFT,
         'priority' => RequestPriority::NORMAL,
-        'request_type' => RequestType::GOODS,
         'is_active' => true,
     ];
 
@@ -121,7 +118,6 @@ final class Request extends Model implements HasCustomFields, HasMedia
         return [
             'stage' => RequestStage::class,
             'priority' => RequestPriority::class,
-            'request_type' => RequestType::class,
             'submission_method' => RequestSubmissionMethod::class,
             'requested_at' => 'date',
             'required_by' => 'date',
@@ -413,25 +409,12 @@ final class Request extends Model implements HasCustomFields, HasMedia
             );
         }
 
-        // Validate that all items are matched when required
-        if ($newStage->requiresMatchedItems()) {
-            // With an item hierarchy, only main items need to be matched (not child items)
-            if ($this->supportsItemHierarchy()) {
-                $mainItems = $this->items()->whereNull('parent_id')->get();
-                $unmatchedMainItems = $mainItems->filter(fn ($item) => ! $item->is_matched);
-                if ($unmatchedMainItems->isNotEmpty()) {
-                    throw new \InvalidArgumentException(
-                        'All main items must be matched to articles before transitioning to '.$newStage->getLabel()
-                    );
-                }
-            } else {
-                // For Goods requests, all items must be matched
-                if (! $this->all_items_matched) {
-                    throw new \InvalidArgumentException(
-                        'All request items must be matched to articles before transitioning to '.$newStage->getLabel()
-                    );
-                }
-            }
+        // All main-level items must be matched when required; child items
+        // (detail breakdown under services items) are exempt.
+        if ($newStage->requiresMatchedItems() && ! $this->all_items_matched) {
+            throw new \InvalidArgumentException(
+                'All main items must be matched to articles before transitioning to '.$newStage->getLabel()
+            );
         }
 
         $this->stage = $newStage;
@@ -689,43 +672,82 @@ final class Request extends Model implements HasCustomFields, HasMedia
     }
 
     /**
-     * Whether items form a main/child hierarchy (totals roll up from main items only).
+     * Human-readable summary of the item types on this request.
+     *
+     * @return Attribute<string, never>
      */
-    public function supportsItemHierarchy(): bool
+    protected function itemTypeSummary(): Attribute
     {
-        return $this->request_type->supportsItemHierarchy();
+        return Attribute::make(
+            get: function (): string {
+                $hasGoods = $this->hasGoodsItems();
+                $hasServices = $this->hasServiceItems();
+
+                return match (true) {
+                    $hasGoods && $hasServices => 'Mixed',
+                    $hasServices => 'Services',
+                    $hasGoods => 'Goods',
+                    default => '—',
+                };
+            },
+        );
     }
 
     /**
-     * Whether fulfillment is confirmed via acceptance reports.
+     * Whether the request has at least one goods item.
+     */
+    public function hasGoodsItems(): bool
+    {
+        return $this->hasItemsOfType(ItemType::GOODS);
+    }
+
+    /**
+     * Whether the request has at least one services item.
+     */
+    public function hasServiceItems(): bool
+    {
+        return $this->hasItemsOfType(ItemType::SERVICE);
+    }
+
+    private function hasItemsOfType(ItemType $type): bool
+    {
+        if ($this->relationLoaded('items')) {
+            return $this->items->contains(fn (RequestItem $item): bool => $item->item_type === $type);
+        }
+
+        return $this->items()->where('item_type', $type)->exists();
+    }
+
+    /**
+     * Whether fulfillment is confirmed via acceptance reports (any services item).
      */
     public function usesAcceptanceReports(): bool
     {
-        return $this->request_type->usesAcceptanceReports();
+        return $this->hasServiceItems();
     }
 
     /**
-     * Whether fulfillment happens through physical shipments.
+     * Whether fulfillment happens through physical shipments (any goods item).
      */
     public function requiresShipments(): bool
     {
-        return $this->request_type->requiresShipments();
+        return $this->hasGoodsItems();
     }
 
     /**
-     * Whether quote items track job progress.
+     * Whether quote payment terms track job progress (any services item).
      */
     public function hasJobProgress(): bool
     {
-        return $this->request_type->hasJobProgress();
+        return $this->hasServiceItems();
     }
 
     /**
-     * Check if quotation evaluation can be created for this request.
+     * Check if quotation evaluation can be created for this request (any goods item).
      */
     public function canCreateQuotationEvaluation(): bool
     {
-        return $this->request_type->usesQuotationEvaluation();
+        return $this->hasGoodsItems();
     }
 
     /**

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Enums\RequestType;
+use App\Enums\ItemType;
 use App\Models\BuyerQuote;
 use App\Models\BuyerQuoteItem;
 use App\Models\Company;
@@ -20,10 +20,11 @@ it('sources buyer-quote PDF totals from the stored document, excluding service c
 
     $buyer = Company::factory()->buyer()->recycle($team)->create();
     $currency = Currency::factory()->create();
-    $request = Request::factory()->recycle($team)->recycle($buyer)->create([
-        'request_type' => RequestType::SERVICE,
+    $request = Request::factory()->recycle($team)->recycle($buyer)->create();
+    $mainReqItem = RequestItem::factory()->recycle($request)->create([
+        'parent_id' => null,
+        'item_type' => ItemType::SERVICE,
     ]);
-    $mainReqItem = RequestItem::factory()->recycle($request)->create(['parent_id' => null]);
     $childReqItem = RequestItem::factory()->recycle($request)->create(['parent_id' => $mainReqItem->getKey()]);
 
     $quote = BuyerQuote::factory()

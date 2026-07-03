@@ -13,7 +13,6 @@ use App\Filament\Resources\ProfitAndLossResource;
 use App\Filament\Resources\ProjectResource;
 use App\Filament\Resources\QuotationEvaluationResource;
 use App\Filament\Resources\RequestResource;
-use App\Filament\Resources\SupplierOrderResource;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerOrdersRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerQuotesRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\CompletionReportsRelationManager;
@@ -24,21 +23,19 @@ use App\Filament\Resources\RequestResource\RelationManagers\SupplierOrdersRelati
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierQuotesRelationManager;
 use App\Models\BuyerInvoice;
 use App\Models\BuyerOrder;
-use App\Models\PaymentDocumentApproval;
 use App\Models\Currency;
-use App\Models\QuotationEvaluation;
+use App\Models\PaymentDocumentApproval;
 use App\Models\Request;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
-use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
+use Filament\Schemas\Components\Flex;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Flex;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\HtmlString;
@@ -208,9 +205,15 @@ final class ViewRequest extends ViewRecord
                             ->label('')
                             ->weight('bold')
                             ->size('md'),
-                        TextEntry::make('request_type')
-                            ->label('Request type')
-                            ->badge(),
+                        TextEntry::make('item_type_summary')
+                            ->label('Item types')
+                            ->badge()
+                            ->color(fn (string $state): string => match ($state) {
+                                'Goods' => 'primary',
+                                'Services' => 'success',
+                                'Mixed' => 'warning',
+                                default => 'gray',
+                            }),
                         TextEntry::make('project.name')
                             ->label('Project')
                             ->icon('heroicon-o-folder')
@@ -322,8 +325,7 @@ final class ViewRequest extends ViewRecord
             // Approvals Information Section
             Section::make('Approvals Information')
                 ->icon('heroicon-o-check-badge')
-                ->visible(fn (Request $record): bool =>
-                    $record->quotationEvaluations()->exists() ||
+                ->visible(fn (Request $record): bool => $record->quotationEvaluations()->exists() ||
                     $record->profitAndLosses()->exists() ||
                     $record->supplierOrders()->exists()
                 )
@@ -368,7 +370,6 @@ final class ViewRequest extends ViewRecord
         ]);
     }
 
-
     public function getRelationManagers(): array
     {
         return [
@@ -383,7 +384,7 @@ final class ViewRequest extends ViewRecord
         ];
     }
 
-    public function mount(int | string $record): void
+    public function mount(int|string $record): void
     {
         parent::mount($record);
     }
@@ -398,8 +399,6 @@ final class ViewRequest extends ViewRecord
             \App\Filament\Widgets\RequestInformationFlowWidget::class,
         ];
     }
-
-
 
     /**
      * Format a currency value using the team's base currency.
@@ -914,8 +913,8 @@ final class ViewRequest extends ViewRecord
         }
 
         $rows = [];
-        $supplierOrdersUrl = RequestResource::getUrl('view', ['record' => $record]) . '?activeRelationManager=supplierOrders';
-        
+        $supplierOrdersUrl = RequestResource::getUrl('view', ['record' => $record]).'?activeRelationManager=supplierOrders';
+
         foreach ($supplierOrders as $order) {
             // Calculate approval count (0, 1, or 2)
             $approvalCount = 0;

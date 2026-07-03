@@ -52,11 +52,11 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
         // Verify request belongs to current team
         $this->ensureTeamOwnership($request);
 
-        // Prevent creating Quotation Evaluation for request types that don't use it
+        // Quotation Evaluation compares supplier prices for goods items only
         if (! $request->canCreateQuotationEvaluation()) {
             Notification::make()
                 ->title('Quotation Evaluation not available')
-                ->body('Quotation Evaluation documents are only available for Goods requests. Service requests use Acceptance Reports instead.')
+                ->body('Quotation Evaluation applies to goods items only. This request has no goods items.')
                 ->warning()
                 ->send();
 
@@ -291,8 +291,12 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
             ->orderBy('total_base')
             ->get();
 
-        // Get request items
-        $requestItems = $this->request->items()->with('article')->orderBy('sort_order')->get();
+        // QE compares goods items only; services items never appear in the evaluation
+        $requestItems = $this->request->items()
+            ->where('item_type', \App\Enums\ItemType::GOODS)
+            ->with('article')
+            ->orderBy('sort_order')
+            ->get();
 
         // Build price matrix and find best prices
         $bestPrices = $this->findBestPrices($requestItems, $quotes);

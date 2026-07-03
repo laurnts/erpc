@@ -340,12 +340,18 @@ describe('Customer Request Submission', function (): void {
             ->fillForm([
                 'submission_method_choice' => RequestSubmissionMethod::MANUAL->value,
                 'title' => 'Office Supplies',
-                'request_type' => 'goods',
                 'required_by' => now()->addWeek()->toDateString(),
                 'items' => [
                     $itemKey => [
                         'description' => 'A4 Paper',
+                        'item_type' => 'goods',
                         'quantity' => 10,
+                        'unit_of_measure_id' => $uom->getKey(),
+                    ],
+                    (string) \Illuminate\Support\Str::uuid() => [
+                        'description' => 'Printer installation',
+                        'item_type' => 'services',
+                        'quantity' => 1,
                         'unit_of_measure_id' => $uom->getKey(),
                     ],
                 ],
@@ -359,7 +365,10 @@ describe('Customer Request Submission', function (): void {
             ->and($request->submission_method)->toBe(RequestSubmissionMethod::MANUAL)
             ->and($request->submitted_by_user_id)->toBe($this->portalUser->getKey())
             ->and($request->buyer_id)->toBe($this->buyer->getKey())
-            ->and($request->items)->toHaveCount(1);
+            ->and($request->items)->toHaveCount(2)
+            ->and($request->hasGoodsItems())->toBeTrue()
+            ->and($request->hasServiceItems())->toBeTrue()
+            ->and($request->item_type_summary)->toBe('Mixed');
     });
 
     it('scopes customer request list to portal company only', function (): void {
@@ -426,7 +435,6 @@ describe('Customer Portal Phase 2', function (): void {
             ->fillForm([
                 'submission_method_choice' => RequestSubmissionMethod::DOCUMENT->value,
                 'title' => 'RFQ via Dokumen',
-                'request_type' => 'goods',
                 'description' => 'Lihat lampiran RFQ',
                 'attachment_files' => [$pdfPath],
             ])

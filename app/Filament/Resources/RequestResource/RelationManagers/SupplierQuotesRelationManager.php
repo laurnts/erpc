@@ -354,15 +354,11 @@ final class SupplierQuotesRelationManager extends RelationManager
                             $relationManager = $this; // Capture RelationManager instance
 
                             return Repeater::make('items')
-                                ->relationship('items', function ($query) use ($request) {
-                                    // Only load main items, not child items (child items will be nested within main items)
-                                    if ($request->supportsItemHierarchy()) {
-                                        return $query->whereHas('requestItem', function ($q) {
-                                            $q->whereNull('parent_id');
-                                        });
-                                    }
-
-                                    return $query;
+                                ->relationship('items', function ($query) {
+                                    // Only load main-level lines; child lines are nested within their main items
+                                    return $query->whereDoesntHave('requestItem', function ($q) {
+                                        $q->whereNotNull('parent_id');
+                                    });
                                 })
                                 ->mutateRelationshipDataBeforeFillUsing(function (array $data, SupplierQuote|SupplierQuoteItem $record) use ($request): array {
                                     // When loading for edit: inject child_items (with unit_price) so detail items show saved values
@@ -370,7 +366,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                     if (! $record instanceof SupplierQuoteItem) {
                                         return $data;
                                     }
-                                    if (! $request->supportsItemHierarchy() || ! isset($data['request_item_id'])) {
+                                    if (! isset($data['request_item_id'])) {
                                         return $data;
                                     }
                                     $requestItem = $request->items()->find($data['request_item_id']);
@@ -468,7 +464,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                         })()
                             ->afterStateHydrated(function (Set $set, Get $get, $state, $record) use ($request): void {
                                 // Populate child_items for each main item after items are loaded from relationship
-                                if (! $request->supportsItemHierarchy() || ! is_array($state) || empty($state)) {
+                                if (! is_array($state) || empty($state)) {
                                     return;
                                 }
 
@@ -590,8 +586,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                         }
                                                     }
 
-                                                    // For Service requests, automatically add child items as separate line items
-                                                    if ($request->supportsItemHierarchy() && $requestItem->isMainItem() && $requestItem->children()->count() > 0) {
+                                                    // Services main items automatically add their child items as separate line items
+                                                    if ($requestItem->supportsItemHierarchy() && $requestItem->isMainItem() && $requestItem->children()->count() > 0) {
                                                         // Get child items
                                                         $childItems = $requestItem->children()->orderBy('sort_order')->get();
 
@@ -904,7 +900,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                 // Load child_items from parent item's data when repeater hydrates
                                                 // Get request_item_id from parent item context
                                                 $requestItemId = $get('../../request_item_id');
-                                                if ($requestItemId === null || ! $request->supportsItemHierarchy()) {
+                                                if ($requestItemId === null) {
                                                     return;
                                                 }
 
@@ -999,9 +995,6 @@ final class SupplierQuotesRelationManager extends RelationManager
                                     ->collapsible()
                                     ->collapsed()
                                     ->visible(function (Get $get, $record) use ($request): bool {
-                                        if (! $request->supportsItemHierarchy()) {
-                                            return false;
-                                        }
                                         $requestItemId = $get('request_item_id');
                                         if ($requestItemId === null && $record !== null) {
                                             $requestItemId = $record->request_item_id;
@@ -1446,7 +1439,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                         })
                         ->after(function (SupplierQuote $record, array $data): void {
                             $request = $record->request;
-                            if ($request === null || ! $request->supportsItemHierarchy()) {
+                            if ($request === null) {
                                 return;
                             }
 
@@ -1584,7 +1577,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                 return $data;
                             }
 
-                            if ($request->supportsItemHierarchy() && isset($data['items'])) {
+                            if (isset($data['items'])) {
                                 $items = $data['items'];
                                 $newItems = [];
 

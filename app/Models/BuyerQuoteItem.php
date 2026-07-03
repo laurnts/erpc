@@ -430,18 +430,14 @@ final class BuyerQuoteItem extends Model
     }
 
     /**
-     * Items to include in sell/cost totals (main items only when the request
-     * type supports an item hierarchy — child items are informational).
+     * Items to include in sell/cost totals. Child lines (detail breakdown
+     * under services main items) are informational and never priced.
      *
      * @param  Collection<int, self>  $items
      * @return Collection<int, self>
      */
-    public static function filterForTotals(Collection $items, bool $hasItemHierarchy): Collection
+    public static function filterForTotals(Collection $items): Collection
     {
-        if (! $hasItemHierarchy) {
-            return $items;
-        }
-
         return $items->filter(fn (self $item): bool => ! $item->isChildItem());
     }
 
@@ -451,9 +447,9 @@ final class BuyerQuoteItem extends Model
      *
      * @param  Collection<int, self>  $items
      */
-    public static function collectTotals(Collection $items, bool $hasItemHierarchy): DocumentTotals
+    public static function collectTotals(Collection $items): DocumentTotals
     {
-        $filtered = self::filterForTotals($items, $hasItemHierarchy);
+        $filtered = self::filterForTotals($items);
 
         return (new TotalsCollector)->collect(
             $filtered->map(fn (self $item): TotalsLine => new TotalsLine(

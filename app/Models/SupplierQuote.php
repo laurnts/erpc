@@ -275,16 +275,16 @@ final class SupplierQuote extends Model implements HasMedia
 
     /**
      * Recalculate totals from items.
-     * With an item hierarchy, only main items are included (child/detail items are excluded from total).
+     * Child/detail lines under services main items are excluded from totals.
      */
     public function recalculateTotals(): void
     {
         $this->load(['items.requestItem', 'request']);
 
-        $itemsForTotal = $this->request?->supportsItemHierarchy()
-            ? $this->items->filter(fn (SupplierQuoteItem $item): bool => $item->request_item_id !== null
-                && ($item->requestItem === null || $item->requestItem->parent_id === null))
-            : $this->items;
+        $itemsForTotal = $this->items->filter(
+            fn (SupplierQuoteItem $item): bool => $item->requestItem === null
+                || $item->requestItem->parent_id === null
+        );
 
         // Transaction-currency totals via the shared collector. Supplier documents
         // carry no cost-vs-sell margin, so costPrice is 0 and the margin outputs are

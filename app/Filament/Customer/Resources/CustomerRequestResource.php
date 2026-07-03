@@ -4,14 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\Customer\Resources;
 
-use App\Enums\RequestSubmissionMethod;
-use App\Enums\RequestType;
-use App\Filament\Customer\Resources\CustomerRequestResource\RelationManagers\BuyerQuotesRelationManager;
-use App\Filament\Customer\Resources\CustomerRequestResource\RelationManagers\ShipmentsRelationManager;
 use App\Filament\Customer\Resources\CustomerRequestResource\Pages\CreateCustomerRequest;
 use App\Filament\Customer\Resources\CustomerRequestResource\Pages\EditCustomerRequest;
 use App\Filament\Customer\Resources\CustomerRequestResource\Pages\ListCustomerRequests;
 use App\Filament\Customer\Resources\CustomerRequestResource\Pages\ViewCustomerRequest;
+use App\Filament\Customer\Resources\CustomerRequestResource\RelationManagers\BuyerQuotesRelationManager;
+use App\Filament\Customer\Resources\CustomerRequestResource\RelationManagers\ShipmentsRelationManager;
 use App\Models\Request;
 use App\Services\CustomerPortal\CustomerRequestStagePresenter;
 use App\Services\CustomerPortal\PortalContext;
@@ -61,9 +59,15 @@ final class CustomerRequestResource extends Resource
                     ->badge()
                     ->formatStateUsing(fn (Request $record): string => $presenter->label($record))
                     ->color(fn (Request $record): string => $presenter->color($record->stage)),
-                TextColumn::make('request_type')
+                TextColumn::make('item_type_summary')
                     ->label('Type')
-                    ->badge(),
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Goods' => 'primary',
+                        'Services' => 'success',
+                        'Mixed' => 'warning',
+                        default => 'gray',
+                    }),
                 TextColumn::make('submitted_at')
                     ->label('Submitted')
                     ->dateTime()
@@ -74,7 +78,7 @@ final class CustomerRequestResource extends Resource
                     ->sortable(),
             ])
             ->defaultSort('submitted_at', 'desc')
-            ->recordUrl(fn (Request $record): string => static::getUrl('view', ['record' => $record]));
+            ->recordUrl(fn (Request $record): string => self::getUrl('view', ['record' => $record]));
     }
 
     public static function getRelations(): array

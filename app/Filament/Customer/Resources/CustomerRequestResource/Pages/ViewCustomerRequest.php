@@ -32,9 +32,15 @@ final class ViewCustomerRequest extends ViewRecord
                             ->label('Request No.'),
                         TextEntry::make('title')
                             ->label('Title'),
-                        TextEntry::make('request_type')
+                        TextEntry::make('item_type_summary')
                             ->label('Type')
-                            ->badge(),
+                            ->badge()
+                            ->color(fn (string $state): string => match ($state) {
+                                'Goods' => 'primary',
+                                'Services' => 'success',
+                                'Mixed' => 'warning',
+                                default => 'gray',
+                            }),
                         TextEntry::make('stage')
                             ->label('Status')
                             ->formatStateUsing(fn (Request $record): string => $presenter->label($record))

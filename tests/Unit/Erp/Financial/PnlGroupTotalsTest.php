@@ -14,7 +14,7 @@ it('uses net sell (line_subtotal) as the P&L margin base, never gross', function
     $item->cost_price = '4000';
     $item->quantity = '2';
 
-    $totals = BuyerQuoteItem::collectTotals(new Collection([$item]), hasItemHierarchy: false);
+    $totals = BuyerQuoteItem::collectTotals(new Collection([$item]));
 
     expect($totals->subtotal)->toBe(10000.0)     // net revenue, not gross 11,100
         ->and($totals->costTotal)->toBe(8000.0)
@@ -31,7 +31,7 @@ it('excludes service child items from P&L group totals', function (): void {
     $main->quantity = '1';
     // main item: no parent (not a child)
 
-    $totals = BuyerQuoteItem::collectTotals(new Collection([$main]), hasItemHierarchy: true);
+    $totals = BuyerQuoteItem::collectTotals(new Collection([$main]));
 
     expect($totals->subtotal)->toBe(5000.0)
         ->and($totals->marginAmount)->toBe(2000.0);

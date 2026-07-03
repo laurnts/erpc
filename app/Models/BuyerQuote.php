@@ -567,16 +567,13 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
 
     /**
      * Recalculate totals from items.
-     * With an item hierarchy, only main items are included (child/detail items are excluded from total).
+     * Child/detail lines under services main items are excluded from totals.
      */
     public function recalculateTotals(): void
     {
         $this->load(['items.requestItem', 'request']);
 
-        $itemsForTotal = BuyerQuoteItem::filterForTotals(
-            $this->items,
-            $this->request?->supportsItemHierarchy() ?? false,
-        );
+        $itemsForTotal = BuyerQuoteItem::filterForTotals($this->items);
 
         $totals = (new TotalsCollector)->collect(
             $itemsForTotal->map(fn (BuyerQuoteItem $item): TotalsLine => new TotalsLine(

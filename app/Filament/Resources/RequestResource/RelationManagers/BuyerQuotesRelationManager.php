@@ -300,14 +300,11 @@ final class BuyerQuotesRelationManager extends RelationManager
                     Repeater::make('items')
                         ->relationship(
                             'items',
-                            function ($query) use ($request) {
-                                if ($request->supportsItemHierarchy()) {
-                                    return $query->whereHas('requestItem', function ($q) {
-                                        $q->whereNull('parent_id');
-                                    });
-                                }
-
-                                return $query;
+                            function ($query) {
+                                // Only load main-level lines; child lines are nested within their main items
+                                return $query->whereDoesntHave('requestItem', function ($q) {
+                                    $q->whereNotNull('parent_id');
+                                });
                             }
                         )
                         ->mutateRelationshipDataBeforeFillUsing(function (array $data, $record) use ($request): array {
@@ -321,7 +318,7 @@ final class BuyerQuotesRelationManager extends RelationManager
 
                             // Add child_items to each MAIN item when loading from relationship
                             // $record here is the BuyerQuoteItem, we need to check if it's a main item
-                            if ($request->supportsItemHierarchy() && isset($data['request_item_id']) && $data['request_item_id'] !== null) {
+                            if (isset($data['request_item_id']) && $data['request_item_id'] !== null) {
                                 // Check if this is a main item (not a child item)
                                 $requestItem = $request->items()->find($data['request_item_id']);
                                 if ($requestItem !== null && $requestItem->parent_id === null && $requestItem->children()->exists()) {
@@ -889,9 +886,9 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->collapsible()
                                         ->itemLabel(fn (array $state): ?string => $state['description'] ?? null)
                                         ->dehydrated(true) // Include in form state
-                                        ->visible(fn (Get $get): bool => $request->supportsItemHierarchy()),
+                                        ->visible(fn (Get $get): bool => $this->lineItemShowsChildren($get)),
                                 ])
-                                ->visible(fn (Get $get): bool => $request->supportsItemHierarchy())
+                                ->visible(fn (Get $get): bool => $this->lineItemShowsChildren($get))
                                 ->collapsible(),
                         ])
                         ->columns(1)
@@ -1191,7 +1188,7 @@ final class BuyerQuotesRelationManager extends RelationManager
             $marginPercent = $unitPriceExcTax > 0 ? ($marginAmount / $unitPriceExcTax) * 100 : 0;
 
             $childItems = [];
-            if ($request->supportsItemHierarchy() && $requestItem->children()->exists()) {
+            if ($requestItem->supportsItemHierarchy() && $requestItem->children()->exists()) {
                 $childRequestItems = $requestItem->children()->orderBy('sort_order')->get();
                 foreach ($childRequestItems as $childRequestItem) {
                     $childSupplierQuoteItem = \App\Models\SupplierQuoteItem::query()
@@ -1533,8 +1530,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                         }
 
                         // Fallback: If child items weren't created from form data, create them from RequestItem children
-                        // This ensures child items are always created for Service requests with child RequestItems
-                        if ($request->supportsItemHierarchy()) {
+                        // This ensures child lines always exist for services main items with child RequestItems
+                        if ($mainItems->isNotEmpty()) {
                             /** @var \App\Models\Team|null $team */
                             $team = Filament::getTenant();
                             $settings = $team?->getErpSettings();
@@ -2817,5 +2814,29 @@ final class BuyerQuotesRelationManager extends RelationManager
             ->exists();
 
         return $hasAccepted ? 'success' : null;
+    }
+
+    /**
+     * Whether a quote line's child-items section should show: the line already
+     * carries child data, or its request item is a services item.
+     */
+    private function lineItemShowsChildren(Get $get): bool
+    {
+        if (! empty($get('child_items'))) {
+            return true;
+        }
+
+        $requestItemId = $get('request_item_id');
+        if ($requestItemId === null) {
+            return false;
+        }
+
+        /** @var Request $request */
+        $request = $this->getOwnerRecord();
+
+        return $request->items()
+            ->whereKey($requestItemId)
+            ->where('item_type', \App\Enums\ItemType::SERVICE)
+            ->exists();
     }
 }

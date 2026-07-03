@@ -7,7 +7,6 @@ namespace App\Filament\Resources;
 use App\Enums\RequestPriority;
 use App\Enums\RequestStage;
 use App\Enums\RequestSubmissionMethod;
-use App\Enums\RequestType;
 use App\Filament\Resources\RequestResource\Pages\CreateRequest;
 use App\Filament\Resources\RequestResource\Pages\ListRequests;
 use App\Filament\Resources\RequestResource\Pages\ViewRequest;
@@ -77,7 +76,7 @@ final class RequestResource extends Resource
                 )
                 ->required()
                 ->preload()
-                
+
                 ->selectablePlaceholder(false)
                 ->live()
                 ->searchable()
@@ -116,14 +115,6 @@ final class RequestResource extends Resource
                 ->selectablePlaceholder(false)
                 ->native(false);
         }
-        $requestDetailsSchema[] = Select::make('request_type')
-            ->label('Request Type')
-            ->options(RequestType::class)
-            ->default(RequestType::GOODS)
-            ->required()
-            ->disablePlaceholderSelection()
-            ->native(false)
-            ->live();
         $requestDetailsSchema[] = Select::make('priority')
             ->options(RequestPriority::class)
             ->default(RequestPriority::NORMAL)
@@ -170,7 +161,7 @@ final class RequestResource extends Resource
                 )
                 ->nullable()
                 ->preload()
-                
+
                 ->selectablePlaceholder(false)
                 ->helperText('Optional: Group this request under a project (filtered by selected buyer)')
                 ->disabled(fn ($get): bool => empty($get('buyer_id')))
@@ -215,7 +206,7 @@ final class RequestResource extends Resource
             ->columns([
                 TextColumn::make('request_number')
                     ->label('Request #')
-                    
+
                     ->sortable()
                     ->copyable()
                     ->weight('bold'),
@@ -227,11 +218,11 @@ final class RequestResource extends Resource
                     ->toggleable(),
                 TextColumn::make('buyer.name')
                     ->label('Buyer')
-                    
+
                     ->sortable(),
                 TextColumn::make('project.name')
                     ->label('Project')
-                    
+
                     ->sortable()
                     ->toggleable()
                     ->toggledHiddenByDefault(),
@@ -303,13 +294,11 @@ final class RequestResource extends Resource
                 SelectFilter::make('buyer_id')
                     ->relationship('buyer', 'name', fn ($query) => $query->where('is_buyer', true))
                     ->label('Buyer')
-                    ->preload()
-                    ,
+                    ->preload(),
                 SelectFilter::make('project_id')
                     ->relationship('project', 'name')
                     ->label('Project')
-                    ->preload()
-                    ,
+                    ->preload(),
                 SelectFilter::make('is_active')
                     ->label('Status')
                     ->options([

@@ -2,11 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Models\Company;
-
-use App\Enums\RequestType;
+use App\Enums\ItemType;
 use App\Enums\SupplierQuoteStatus;
 use App\Models\Article;
+use App\Models\Company;
 use App\Models\Currency;
 use App\Models\Request;
 use App\Models\RequestItem;
@@ -223,14 +222,15 @@ describe('SupplierQuote Totals', function (): void {
             ->and((float) $quote->total)->toBe(2200.0);
     });
 
-    it('recalculates service request totals from main items only', function (): void {
+    it('excludes child lines from supplier quote totals', function (): void {
         $serviceRequest = Request::factory()
             ->recycle($this->team)
             ->recycle($this->buyer)
-            ->create(['request_type' => RequestType::SERVICE]);
+            ->create();
 
         $mainItem = RequestItem::factory()->recycle($serviceRequest)->create([
             'parent_id' => null,
+            'item_type' => ItemType::SERVICE,
             'quantity' => '1.0000',
         ]);
         $childItem = RequestItem::factory()->recycle($serviceRequest)->create([
@@ -274,9 +274,11 @@ describe('SupplierQuote Totals', function (): void {
 
         $quote->recalculateTotals();
 
-        expect((float) $quote->subtotal)->toBe(5000.0)
-            ->and((float) $quote->tax_total)->toBe(550.0)
-            ->and((float) $quote->total)->toBe(5550.0);
+        // Main item (5000) and the unlinked manual line (30000) count toward
+        // totals; the child detail line (3500) is always excluded.
+        expect((float) $quote->subtotal)->toBe(35000.0)
+            ->and((float) $quote->tax_total)->toBe(3850.0)
+            ->and((float) $quote->total)->toBe(38850.0);
     });
 
     it('calculates base currency values with exchange rate', function (): void {

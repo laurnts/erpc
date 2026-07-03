@@ -27,11 +27,10 @@
     }
     
     $buyerCurrency = $buyerQuote->currency;
-    $hasItemHierarchy = $record->request?->supportsItemHierarchy() ?? false;
 
     // Team target (minimum) margin — below it we warn the approver, never block.
     $targetMargin = (float) ($record->team?->getErpSettings()->default_margin_percent ?? 3.0);
-    $overallTotals = \App\Models\BuyerQuoteItem::collectTotals($items, $hasItemHierarchy);
+    $overallTotals = \App\Models\BuyerQuoteItem::collectTotals($items);
     $overallMarginPercent = (int) round($overallTotals->marginPercent);
     $overallBelowTarget = $overallMarginPercent < $targetMargin;
 @endphp
@@ -55,7 +54,8 @@
             $supplier = $firstItem->supplierQuoteItem?->supplierQuote?->supplier;
             $supplierCurrency = $firstItem->supplierQuoteItem?->supplierQuote?->currency;
             $supplierName = $supplier?->name ?? 'No Supplier';
-            $groupTotals = \App\Models\BuyerQuoteItem::collectTotals($supplierItems, $hasItemHierarchy);
+            $groupTotals = \App\Models\BuyerQuoteItem::collectTotals($supplierItems);
+            $groupHasChildLines = $supplierItems->contains(fn ($item) => $item->isChildItem());
             $supplierCostTotal = $groupTotals->costTotal;
             $supplierNetSell = $groupTotals->subtotal;      // net revenue (margin base)
             $supplierMargin = $groupTotals->marginAmount;   // net sell - cost (VAT excluded)
@@ -181,7 +181,7 @@
                     <tr class="bg-primary-100 dark:bg-primary-950/50 border-t-2 border-primary-400 dark:border-primary-600">
                         <td colspan="6" class="px-4 py-2.5 text-right font-semibold text-primary-800 dark:text-primary-200">
                             Supplier Subtotal
-                            @if($hasItemHierarchy)
+                            @if($groupHasChildLines)
                                 <span class="block text-xs font-normal text-primary-600/80 dark:text-primary-400/80">(main items)</span>
                             @endif
                         </td>

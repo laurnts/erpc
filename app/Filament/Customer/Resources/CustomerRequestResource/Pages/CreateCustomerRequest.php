@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Filament\Customer\Resources\CustomerRequestResource\Pages;
 
 use App\Actions\CustomerPortal\NotifyTeamOfPortalRequest;
+use App\Enums\ItemType;
 use App\Enums\RequestStage;
 use App\Enums\RequestSubmissionMethod;
-use App\Enums\RequestType;
 use App\Filament\Customer\Resources\CustomerRequestResource;
 use App\Models\Project;
 use App\Models\RequestItem;
@@ -55,12 +55,6 @@ final class CreateCustomerRequest extends CreateRecord
                         ->required()
                         ->maxLength(255)
                         ->placeholder('e.g. Q3 office supplies purchase'),
-                    Select::make('request_type')
-                        ->label('Request Type')
-                        ->options(RequestType::class)
-                        ->default(RequestType::GOODS)
-                        ->required()
-                        ->native(false),
                     Select::make('project_id')
                         ->label('Project (optional)')
                         ->options(fn (): array => Project::query()
@@ -84,6 +78,13 @@ final class CreateCustomerRequest extends CreateRecord
                                 ->label('Description')
                                 ->required()
                                 ->maxLength(255)
+                                ->columnSpanFull(),
+                            Select::make('item_type')
+                                ->label('Item Type')
+                                ->options(ItemType::class)
+                                ->default(ItemType::GOODS)
+                                ->required()
+                                ->native(false)
                                 ->columnSpanFull(),
                             TextInput::make('quantity')
                                 ->label('Quantity')
@@ -187,6 +188,7 @@ final class CreateCustomerRequest extends CreateRecord
                 RequestItem::query()->create([
                     'request_id' => $record->getKey(),
                     'description' => $item['description'],
+                    'item_type' => $item['item_type'] ?? ItemType::GOODS,
                     'quantity' => $item['quantity'],
                     'unit_of_measure_id' => $item['unit_of_measure_id'],
                     'unit' => $uom?->code ?? 'pcs',

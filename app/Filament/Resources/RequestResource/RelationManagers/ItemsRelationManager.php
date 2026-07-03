@@ -76,6 +76,16 @@ final class ItemsRelationManager extends RelationManager
                     ->maxLength(255)
                     ->columnSpanFull()
                     ->helperText('Enter a vague description from the buyer.'),
+                Select::make('item_type')
+                    ->label('Item Type')
+                    ->options(\App\Enums\ItemType::class)
+                    ->default(\App\Enums\ItemType::GOODS)
+                    ->required()
+                    ->selectablePlaceholder(false)
+                    ->native(false)
+                    ->columnSpanFull()
+                    ->helperText('Goods fulfill via shipments; Services via acceptance reports and support detail items.')
+                    ->live(),
                 TextInput::make('quantity')
                     ->required()
                     ->numeric()
@@ -211,8 +221,8 @@ final class ItemsRelationManager extends RelationManager
                     ])
                     ->columns(2)
                     ->columnSpanFull()
-                    ->visible(fn ($get, $record): bool => $request->supportsItemHierarchy() && ($get('article_id') !== null || ($record && $record->article_id !== null)))
-                    ->helperText('Add child items to provide detail breakdown of the service (only for Service requests)')
+                    ->visible(fn ($get, $record): bool => self::isServiceItemState($get('item_type')) && ($get('article_id') !== null || ($record && $record->article_id !== null)))
+                    ->helperText('Add child items to provide detail breakdown of the service (services items only)')
                     ->defaultItems(0)
                     ->collapsible()
                     ->dehydrated(true), // Ensure Repeater data is included in form submission
@@ -255,6 +265,9 @@ final class ItemsRelationManager extends RelationManager
 
                     ->limit(50)
                     ->tooltip(fn (?RequestItem $record): ?string => $record?->description),
+                TextColumn::make('item_type')
+                    ->label('Type')
+                    ->badge(),
                 TextColumn::make('article.code')
                     ->label('Article')
                     ->placeholder('Not matched')
@@ -360,8 +373,8 @@ final class ItemsRelationManager extends RelationManager
                         // Create the main item
                         $record = RequestItem::create($data);
 
-                        // Handle child items for Service requests
-                        if ($request->supportsItemHierarchy() && ! empty($childrenData)) {
+                        // Child items only exist when the form offered them (services items)
+                        if (! empty($childrenData)) {
                             $sortOrder = 0;
                             foreach ($childrenData as $childData) {
                                 RequestItem::create([
@@ -402,12 +415,12 @@ final class ItemsRelationManager extends RelationManager
                                 ->with('article.suppliers')
                                 ->get();
                         } else {
-                            // For Service requests, only get main items (not child items)
-                            $query = $request->items()->whereNotNull('article_id');
-                            if ($request->supportsItemHierarchy()) {
-                                $query->whereNull('parent_id'); // Only main items
-                            }
-                            $matchedItems = $query->with('article.suppliers')->get();
+                            // Child items are detail breakdown only — never sent to suppliers
+                            $matchedItems = $request->items()
+                                ->whereNotNull('article_id')
+                                ->whereNull('parent_id')
+                                ->with('article.suppliers')
+                                ->get();
                         }
 
                         if ($matchedItems->isEmpty()) {
@@ -443,12 +456,12 @@ final class ItemsRelationManager extends RelationManager
                                 ->with('article.suppliers')
                                 ->get();
                         } else {
-                            // For Service requests, only get main items (not child items)
-                            $query = $request->items()->whereNotNull('article_id');
-                            if ($request->supportsItemHierarchy()) {
-                                $query->whereNull('parent_id'); // Only main items
-                            }
-                            $matchedItems = $query->with('article.suppliers')->get();
+                            // Child items are detail breakdown only — never sent to suppliers
+                            $matchedItems = $request->items()
+                                ->whereNotNull('article_id')
+                                ->whereNull('parent_id')
+                                ->with('article.suppliers')
+                                ->get();
                         }
 
                         if ($matchedItems->isEmpty()) {
@@ -710,10 +723,10 @@ final class ItemsRelationManager extends RelationManager
                     ->icon('')
                     ->size(Size::Small)
                     ->visible(fn (RequestItem $record): bool => $record->isMainItem())
-                    ->fillForm(function (RequestItem $record) use ($request): array {
+                    ->fillForm(function (RequestItem $record): array {
                         // Load existing children for editing
                         $data = $record->toArray();
-                        if ($request->supportsItemHierarchy() && $record->isMainItem()) {
+                        if ($record->isMainItem()) {
                             $data['children'] = $record->children()->get()->map(function (RequestItem $child): array {
                                 return [
                                     'description' => $child->description,
@@ -750,8 +763,9 @@ final class ItemsRelationManager extends RelationManager
                         // Update the record
                         $record->update($data);
 
-                        // Handle child items for Service requests
-                        if ($request->supportsItemHierarchy() && $record->isMainItem()) {
+                        // Re-sync children; a services→goods switch clears them since the
+                        // form hides the section and submits no children data
+                        if ($record->isMainItem()) {
                             // Delete existing children
                             $record->children()->delete();
 
@@ -1076,5 +1090,17 @@ final class ItemsRelationManager extends RelationManager
     {
         /** @var Request $ownerRecord */
         return $ownerRecord->all_items_matched ? 'success' : null;
+    }
+
+    /**
+     * Form state for item_type may hold the enum instance or its backing value.
+     */
+    private static function isServiceItemState(mixed $state): bool
+    {
+        $type = $state instanceof \App\Enums\ItemType
+            ? $state
+            : \App\Enums\ItemType::tryFrom((string) ($state ?? ''));
+
+        return $type === \App\Enums\ItemType::SERVICE;
     }
 }

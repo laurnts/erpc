@@ -8,7 +8,7 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasIcon;
 use Filament\Support\Contracts\HasLabel;
 
-enum RequestType: string implements HasColor, HasIcon, HasLabel
+enum ItemType: string implements HasColor, HasIcon, HasLabel
 {
     case GOODS = 'goods';
     case SERVICE = 'services';
@@ -94,7 +94,7 @@ enum RequestType: string implements HasColor, HasIcon, HasLabel
     }
 
     /**
-     * Request types whose fulfillment is confirmed via acceptance reports,
+     * Item types whose fulfillment is confirmed via acceptance reports,
      * for use in query constraints.
      *
      * @return list<self>

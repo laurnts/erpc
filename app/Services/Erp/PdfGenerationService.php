@@ -120,6 +120,21 @@ final readonly class PdfGenerationService
      */
     public function generateBuyerOrderPdf(BuyerOrder $order): string
     {
+        $pdf = Pdf::loadView('pdf.buyer-order', $this->buildBuyerOrderPdfData($order));
+
+        $pdf->setPaper('a4', 'portrait');
+
+        return $pdf->output();
+    }
+
+    /**
+     * Build the view data for the buyer-order PDF. Footer totals come from the
+     * stored document columns so the customer PDF total matches the system's records.
+     *
+     * @return array<string, mixed>
+     */
+    public function buildBuyerOrderPdfData(BuyerOrder $order): array
+    {
         $order->load(['buyer', 'items.buyerQuoteItem', 'request', 'team']);
 
         // Process items: filter hidden items and distribute their prices
@@ -179,25 +194,16 @@ final readonly class PdfGenerationService
             return $processedItem;
         });
 
-        // Calculate subtotal from processed items
-        $processedSubtotal = $processedItems->sum(fn ($item): float => (float) $item->line_subtotal);
-
-        // Calculate tax total from processed items
-        $processedTaxTotal = $processedItems->sum(fn ($item): float => (float) $item->line_tax);
-        $processedTotal = $processedSubtotal + $processedTaxTotal;
-
-        $pdf = Pdf::loadView('pdf.buyer-order', [
+        // Footer totals are the stored document totals, never a re-sum of the
+        // displayed lines, so the customer PDF total always matches the order record.
+        return [
             'order' => $order,
             'items' => $processedItems,
-            'processedSubtotal' => $processedSubtotal,
-            'processedTaxTotal' => $processedTaxTotal,
-            'processedTotal' => $processedTotal,
+            'processedSubtotal' => (float) $order->subtotal,
+            'processedTaxTotal' => (float) $order->tax_total,
+            'processedTotal' => (float) $order->total,
             'company' => $this->getCompanyDetails($order->team),
-        ]);
-
-        $pdf->setPaper('a4', 'portrait');
-
-        return $pdf->output();
+        ];
     }
 
     /**

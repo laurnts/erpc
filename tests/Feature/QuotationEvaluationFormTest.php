@@ -20,6 +20,9 @@ beforeEach(function (): void {
     $this->request = Request::factory()
         ->for($this->team)
         ->create(['creator_id' => $this->user->getKey()]);
+
+    // QE is only available for requests with goods items
+    \App\Models\RequestItem::factory()->recycle($this->request)->create();
 });
 
 test('the QE form renders the approval selects without an inline create-key-account button', function (): void {

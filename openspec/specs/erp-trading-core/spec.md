@@ -305,21 +305,30 @@ The system SHALL allow grouping of multiple related Requests under a single Proj
 ---
 
 ### Requirement: Requests Entity
-The system SHALL manage Requests as the atomic unit representing a single buyer inquiry from initial request through final payment.
+The system SHALL manage Requests as the atomic unit representing a single buyer inquiry from initial request through final payment. Requests can be classified as Goods or Service type, with different workflows for each.
 
 #### Scenario: Create a request
 - **WHEN** an admin creates a request for buyer "GlobalTrade" with title "Factory Equipment Order"
 - **THEN** a unique request_number is auto-generated (e.g., "REQ-2024-0001")
-- **AND** the stage defaults to "new"
+- **AND** the stage defaults to "draft"
+- **AND** request_type defaults to "goods"
 - **AND** base_currency defaults to system default
+
+#### Scenario: Create Service request
+- **WHEN** an admin creates a request and selects request_type "Service"
+- **THEN** the request follows Service workflow rules
+- **AND** child items can be added to main items
+- **AND** acceptance reports replace inbound shipments
 
 #### Scenario: Add request items
 - **WHEN** an admin adds item "Tyre for Toyota Prius 2020" qty 4 pcs
 - **THEN** the request_item is created with description (article_id nullable)
+- **AND** if request_type is "Service", child items section appears after matching to article
 
 #### Scenario: Match request item to article
 - **WHEN** an admin matches "Tyre for Toyota Prius" to "Michelin Pilot Sport 215/45R17"
 - **THEN** article_id is set and is_matched becomes true
+- **AND** if request_type is "Service", this item becomes a main item and child items can be added
 
 #### Scenario: Combined article-supplier selection
 - **WHEN** an admin creates or edits a request item
@@ -327,46 +336,61 @@ The system SHALL manage Requests as the atomic unit representing a single buyer 
 - **AND** each option shows: "[CODE] Article Name → Supplier Name ★"
 - **AND** articles without suppliers show: "[CODE] Article Name"
 - **AND** preferred suppliers are marked with ★
+- **AND** if request_type is "Service", child items section appears below
 
 #### Scenario: Select article and supplier together
 - **WHEN** an admin selects an option from the dropdown
 - **THEN** both article_id and supplier_id are set from the selection
 - **AND** is_matched becomes true
+- **AND** if request_type is "Service", the item becomes a main item
 
 #### Scenario: View item assignment status
 - **WHEN** viewing request items in the Items tab
 - **THEN** each item shows: match status (checkmark/X), article code, supplier name, quantity, unit
+- **AND** child items (for Service requests) are displayed with indentation or badge
 - **AND** a status summary shows "X/Y items matched" and "X/Y items assigned to suppliers"
 
 #### Scenario: Clear selection
 - **WHEN** an admin clears the "Match to Article" dropdown
 - **THEN** both article_id and supplier_id are cleared
 - **AND** is_matched becomes false
+- **AND** if request_type is "Service", child items are also cleared
 
 #### Scenario: Validate stage transition to sourcing
-- **WHEN** stage transitions from "new" to "sourcing"
+- **WHEN** stage transitions from "draft" to "awaiting_supplier_response"
 - **THEN** the transition is allowed (no prerequisites)
+- **AND** for Service requests, only main items need to be matched
 
 #### Scenario: Validate stage transition to supplier_quoting
-- **WHEN** stage attempts transition to "supplier_quoting"
-- **THEN** all request items must have article_id set
-- **AND** validation fails if any items are unmatched
+- **WHEN** stage attempts transition to "preparing_buyer_quote"
+- **THEN** for Goods requests: all request items must have article_id set
+- **AND** for Service requests: all main items must have article_id set (child items optional)
+- **AND** validation fails if required items are unmatched
 
 ---
 
 ### Requirement: Request Stage Lifecycle
-The system SHALL enforce a stage-based workflow for requests with defined transitions.
+The system SHALL enforce a stage-based workflow for requests with defined transitions. The workflow differs based on request type (Goods vs Service).
 
-#### Scenario: Valid stage progression
-- **WHEN** request progresses through stages: new → sourcing → supplier_quoting → buyer_quoting → negotiation → buyer_po_received → supplier_po_issued → fulfillment → invoicing → closed
+#### Scenario: Valid stage progression for Goods request
+- **WHEN** Goods request progresses through stages: draft → awaiting_supplier_response → preparing_buyer_quote → awaiting_buyer_confirmation → preparing_supplier_order → awaiting_shipment → shipped → delivered → invoiced → paid → completed
 - **THEN** each transition is valid and recorded
+- **AND** quotation evaluation can be created
+- **AND** inbound shipments are tracked
+
+#### Scenario: Valid stage progression for Service request
+- **WHEN** Service request progresses through stages: draft → awaiting_supplier_response → preparing_buyer_quote → awaiting_buyer_confirmation → preparing_supplier_order → (acceptance reports) → invoiced → paid → completed
+- **THEN** each transition is valid and recorded
+- **AND** quotation evaluation cannot be created
+- **AND** inbound shipments are not tracked (replaced by acceptance reports)
 
 #### Scenario: Stage determines available actions
-- **WHEN** request is in stage "new"
+- **WHEN** request is in stage "draft"
 - **THEN** user can add/edit items but cannot create supplier quotes
+- **AND** for Service requests, child items can be added to main items
 
 #### Scenario: Stage closed marks completion
-- **WHEN** request stage is set to "closed"
+- **WHEN** request stage is set to "completed"
 - **THEN** closed_at timestamp is recorded
 - **AND** the request is considered complete
 
@@ -419,4 +443,53 @@ The system SHALL allow designation of specific finance role users as approvers w
 - **WHEN** a finance approver's role is changed away from finance or central_purchasing
 - **THEN** the is_approver flag is automatically cleared (set to false)
 - **AND** the user can no longer approve credit limit requests
+
+### Requirement: Conditional Form Logic Based on Request Type
+The system SHALL display different form fields and sections based on the selected request type.
+
+#### Scenario: Goods request form
+- **WHEN** request_type is "Goods"
+- **THEN** the RequestItem form shows standard fields: description, quantity, unit, match to article, notes
+- **AND** no child items section is displayed
+- **AND** all items require article matching
+
+#### Scenario: Service request form
+- **WHEN** request_type is "Service"
+- **THEN** the RequestItem form shows: description, quantity, unit, match to article
+- **AND** after matching to article, a "Child Items" section appears
+- **AND** child items can be added with description, quantity, and unit
+- **AND** only main items require article matching
+
+#### Scenario: Request type selection
+- **WHEN** creating or editing a request
+- **THEN** a "Request Type" select field appears in the Request Details section
+- **AND** options are "Goods" and "Service"
+- **AND** default is "Goods"
+- **AND** the selection is required
+
+---
+
+### Requirement: Workflow Differences for Service Requests
+The system SHALL apply different workflow rules for Service requests compared to Goods requests.
+
+#### Scenario: No quotation evaluation for Service requests
+- **WHEN** a Service request is in stage "preparing_buyer_quote"
+- **THEN** the Quotation Evaluations tab is hidden or disabled
+- **AND** users cannot create quotation evaluation documents
+
+#### Scenario: No inbound shipments for Service requests
+- **WHEN** a Service request progresses past "preparing_supplier_order"
+- **THEN** the Shipments tab shows only outbound shipments (if any)
+- **AND** inbound shipment tracking is not available
+- **AND** acceptance reports are used instead
+
+#### Scenario: Acceptance reports tab visibility
+- **WHEN** viewing a Service request
+- **THEN** an "Acceptance Reports" tab is visible
+- **AND** users can create, view, and manage acceptance reports
+
+#### Scenario: Send to suppliers for Service requests
+- **WHEN** sending Service request items to suppliers
+- **THEN** only main items are sent (child items are not included in quotes)
+- **AND** child items remain as detail breakdown for internal reference
 

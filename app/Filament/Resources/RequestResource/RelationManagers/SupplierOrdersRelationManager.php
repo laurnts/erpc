@@ -742,7 +742,6 @@ final class SupplierOrdersRelationManager extends RelationManager
 
                         // Group quote items by supplier (from all accepted quotes)
                         $itemsBySupplier = $this->groupAcceptedBuyerQuoteItemsBySupplier($request);
-                        $hasItemHierarchy = $request->supportsItemHierarchy();
 
                         if ($itemsBySupplier === []) {
                             return [
@@ -790,7 +789,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                             $supplier = $data['supplier'];
                             /** @var \Illuminate\Support\Collection<int, BuyerQuoteItem> $quoteItems */
                             $quoteItems = $data['items'];
-                            $itemsToOrder = BuyerQuoteItem::filterForTotals($quoteItems, $hasItemHierarchy);
+                            $itemsToOrder = BuyerQuoteItem::filterForTotals($quoteItems);
 
                             $existingOrder = SupplierOrder::query()
                                 ->where('request_id', $request->getKey())
@@ -799,7 +798,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                 ->exists();
                             $statusBadge = $existingOrder ? ' ⚠️ (Order exists)' : '';
 
-                            $itemsHtml = $this->buildBuyerQuoteItemsPreviewHtml($quoteItems, $hasItemHierarchy);
+                            $itemsHtml = $this->buildBuyerQuoteItemsPreviewHtml($quoteItems);
 
                             $sections[] = \Filament\Schemas\Components\Section::make("[{$supplier->code}] {$supplier->name}{$statusBadge}")
                                 ->description($itemsToOrder->count().' item(s) to order')
@@ -878,7 +877,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                         }
 
                         $quoteItems = $itemsBySupplier[$supplierId]['items'];
-                        $itemsToOrder = BuyerQuoteItem::filterForTotals($quoteItems, $request->supportsItemHierarchy());
+                        $itemsToOrder = BuyerQuoteItem::filterForTotals($quoteItems);
 
                         if ($itemsToOrder->isEmpty()) {
                             Notification::make()
@@ -1346,9 +1345,9 @@ final class SupplierOrdersRelationManager extends RelationManager
     /**
      * @param  \Illuminate\Support\Collection<int, BuyerQuoteItem>  $quoteItems
      */
-    private function buildBuyerQuoteItemsPreviewHtml(\Illuminate\Support\Collection $quoteItems, bool $hasItemHierarchy): string
+    private function buildBuyerQuoteItemsPreviewHtml(\Illuminate\Support\Collection $quoteItems): string
     {
-        $itemsForTotal = BuyerQuoteItem::filterForTotals($quoteItems, $hasItemHierarchy);
+        $itemsForTotal = BuyerQuoteItem::filterForTotals($quoteItems);
         $supplierTotal = $itemsForTotal->sum(fn (BuyerQuoteItem $item): float => $this->getBuyerQuoteItemCostLineTotal($item));
         $organizedItems = BuyerQuoteItem::organizeHierarchically($quoteItems);
 
@@ -1387,7 +1386,7 @@ final class SupplierOrdersRelationManager extends RelationManager
         $html .= '</div>';
         $html .= sprintf(
             '<div class="mt-2 pt-2 border-t-2 border-primary-300 dark:border-primary-600 bg-primary-50/50 dark:bg-primary-950/30 -mx-1 px-2 py-2 rounded text-right"><span class="font-semibold text-primary-800 dark:text-primary-200">Supplier Total</span>%s<br><span class="text-base font-bold text-primary-700 dark:text-primary-300">%s</span></div>',
-            $hasItemHierarchy && $quoteItems->count() > $itemsForTotal->count()
+            $quoteItems->count() > $itemsForTotal->count()
                 ? '<br><span class="text-xs font-normal text-primary-600/80 dark:text-primary-400/80">(main items)</span>'
                 : '',
             number_format($supplierTotal, 2)

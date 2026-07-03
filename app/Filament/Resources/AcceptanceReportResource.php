@@ -50,12 +50,26 @@ final class AcceptanceReportResource extends Resource
             ->components([
                 Select::make('request_id')
                     ->label('Request')
-                    ->relationship('request', 'request_number', modifyQueryUsing: fn ($query) => $query->whereIn('request_type', \App\Enums\RequestType::casesUsingAcceptanceReports()))
+                    ->relationship('request', 'request_number', modifyQueryUsing: fn ($query) => $query->whereHas('items', fn ($itemQuery) => $itemQuery->where('item_type', \App\Enums\ItemType::SERVICE)))
                     ->required()
                     ->searchable()
                     ->preload()
+                    ->live()
                     ->disabled(fn ($record) => $record !== null)
-                    ->helperText('Only Service requests are available'),
+                    ->helperText('Only requests with services items are available'),
+                Select::make('items')
+                    ->label('Covered Items')
+                    ->multiple()
+                    ->relationship(
+                        'items',
+                        'description',
+                        modifyQueryUsing: fn ($query, \Filament\Schemas\Components\Utilities\Get $get) => $query
+                            ->where('request_id', $get('request_id'))
+                            ->whereNull('parent_id')
+                            ->where('item_type', \App\Enums\ItemType::SERVICE),
+                    )
+                    ->preload()
+                    ->helperText('Services main items covered by this report; child items are covered with their parent'),
                 Section::make('Report Details')
                     ->schema([
                         \Filament\Forms\Components\TextInput::make('report_number')

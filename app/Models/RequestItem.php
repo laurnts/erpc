@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Casts\SafeUnitCast;
+use App\Enums\ItemType;
 use App\Enums\Unit;
 use App\Observers\RequestItemObserver;
 use Database\Factories\RequestItemFactory;
@@ -16,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property string $description
+ * @property ItemType $item_type
  * @property string $quantity
  * @property Unit $unit
  * @property string|null $notes
@@ -48,6 +50,7 @@ final class RequestItem extends Model
         'article_id',
         'supplier_id',
         'description',
+        'item_type',
         'quantity',
         'unit',
         'unit_of_measure_id',
@@ -60,6 +63,7 @@ final class RequestItem extends Model
      * @var array<string, mixed>
      */
     protected $attributes = [
+        'item_type' => 'goods',
         'quantity' => 1,
         'unit' => 'pcs',
         'sort_order' => 0,
@@ -72,6 +76,7 @@ final class RequestItem extends Model
     protected function casts(): array
     {
         return [
+            'item_type' => ItemType::class,
             'quantity' => 'decimal:4',
             'unit' => SafeUnitCast::class,
             'sort_order' => 'integer',
@@ -86,14 +91,22 @@ final class RequestItem extends Model
     {
         parent::boot();
 
-        static::creating(function (RequestItem $item): void {
+        self::creating(function (RequestItem $item): void {
             // Ensure unit is never null or empty
             if (empty($item->unit)) {
                 $item->unit = 'pcs';
             }
+
+            // Child items always fulfill through their parent's channel
+            if ($item->parent_id !== null) {
+                $parentType = self::query()->whereKey($item->parent_id)->value('item_type');
+                if ($parentType !== null) {
+                    $item->item_type = $parentType;
+                }
+            }
         });
 
-        static::updating(function (RequestItem $item): void {
+        self::updating(function (RequestItem $item): void {
             // Ensure unit is never null or empty
             if (empty($item->unit)) {
                 $item->unit = 'pcs';
@@ -231,5 +244,29 @@ final class RequestItem extends Model
         }
 
         return $this->parent;
+    }
+
+    /**
+     * Whether this item can carry a child-item breakdown.
+     */
+    public function supportsItemHierarchy(): bool
+    {
+        return $this->item_type->supportsItemHierarchy();
+    }
+
+    /**
+     * Whether this item fulfills via acceptance reports.
+     */
+    public function usesAcceptanceReports(): bool
+    {
+        return $this->item_type->usesAcceptanceReports();
+    }
+
+    /**
+     * Whether this item fulfills via physical shipments.
+     */
+    public function requiresShipments(): bool
+    {
+        return $this->item_type->requiresShipments();
     }
 }

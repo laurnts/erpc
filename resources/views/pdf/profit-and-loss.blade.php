@@ -230,7 +230,6 @@
             });
         }
         
-        $hasItemHierarchy = $pnl->request?->supportsItemHierarchy() ?? false;
         $grandTotalCost = 0;
         $grandTotalSell = 0;
     @endphp
@@ -241,7 +240,8 @@
                 $firstItem = $supplierItems->first();
                 $supplier = $firstItem->supplierQuoteItem?->supplierQuote?->supplier;
                 $supplierName = $supplier?->name ?? 'No Supplier';
-                $groupTotals = \App\Models\BuyerQuoteItem::collectTotals($supplierItems, $hasItemHierarchy);
+                $groupTotals = \App\Models\BuyerQuoteItem::collectTotals($supplierItems);
+                $groupHasChildLines = $supplierItems->contains(fn ($item) => $item->isChildItem());
                 $supplierCostTotal = $groupTotals->costTotal;
                 $supplierNetSell = $groupTotals->subtotal;      // net revenue (margin base)
                 $supplierMargin = $groupTotals->marginAmount;   // net sell - cost (VAT excluded)
@@ -307,7 +307,7 @@
                     <tr>
                         <td colspan="6" class="text-right">
                             Supplier Subtotal
-                            @if($hasItemHierarchy)
+                            @if($groupHasChildLines)
                                 <br><span style="font-size: 7pt; font-weight: normal;">(main items)</span>
                             @endif
                         </td>

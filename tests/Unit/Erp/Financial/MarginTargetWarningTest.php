@@ -11,7 +11,7 @@ use Illuminate\Support\Collection;
  */
 function overallBelowTarget(Collection $items, float $target): bool
 {
-    $totals = BuyerQuoteItem::collectTotals($items, hasItemHierarchy: false);
+    $totals = BuyerQuoteItem::collectTotals($items);
 
     return (int) round($totals->marginPercent) < $target;
 }

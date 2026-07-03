@@ -182,8 +182,10 @@ final class ShipmentsRelationManager extends RelationManager
                                         ->label('Order Item')
                                         ->options(
                                             $supplierOrder->items()
+                                                ->with('requestItem')
                                                 ->get()
-                                                ->filter(fn ($item): bool => $item->getRemainingQuantity() > 0)
+                                                ->filter(fn ($item): bool => $item->getRemainingQuantity() > 0
+                                                    && ($item->requestItem === null || $item->requestItem->requiresShipments()))
                                                 ->mapWithKeys(fn ($item): array => [
                                                     $item->getKey() => $item->description,
                                                 ])
