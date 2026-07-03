@@ -19,7 +19,6 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
-use Illuminate\Support\Facades\Log;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
@@ -31,11 +30,12 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Size;
+use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
-use Filament\Support\Enums\Width;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\HtmlString;
 
 final class BuyerOrdersRelationManager extends RelationManager
@@ -144,15 +144,15 @@ final class BuyerOrdersRelationManager extends RelationManager
                                             if ($record === null) {
                                                 return null;
                                             }
-                                            
+
                                             // Try to get supplier from request item first
                                             $supplier = $record->requestItem?->supplier;
-                                            
+
                                             // Fallback to supplier from quote chain
                                             if ($supplier === null && $record->buyerQuoteItem?->supplierQuoteItem?->supplierQuote?->supplier !== null) {
                                                 $supplier = $record->buyerQuoteItem->supplierQuoteItem->supplierQuote->supplier;
                                             }
-                                            
+
                                             return $supplier !== null ? "From: {$supplier->name}" : null;
                                         }),
                                     TextInput::make('line_total')
@@ -239,11 +239,11 @@ final class BuyerOrdersRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('order_number')
                     ->label('Order #')
-                    
+
                     ->sortable(),
                 TextColumn::make('buyer.name')
                     ->label('Buyer')
-                    
+
                     ->sortable(),
                 TextColumn::make('buyerQuote.quote_number')
                     ->label('Source Quote')
@@ -311,12 +311,12 @@ final class BuyerOrdersRelationManager extends RelationManager
                                     ->where('request_id', $request->getKey())
                                     ->where('status', BuyerQuoteStatus::ACCEPTED)
                                     ->first();
-                                
+
                                 return $acceptedQuote?->getKey();
                             })
                             ->selectablePlaceholder(false)
                             ->required()
-                            
+
                             ->helperText('Only accepted quotes can be converted to orders.'),
                     ])
                     ->action(function (array $data) use ($request): void {
@@ -373,36 +373,37 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->label('Send')
                         ->icon('heroicon-o-paper-airplane')
                         ->color('primary')
-                        ->visible(fn (?BuyerOrder $record): bool => $record !== null && $record->status->canSend())
+                        ->visible(fn (?BuyerOrder $record): bool => $record !== null && $record->status === OrderStatus::DRAFT)
                         ->requiresConfirmation()
                         ->modalHeading('Send order email to buyer?')
                         ->modalDescription(function (BuyerOrder $record): string {
                             $buyerEmail = $record->buyer->email ?? null;
                             $buyerName = $record->buyer->name ?? 'Unknown';
                             $description = 'This will mark the order as sent and send the order email to the buyer.';
-                            
+
                             if (empty($buyerEmail)) {
                                 $description .= "\n\n⚠️ **Warning:** The buyer ({$buyerName}) does not have an email address configured. The order will be marked as sent, but no email will be sent.";
                             } else {
                                 $description .= "\n\n📧 Email will be sent to: {$buyerEmail}";
                             }
-                            
+
                             return $description;
                         })
                         ->action(function (BuyerOrder $record): void {
                             // Send email to buyer
                             $buyerEmail = $record->buyer->email ?? null;
                             $buyerName = $record->buyer->name ?? 'Buyer';
-                            
+
                             // Mark as sent first
                             $record->markAsSent();
-                            
+
                             if (empty($buyerEmail)) {
                                 Notification::make()
                                     ->title('Order marked as sent')
                                     ->body("Order has been marked as sent, but no email was sent because the buyer ({$buyerName}) does not have an email address configured.")
                                     ->warning()
                                     ->send();
+
                                 return;
                             }
 
@@ -449,26 +450,27 @@ final class BuyerOrdersRelationManager extends RelationManager
                             $buyerEmail = $record->buyer->email ?? null;
                             $buyerName = $record->buyer->name ?? 'Unknown';
                             $description = 'This will resend the order email to the buyer without changing the order status.';
-                            
+
                             if (empty($buyerEmail)) {
                                 $description .= "\n\n⚠️ **Warning:** The buyer ({$buyerName}) does not have an email address configured. No email will be sent.";
                             } else {
                                 $description .= "\n\n📧 Email will be sent to: {$buyerEmail}";
                             }
-                            
+
                             return $description;
                         })
                         ->action(function (BuyerOrder $record): void {
                             // Resend email to buyer (without changing status)
                             $buyerEmail = $record->buyer->email ?? null;
                             $buyerName = $record->buyer->name ?? 'Buyer';
-                            
+
                             if (empty($buyerEmail)) {
                                 Notification::make()
                                     ->title('Cannot resend email')
                                     ->body("The buyer ({$buyerName}) does not have an email address configured.")
                                     ->warning()
                                     ->send();
+
                                 return;
                             }
 
@@ -514,23 +516,23 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->modalDescription(function (BuyerOrder $record): HtmlString {
                             $buyer = $record->buyer;
                             $orderTotal = (float) $record->total;
-                            
+
                             $message = 'This will mark the order as confirmed.';
-                            
+
                             // Add credit information only if credit_status is enabled
                             if ($buyer && $buyer->credit_status) {
                                 $availableCredit = (float) $buyer->available_credit;
                                 $message .= "\n\n";
-                                $message .= "Order Total: ".number_format($orderTotal, 2)."\n";
-                                $message .= "Available Credit: ".number_format($availableCredit, 2);
-                                
+                                $message .= 'Order Total: '.number_format($orderTotal, 2)."\n";
+                                $message .= 'Available Credit: '.number_format($availableCredit, 2);
+
                                 if ($availableCredit < $orderTotal) {
                                     $message .= "\n\n⚠️ **Warning:** Insufficient credit available. Confirmation will fail.";
                                 } elseif ($availableCredit - $orderTotal < ($orderTotal * 0.1)) {
                                     $message .= "\n\n⚠️ **Warning:** Low credit remaining after confirmation.";
                                 }
                             }
-                            
+
                             $warning = $record->getCreditLimitWarning();
                             if ($warning !== null) {
                                 $message .= "\n\n".$warning;
@@ -541,7 +543,7 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->form(function (BuyerOrder $record): array {
                             $buyer = $record->buyer;
                             $schema = [];
-                            
+
                             // Only show toggle if buyer has credit_status enabled
                             if ($buyer && $buyer->credit_status) {
                                 $schema[] = Toggle::make('use_credit')
@@ -549,26 +551,26 @@ final class BuyerOrdersRelationManager extends RelationManager
                                     ->default(true)
                                     ->helperText('When enabled, available credit will be reduced when confirming this order.');
                             }
-                            
+
                             // If credit_status is disabled, return empty schema (no toggle shown)
                             return $schema;
                         })
                         ->action(function (BuyerOrder $record, array $data): void {
                             try {
                                 $buyer = $record->buyer;
-                                
+
                                 // If buyer has credit_status enabled, use form value (defaults to true)
                                 // If credit_status is disabled, toggle wasn't shown, so default to false
-                                $useCredit = ($buyer && $buyer->credit_status) 
+                                $useCredit = ($buyer && $buyer->credit_status)
                                     ? ($data['use_credit'] ?? true)  // Toggle was shown, default to true
                                     : false;  // Toggle not shown, don't use credit
-                                
+
                                 $record->confirm($useCredit);
-                                
-                                $notificationBody = $useCredit 
+
+                                $notificationBody = $useCredit
                                     ? 'Order has been confirmed and credit has been reduced.'
                                     : 'Order has been confirmed without using credit.';
-                                
+
                                 Notification::make()
                                     ->title('Order confirmed')
                                     ->body($notificationBody)
@@ -600,17 +602,18 @@ final class BuyerOrdersRelationManager extends RelationManager
                             if ($record->status === OrderStatus::CONFIRMED) {
                                 $message .= "\n\nCredit will be restored when the order is cancelled.";
                             }
+
                             return $message;
                         })
                         ->action(function (BuyerOrder $record): void {
                             $wasConfirmed = $record->status === OrderStatus::CONFIRMED;
                             $record->cancel();
-                            
+
                             $message = 'Order has been cancelled.';
                             if ($wasConfirmed) {
                                 $message .= ' Credit has been restored.';
                             }
-                            
+
                             Notification::make()
                                 ->title('Order cancelled')
                                 ->body($message)

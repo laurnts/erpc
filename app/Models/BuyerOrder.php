@@ -294,7 +294,11 @@ final class BuyerOrder extends Model implements HasCustomFields
      */
     public function markAsSent(): void
     {
-        if (! $this->status->canSend()) {
+        // Buyer orders are sent to the buyer from draft only. (The shared
+        // OrderStatus::canSend() allows APPROVED for the supplier PO workflow, but
+        // for a buyer order that would move an already-confirmed order backward to
+        // SENT and let it be re-confirmed, double-reducing the buyer's credit.)
+        if ($this->status !== OrderStatus::DRAFT) {
             throw new \InvalidArgumentException('Only draft orders can be sent.');
         }
 
