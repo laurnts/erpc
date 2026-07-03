@@ -10,7 +10,7 @@ use Illuminate\Support\Collection;
  * Aggregates a pre-filtered collection of lines into document-level totals.
  *
  * The caller is responsible for filtering to main items only (e.g. via
- * BuyerQuoteItem::filterForServiceTotals) before calling collect(); this service
+ * BuyerQuoteItem::filterForTotals) before calling collect(); this service
  * applies no parent_id filter of its own.
  *
  * @see DocumentTotals for the FX and margin scope notes.

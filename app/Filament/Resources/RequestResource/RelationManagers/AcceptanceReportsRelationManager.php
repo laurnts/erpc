@@ -7,7 +7,6 @@ namespace App\Filament\Resources\RequestResource\RelationManagers;
 use App\Enums\RequestStage;
 use App\Filament\Resources\AcceptanceReportResource;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
-use App\Models\AcceptanceReport;
 use App\Models\Request;
 use Filament\Actions\CreateAction;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -41,7 +40,7 @@ final class AcceptanceReportsRelationManager extends RelationManager
     public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
     {
         /** @var Request $ownerRecord */
-        return $ownerRecord->isServiceRequest();
+        return $ownerRecord->usesAcceptanceReports();
     }
 
     public function form(Schema $schema): Schema

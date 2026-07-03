@@ -28,7 +28,6 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Illuminate\Support\Facades\Log;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
@@ -49,6 +48,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 
 final class SupplierOrdersRelationManager extends RelationManager
 {
@@ -96,7 +96,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                                 $supplier->getKey() => "[{$supplier->code}] {$supplier->name}",
                                             ])
                                     )
-                                    
+
                                     ->required()
                                     ->selectablePlaceholder(false)
                                     ->live()
@@ -149,7 +149,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                             $quote->getKey() => "[{$quote->quote_number}] {$quote->supplier->name}",
                                         ])
                                         ->all())
-                                    
+
                                     ->selectablePlaceholder(false)
                                     ->live()
                                     ->afterStateUpdated(function (Set $set, ?int $state): void {
@@ -191,7 +191,7 @@ final class SupplierOrdersRelationManager extends RelationManager
 
                                         return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
                                     })
-                                    
+
                                     ->required()
                                     ->selectablePlaceholder(false),
                                 TextInput::make('exchange_rate')
@@ -236,7 +236,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                                     $item->getKey() => $item->display_text,
                                                 ])
                                                 ->all())
-                                            
+
                                             ->selectablePlaceholder(false)
                                             ->columnSpan(4)
                                             ->live()
@@ -282,7 +282,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                         Select::make('unit_of_measure_id')
                                             ->label('Unit')
                                             ->relationship('unitOfMeasure', 'label', fn ($query) => $query->where('team_id', $request->team_id)->where('is_active', true))
-                                            
+
                                             ->preload()
                                             ->selectablePlaceholder(false)
                                             ->default(fn (): ?int => UnitOfMeasure::query()
@@ -320,7 +320,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                                 ->where('is_default', true)
                                                 ->where('is_active', true)
                                                 ->value('id'))
-                                            
+
                                             ->selectablePlaceholder(false)
                                             ->columnSpan(3)
                                             ->live()
@@ -414,6 +414,7 @@ final class SupplierOrdersRelationManager extends RelationManager
 
                                         // Fallback to record values
                                         $record = $this->getRecord();
+
                                         return $record instanceof \App\Models\SupplierOrder
                                             ? ($record->currency?->formatNumber((float) $record->subtotal) ?? number_format((float) $record->subtotal, 2))
                                             : '0,-';
@@ -442,6 +443,7 @@ final class SupplierOrdersRelationManager extends RelationManager
 
                                         // Fallback to record values
                                         $record = $this->getRecord();
+
                                         return $record instanceof \App\Models\SupplierOrder
                                             ? ($record->currency?->formatNumber((float) $record->tax_total) ?? number_format((float) $record->tax_total, 2))
                                             : '0,-';
@@ -452,11 +454,13 @@ final class SupplierOrdersRelationManager extends RelationManager
                                         if ($supplierId !== null) {
                                             /** @var Company|null $supplier */
                                             $supplier = Company::query()->find($supplierId);
+
                                             return $supplier?->is_taxable ?? true;
                                         }
 
                                         // Fallback to record
                                         $record = $this->getRecord();
+
                                         return ! $record instanceof \App\Models\SupplierOrder || $this->isRecordSupplierTaxable($record);
                                     }),
                                 Placeholder::make('total_display')
@@ -481,6 +485,7 @@ final class SupplierOrdersRelationManager extends RelationManager
 
                                         // Fallback to record values
                                         $record = $this->getRecord();
+
                                         return $record instanceof \App\Models\SupplierOrder
                                             ? ($record->currency?->format((float) $record->total) ?? number_format((float) $record->total, 2))
                                             : '0,-';
@@ -574,11 +579,13 @@ final class SupplierOrdersRelationManager extends RelationManager
                                         if ($supplierId !== null) {
                                             /** @var Company|null $supplier */
                                             $supplier = Company::query()->find($supplierId);
+
                                             return $supplier?->is_taxable ?? true;
                                         }
 
                                         // Fallback to record
                                         $record = $this->getRecord();
+
                                         return ! $record instanceof \App\Models\SupplierOrder || $this->isRecordSupplierTaxable($record);
                                     }),
                                 Placeholder::make('base_total_display')
@@ -646,11 +653,11 @@ final class SupplierOrdersRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('po_number')
                     ->label('PO #')
-                    
+
                     ->sortable(),
                 TextColumn::make('supplier.name')
                     ->label('Supplier')
-                    
+
                     ->sortable(),
                 TextColumn::make('supplierQuote.quote_number')
                     ->label('From Quote')
@@ -735,7 +742,7 @@ final class SupplierOrdersRelationManager extends RelationManager
 
                         // Group quote items by supplier (from all accepted quotes)
                         $itemsBySupplier = $this->groupAcceptedBuyerQuoteItemsBySupplier($request);
-                        $isServiceRequest = $request->isServiceRequest();
+                        $hasItemHierarchy = $request->supportsItemHierarchy();
 
                         if ($itemsBySupplier === []) {
                             return [
@@ -783,7 +790,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                             $supplier = $data['supplier'];
                             /** @var \Illuminate\Support\Collection<int, BuyerQuoteItem> $quoteItems */
                             $quoteItems = $data['items'];
-                            $itemsToOrder = BuyerQuoteItem::filterForServiceTotals($quoteItems, $isServiceRequest);
+                            $itemsToOrder = BuyerQuoteItem::filterForTotals($quoteItems, $hasItemHierarchy);
 
                             $existingOrder = SupplierOrder::query()
                                 ->where('request_id', $request->getKey())
@@ -792,7 +799,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                 ->exists();
                             $statusBadge = $existingOrder ? ' ⚠️ (Order exists)' : '';
 
-                            $itemsHtml = $this->buildBuyerQuoteItemsPreviewHtml($quoteItems, $isServiceRequest);
+                            $itemsHtml = $this->buildBuyerQuoteItemsPreviewHtml($quoteItems, $hasItemHierarchy);
 
                             $sections[] = \Filament\Schemas\Components\Section::make("[{$supplier->code}] {$supplier->name}{$statusBadge}")
                                 ->description($itemsToOrder->count().' item(s) to order')
@@ -871,7 +878,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                         }
 
                         $quoteItems = $itemsBySupplier[$supplierId]['items'];
-                        $itemsToOrder = BuyerQuoteItem::filterForServiceTotals($quoteItems, $request->isServiceRequest());
+                        $itemsToOrder = BuyerQuoteItem::filterForTotals($quoteItems, $request->supportsItemHierarchy());
 
                         if ($itemsToOrder->isEmpty()) {
                             Notification::make()
@@ -977,13 +984,13 @@ final class SupplierOrdersRelationManager extends RelationManager
                             $supplierEmail = $record->supplier->email ?? null;
                             $supplierName = $record->supplier->name ?? 'Unknown';
                             $description = 'This will mark the order as sent and send the purchase order email to the supplier.';
-                            
+
                             if (empty($supplierEmail)) {
                                 $description .= "\n\n⚠️ **Warning:** The supplier ({$supplierName}) does not have an email address configured. The order will be marked as sent, but no email will be sent.";
                             } else {
                                 $description .= "\n\n📧 Email will be sent to: {$supplierEmail}";
                             }
-                            
+
                             return $description;
                         })
                         ->action(function (SupplierOrder $record): void {
@@ -993,13 +1000,14 @@ final class SupplierOrdersRelationManager extends RelationManager
                             // Send email to supplier
                             $supplierEmail = $record->supplier->email ?? null;
                             $supplierName = $record->supplier->name ?? 'Supplier';
-                            
+
                             if (empty($supplierEmail)) {
-                            Notification::make()
-                                ->title('Order marked as sent')
+                                Notification::make()
+                                    ->title('Order marked as sent')
                                     ->body("Order has been marked as sent, but no email was sent because the supplier ({$supplierName}) does not have an email address configured.")
                                     ->warning()
                                     ->send();
+
                                 return;
                             }
 
@@ -1016,8 +1024,8 @@ final class SupplierOrdersRelationManager extends RelationManager
                                 Notification::make()
                                     ->title('Order sent')
                                     ->body("Purchase order has been sent successfully to {$supplierEmail}.")
-                                ->success()
-                                ->send();
+                                    ->success()
+                                    ->send();
                             } catch (\Exception $e) {
                                 Log::error('Failed to send purchase order email', [
                                     'order_id' => $record->id,
@@ -1044,26 +1052,27 @@ final class SupplierOrdersRelationManager extends RelationManager
                             $supplierEmail = $record->supplier->email ?? null;
                             $supplierName = $record->supplier->name ?? 'Unknown';
                             $description = 'This will resend the purchase order email to the supplier without changing the order status.';
-                            
+
                             if (empty($supplierEmail)) {
                                 $description .= "\n\n⚠️ **Warning:** The supplier ({$supplierName}) does not have an email address configured. No email will be sent.";
                             } else {
                                 $description .= "\n\n📧 Email will be sent to: {$supplierEmail}";
                             }
-                            
+
                             return $description;
                         })
                         ->action(function (SupplierOrder $record): void {
                             // Resend email to supplier (without changing status)
                             $supplierEmail = $record->supplier->email ?? null;
                             $supplierName = $record->supplier->name ?? 'Supplier';
-                            
+
                             if (empty($supplierEmail)) {
                                 Notification::make()
                                     ->title('Cannot resend email')
                                     ->body("The supplier ({$supplierName}) does not have an email address configured.")
                                     ->warning()
                                     ->send();
+
                                 return;
                             }
 
@@ -1127,13 +1136,13 @@ final class SupplierOrdersRelationManager extends RelationManager
     protected function handleRecordCreation(array $data): Model
     {
         $record = parent::handleRecordCreation($data);
-        
+
         // Recalculate totals after creation (items are saved via relationship)
         if ($record instanceof SupplierOrder) {
             $record->load('items');
             $record->recalculateTotals();
         }
-        
+
         return $record;
     }
 
@@ -1143,13 +1152,13 @@ final class SupplierOrdersRelationManager extends RelationManager
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
         $updated = parent::handleRecordUpdate($record, $data);
-        
+
         // Recalculate totals after update (items are saved via relationship)
         if ($updated instanceof SupplierOrder) {
             $updated->load('items');
             $updated->recalculateTotals();
         }
-        
+
         return $updated;
     }
 
@@ -1337,9 +1346,9 @@ final class SupplierOrdersRelationManager extends RelationManager
     /**
      * @param  \Illuminate\Support\Collection<int, BuyerQuoteItem>  $quoteItems
      */
-    private function buildBuyerQuoteItemsPreviewHtml(\Illuminate\Support\Collection $quoteItems, bool $isServiceRequest): string
+    private function buildBuyerQuoteItemsPreviewHtml(\Illuminate\Support\Collection $quoteItems, bool $hasItemHierarchy): string
     {
-        $itemsForTotal = BuyerQuoteItem::filterForServiceTotals($quoteItems, $isServiceRequest);
+        $itemsForTotal = BuyerQuoteItem::filterForTotals($quoteItems, $hasItemHierarchy);
         $supplierTotal = $itemsForTotal->sum(fn (BuyerQuoteItem $item): float => $this->getBuyerQuoteItemCostLineTotal($item));
         $organizedItems = BuyerQuoteItem::organizeHierarchically($quoteItems);
 
@@ -1378,7 +1387,7 @@ final class SupplierOrdersRelationManager extends RelationManager
         $html .= '</div>';
         $html .= sprintf(
             '<div class="mt-2 pt-2 border-t-2 border-primary-300 dark:border-primary-600 bg-primary-50/50 dark:bg-primary-950/30 -mx-1 px-2 py-2 rounded text-right"><span class="font-semibold text-primary-800 dark:text-primary-200">Supplier Total</span>%s<br><span class="text-base font-bold text-primary-700 dark:text-primary-300">%s</span></div>',
-            $isServiceRequest && $quoteItems->count() > $itemsForTotal->count()
+            $hasItemHierarchy && $quoteItems->count() > $itemsForTotal->count()
                 ? '<br><span class="text-xs font-normal text-primary-600/80 dark:text-primary-400/80">(main items)</span>'
                 : '',
             number_format($supplierTotal, 2)

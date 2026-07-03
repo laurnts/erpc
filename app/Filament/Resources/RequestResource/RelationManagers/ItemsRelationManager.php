@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Filament\Resources\RequestResource\RelationManagers;
 
 use App\Enums\RequestStage;
-use App\Enums\RequestType;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Mail\Erp\QuoteToSupplierMail;
 use App\Models\Article;
@@ -95,7 +94,7 @@ final class ItemsRelationManager extends RelationManager
                                 $unit->getKey() => $unit->label,
                             ])
                             ->toArray())
-                    
+
                     ->preload()
                     ->required()
                     ->selectablePlaceholder(false)
@@ -135,7 +134,7 @@ final class ItemsRelationManager extends RelationManager
                                 $article->getKey() => "[{$article->code}] {$article->name}",
                             ])
                             ->toArray())
-                    
+
                     ->preload()
                     ->searchable()
                     ->selectablePlaceholder(false)
@@ -212,7 +211,7 @@ final class ItemsRelationManager extends RelationManager
                     ])
                     ->columns(2)
                     ->columnSpanFull()
-                    ->visible(fn ($get, $record): bool => $request->isServiceRequest() && ($get('article_id') !== null || ($record && $record->article_id !== null)))
+                    ->visible(fn ($get, $record): bool => $request->supportsItemHierarchy() && ($get('article_id') !== null || ($record && $record->article_id !== null)))
                     ->helperText('Add child items to provide detail breakdown of the service (only for Service requests)')
                     ->defaultItems(0)
                     ->collapsible()
@@ -253,7 +252,7 @@ final class ItemsRelationManager extends RelationManager
             ->defaultSort('sort_order')
             ->columns([
                 TextColumn::make('description')
-                    
+
                     ->limit(50)
                     ->tooltip(fn (?RequestItem $record): ?string => $record?->description),
                 TextColumn::make('article.code')
@@ -275,11 +274,11 @@ final class ItemsRelationManager extends RelationManager
                         if ($record->supplier_quote_items_count === 0) {
                             return 'gray';
                         }
-                        
+
                         // Check if any emails failed
                         $hasFailedEmails = false;
                         $hasSuccessfulEmails = false;
-                        
+
                         foreach ($record->supplierQuoteItems as $quoteItem) {
                             $quote = $quoteItem->supplierQuote ?? null;
                             if ($quote && isset($quote->notification_metadata['email_sent'])) {
@@ -290,26 +289,26 @@ final class ItemsRelationManager extends RelationManager
                                 }
                             }
                         }
-                        
+
                         // If there are failed emails, show warning color
                         if ($hasFailedEmails) {
                             return 'warning';
                         }
-                        
+
                         return 'success';
                     })
                     ->tooltip(function (RequestItem $record): ?string {
                         if ($record->supplier_quote_items_count === 0) {
                             return null;
                         }
-                        
+
                         $tooltip = "Sent to {$record->supplier_quote_items_count} supplier(s)";
-                        
+
                         // Check email status
                         $emailsSent = 0;
                         $emailsFailed = 0;
                         $noEmailStatus = 0;
-                        
+
                         foreach ($record->supplierQuoteItems as $quoteItem) {
                             $quote = $quoteItem->supplierQuote ?? null;
                             if ($quote && isset($quote->notification_metadata['email_sent'])) {
@@ -325,7 +324,7 @@ final class ItemsRelationManager extends RelationManager
                                 $noEmailStatus++;
                             }
                         }
-                        
+
                         if ($emailsSent > 0 || $emailsFailed > 0) {
                             $tooltip .= "\n\nEmail Status:";
                             if ($emailsSent > 0) {
@@ -338,7 +337,7 @@ final class ItemsRelationManager extends RelationManager
                                 $tooltip .= "\n? {$noEmailStatus} quote(s) created before email tracking";
                             }
                         }
-                        
+
                         return $tooltip;
                     })
                     ->width(60),
@@ -362,7 +361,7 @@ final class ItemsRelationManager extends RelationManager
                         $record = RequestItem::create($data);
 
                         // Handle child items for Service requests
-                        if ($request->isServiceRequest() && ! empty($childrenData)) {
+                        if ($request->supportsItemHierarchy() && ! empty($childrenData)) {
                             $sortOrder = 0;
                             foreach ($childrenData as $childData) {
                                 RequestItem::create([
@@ -405,7 +404,7 @@ final class ItemsRelationManager extends RelationManager
                         } else {
                             // For Service requests, only get main items (not child items)
                             $query = $request->items()->whereNotNull('article_id');
-                            if ($request->isServiceRequest()) {
+                            if ($request->supportsItemHierarchy()) {
                                 $query->whereNull('parent_id'); // Only main items
                             }
                             $matchedItems = $query->with('article.suppliers')->get();
@@ -422,14 +421,14 @@ final class ItemsRelationManager extends RelationManager
                             ->unique()
                             ->count();
 
-                        $itemsList = $matchedItems->take(5)->map(fn (RequestItem $item): string => "• {$item->article?->name} (".number_format((float) $item->quantity, 0)." ".($item->unitOfMeasure?->code ?? $item->unit?->value ?? 'pcs').")")->implode("\n");
+                        $itemsList = $matchedItems->take(5)->map(fn (RequestItem $item): string => "• {$item->article?->name} (".number_format((float) $item->quantity, 0).' '.($item->unitOfMeasure?->code ?? $item->unit?->value ?? 'pcs').')')->implode("\n");
                         $moreItems = $matchedItems->count() > 5 ? "\n• ... and ".($matchedItems->count() - 5).' more item(s)' : '';
 
                         $prefix = $hasSelection ? 'SELECTED ' : 'ALL ';
 
                         $hasExistingQuotes = $matchedItems->some(fn (RequestItem $item) => $item->supplier_quote_items_count > 0);
                         $resendNote = $hasExistingQuotes ? "\n\n📧 If emails failed previously, they will be resent automatically." : "\n\n📧 Email notifications will be sent to suppliers for newly created quote requests.";
-                        
+
                         return "You are about to send {$prefix}matched items to their respective suppliers.\n\n{$itemsList}{$moreItems}\n\nTotal: {$matchedItems->count()} item(s) will be sent to {$supplierIds} supplier(s).{$resendNote}";
                     })
                     ->action(function () use ($request): void {
@@ -446,7 +445,7 @@ final class ItemsRelationManager extends RelationManager
                         } else {
                             // For Service requests, only get main items (not child items)
                             $query = $request->items()->whereNotNull('article_id');
-                            if ($request->isServiceRequest()) {
+                            if ($request->supportsItemHierarchy()) {
                                 $query->whereNull('parent_id'); // Only main items
                             }
                             $matchedItems = $query->with('article.suppliers')->get();
@@ -508,15 +507,15 @@ final class ItemsRelationManager extends RelationManager
                                         // Always check if email needs to be resent (failed or not sent)
                                         $needsResend = false;
                                         $metadata = $existingQuote->notification_metadata ?? [];
-                                        if (!isset($metadata['email_sent'])) {
+                                        if (! isset($metadata['email_sent'])) {
                                             $needsResend = true; // Email was never sent
                                         } elseif ($metadata['email_sent'] === false) {
                                             $needsResend = true; // Email failed previously
                                         }
-                                        
+
                                         if ($needsResend) {
                                             $quoteIds = array_map(fn ($q) => is_object($q) ? $q->id : $q, $quotesToEmail);
-                                            if (!in_array($existingQuote->id, $quoteIds)) {
+                                            if (! in_array($existingQuote->id, $quoteIds)) {
                                                 $quotesToEmail[] = $existingQuote;
                                             }
                                         }
@@ -540,28 +539,28 @@ final class ItemsRelationManager extends RelationManager
                         });
 
                         // Also check all existing quotes for matched items to resend emails if needed
-                        if (empty($quotesToEmail) && !empty($matchedItems)) {
+                        if (empty($quotesToEmail) && ! empty($matchedItems)) {
                             $itemIds = $matchedItems->pluck('id')->toArray();
                             $existingQuotes = $request->supplierQuotes()
                                 ->whereHas('items', function ($query) use ($itemIds) {
                                     $query->whereIn('request_item_id', $itemIds);
                                 })
                                 ->get();
-                            
+
                             foreach ($existingQuotes as $quote) {
                                 // Refresh to ensure notification_metadata is loaded
                                 $quote->refresh();
                                 $metadata = $quote->notification_metadata ?? [];
                                 $needsResend = false;
-                                if (!isset($metadata['email_sent'])) {
+                                if (! isset($metadata['email_sent'])) {
                                     $needsResend = true; // Email was never sent
                                 } elseif ($metadata['email_sent'] === false) {
                                     $needsResend = true; // Email failed previously
                                 }
-                                
+
                                 if ($needsResend) {
                                     $quoteIds = array_map(fn ($q) => is_object($q) ? $q->id : $q, $quotesToEmail);
-                                    if (!in_array($quote->id, $quoteIds)) {
+                                    if (! in_array($quote->id, $quoteIds)) {
                                         $quotesToEmail[] = $quote;
                                     }
                                 }
@@ -574,18 +573,18 @@ final class ItemsRelationManager extends RelationManager
                         $noEmailCount = 0;
                         $emailsResent = 0;
 
-                        if (!empty($quotesToEmail) && $team !== null) {
+                        if (! empty($quotesToEmail) && $team !== null) {
                             $emailService = app(EmailTemplateService::class);
                             $settings = $team->getErpSettings();
 
                             foreach ($quotesToEmail as $quote) {
                                 // Check if this is a resend
-                                $isResend = isset($quote->notification_metadata['email_sent']) && 
+                                $isResend = isset($quote->notification_metadata['email_sent']) &&
                                            $quote->notification_metadata['email_sent'] === false;
-                                
+
                                 // Reload quote with relationships for email
                                 $quote->load(['supplier', 'request', 'team']);
-                                
+
                                 $supplierEmail = $quote->supplier->email ?? null;
                                 $supplierName = $quote->supplier->name ?? 'Supplier';
 
@@ -602,6 +601,7 @@ final class ItemsRelationManager extends RelationManager
                                             ]
                                         ),
                                     ]);
+
                                     continue;
                                 }
 
@@ -658,27 +658,27 @@ final class ItemsRelationManager extends RelationManager
 
                         if ($itemsAdded > 0 || $quotesCreated > 0 || $emailsSent > 0) {
                             $message = '';
-                            
+
                             if ($quotesCreated > 0) {
                                 $message .= "{$quotesCreated} quote(s) created. ";
                             }
-                            
+
                             if ($itemsAdded > 0) {
                                 $message .= "{$itemsAdded} item(s) added. ";
                             }
-                            
+
                             if ($emailsSent > 0) {
                                 if ($emailsResent > 0) {
-                                    $message .= "{$emailsResent} email(s) resent, ".($emailsSent - $emailsResent)." email(s) sent to suppliers.";
+                                    $message .= "{$emailsResent} email(s) resent, ".($emailsSent - $emailsResent).' email(s) sent to suppliers.';
                                 } else {
                                     $message .= "{$emailsSent} email(s) sent to suppliers.";
                                 }
                             }
-                            
+
                             if ($emailsFailed > 0) {
                                 $message .= " {$emailsFailed} email(s) failed to send.";
                             }
-                            
+
                             if ($noEmailCount > 0) {
                                 $message .= " {$noEmailCount} supplier(s) have no email address configured.";
                             }
@@ -713,7 +713,7 @@ final class ItemsRelationManager extends RelationManager
                     ->fillForm(function (RequestItem $record) use ($request): array {
                         // Load existing children for editing
                         $data = $record->toArray();
-                        if ($request->isServiceRequest() && $record->isMainItem()) {
+                        if ($request->supportsItemHierarchy() && $record->isMainItem()) {
                             $data['children'] = $record->children()->get()->map(function (RequestItem $child): array {
                                 return [
                                     'description' => $child->description,
@@ -730,7 +730,7 @@ final class ItemsRelationManager extends RelationManager
                     ->using(function (array $data, RequestItem $record) use ($request): RequestItem {
                         // Get children data before removing it
                         $childrenData = $data['children'] ?? [];
-                        
+
                         // Also try to get from livewire form state as fallback
                         if (empty($childrenData)) {
                             try {
@@ -743,7 +743,7 @@ final class ItemsRelationManager extends RelationManager
                                 // Ignore
                             }
                         }
-                        
+
                         // Remove children from data before updating (it's not a model field)
                         unset($data['children']);
 
@@ -751,7 +751,7 @@ final class ItemsRelationManager extends RelationManager
                         $record->update($data);
 
                         // Handle child items for Service requests
-                        if ($request->isServiceRequest() && $record->isMainItem()) {
+                        if ($request->supportsItemHierarchy() && $record->isMainItem()) {
                             // Delete existing children
                             $record->children()->delete();
 
@@ -800,7 +800,7 @@ final class ItemsRelationManager extends RelationManager
 
                         $hasExistingQuotes = $record->supplier_quote_items_count > 0;
                         $resendNote = $hasExistingQuotes ? "\n\n📧 If emails failed previously, they will be resent automatically." : "\n\n📧 Email notifications will be sent to suppliers for newly created quote requests.";
-                        
+
                         return "You are about to send a quote request for:\n\n• Item: {$articleName}\n• Quantity: {$qty} ".($record->unitOfMeasure?->code ?? $record->unit?->value ?? 'pcs')."\n\nThis will be sent to {$supplierCount} supplier(s) linked to this article.{$resendNote}";
                     })
                     ->action(function (RequestItem $record) use ($request): void {
@@ -844,19 +844,19 @@ final class ItemsRelationManager extends RelationManager
                                     // Always check if email needs to be resent (failed or not sent)
                                     $needsResend = false;
                                     $metadata = $existingQuote->notification_metadata ?? [];
-                                    if (!isset($metadata['email_sent'])) {
+                                    if (! isset($metadata['email_sent'])) {
                                         $needsResend = true; // Email was never sent
                                     } elseif ($metadata['email_sent'] === false) {
                                         $needsResend = true; // Email failed previously
                                     }
-                                    
+
                                     if ($needsResend) {
                                         $quoteIds = array_map(fn ($q) => is_object($q) ? $q->id : $q, $quotesToEmail);
-                                        if (!in_array($existingQuote->id, $quoteIds)) {
+                                        if (! in_array($existingQuote->id, $quoteIds)) {
                                             $quotesToEmail[] = $existingQuote;
                                         }
                                     }
-                                    
+
                                     if ($existingQuote->items()->where('request_item_id', $record->getKey())->exists()) {
                                         continue;
                                     }
@@ -905,21 +905,21 @@ final class ItemsRelationManager extends RelationManager
                                     $query->where('request_item_id', $record->getKey());
                                 })
                                 ->get();
-                            
+
                             foreach ($existingQuotes as $quote) {
                                 // Refresh to ensure notification_metadata is loaded
                                 $quote->refresh();
                                 $metadata = $quote->notification_metadata ?? [];
                                 $needsResend = false;
-                                if (!isset($metadata['email_sent'])) {
+                                if (! isset($metadata['email_sent'])) {
                                     $needsResend = true; // Email was never sent
                                 } elseif ($metadata['email_sent'] === false) {
                                     $needsResend = true; // Email failed previously
                                 }
-                                
+
                                 if ($needsResend) {
                                     $quoteIds = array_map(fn ($q) => is_object($q) ? $q->id : $q, $quotesToEmail);
-                                    if (!in_array($quote->id, $quoteIds)) {
+                                    if (! in_array($quote->id, $quoteIds)) {
                                         $quotesToEmail[] = $quote;
                                     }
                                 }
@@ -932,18 +932,18 @@ final class ItemsRelationManager extends RelationManager
                         $noEmailCount = 0;
                         $emailsResent = 0;
 
-                        if (!empty($quotesToEmail) && $team !== null) {
+                        if (! empty($quotesToEmail) && $team !== null) {
                             $emailService = app(EmailTemplateService::class);
                             $settings = $team->getErpSettings();
 
                             foreach ($quotesToEmail as $quote) {
                                 // Check if this is a resend
-                                $isResend = isset($quote->notification_metadata['email_sent']) && 
+                                $isResend = isset($quote->notification_metadata['email_sent']) &&
                                            $quote->notification_metadata['email_sent'] === false;
-                                
+
                                 // Reload quote with relationships for email
                                 $quote->load(['supplier', 'request', 'team']);
-                                
+
                                 $supplierEmail = $quote->supplier->email ?? null;
                                 $supplierName = $quote->supplier->name ?? 'Supplier';
 
@@ -960,6 +960,7 @@ final class ItemsRelationManager extends RelationManager
                                             ]
                                         ),
                                     ]);
+
                                     continue;
                                 }
 
@@ -1011,27 +1012,27 @@ final class ItemsRelationManager extends RelationManager
 
                         if ($quotesCreated > 0 || $itemsAdded > 0 || $emailsSent > 0) {
                             $message = '';
-                            
+
                             if ($quotesCreated > 0) {
                                 $message .= "{$quotesCreated} new quote(s) created. ";
                             }
-                            
+
                             if ($itemsAdded > 0) {
                                 $message .= "{$itemsAdded} item(s) added. ";
                             }
-                            
+
                             if ($emailsSent > 0) {
                                 if ($emailsResent > 0) {
-                                    $message .= "{$emailsResent} email(s) resent, ".($emailsSent - $emailsResent)." email(s) sent to suppliers.";
+                                    $message .= "{$emailsResent} email(s) resent, ".($emailsSent - $emailsResent).' email(s) sent to suppliers.';
                                 } else {
                                     $message .= "{$emailsSent} email(s) sent to suppliers.";
                                 }
                             }
-                            
+
                             if ($emailsFailed > 0) {
                                 $message .= " {$emailsFailed} email(s) failed to send.";
                             }
-                            
+
                             if ($noEmailCount > 0) {
                                 $message .= " {$noEmailCount} supplier(s) have no email address configured.";
                             }

@@ -405,29 +405,40 @@ final class BuyerQuoteItem extends Model
     }
 
     /**
-     * Margin % on cost, matching buyer quote form (margin_percent_input uses integer rounding).
+     * Margin % for display, rounded to the whole number the approver sees.
+     *
+     * Uses the single canonical on-selling convention (@see MarginConvention),
+     * so the figure agrees with document-level totals and the below-target check.
      */
     public function getDisplayMarginPercent(): int
     {
-        $costPrice = (float) $this->cost_price;
-        $unitPriceExcTax = (float) $this->unit_price_exc_tax;
-
-        if ($costPrice <= 0 || $unitPriceExcTax <= 0) {
-            return 0;
-        }
-
-        return (int) round((($unitPriceExcTax - $costPrice) / $costPrice) * 100);
+        return (int) round(MarginConvention::marginPercent(
+            (float) $this->cost_price,
+            (float) $this->unit_price_exc_tax,
+        ));
     }
 
     /**
-     * Items to include in sell/cost totals (main items only for service requests).
+     * Whether this line's displayed margin falls below the team's target margin.
+     *
+     * Compared on the same rounded integer the approver sees, so the warning
+     * never contradicts the displayed percentage.
+     */
+    public function isMarginBelowTarget(float $targetPercent): bool
+    {
+        return $this->getDisplayMarginPercent() < $targetPercent;
+    }
+
+    /**
+     * Items to include in sell/cost totals (main items only when the request
+     * type supports an item hierarchy — child items are informational).
      *
      * @param  Collection<int, self>  $items
      * @return Collection<int, self>
      */
-    public static function filterForServiceTotals(Collection $items, bool $isServiceRequest): Collection
+    public static function filterForTotals(Collection $items, bool $hasItemHierarchy): Collection
     {
-        if (! $isServiceRequest) {
+        if (! $hasItemHierarchy) {
             return $items;
         }
 
@@ -440,9 +451,9 @@ final class BuyerQuoteItem extends Model
      *
      * @param  Collection<int, self>  $items
      */
-    public static function collectTotals(Collection $items, bool $isServiceRequest): DocumentTotals
+    public static function collectTotals(Collection $items, bool $hasItemHierarchy): DocumentTotals
     {
-        $filtered = self::filterForServiceTotals($items, $isServiceRequest);
+        $filtered = self::filterForTotals($items, $hasItemHierarchy);
 
         return (new TotalsCollector)->collect(
             $filtered->map(fn (self $item): TotalsLine => new TotalsLine(

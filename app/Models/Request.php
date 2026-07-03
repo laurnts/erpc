@@ -415,8 +415,8 @@ final class Request extends Model implements HasCustomFields, HasMedia
 
         // Validate that all items are matched when required
         if ($newStage->requiresMatchedItems()) {
-            // For Service requests, only main items need to be matched (not child items)
-            if ($this->isServiceRequest()) {
+            // With an item hierarchy, only main items need to be matched (not child items)
+            if ($this->supportsItemHierarchy()) {
                 $mainItems = $this->items()->whereNull('parent_id')->get();
                 $unmatchedMainItems = $mainItems->filter(fn ($item) => ! $item->is_matched);
                 if ($unmatchedMainItems->isNotEmpty()) {
@@ -689,19 +689,35 @@ final class Request extends Model implements HasCustomFields, HasMedia
     }
 
     /**
-     * Check if this is a Service request.
+     * Whether items form a main/child hierarchy (totals roll up from main items only).
      */
-    public function isServiceRequest(): bool
+    public function supportsItemHierarchy(): bool
     {
-        return $this->request_type === RequestType::SERVICE;
+        return $this->request_type->supportsItemHierarchy();
     }
 
     /**
-     * Check if this is a Goods request.
+     * Whether fulfillment is confirmed via acceptance reports.
      */
-    public function isGoodsRequest(): bool
+    public function usesAcceptanceReports(): bool
     {
-        return $this->request_type === RequestType::GOODS;
+        return $this->request_type->usesAcceptanceReports();
+    }
+
+    /**
+     * Whether fulfillment happens through physical shipments.
+     */
+    public function requiresShipments(): bool
+    {
+        return $this->request_type->requiresShipments();
+    }
+
+    /**
+     * Whether quote items track job progress.
+     */
+    public function hasJobProgress(): bool
+    {
+        return $this->request_type->hasJobProgress();
     }
 
     /**
@@ -709,7 +725,7 @@ final class Request extends Model implements HasCustomFields, HasMedia
      */
     public function canCreateQuotationEvaluation(): bool
     {
-        return $this->isGoodsRequest();
+        return $this->request_type->usesQuotationEvaluation();
     }
 
     /**
