@@ -6,10 +6,10 @@ namespace App\Models;
 
 use App\Enums\CentralPurchasingRole;
 use App\Enums\PNLStatus;
-use App\Services\TeamMemberService;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use App\Observers\ProfitAndLossObserver;
+use App\Services\TeamMemberService;
 use App\Support\RomanNumerals;
 use Database\Factories\ProfitAndLossFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -157,13 +157,10 @@ final class ProfitAndLoss extends Model implements HasMedia
             }
         }
 
-        $latestQuote = $this->request?->buyerQuotes()->latest()->first();
-        if ($latestQuote !== null && $this->buyer_quote_id !== $latestQuote->getKey()) {
-            $this->buyer_quote_id = $latestQuote->getKey();
-            $this->saveQuietly();
-        }
-
-        return $latestQuote;
+        // Fall back to the latest quote for the request. Read-only: never persist
+        // the link as a side effect of resolving, since the only callers are the
+        // P&L view/PDF blades and writing during render is a write-on-read bug.
+        return $this->request?->buyerQuotes()->latest()->first();
     }
 
     /**
