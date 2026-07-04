@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\MemberResource\Pages;
 
+use App\Actions\Teams\UpdateTeamMemberRole;
 use App\Enums\CentralPurchasingRole;
 use App\Filament\Resources\MemberResource;
 use App\Filament\Resources\MemberResource\RelationManagers\BuyersRelationManager;
-use Filament\Actions\ActionGroup;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
@@ -20,7 +22,6 @@ use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Flex;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Gate;
 
 final class ViewMember extends ViewRecord
@@ -107,7 +108,7 @@ final class ViewMember extends ViewRecord
                     })
                     ->action(function (array $data) use ($membership, $team): void {
                         $user = $membership->user;
-                        
+
                         // Update profile photo if provided
                         if (isset($data['profile_photo_path'])) {
                             if ($data['profile_photo_path']) {
@@ -116,55 +117,35 @@ final class ViewMember extends ViewRecord
                                 $user->deleteProfilePhoto();
                             }
                         }
-                        
+
                         // Update user information
                         $userData = [
                             'name' => $data['name'],
                             'email' => $data['email'],
                         ];
-                        
+
                         // Update password if provided
                         if (! empty($data['password'])) {
                             $userData['password'] = bcrypt($data['password']);
                         }
-                        
+
                         $user->forceFill($userData)->save();
-                        
+
                         // Update role and central_purchasing_role
-                        $pivotData = [];
-                        
-                        // Always update role if provided
                         if (isset($data['role'])) {
-                            $pivotData['role'] = $data['role'];
-                        }
-                        
-                        // Handle central_purchasing_role based on the role
-                        if ($data['role'] === 'central_purchasing') {
-                            $pivotData['central_purchasing_role'] = $data['central_purchasing_role'] ?? null;
-                            
-                            // Handle is_approver: only set when role is central_purchasing AND central_purchasing_role is finance
-                            if ($pivotData['central_purchasing_role'] === CentralPurchasingRole::FINANCE->value) {
-                                $pivotData['is_approver'] = $data['is_approver'] ?? false;
-                            } else {
-                                // Clear is_approver if central_purchasing_role is not finance
-                                $pivotData['is_approver'] = false;
-                            }
-                        } else {
-                            // Clear central_purchasing_role and is_approver if role is not central_purchasing
-                            $pivotData['central_purchasing_role'] = null;
-                            $pivotData['is_approver'] = false;
-                        }
-                        
-                        // Always update pivot data if role is provided
-                        if (isset($data['role'])) {
-                            $team->users()->updateExistingPivot($membership->user_id, $pivotData);
-                            \Laravel\Jetstream\Events\TeamMemberUpdated::dispatch($team->fresh(), $membership->fresh());
-                            
+                            app(UpdateTeamMemberRole::class)->execute(
+                                $team,
+                                $membership,
+                                $data['role'],
+                                $data['central_purchasing_role'] ?? null,
+                                $data['is_approver'] ?? false,
+                            );
+
                             // Refresh the membership record to reflect pivot changes
                             $membership->refresh();
                             $membership->load('user', 'team');
                         }
-                        
+
                         \Filament\Notifications\Notification::make()
                             ->title('Member updated')
                             ->success()
@@ -184,16 +165,15 @@ final class ViewMember extends ViewRecord
                             $team,
                             $membership->user
                         );
-                        
+
                         \Filament\Notifications\Notification::make()
                             ->title('Team member removed')
                             ->success()
                             ->send();
-                        
+
                         $this->redirect(MemberResource::getUrl('index'));
                     })
-                    ->visible(fn () => 
-                        auth()->id() !== $membership->user_id && 
+                    ->visible(fn () => auth()->id() !== $membership->user_id &&
                         Gate::check('removeTeamMember', $team)
                     ),
             ]),
@@ -258,15 +238,15 @@ final class ViewMember extends ViewRecord
     public function getRelationManagers(): array
     {
         $membership = $this->getRecord();
-        
+
         $managers = [];
-        
+
         // Only show Buyers relation manager for Key Account role
-        if ($membership->role === 'central_purchasing' && 
+        if ($membership->role === 'central_purchasing' &&
             $membership->central_purchasing_role === CentralPurchasingRole::KEY_ACCOUNT) {
             $managers[] = BuyersRelationManager::class;
         }
-        
+
         return $managers;
     }
 }
