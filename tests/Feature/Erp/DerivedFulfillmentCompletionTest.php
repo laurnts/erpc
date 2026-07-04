@@ -127,6 +127,63 @@ describe('Derived fulfillment completion', function (): void {
         expect($this->request->servicesChannelComplete())->toBeTrue()
             ->and($this->request->isFulfilled())->toBeTrue();
     });
+
+    it('sums shipped quantity across multiple shipments to reach coverage', function (): void {
+        $goodsItem = RequestItem::factory()->recycle($this->request)->create([
+            'item_type' => ItemType::GOODS,
+            'quantity' => 10,
+        ]);
+
+        shipGoodsItem($this->request, $this->team, $this->supplier, $goodsItem, 6);
+        expect($this->request->goodsChannelComplete())->toBeFalse();
+
+        shipGoodsItem($this->request, $this->team, $this->supplier, $goodsItem, 4);
+        expect($this->request->goodsChannelComplete())->toBeTrue()
+            ->and($this->request->isFulfilled())->toBeTrue();
+    });
+});
+
+describe('Fulfillment coverage excludes soft-deleted and failed documents', function (): void {
+    it('flips goodsChannelComplete back to false when the covering shipment is soft-deleted', function (): void {
+        $goodsItem = RequestItem::factory()->recycle($this->request)->create([
+            'item_type' => ItemType::GOODS,
+            'quantity' => 10,
+        ]);
+
+        $shipmentItem = shipGoodsItem($this->request, $this->team, $this->supplier, $goodsItem, 10);
+        expect($this->request->goodsChannelComplete())->toBeTrue();
+
+        $shipmentItem->shipment->delete();
+
+        expect($this->request->goodsChannelComplete())->toBeFalse();
+    });
+
+    it('flips servicesChannelComplete back to false when the covering acceptance report is soft-deleted', function (): void {
+        $serviceItem = RequestItem::factory()->recycle($this->request)->create([
+            'item_type' => ItemType::SERVICE,
+        ]);
+
+        $report = acceptServiceItem($this->request, $serviceItem);
+        expect($this->request->servicesChannelComplete())->toBeTrue();
+
+        $report->delete();
+
+        expect($this->request->servicesChannelComplete())->toBeFalse();
+    });
+
+    it('does not count a FAILED shipment as delivery coverage', function (): void {
+        $goodsItem = RequestItem::factory()->recycle($this->request)->create([
+            'item_type' => ItemType::GOODS,
+            'quantity' => 10,
+        ]);
+
+        $shipmentItem = shipGoodsItem($this->request, $this->team, $this->supplier, $goodsItem, 10);
+        expect($this->request->goodsChannelComplete())->toBeTrue();
+
+        $shipmentItem->shipment->update(['status' => \App\Enums\ShipmentStatus::FAILED]);
+
+        expect($this->request->goodsChannelComplete())->toBeFalse();
+    });
 });
 
 describe('Fulfillment status label', function (): void {
@@ -219,5 +276,46 @@ describe('Completed stage fulfillment gate', function (): void {
         $this->request->refresh()->transitionTo(RequestStage::COMPLETED);
 
         expect($this->request->refresh()->stage)->toBe(RequestStage::COMPLETED);
+    });
+});
+
+describe('Completed stage fulfillment gate is enforced on any update, not just transitionTo()', function (): void {
+    it('rejects a plain ->update() that sets stage to Completed on an unfulfilled request', function (): void {
+        RequestItem::factory()->recycle($this->request)->matched()->create([
+            'item_type' => ItemType::GOODS,
+            'quantity' => 10,
+        ]);
+        $this->request->update(['stage' => RequestStage::PAID]);
+
+        expect(fn () => $this->request->refresh()->update(['stage' => RequestStage::COMPLETED]))
+            ->toThrow(\Illuminate\Validation\ValidationException::class, 'goods items not fully shipped');
+
+        expect($this->request->refresh()->stage)->toBe(RequestStage::PAID);
+    });
+
+    it('allows a plain ->update() that sets stage to Completed once the request is fulfilled', function (): void {
+        $goodsItem = RequestItem::factory()->recycle($this->request)->matched()->create([
+            'item_type' => ItemType::GOODS,
+            'quantity' => 10,
+        ]);
+        shipGoodsItem($this->request, $this->team, $this->supplier, $goodsItem, 10);
+        $this->request->update(['stage' => RequestStage::PAID]);
+
+        $this->request->refresh()->update(['stage' => RequestStage::COMPLETED]);
+
+        expect($this->request->refresh()->stage)->toBe(RequestStage::COMPLETED);
+    });
+
+    it('does not gate updates that leave the stage untouched, even on an unfulfilled request', function (): void {
+        RequestItem::factory()->recycle($this->request)->matched()->create([
+            'item_type' => ItemType::GOODS,
+            'quantity' => 10,
+        ]);
+        $this->request->update(['stage' => RequestStage::PAID]);
+
+        $this->request->update(['internal_notes' => 'unrelated update']);
+
+        expect($this->request->refresh()->internal_notes)->toBe('unrelated update')
+            ->and($this->request->stage)->toBe(RequestStage::PAID);
     });
 });

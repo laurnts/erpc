@@ -114,7 +114,13 @@ final class RequestResource extends Resource
                 ->default(RequestStage::DRAFT)
                 ->required()
                 ->selectablePlaceholder(false)
-                ->native(false);
+                ->native(false)
+                // Cheap UI hint only: the binding gate is the RequestObserver
+                // "updating" check (see completionFulfillmentError()), which
+                // rejects the transition regardless of what the form allows.
+                ->disableOptionWhen(fn (string $value, ?Request $record): bool => $value === RequestStage::COMPLETED->value
+                    && $record instanceof Request
+                    && ! $record->isFulfilled());
         }
         $requestDetailsSchema[] = Select::make('priority')
             ->options(RequestPriority::class)

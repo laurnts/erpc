@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Enums\ItemType;
 use App\Enums\OrderStatus;
 use App\Enums\PrepaymentType;
+use App\Enums\RequestStage;
 use App\Enums\ShipmentStatus;
 use App\Filament\Resources\RequestResource\Pages\ListRequests;
 use App\Filament\Resources\RequestResource\Pages\ViewRequest;
@@ -237,6 +238,54 @@ describe('Fulfillment status section', function (): void {
         livewire(ViewRequest::class, ['record' => $record->refresh()->getKey()])
             ->assertOk()
             ->assertSee('Fulfilled');
+    });
+});
+
+describe('Completed stage fulfillment gate on the edit action', function (): void {
+    it('rejects setting stage to Completed via the edit action modal when the request is unfulfilled', function (): void {
+        $record = viewTestRequest($this);
+        RequestItem::factory()->recycle($record)->create([
+            'item_type' => ItemType::GOODS,
+            'quantity' => 10,
+        ]);
+
+        livewire(ViewRequest::class, ['record' => $record->getKey()])
+            ->assertOk()
+            ->callAction('edit', data: ['stage' => RequestStage::COMPLETED->value])
+            ->assertHasFormErrors(['stage']);
+
+        expect($record->refresh()->stage)->not->toBe(RequestStage::COMPLETED);
+    });
+
+    it('allows setting stage to Completed via the edit action modal once the request is fulfilled', function (): void {
+        $record = viewTestRequest($this);
+        $supplier = Company::factory()->supplier()->for($this->team)->create();
+
+        $goodsItem = RequestItem::factory()->recycle($record)->create([
+            'item_type' => ItemType::GOODS,
+            'quantity' => 5,
+        ]);
+
+        $order = SupplierOrder::factory()->for($this->team)->create([
+            'request_id' => $record->getKey(),
+            'supplier_id' => $supplier->getKey(),
+        ]);
+        $orderItem = SupplierOrderItem::factory()->recycle($order)->create([
+            'request_item_id' => $goodsItem->getKey(),
+            'quantity' => 5,
+        ]);
+        $shipment = Shipment::factory()->for($this->team)->create([
+            'request_id' => $record->getKey(),
+            'supplier_order_id' => $order->getKey(),
+        ]);
+        ShipmentItem::factory()->recycle($shipment)->forSupplierOrderItem($orderItem)->withQuantityShipped(5)->create();
+
+        livewire(ViewRequest::class, ['record' => $record->refresh()->getKey()])
+            ->assertOk()
+            ->callAction('edit', data: ['stage' => RequestStage::COMPLETED->value])
+            ->assertHasNoErrors();
+
+        expect($record->refresh()->stage)->toBe(RequestStage::COMPLETED);
     });
 });
 

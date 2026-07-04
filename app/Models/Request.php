@@ -10,6 +10,7 @@ use App\Enums\OrderStatus;
 use App\Enums\RequestPriority;
 use App\Enums\RequestStage;
 use App\Enums\RequestSubmissionMethod;
+use App\Enums\ShipmentStatus;
 use App\Enums\SupplierQuoteStatus;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasNotes;
@@ -17,6 +18,7 @@ use App\Models\Concerns\HasTeam;
 use App\Observers\RequestObserver;
 use Database\Factories\RequestFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -148,6 +150,18 @@ final class Request extends Model implements HasCustomFields, HasMedia
     public function buyer(): BelongsTo
     {
         return $this->belongsTo(Company::class, 'buyer_id');
+    }
+
+    /**
+     * Scope a query to requests belonging to a buyer company. Portal surfaces
+     * must use this scope instead of inline buyer_id where-clauses.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeForBuyer(Builder $query, int $buyerCompanyId): Builder
+    {
+        return $query->where('buyer_id', $buyerCompanyId);
     }
 
     /**
@@ -421,14 +435,31 @@ final class Request extends Model implements HasCustomFields, HasMedia
         // The completed stage is hard-gated on derived fulfillment: every
         // goods main item must be fully shipped and every services main item
         // must be covered by an acceptance report. No admin override.
-        if ($newStage === RequestStage::COMPLETED && ! $this->isFulfilled()) {
-            throw new \InvalidArgumentException(
-                'Cannot transition to Completed: '.implode('; ', $this->incompleteFulfillmentChannels())
-            );
+        if ($newStage === RequestStage::COMPLETED) {
+            $error = $this->completionFulfillmentError();
+
+            if ($error !== null) {
+                throw new \InvalidArgumentException($error);
+            }
         }
 
         $this->stage = $newStage;
         $this->save();
+    }
+
+    /**
+     * The completed-stage fulfillment gate message, or null when the request
+     * is fulfilled and may transition to Completed. Single source of truth
+     * shared by transitionTo() and RequestObserver::updating() so the gate
+     * cannot be bypassed by updating the stage directly.
+     */
+    public function completionFulfillmentError(): ?string
+    {
+        if ($this->isFulfilled()) {
+            return null;
+        }
+
+        return 'Cannot transition to Completed: '.implode('; ', $this->incompleteFulfillmentChannels());
     }
 
     /**
@@ -776,17 +807,30 @@ final class Request extends Model implements HasCustomFields, HasMedia
      * is fully covered by shipment quantities (shipment_items linked through
      * supplier_order_items). Vacuously true when the request has no goods
      * main items.
+     *
+     * Coverage only counts shipment/supplier-order pairs that are not
+     * soft-deleted, and deliberately excludes FAILED shipments — a failed
+     * shipment never delivered goods, so it is not delivery coverage.
      */
     public function goodsChannelComplete(): bool
     {
         return ! DB::table('request_items')
             ->leftJoin('supplier_order_items', 'supplier_order_items.request_item_id', '=', 'request_items.id')
+            ->leftJoin('supplier_orders', 'supplier_orders.id', '=', 'supplier_order_items.supplier_order_id')
             ->leftJoin('shipment_items', 'shipment_items.supplier_order_item_id', '=', 'supplier_order_items.id')
+            ->leftJoin('shipments', 'shipments.id', '=', 'shipment_items.shipment_id')
             ->where('request_items.request_id', $this->getKey())
             ->where('request_items.item_type', ItemType::GOODS->value)
             ->whereNull('request_items.parent_id')
             ->groupBy('request_items.id', 'request_items.quantity')
-            ->havingRaw('coalesce(sum(shipment_items.quantity_shipped), 0) < request_items.quantity')
+            ->havingRaw(
+                'coalesce(sum(case '
+                .'when shipments.deleted_at is null '
+                .'and supplier_orders.deleted_at is null '
+                .'and shipments.status != ? '
+                .'then shipment_items.quantity_shipped else 0 end), 0) < request_items.quantity',
+                [ShipmentStatus::FAILED->value]
+            )
             ->exists();
     }
 
@@ -795,6 +839,8 @@ final class Request extends Model implements HasCustomFields, HasMedia
      * covered by at least one acceptance report. Child items follow their
      * parent's coverage and are never checked individually. Vacuously true
      * when the request has no services main items.
+     *
+     * Coverage only counts acceptance reports that are not soft-deleted.
      */
     public function servicesChannelComplete(): bool
     {
@@ -804,7 +850,9 @@ final class Request extends Model implements HasCustomFields, HasMedia
             ->whereNotExists(function ($query): void {
                 $query->select(DB::raw('1'))
                     ->from('acceptance_report_items')
-                    ->whereColumn('acceptance_report_items.request_item_id', 'request_items.id');
+                    ->join('acceptance_reports', 'acceptance_reports.id', '=', 'acceptance_report_items.acceptance_report_id')
+                    ->whereColumn('acceptance_report_items.request_item_id', 'request_items.id')
+                    ->whereNull('acceptance_reports.deleted_at');
             })
             ->exists();
     }

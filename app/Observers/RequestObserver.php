@@ -12,6 +12,7 @@ use App\Models\Request;
 use App\Models\Team;
 use App\Models\User;
 use App\Notifications\PortalRequestStageChangedNotification;
+use Illuminate\Validation\ValidationException;
 
 final readonly class RequestObserver
 {
@@ -71,6 +72,31 @@ final readonly class RequestObserver
         }
 
         return sprintf('%s-%s-%04d', $prefix, $year, $nextNumber);
+    }
+
+    /**
+     * Handle the Request "updating" event.
+     *
+     * Hard-gates the Completed stage on derived fulfillment. This is the
+     * single enforcement point that every code path updating a request's
+     * stage goes through (including the ViewRequest EditAction modal, which
+     * does not call Request::transitionTo()); transitionTo() shares the same
+     * check via Request::completionFulfillmentError() so there is one source
+     * of truth for the rule.
+     *
+     * @throws ValidationException
+     */
+    public function updating(Request $request): void
+    {
+        if (! $request->isDirty('stage') || $request->stage !== RequestStage::COMPLETED) {
+            return;
+        }
+
+        $error = $request->completionFulfillmentError();
+
+        if ($error !== null) {
+            throw ValidationException::withMessages(['stage' => $error]);
+        }
     }
 
     /**
