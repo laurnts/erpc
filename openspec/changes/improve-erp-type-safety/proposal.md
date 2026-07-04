@@ -75,3 +75,7 @@ None. All changes are additive PHPDoc annotations or internal implementation imp
 | Missing array shapes | 4 | 3 |
 | Unsafe array access | 3 | 2 |
 | **Total** | **26** | **11** |
+
+## Re-scope Note (2026-07-04)
+
+The January task list cited line numbers and an error inventory (26 issues) that no longer match the codebase after five months of drift (LineCalculator refactor, FinancialSnapshot, item-level fulfillment work). Re-derived from live PHPStan output at the project's configured level 7: 174 errors across the same file scope. Target revised from "level 9 compliance" to "zero errors at project level 7 within the ERP scope" — level escalation can be a follow-up change. tasks.md rewritten accordingly; the What Changes architecture (SafeCast utility, generics, array shapes, typed closures) is unchanged.
