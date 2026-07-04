@@ -548,7 +548,7 @@ The system SHALL require every company to be classified as a buyer, a supplier, 
 #### Scenario: No standalone Companies resource
 - **WHEN** a user opens the navigation
 - **THEN** no Companies entry exists in any group
-- **AND** the Workspace group no longer exists; People, Notes, Tasks, Opportunities and the Tasks/Opportunities board pages appear under Master Data alongside Buyers, Suppliers, Articles, and Tags
+- **AND** the Workspace group no longer exists; People, Notes, Tasks and the Tasks board page appear under Master Data alongside Buyers, Suppliers, Articles, and Tags
 
 #### Scenario: Role required on every creation path
 - **WHEN** a company is created via the Buyers view, the Suppliers view, or an inline company form
@@ -576,7 +576,7 @@ The system SHALL require every company to be classified as a buyer, a supplier, 
 - **AND** the panel home URL resolves to the Buyers list
 
 #### Scenario: Company record links resolve to role views
-- **WHEN** a company is linked from a person, opportunity, or relation manager
+- **WHEN** a company is linked from a person or a relation manager
 - **THEN** the link opens the Buyer view when is_buyer=true, otherwise the Supplier view
 
 #### Scenario: Soft-deleted companies remain accessible

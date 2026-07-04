@@ -28,27 +28,12 @@ The system SHALL allow users to create and manage People records.
 - **AND** validation requires at least one role to be selected
 - **AND** the created company is reachable via the Buyers and/or Suppliers list according to its roles
 
-### Requirement: Opportunity Management
-The system SHALL provide CRUD operations for Opportunities (deals) with pipeline tracking.
-
-#### Scenario: Create Opportunity
-- **WHEN** a user creates an opportunity with valid data
-- **THEN** the opportunity is saved with associated company and people
-
-#### Scenario: View Opportunity
-- **WHEN** a user views an opportunity
-- **THEN** they see opportunity details including amount, stage, and related entities
-
-#### Scenario: Track Opportunity Progress
-- **WHEN** a user updates opportunity stage
-- **THEN** the flowforge position is updated for Kanban ordering
-
 ### Requirement: Task Management
 The system SHALL provide CRUD operations for Tasks with polymorphic relationships.
 
 #### Scenario: Create Task
 - **WHEN** a user creates a task
-- **THEN** the task is saved with optional assignments to companies, people, or opportunities
+- **THEN** the task is saved with optional assignments to companies or people
 
 #### Scenario: Assign Task
 - **WHEN** a user assigns people to a task
@@ -62,7 +47,7 @@ The system SHALL provide CRUD operations for Tasks with polymorphic relationship
 The system SHALL provide CRUD operations for Notes with polymorphic relationships.
 
 #### Scenario: Create Note
-- **WHEN** a user creates a note on an entity (company, person, opportunity)
+- **WHEN** a user creates a note on an entity (company or person)
 - **THEN** the note is saved with the polymorphic noteable relationship
 
 #### Scenario: View Notes
