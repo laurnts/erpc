@@ -59,5 +59,5 @@
 
 ## Hardening (every slice)
 
-- [ ] H.1 `vendor/bin/pint --dirty`; `composer test:types`; architecture tests; full `php artisan test --compact` green; ≥80% coverage on new code
-- [ ] H.2 `openspec validate add-public-product-catalog --strict`
+- [x] H.1 `vendor/bin/pint --dirty`; `composer test:types`; architecture tests; full `php artisan test --compact` green; ≥80% coverage on new code
+- [x] H.2 `openspec validate add-public-product-catalog --strict`

@@ -16,7 +16,7 @@ describe('Home page', function () {
         $response = $this->get('/');
 
         $response->assertStatus(200);
-        $response->assertSee('Customer login');
+        $response->assertSee('Buyer Login');
         $response->assertSee('Register');
     });
 });
