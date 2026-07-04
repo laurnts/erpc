@@ -9,6 +9,7 @@ use App\Models\TaxCode;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Http\UploadedFile;
 
 /**
  * @extends Factory<Article>
@@ -104,5 +105,18 @@ final class ArticleFactory extends Factory
         return $this->state(fn (array $attributes): array => [
             'sku' => $sku,
         ]);
+    }
+
+    /**
+     * Attach generated product images after creation.
+     */
+    public function withProductImages(int $count = 1): static
+    {
+        return $this->afterCreating(function (Article $article) use ($count): void {
+            for ($i = 1; $i <= $count; $i++) {
+                $article->addMedia(UploadedFile::fake()->image(sprintf('product-%d.jpg', $i), 600, 600))
+                    ->toMediaCollection('product_images');
+            }
+        });
     }
 }

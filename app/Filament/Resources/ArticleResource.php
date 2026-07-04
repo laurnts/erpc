@@ -21,6 +21,7 @@ use Filament\Actions\RestoreBulkAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -158,6 +159,20 @@ final class ArticleResource extends Resource
             );
         }
 
+        $imagesSection = Section::make('Images')
+            ->schema([
+                SpatieMediaLibraryFileUpload::make('product_images')
+                    ->label('')
+                    ->collection('product_images')
+                    ->image()
+                    ->multiple()
+                    ->reorderable()
+                    ->maxFiles(10)
+                    ->maxSize(5120)
+                    ->helperText('The first image is used as the primary product image.'),
+            ])
+            ->collapsible();
+
         return [
             TextInput::make('name')
                 ->label('Article Name')
@@ -187,6 +202,7 @@ final class ArticleResource extends Resource
             Toggle::make('is_active')
                 ->label('Active')
                 ->default(true),
+            ...($forModal ? [] : [$imagesSection]),
             Section::make('Custom Attributes')
                 ->schema([
                     KeyValue::make('attributes')

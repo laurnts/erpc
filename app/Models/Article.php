@@ -19,6 +19,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Relaticle\CustomFields\Models\Concerns\UsesCustomFields;
 use Relaticle\CustomFields\Models\Contracts\HasCustomFields;
+use Spatie\Image\Enums\Fit;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
  * @property string $code
@@ -34,7 +38,7 @@ use Relaticle\CustomFields\Models\Contracts\HasCustomFields;
  * @property-read string $created_by
  */
 #[ObservedBy(ArticleObserver::class)]
-final class Article extends Model implements HasCustomFields
+final class Article extends Model implements HasCustomFields, HasMedia
 {
     use HasCreator;
 
@@ -43,6 +47,7 @@ final class Article extends Model implements HasCustomFields
 
     use HasTags;
     use HasTeam;
+    use InteractsWithMedia;
     use SoftDeletes;
     use UsesCustomFields;
 
@@ -89,19 +94,49 @@ final class Article extends Model implements HasCustomFields
     {
         parent::boot();
 
-        static::creating(function (Article $article): void {
+        self::creating(function (Article $article): void {
             // Ensure unit is never null or empty
             if (empty($article->unit)) {
                 $article->unit = 'pcs';
             }
         });
 
-        static::updating(function (Article $article): void {
+        self::updating(function (Article $article): void {
             // Ensure unit is never null or empty
             if (empty($article->unit)) {
                 $article->unit = 'pcs';
             }
         });
+    }
+
+    /**
+     * Register media collections for this model.
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('product_images')
+            ->acceptsMimeTypes([
+                'image/jpeg',
+                'image/png',
+                'image/webp',
+                'image/gif',
+            ]);
+    }
+
+    /**
+     * Register media conversions for product images.
+     */
+    public function registerMediaConversions(?Media $media = null): void
+    {
+        $this->addMediaConversion('thumb')
+            ->performOnCollections('product_images')
+            ->nonQueued()
+            ->fit(Fit::Crop, 150, 150);
+
+        $this->addMediaConversion('medium')
+            ->performOnCollections('product_images')
+            ->nonQueued()
+            ->fit(Fit::Contain, 800, 800);
     }
 
     /**

@@ -2,14 +2,16 @@
 
 declare(strict_types=1);
 
-use App\Models\Company;
-
 use App\Models\Article;
+use App\Models\Company;
 use App\Models\Tag;
 use App\Models\TaxCode;
 use App\Models\Team;
 use App\Models\User;
 use Filament\Facades\Filament;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Spatie\MediaLibrary\MediaCollections\Exceptions\FileUnacceptableForCollection;
 
 beforeEach(function () {
     $this->user = User::factory()->withPersonalTeam()->create();
@@ -437,4 +439,92 @@ test('article supplier sync handles empty array', function () {
     $article->suppliers()->sync([]);
 
     expect($article->fresh()->suppliers)->toHaveCount(0);
+});
+
+// Product Images Tests
+test('article accepts images into the product_images collection', function () {
+    Storage::fake('public');
+
+    $article = Article::factory()->for($this->user->personalTeam())->create();
+
+    $article->addMedia(UploadedFile::fake()->image('front.jpg', 600, 600))
+        ->toMediaCollection('product_images');
+
+    expect($article->getMedia('product_images'))->toHaveCount(1)
+        ->and($article->getFirstMedia('product_images')->collection_name)->toBe('product_images');
+});
+
+test('product images generate thumb and medium conversions', function () {
+    Storage::fake('public');
+
+    $article = Article::factory()->for($this->user->personalTeam())->create();
+
+    $article->addMedia(UploadedFile::fake()->image('front.jpg', 600, 600))
+        ->toMediaCollection('product_images');
+
+    $media = $article->getFirstMedia('product_images');
+
+    expect($media->hasGeneratedConversion('thumb'))->toBeTrue()
+        ->and($media->hasGeneratedConversion('medium'))->toBeTrue();
+});
+
+test('product images keep their upload order and expose a primary image', function () {
+    Storage::fake('public');
+
+    $article = Article::factory()->for($this->user->personalTeam())->create();
+
+    $article->addMedia(UploadedFile::fake()->image('first.jpg', 600, 600))
+        ->toMediaCollection('product_images');
+    $article->addMedia(UploadedFile::fake()->image('second.jpg', 600, 600))
+        ->toMediaCollection('product_images');
+
+    $images = $article->getMedia('product_images');
+
+    expect($images)->toHaveCount(2)
+        ->and($images->first()->file_name)->toBe('first.jpg')
+        ->and($article->getFirstMedia('product_images')->file_name)->toBe('first.jpg');
+});
+
+test('product_images collection rejects non-image files', function () {
+    Storage::fake('public');
+
+    $article = Article::factory()->for($this->user->personalTeam())->create();
+
+    $article->addMedia(UploadedFile::fake()->create('manual.pdf', 100, 'application/pdf'))
+        ->toMediaCollection('product_images');
+})->throws(FileUnacceptableForCollection::class);
+
+test('article create form uploads product images through the Images section', function () {
+    Storage::fake('public');
+
+    $unitOfMeasureId = \App\Models\UnitOfMeasure::query()
+        ->where('team_id', $this->user->personalTeam()->id)
+        ->value('id') ?? \App\Models\UnitOfMeasure::factory()->create([
+            'team_id' => $this->user->personalTeam()->id,
+            'code' => 'pcs',
+        ])->id;
+
+    \Pest\Livewire\livewire(\App\Filament\Resources\ArticleResource\Pages\CreateArticle::class)
+        ->fillForm([
+            'name' => 'Imaged Article',
+            'unit_of_measure_id' => $unitOfMeasureId,
+            'product_images' => [UploadedFile::fake()->image('front.jpg', 600, 600)],
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $article = Article::query()->where('name', 'Imaged Article')->firstOrFail();
+
+    expect($article->getMedia('product_images'))->toHaveCount(1);
+});
+
+test('factory state attaches product images', function () {
+    Storage::fake('public');
+
+    $article = Article::factory()
+        ->for($this->user->personalTeam())
+        ->withProductImages(2)
+        ->create();
+
+    expect($article->getMedia('product_images'))->toHaveCount(2);
 });
