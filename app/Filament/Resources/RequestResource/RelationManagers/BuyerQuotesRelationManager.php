@@ -245,7 +245,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                             $request = $this->getOwnerRecord();
                             $buyer = $request->buyer;
 
-                            return $buyer?->credit_status ?? true;
+                            return $buyer !== null ? ($buyer->credit_status ?? true) : true;
                         })
                         ->schema([
                             Grid::make(3)
@@ -274,7 +274,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->minValue(0)
                                         ->maxValue(100)
                                         ->suffix('%')
-                                        ->visible(fn (): bool => $this->getOwnerRecord()->hasJobProgress())
+                                        ->visible(fn (): bool => $this->getOwnerRequest()->hasJobProgress())
                                         ->live(),
                                 ]),
                         ])
@@ -284,7 +284,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 return null;
                             }
                             $label = "{$state['due_days']} days - {$state['percentage']}%";
-                            if ($this->getOwnerRecord()->hasJobProgress() && isset($state['job_progress']) && $state['job_progress'] !== '' && $state['job_progress'] !== null) {
+                            if ($this->getOwnerRequest()->hasJobProgress() && isset($state['job_progress']) && $state['job_progress'] !== '') {
                                 $label .= " - {$state['job_progress']}%";
                             }
 
@@ -313,16 +313,16 @@ final class BuyerQuotesRelationManager extends RelationManager
                             $data['quantity'] = (string) (int) round((float) ($data['quantity'] ?? 0));
                             // Prefill margin_percent_input so the Margin % field is never empty; round to int so all items show same default (e.g. 3)
                             $stored = $data['margin_percent'] ?? ($record->margin_percent ?? null);
-                            $default = (int) ceil(Filament::getTenant()?->getErpSettings()->default_margin_percent ?? 3.0);
+                            $default = (int) ceil($this->currentTeam()?->getErpSettings()->default_margin_percent ?? 3.0);
                             $data['margin_percent_input'] = ($stored !== null && $stored !== '' && (float) $stored > 0)
                                 ? (int) round((float) $stored)
                                 : $default;
 
                             // Add child_items to each MAIN item when loading from relationship
                             // $record here is the BuyerQuoteItem, we need to check if it's a main item
-                            if (isset($data['request_item_id']) && $data['request_item_id'] !== null) {
+                            if (isset($data['request_item_id'])) {
                                 // Check if this is a main item (not a child item)
-                                $requestItem = $request->items()->find($data['request_item_id']);
+                                $requestItem = $request->items()->find(\App\Support\SafeCast::toInt($data['request_item_id']));
                                 if ($requestItem !== null && $requestItem->parent_id === null && $requestItem->children()->exists()) {
                                     // Get the BuyerQuote from the BuyerQuoteItem's relationship
                                     $buyerQuote = null;
@@ -333,7 +333,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         }
                                         $buyerQuote = $record->buyerQuote;
                                     } elseif (isset($data['buyer_quote_id'])) {
-                                        $buyerQuote = \App\Models\BuyerQuote::find($data['buyer_quote_id']);
+                                        $buyerQuote = \App\Models\BuyerQuote::find(\App\Support\SafeCast::toInt($data['buyer_quote_id']));
                                     }
 
                                     if ($buyerQuote !== null) {
@@ -357,10 +357,10 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             $mainItemTaxCodeId = $data['tax_code_id'] ?? $record->tax_code_id ?? $defaultTaxCode?->getKey();
                                             $mainItemTaxRate = ($data['tax_code_id'] ?? $record->tax_code_id) !== null
                                                 ? (string) (int) round((float) ($data['tax_rate'] ?? $record->tax_rate ?? 0))
-                                                : (string) (int) round((float) ($defaultTaxCode?->rate ?? 0));
+                                                : (string) (int) round((float) ($defaultTaxCode !== null ? $defaultTaxCode->rate : 0));
                                             $mainItemIsTaxInclusive = ($data['tax_code_id'] ?? $record->tax_code_id) !== null
                                                 ? ($data['is_tax_inclusive'] ?? $record->is_tax_inclusive ?? false)
-                                                : ($defaultTaxCode?->is_inclusive_default ?? false);
+                                                : ($defaultTaxCode !== null && $defaultTaxCode->is_inclusive_default);
 
                                             $data['child_items'] = $childBuyerQuoteItems->map(function ($childItem) use ($mainItemTaxCodeId, $mainItemTaxRate, $mainItemIsTaxInclusive) {
                                                 // Use stored tax information, or fallback to main item's tax
@@ -508,7 +508,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             // Then check if we can get it from the supplier_quote_item_id
                                             $supplierQuoteItemId = $get('supplier_quote_item_id');
                                             if ($supplierQuoteItemId !== null) {
-                                                $supplierQuoteItem = \App\Models\SupplierQuoteItem::with('supplierQuote.supplier')->find($supplierQuoteItemId);
+                                                $supplierQuoteItem = \App\Models\SupplierQuoteItem::with('supplierQuote.supplier')->find(\App\Support\SafeCast::toInt($supplierQuoteItemId));
                                                 if ($supplierQuoteItem?->supplierQuote?->supplier) {
                                                     return "From: {$supplierQuoteItem->supplierQuote->supplier->name}";
                                                 }
@@ -665,7 +665,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->columnSpan(2)
                                         ->live(onBlur: true)
                                         ->afterStateHydrated(function (Set $set, Get $get): void {
-                                            $defaultMargin = (float) ceil(Filament::getTenant()?->getErpSettings()->default_margin_percent ?? 3.0);
+                                            $defaultMargin = (float) ceil($this->currentTeam()?->getErpSettings()->default_margin_percent ?? 3.0);
                                             $stored = $get('margin_percent');
                                             $current = $get('margin_percent_input');
                                             $prefill = ($stored !== null && $stored !== '' && (float) $stored > 0)
@@ -1064,7 +1064,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->dehydrated(false)
                         ->afterStateUpdated(function ($state, $record, $set) {
                             // Process uploaded files immediately when they're uploaded
-                            if ($record && $record->exists && $state && is_array($state) && ! empty($state)) {
+                            if ($record && $record->exists && $state && is_array($state)) {
                                 foreach ($state as $file) {
                                     if (is_string($file)) {
                                         // Filament stores files relative to storage/app, so the path is already correct
@@ -1245,7 +1245,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                 'description' => $requestItem->article !== null ? $requestItem->article->name : $requestItem->description,
                 'quantity' => (string) (int) round((float) $requestItem->quantity),
                 'unit_of_measure_id' => $requestItem->unit_of_measure_id,
-                'unit' => $requestItem->unitOfMeasure?->code ?? $requestItem->unit?->value ?? 'pcs',
+                'unit' => $this->resolveUnitCode($requestItem),
                 'cost_price' => (string) $costPrice,
                 'unit_price' => (string) $unitPrice,
                 'unit_price_exc_tax' => (string) round($unitPriceExcTax, 0),
@@ -1265,14 +1265,11 @@ final class BuyerQuotesRelationManager extends RelationManager
         }
 
         foreach ($items as &$item) {
-            if (isset($item['child_items']) && is_array($item['child_items'])) {
-                foreach ($item['child_items'] as &$childItem) {
-                    if (isset($childItem['tax_code_id']) && $childItem['tax_code_id'] !== null) {
-                        $taxCode = TaxCode::find($childItem['tax_code_id']);
-                        if ($taxCode !== null) {
-                            $childItem['tax_rate'] = (string) (int) round((float) $taxCode->rate);
-                            $childItem['is_tax_inclusive'] = $childItem['is_tax_inclusive'] ?? $taxCode->is_inclusive_default;
-                        }
+            foreach ($item['child_items'] as &$childItem) {
+                if (isset($childItem['tax_code_id'])) {
+                    $taxCode = TaxCode::find(\App\Support\SafeCast::toInt($childItem['tax_code_id']));
+                    if ($taxCode !== null) {
+                        $childItem['tax_rate'] = (string) (int) round((float) $taxCode->rate);
                     }
                 }
             }
@@ -1380,7 +1377,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                     ->modalWidth('7xl')
                     ->disabled(fn (): bool => ! $this->supplierQuotesAvailableForBuyerQuoteQuery($request)->exists())
                     ->fillForm(function (): array {
-                        $settings = Filament::getTenant()?->getErpSettings();
+                        $settings = $this->currentTeam()?->getErpSettings();
                         $defaultPaymentTermsDays = $settings->default_payment_terms_days ?? 30;
                         $currencyId = (int) Currency::query()
                             ->where('code', $settings->default_currency ?? 'USD')
@@ -1402,9 +1399,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         $supplierQuoteIds = $this->resolveSupplierQuoteIdsFromData($data);
                         unset($data['creation_mode'], $data['supplier_quote_ids'], $data['supplier_quote_id']);
 
-                        if (is_array($supplierQuoteIds)) {
-                            request()->attributes->set('_buyer_quote_create_supplier_quote_ids', $supplierQuoteIds);
-                        }
+                        request()->attributes->set('_buyer_quote_create_supplier_quote_ids', $supplierQuoteIds);
 
                         return $request->buyerQuotes()->create(
                             collect($data)->except(['items', 'paymentTerms'])->toArray()
@@ -1417,9 +1412,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         $supplierQuoteIds = $this->resolveSupplierQuoteIdsFromData($data);
                         unset($data['creation_mode'], $data['supplier_quote_ids'], $data['supplier_quote_id'], $data['_supplier_quote_ids']);
 
-                        if (is_array($supplierQuoteIds)) {
-                            request()->attributes->set('_buyer_quote_create_supplier_quote_ids', $supplierQuoteIds);
-                        }
+                        request()->attributes->set('_buyer_quote_create_supplier_quote_ids', $supplierQuoteIds);
 
                         // When exactly one supplier quote selected, ensure prepayment comes from that quote (form may not have set it)
                         if (count($supplierQuoteIds) === 1) {
@@ -1705,7 +1698,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     'description' => $requestItem->article !== null ? $requestItem->article->name : $requestItem->description,
                                     'quantity' => $requestItem->quantity,
                                     'unit_of_measure_id' => $requestItem->unit_of_measure_id,
-                                    'unit' => $requestItem->unitOfMeasure?->code ?? $requestItem->unit?->value ?? 'pcs',
+                                    'unit' => $this->resolveUnitCode($requestItem),
                                     'cost_price' => $costPrice,
                                     'unit_price' => $unitPrice,
                                     'unit_price_exc_tax' => round($unitPriceExcTax, 0),
@@ -2011,7 +2004,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                             ];
                         })
                         ->mutateFormDataUsing(function (array $data): array {
-                            $this->validatePaymentTermsTotal($data, $this->getOwnerRecord());
+                            $this->validatePaymentTermsTotal($data, $this->getOwnerRequest());
 
                             // Ensure unit_price_exc_tax matches unit_price for all items (both should be net price)
                             if (isset($data['items']) && is_array($data['items'])) {
@@ -2123,7 +2116,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 return true;
                             }
                             // Override default trashed check to also check status
-                            if (method_exists($record, 'trashed') && $record->trashed()) {
+                            if ($record->trashed()) {
                                 return true;
                             }
 
@@ -2411,6 +2404,44 @@ final class BuyerQuotesRelationManager extends RelationManager
         return $record === null || ! $record->exists;
     }
 
+    /**
+     * The owner Request record, typed precisely (Filament's RelationManager only
+     * declares this as the generic Eloquent Model).
+     */
+    private function getOwnerRequest(): Request
+    {
+        /** @var Request $request */
+        $request = $this->getOwnerRecord();
+
+        return $request;
+    }
+
+    /**
+     * The current tenant Team, typed precisely (Filament's Filament::getTenant()
+     * only declares this as the generic Eloquent Model).
+     */
+    private function currentTeam(): ?\App\Models\Team
+    {
+        /** @var \App\Models\Team|null $team */
+        $team = Filament::getTenant();
+
+        return $team;
+    }
+
+    /**
+     * Resolve the display unit code for a request item: prefer the linked
+     * UnitOfMeasure's code, then fall back to the legacy Unit enum value.
+     */
+    private function resolveUnitCode(\App\Models\RequestItem $requestItem): string
+    {
+        $unitOfMeasure = $requestItem->unitOfMeasure;
+        if ($unitOfMeasure !== null) {
+            return $unitOfMeasure->code;
+        }
+
+        return $requestItem->unit instanceof \App\Enums\Unit ? $requestItem->unit->value : 'pcs';
+    }
+
     private function normalizeCreationMode(mixed $value): ?BuyerQuoteCreationMode
     {
         if ($value instanceof BuyerQuoteCreationMode) {
@@ -2546,7 +2577,7 @@ final class BuyerQuotesRelationManager extends RelationManager
 
     private function resetSupplierQuoteFormData(Set $set): void
     {
-        $settings = Filament::getTenant()?->getErpSettings();
+        $settings = $this->currentTeam()?->getErpSettings();
         $defaultPaymentTermsDays = $settings->default_payment_terms_days ?? 30;
         $set('items', []);
         $set('paymentTerms', [['due_days' => $defaultPaymentTermsDays, 'percentage' => 100, 'sort_order' => 0]]);
@@ -2572,7 +2603,7 @@ final class BuyerQuotesRelationManager extends RelationManager
     private function applyBuiltSupplierQuoteData(Set $set, Request $request, array $supplierQuoteIds): void
     {
         if ($supplierQuoteIds === []) {
-            $settings = Filament::getTenant()?->getErpSettings();
+            $settings = $this->currentTeam()?->getErpSettings();
             $defaultPaymentTermsDays = $settings->default_payment_terms_days ?? 30;
             $set('items', []);
             $set('paymentTerms', [['due_days' => $defaultPaymentTermsDays, 'percentage' => 100, 'sort_order' => 0]]);
@@ -2602,6 +2633,7 @@ final class BuyerQuotesRelationManager extends RelationManager
     }
 
     /**
+     * @param  array<string, mixed>  $childItemData
      * @return array{tax_code_id: int|null, tax_rate: string, is_tax_inclusive: bool}
      */
     private function resolveChildItemTaxSettings(array $childItemData, BuyerQuoteItem $mainItem, ?TaxCode $defaultTaxCode): array
@@ -2631,9 +2663,9 @@ final class BuyerQuotesRelationManager extends RelationManager
             ];
         }
 
-        $taxRate = isset($childItemData['tax_rate']) && $childItemData['tax_rate'] !== '' && $childItemData['tax_rate'] !== null
+        $taxRate = isset($childItemData['tax_rate']) && $childItemData['tax_rate'] !== ''
             ? (string) (int) round((float) $childItemData['tax_rate'])
-            : (string) (int) round((float) ($defaultTaxCode?->rate ?? 0));
+            : (string) (int) round((float) ($defaultTaxCode !== null ? $defaultTaxCode->rate : 0));
 
         return [
             'tax_code_id' => $taxCodeId,
@@ -2652,6 +2684,8 @@ final class BuyerQuotesRelationManager extends RelationManager
      *
      * When prepayment type is Percentage and prepayment > 0: prepayment % + sum(terms %) must equal 100%.
      * When prepayment type is Fixed Amount or prepayment is 0: sum(terms %) must equal 100%.
+     *
+     * @param  array<string, mixed>  $data
      *
      * @throws ValidationException
      */
@@ -2841,14 +2875,19 @@ final class BuyerQuotesRelationManager extends RelationManager
             return false;
         }
 
-        /** @var Request $request */
-        $request = $this->getOwnerRecord();
+        if ($this->serviceItemIds === null) {
+            /** @var Request $request */
+            $request = $this->getOwnerRecord();
 
-        $this->serviceItemIds ??= $request->items()
-            ->where('item_type', \App\Enums\ItemType::SERVICE)
-            ->pluck('id')
-            ->map(fn ($id): int => (int) $id)
-            ->all();
+            /** @var list<int> $serviceItemIds */
+            $serviceItemIds = $request->items()
+                ->where('item_type', \App\Enums\ItemType::SERVICE)
+                ->pluck('id')
+                ->map(fn ($id): int => (int) $id)
+                ->values()
+                ->all();
+            $this->serviceItemIds = $serviceItemIds;
+        }
 
         return in_array((int) $requestItemId, $this->serviceItemIds, true);
     }
