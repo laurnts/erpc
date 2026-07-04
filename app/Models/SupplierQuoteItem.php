@@ -227,8 +227,8 @@ final class SupplierQuoteItem extends Model
     public function calculateTotals(): void
     {
         // Default to taxable if the supplier record can't be resolved.
-        $supplier = $this->supplierQuote?->supplier;
-        $isSupplierTaxable = $supplier?->is_taxable ?? true;
+        $supplier = $this->supplierQuote->supplier;
+        $isSupplierTaxable = $supplier->is_taxable ?? true;
 
         // A non-taxable supplier carries no tax; clear any stale tax metadata.
         if (! $isSupplierTaxable) {

@@ -31,6 +31,7 @@ use Illuminate\Support\Collection;
  * @property string $description
  * @property string $quantity
  * @property Unit $unit
+ * @property int|null $unit_of_measure_id
  * @property string $cost_price
  * @property string $unit_price
  * @property string $unit_price_exc_tax
@@ -52,6 +53,7 @@ use Illuminate\Support\Collection;
  * @property-read RequestItem|null $requestItem
  * @property-read Article|null $article
  * @property-read TaxCode|null $taxCode
+ * @property-read UnitOfMeasure|null $unitOfMeasure
  * @property-read float $calculated_margin_amount
  * @property-read float $calculated_margin_percent
  */

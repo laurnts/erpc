@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property string $description
  * @property string $quantity
  * @property Unit $unit
+ * @property int|null $unit_of_measure_id
  * @property string $unit_price
  * @property string $unit_price_exc_tax
  * @property string $tax_amount
@@ -37,6 +38,7 @@ use Illuminate\Support\Carbon;
  * @property-read RequestItem|null $requestItem
  * @property-read Article|null $article
  * @property-read TaxCode|null $taxCode
+ * @property-read UnitOfMeasure|null $unitOfMeasure
  */
 final class BuyerOrderItem extends Model
 {
@@ -172,7 +174,7 @@ final class BuyerOrderItem extends Model
         $item->description = $quoteItem->description;
         $item->quantity = $quoteItem->quantity;
         $item->unit_of_measure_id = $quoteItem->unit_of_measure_id;
-        
+
         // Ensure unit is set from unit_of_measure_id, bypassing SafeUnitCast
         $unitCode = 'pcs'; // Default fallback
         if ($item->unit_of_measure_id !== null) {
@@ -189,7 +191,7 @@ final class BuyerOrderItem extends Model
             $quoteUnit = $quoteItem->unit;
             $unitCode = $quoteUnit instanceof \App\Enums\Unit ? $quoteUnit->value : ($quoteUnit ?? 'pcs');
         }
-        
+
         // Use setRawAttributes to bypass SafeUnitCast and ensure unit is set
         $attributes = $item->getAttributes();
         $item->setRawAttributes(array_merge($attributes, ['unit' => (string) $unitCode]));

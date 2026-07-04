@@ -455,7 +455,7 @@ final class QuotationEvaluation extends Model implements HasMedia
         foreach ($requestItems as $requestItem) {
             $itemData = [
                 'id' => $requestItem->getKey(),
-                'description' => $requestItem->article?->name ?? $requestItem->description,
+                'description' => $requestItem->article->name ?? $requestItem->description,
                 'quantity' => (float) $requestItem->quantity,
                 'unit' => $requestItem->unit ?? 'pcs',
                 'prices' => [],
@@ -489,13 +489,13 @@ final class QuotationEvaluation extends Model implements HasMedia
         foreach ($quotes as $quote) {
             $suppliers[] = [
                 'id' => $quote->getKey(),
-                'name' => $quote->supplier?->name ?? 'Unknown',
-                'currency_code' => $quote->currency?->code ?? 'USD',
-                'delivery_type' => $quote->supplier?->delivery_type ?? null,
-                'delivery_type_details' => $quote->supplier?->delivery_type_details ?? null,
-                'is_taxable' => $quote->supplier?->is_taxable ?? false,
-                'delivery_term' => $quote->supplier?->delivery_term ?? null,
-                'payment_terms_days' => $quote->supplier?->payment_terms ?? null,
+                'name' => $quote->supplier->name ?? 'Unknown',
+                'currency_code' => $quote->currency->code ?? 'USD',
+                'delivery_type' => $quote->supplier->delivery_type ?? null,
+                'delivery_type_details' => $quote->supplier->delivery_type_details ?? null,
+                'is_taxable' => $quote->supplier->is_taxable ?? false,
+                'delivery_term' => $quote->supplier->delivery_term ?? null,
+                'payment_terms_days' => $quote->supplier->payment_terms_days ?? null,
                 'subtotal' => (float) $quote->subtotal,
                 'tax_total' => (float) $quote->tax_total,
                 'grand_total' => (float) $quote->total,

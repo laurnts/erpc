@@ -502,7 +502,7 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
                 'description' => $requestItem->article !== null ? $requestItem->article->name : $requestItem->description,
                 'quantity' => $requestItem->quantity,
                 'unit_of_measure_id' => $requestItem->unit_of_measure_id,
-                'unit' => $requestItem->unitOfMeasure?->code ?? $requestItem->unit?->value ?? 'pcs',
+                'unit' => $requestItem->unitOfMeasure->code ?? $requestItem->unit->value ?? 'pcs',
                 'cost_price' => $costPrice,
                 'unit_price' => $unitPrice,
                 'unit_price_exc_tax' => round($unitPriceExcTax, 0),

@@ -43,6 +43,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property Carbon|null $deputy_director_approved_at
  * @property Carbon|null $director_approved_at
  * @property array<string, mixed>|null $data
+ * @property array<string, mixed>|null $financial_snapshot
  * @property int|null $creator_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -201,7 +202,7 @@ final class ProfitAndLoss extends Model implements HasMedia
             costTotal: $totals->costTotal,
             marginAmount: $totals->marginAmount,
             marginPercent: $totals->marginPercent,
-            currency: $quote->currency?->code ?? '',
+            currency: $quote->currency->code ?? '',
             snapshotAt: CarbonImmutable::now(),
             buyerQuoteId: $quote->getKey(),
         ))->toArray();

@@ -315,11 +315,11 @@ final readonly class PdfGenerationService
 
             return [
                 'number' => $shipmentItem->sort_order + 1,
-                'item_name' => $supplierOrderItem?->description ?? 'Unknown item',
+                'item_name' => $supplierOrderItem->description ?? 'Unknown item',
                 'brand' => $brand,
                 'model' => $model,
                 'qty' => (float) $shipmentItem->quantity_shipped,
-                'remarks' => $shipmentItem->condition_notes ?? $supplierOrderItem?->notes ?? null,
+                'remarks' => $shipmentItem->condition_notes ?? $supplierOrderItem->notes ?? null,
             ];
         });
 
