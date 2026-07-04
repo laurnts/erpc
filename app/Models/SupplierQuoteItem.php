@@ -39,7 +39,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $notes
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
- * @property-read SupplierQuote $supplierQuote
+ * @property-read SupplierQuote|null $supplierQuote
  * @property-read RequestItem|null $requestItem
  * @property-read Article|null $article
  * @property-read TaxCode|null $taxCode
@@ -192,7 +192,7 @@ final class SupplierQuoteItem extends Model
     {
         return Attribute::make(
             get: function (): string {
-                $currency = $this->supplierQuote->currency;
+                $currency = $this->supplierQuote?->currency;
                 if ($currency === null) {
                     return number_format((float) $this->unit_price, 2);
                 }
@@ -211,7 +211,7 @@ final class SupplierQuoteItem extends Model
     {
         return Attribute::make(
             get: function (): string {
-                $currency = $this->supplierQuote->currency;
+                $currency = $this->supplierQuote?->currency;
                 if ($currency === null) {
                     return number_format((float) $this->line_total, 2);
                 }
@@ -228,7 +228,7 @@ final class SupplierQuoteItem extends Model
     public function calculateTotals(): void
     {
         // Default to taxable if the supplier record can't be resolved.
-        $supplier = $this->supplierQuote->supplier;
+        $supplier = $this->supplierQuote?->supplier;
         $isSupplierTaxable = $supplier->is_taxable ?? true;
 
         // A non-taxable supplier carries no tax; clear any stale tax metadata.
