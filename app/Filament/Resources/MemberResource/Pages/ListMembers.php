@@ -6,6 +6,8 @@ namespace App\Filament\Resources\MemberResource\Pages;
 
 use App\Enums\CentralPurchasingRole;
 use App\Filament\Resources\MemberResource;
+use App\Models\Team;
+use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Radio;
@@ -75,7 +77,7 @@ final class ListMembers extends ListRecords
                         $data['role'],
                         $data['central_purchasing_role'] ?? null
                     );
-                    
+
                     \Filament\Notifications\Notification::make()
                         ->title('Team invitation sent')
                         ->success()
@@ -88,11 +90,24 @@ final class ListMembers extends ListRecords
     public function getPendingInvitationsTeam()
     {
         $tenant = Filament::getTenant();
-        
+
         if (! auth()->user()->hasTeamRole($tenant, 'admin')) {
             return null;
         }
 
         return $tenant;
+    }
+
+    public function getTeamOwner(): ?User
+    {
+        $team = Filament::getTenant();
+
+        if (! $team instanceof Team) {
+            return null;
+        }
+
+        $owner = $team->owner;
+
+        return $owner instanceof User ? $owner : null;
     }
 }
