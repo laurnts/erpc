@@ -208,4 +208,15 @@ final class SupplierQuoteFactory extends Factory
             'declined_at' => now(),
         ]);
     }
+
+    /**
+     * Outcomes for the quote's round have been announced (round locked;
+     * supplier-facing Won / "Not selected" rendering live).
+     */
+    public function outcomesAnnounced(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'outcomes_announced_at' => now(),
+        ]);
+    }
 }

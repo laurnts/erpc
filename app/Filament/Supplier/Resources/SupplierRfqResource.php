@@ -61,6 +61,7 @@ final class SupplierRfqResource extends Resource
         'submitted_by_user_id',
         'declined_at',
         'sent_to_supplier_at',
+        'outcomes_announced_at',
         'created_at',
         'updated_at',
         'deleted_at',

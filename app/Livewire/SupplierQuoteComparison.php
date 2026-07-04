@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire;
 
+use App\Actions\SupplierPortal\AnnounceRfqOutcomes;
 use App\Enums\SupplierQuoteStatus;
 use App\Filament\Resources\QuotationEvaluationResource;
 use App\Livewire\Concerns\AuthorizesLivewireActions;
@@ -31,6 +32,8 @@ use Livewire\Attributes\Computed;
  * @property-read float $selectionTotal
  * @property-read int $selectedSuppliersCount
  * @property-read bool $hasQuotes
+ * @property-read bool $outcomesAnnounced
+ * @property-read bool $hasAppliedSelections
  * @property-read QuotationEvaluation|null $latestQuotationEvaluation
  */
 final class SupplierQuoteComparison extends BaseLivewireComponent
@@ -165,6 +168,18 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
         // Authorize the action - user must be able to update the request
         Gate::authorize('update', $this->request);
 
+        // Once outcomes are announced the round is closed: losers were marked
+        // rejected and suppliers were notified, so selections must not move.
+        if ($this->request->rfqOutcomesAnnounced()) {
+            Notification::make()
+                ->title('Outcomes already announced')
+                ->body('Supplier outcomes for this request have been announced — selections are locked and can no longer be re-applied.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
         // Group selections by quote
         $quoteSelections = [];
         foreach ($this->itemSelections as $requestItemId => $quoteId) {
@@ -216,7 +231,66 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
     }
 
     /**
-     * Get all active supplier quotes for this request.
+     * Announce won/lost outcomes to suppliers for this request's round.
+     * Available once applied selections exist; terminal and irreversible.
+     *
+     * @throws AuthorizationException
+     */
+    public function announceOutcomes(): void
+    {
+        Gate::authorize('update', $this->request);
+
+        $result = app(AnnounceRfqOutcomes::class)->execute($this->request);
+
+        if ($result === null) {
+            Notification::make()
+                ->title('Nothing to announce')
+                ->body('Outcomes were already announced, or there are no evaluated quotes for this request.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        unset($this->quotes, $this->priceMatrix, $this->bestPricesByItem);
+
+        Notification::make()
+            ->title('Outcomes announced')
+            ->body(sprintf(
+                '%d winning and %d losing quote(s) finalized. Suppliers have been notified and selections are now locked.',
+                $result['winners'],
+                $result['losers'],
+            ))
+            ->success()
+            ->send();
+    }
+
+    /**
+     * Whether outcomes have been announced for this request (round locked).
+     */
+    #[Computed]
+    public function outcomesAnnounced(): bool
+    {
+        return $this->request->rfqOutcomesAnnounced();
+    }
+
+    /**
+     * Whether applied (persisted) selections exist — the precondition for
+     * offering the announce action on the comparison.
+     */
+    #[Computed]
+    public function hasAppliedSelections(): bool
+    {
+        return SupplierQuoteItem::query()
+            ->whereHas('supplierQuote', fn ($query) => $query->where('request_id', $this->request->getKey()))
+            ->where('is_selected', true)
+            ->exists();
+    }
+
+    /**
+     * Get all active supplier quotes for this request. REJECTED is included
+     * for display: announced losers stay visible (read-only — the round is
+     * locked once outcomes are announced) instead of vanishing from the matrix.
      *
      * @return Collection<int, SupplierQuote>
      */
@@ -224,7 +298,7 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
     public function quotes(): Collection
     {
         return $this->request->supplierQuotes()
-            ->whereIn('status', [SupplierQuoteStatus::RECEIVED, SupplierQuoteStatus::SELECTED])
+            ->whereIn('status', [SupplierQuoteStatus::RECEIVED, SupplierQuoteStatus::SELECTED, SupplierQuoteStatus::REJECTED])
             ->with(['supplier', 'currency', 'items.requestItem'])
             ->orderBy('total_base')
             ->get();

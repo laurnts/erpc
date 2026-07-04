@@ -15,7 +15,9 @@ final class ListSupplierRfqs extends ListRecords
     protected static string $resource = SupplierRfqResource::class;
 
     /**
-     * Won/Lost tabs land with the outcome-announcement slice.
+     * Won/Lost populate only from announced outcomes: pre-announcement
+     * evaluation churn keeps every submitted quote in "Submitted" regardless
+     * of internal SELECTED/RECEIVED/REJECTED state.
      *
      * @return array<string, Tab>
      */
@@ -31,6 +33,7 @@ final class ListSupplierRfqs extends ListRecords
                         ->orWhereDate('valid_until', '>', today()))),
             'submitted' => Tab::make('Submitted')
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                    ->whereNull('outcomes_announced_at')
                     ->where(fn (Builder $inner): Builder => $inner
                         ->whereNotNull('submitted_at')
                         ->orWhereIn('status', [
@@ -38,6 +41,17 @@ final class ListSupplierRfqs extends ListRecords
                             SupplierQuoteStatus::SELECTED,
                             SupplierQuoteStatus::REJECTED,
                         ]))),
+            'won' => Tab::make('Won')
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                    ->whereNotNull('outcomes_announced_at')
+                    ->whereIn('status', [
+                        SupplierQuoteStatus::SELECTED,
+                        SupplierQuoteStatus::RECEIVED,
+                    ])),
+            'lost' => Tab::make('Lost')
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                    ->whereNotNull('outcomes_announced_at')
+                    ->where('status', SupplierQuoteStatus::REJECTED)),
             'declined' => Tab::make('Declined')
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query
                     ->whereNotNull('declined_at')),

@@ -71,7 +71,13 @@
             </div>
 
             <div class="flex items-center gap-2">
-                @if($this->hasPricesEntered)
+                @if($this->outcomesAnnounced)
+                    <x-filament::badge color="warning" icon="heroicon-o-lock-closed">
+                        Outcomes announced — selections locked
+                    </x-filament::badge>
+                @endif
+
+                @if($this->hasPricesEntered && ! $this->outcomesAnnounced)
                     <x-filament::button
                         size="sm"
                         color="gray"
@@ -82,7 +88,7 @@
                     </x-filament::button>
                 @endif
 
-                @if($this->selectedSuppliersCount > 0)
+                @if($this->selectedSuppliersCount > 0 && ! $this->outcomesAnnounced)
                     <x-filament::button
                         size="sm"
                         color="gray"
@@ -99,6 +105,18 @@
                         icon="heroicon-o-check-circle"
                     >
                         Apply
+                    </x-filament::button>
+                @endif
+
+                @if($this->hasAppliedSelections && ! $this->outcomesAnnounced)
+                    <x-filament::button
+                        size="sm"
+                        color="warning"
+                        wire:click="announceOutcomes"
+                        wire:confirm="Announce outcomes to suppliers? Losing quotes will be marked as rejected, suppliers will be notified of their result, and selections will be locked for this request. This cannot be undone."
+                        icon="heroicon-o-megaphone"
+                    >
+                        Announce Outcomes
                     </x-filament::button>
                 @endif
             </div>

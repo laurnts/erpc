@@ -54,6 +54,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property int|null $submitted_by_user_id
  * @property Carbon|null $declined_at
  * @property Carbon|null $sent_to_supplier_at
+ * @property Carbon|null $outcomes_announced_at
  * @property string|null $notes
  * @property string|null $internal_notes
  * @property array<string, mixed>|null $notification_metadata
@@ -149,6 +150,7 @@ final class SupplierQuote extends Model implements HasMedia
             'submitted_at' => 'datetime',
             'declined_at' => 'datetime',
             'sent_to_supplier_at' => 'datetime',
+            'outcomes_announced_at' => 'datetime',
             'notification_metadata' => 'array',
         ];
     }

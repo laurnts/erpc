@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Supplier\Pages;
 
 use App\Filament\Supplier\Widgets\SupplierOpenRfqsWidget;
+use App\Filament\Supplier\Widgets\SupplierRfqOutcomesWidget;
 use App\Filament\Supplier\Widgets\SupplierStalePricesWidget;
 use Filament\Pages\Dashboard as BaseDashboard;
 
@@ -24,6 +25,7 @@ final class SupplierDashboard extends BaseDashboard
         return [
             SupplierStalePricesWidget::class,
             SupplierOpenRfqsWidget::class,
+            SupplierRfqOutcomesWidget::class,
         ];
     }
 

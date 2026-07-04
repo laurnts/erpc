@@ -213,6 +213,18 @@ final class Request extends Model implements HasCustomFields, HasMedia
     }
 
     /**
+     * Whether RFQ outcomes have been announced for this request's evaluation
+     * round. Announcement is terminal: once any quote carries the stamp,
+     * selection re-application is locked and supplier-facing outcomes are live.
+     */
+    public function rfqOutcomesAnnounced(): bool
+    {
+        return $this->supplierQuotes()
+            ->whereNotNull('outcomes_announced_at')
+            ->exists();
+    }
+
+    /**
      * The buyer quotes for this request.
      *
      * @return HasMany<BuyerQuote, $this>

@@ -937,6 +937,25 @@ final class SupplierOrdersRelationManager extends RelationManager
                             ->body('One purchase order created for the selected supplier. It is in draft status and needs to be confirmed before approval.')
                             ->success()
                             ->send();
+
+                        // Prompt at PO issuance: if suppliers participated via
+                        // the portal and outcomes were never announced, remind
+                        // staff — suppliers otherwise stay "under review" forever.
+                        $hasUnannouncedPortalRound = ! $request->rfqOutcomesAnnounced()
+                            && $request->supplierQuotes()
+                                ->whereIn('status', [SupplierQuoteStatus::RECEIVED, SupplierQuoteStatus::SELECTED])
+                                ->whereNull('declined_at')
+                                ->whereNotNull('sent_to_supplier_at')
+                                ->exists();
+
+                        if ($hasUnannouncedPortalRound) {
+                            Notification::make()
+                                ->title('RFQ outcomes not announced yet')
+                                ->body('Suppliers have not been informed of the outcome of this request. Announce outcomes from the supplier quote comparison or the approved Quotation Evaluation.')
+                                ->warning()
+                                ->persistent()
+                                ->send();
+                        }
                     })
                     ->visible(fn (): bool => BuyerQuote::query()
                         ->where('request_id', $this->getOwnerRecord()->getKey())

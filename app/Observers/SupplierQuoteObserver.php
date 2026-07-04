@@ -102,10 +102,26 @@ final readonly class SupplierQuoteObserver
         }
 
         // Sync related QuotationEvaluations when quote status changes
-        // This ensures QEs reflect the current active quotes (RECEIVED/SELECTED)
-        if ($supplierQuote->wasChanged('status') && $supplierQuote->request_id !== null) {
+        // This ensures QEs reflect the current active quotes (RECEIVED/SELECTED/REJECTED).
+        // Outcome-only transitions (RECEIVED→REJECTED stamped by AnnounceRfqOutcomes)
+        // are skipped: announcing outcomes must never re-sync snapshots or reset
+        // an approved evaluation.
+        if ($supplierQuote->wasChanged('status')
+            && $supplierQuote->request_id !== null
+            && ! $this->isAnnouncedOutcomeTransition($supplierQuote)) {
             $this->syncRelatedQuotationEvaluations($supplierQuote);
         }
+    }
+
+    /**
+     * An outcome-only transition: the quote was just marked REJECTED while
+     * carrying the outcomes_announced_at stamp (set in the same save by
+     * AnnounceRfqOutcomes). Manual staff rejections (no stamp) still re-sync.
+     */
+    private function isAnnouncedOutcomeTransition(SupplierQuote $supplierQuote): bool
+    {
+        return $supplierQuote->status === SupplierQuoteStatus::REJECTED
+            && $supplierQuote->outcomes_announced_at !== null;
     }
 
     /**

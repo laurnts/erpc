@@ -32,10 +32,10 @@
 
 ## Slice 4 — Won/lost outcomes via announce
 
-- [ ] 4.1 `AnnounceRfqOutcomes` action: `markAsRejected()` on sibling RECEIVED quotes with zero selected items; fires `SupplierQuoteOutcomeNotification` (won/lost) once; locks further `applySelections()`; offered/gated at QE approval and prompted at PO issuance
-- [ ] 4.2 Widen `SupplierQuoteComparison::quotes()` and `QuotationEvaluation::syncSnapshotData()` to include REJECTED for display; `SupplierQuoteObserver` guard: outcome-only transitions skip QE re-sync/approval reset; `obtained` shortcut fires no notification
-- [ ] 4.3 Portal Won/Lost tabs + `SupplierRfqOutcomesWidget`; pre-announcement SELECTED renders "Submitted — under review"
-- [ ] 4.4 Pest tests: no notification before announce despite SELECTED churn, single notification on announce, REJECTED rows still visible in matrix/QE snapshot, approved QE not reset by announcement, round lock
+- [x] 4.1 `AnnounceRfqOutcomes` action: `markAsRejected()` on sibling RECEIVED quotes with zero selected items; fires `SupplierQuoteOutcomeNotification` (won/lost) once; locks further `applySelections()`; offered/gated at QE approval and prompted at PO issuance
+- [x] 4.2 Widen `SupplierQuoteComparison::quotes()` and `QuotationEvaluation::syncSnapshotData()` to include REJECTED for display; `SupplierQuoteObserver` guard: outcome-only transitions skip QE re-sync/approval reset; `obtained` shortcut fires no notification
+- [x] 4.3 Portal Won/Lost tabs + `SupplierRfqOutcomesWidget`; pre-announcement SELECTED renders "Submitted — under review"
+- [x] 4.4 Pest tests: no notification before announce despite SELECTED churn, single notification on announce, REJECTED rows still visible in matrix/QE snapshot, approved QE not reset by announcement, round lock
 
 ## Slice 5 — Catalog price plumbing (admin-only; parallel after Slice 1)
 

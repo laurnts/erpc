@@ -91,8 +91,17 @@ final class ViewSupplierRfq extends ViewRecord
                                     ->label('Line Total')
                                     ->formatStateUsing(fn (SupplierQuoteItem $record): string => $record->formatted_line_total)
                                     ->visible(fn (): bool => $this->quoteRecord()->submitted_at !== null),
+                                TextEntry::make('is_selected')
+                                    ->label('Result')
+                                    ->badge()
+                                    ->getStateUsing(fn (SupplierQuoteItem $record): ?string => $record->requestItem?->parent_id !== null
+                                        ? null
+                                        : ($record->is_selected ? 'Won' : 'Not selected'))
+                                    ->color(fn (SupplierQuoteItem $record): string => $record->is_selected ? 'success' : 'gray')
+                                    ->placeholder('—')
+                                    ->visible(fn (): bool => $this->quoteRecord()->outcomes_announced_at !== null),
                             ])
-                            ->columns(6),
+                            ->columns($this->quoteRecord()->outcomes_announced_at !== null ? 7 : 6),
                     ]),
             ]);
     }

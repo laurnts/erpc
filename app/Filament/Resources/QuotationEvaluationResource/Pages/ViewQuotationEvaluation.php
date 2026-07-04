@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\QuotationEvaluationResource\Pages;
 
+use App\Actions\SupplierPortal\AnnounceRfqOutcomes;
 use App\Enums\CentralPurchasingRole;
+use App\Enums\QEStatus;
+use App\Enums\SupplierQuoteStatus;
 use App\Filament\Resources\MemberResource;
 use App\Filament\Resources\QuotationEvaluationResource;
 use App\Filament\Resources\RequestResource;
@@ -31,10 +34,10 @@ final class ViewQuotationEvaluation extends ViewRecord
     /** @var class-string<QuotationEvaluationResource> */
     protected static string $resource = QuotationEvaluationResource::class;
 
-    public function mount(int | string $record): void
+    public function mount(int|string $record): void
     {
         parent::mount($record);
-        
+
         // Ensure relationships are loaded
         $this->record->load(['preparedBy', 'deptHeadSales', 'deputyDirector', 'approvedBy']);
     }
@@ -43,7 +46,7 @@ final class ViewQuotationEvaluation extends ViewRecord
     {
         // Ensure relationships are loaded before infolist renders
         $this->record->loadMissing(['preparedBy', 'deptHeadSales', 'deputyDirector', 'approvedBy']);
-        
+
         return $data;
     }
 
@@ -70,6 +73,14 @@ final class ViewQuotationEvaluation extends ViewRecord
                             ->success()
                             ->send();
 
+                        if ($record->status === QEStatus::APPROVED && $this->canAnnounceRfqOutcomes($record)) {
+                            Notification::make()
+                                ->title('Announce RFQ outcomes?')
+                                ->body('The evaluation is fully approved. You can now announce won/lost outcomes to the suppliers from this page.')
+                                ->info()
+                                ->send();
+                        }
+
                         // Refresh the page to show updated status
                         $this->redirect(QuotationEvaluationResource::getUrl('view', ['record' => $record]));
                     } catch (\InvalidArgumentException $e) {
@@ -81,6 +92,38 @@ final class ViewQuotationEvaluation extends ViewRecord
                     }
                 })
                 ->visible(fn (QuotationEvaluation $record): bool => $record->canBeApprovedBy(auth()->user())),
+            Action::make('announceOutcomes')
+                ->label('Announce RFQ Outcomes')
+                ->icon('heroicon-o-megaphone')
+                ->color('warning')
+                ->requiresConfirmation()
+                ->modalHeading('Announce RFQ outcomes to suppliers?')
+                ->modalDescription('Losing quotes will be marked as rejected, suppliers will be notified of their result, and supplier selections will be locked for this request. This cannot be undone.')
+                ->visible(fn (QuotationEvaluation $record): bool => $this->canAnnounceRfqOutcomes($record))
+                ->action(function (QuotationEvaluation $record): void {
+                    $request = $record->request;
+                    $result = $request === null ? null : app(AnnounceRfqOutcomes::class)->execute($request);
+
+                    if ($result === null) {
+                        Notification::make()
+                            ->title('Nothing to announce')
+                            ->body('Outcomes were already announced, or there are no evaluated quotes for this request.')
+                            ->warning()
+                            ->send();
+
+                        return;
+                    }
+
+                    Notification::make()
+                        ->title('Outcomes announced')
+                        ->body(sprintf(
+                            '%d winning and %d losing quote(s) finalized. Suppliers have been notified and selections are now locked.',
+                            $result['winners'],
+                            $result['losers'],
+                        ))
+                        ->success()
+                        ->send();
+                }),
             ActionGroup::make([
                 EditAction::make()
                     ->url(null)
@@ -159,6 +202,29 @@ final class ViewQuotationEvaluation extends ViewRecord
         ];
     }
 
+    /**
+     * The announce action is offered at (and gated by) QE approval: the QE
+     * must be fully approved, the round not yet announced, and evaluated
+     * quotes must exist to announce.
+     */
+    private function canAnnounceRfqOutcomes(QuotationEvaluation $record): bool
+    {
+        if ($record->status !== QEStatus::APPROVED) {
+            return false;
+        }
+
+        $request = $record->request;
+
+        if ($request === null || $request->rfqOutcomesAnnounced()) {
+            return false;
+        }
+
+        return $request->supplierQuotes()
+            ->whereIn('status', [SupplierQuoteStatus::RECEIVED, SupplierQuoteStatus::SELECTED])
+            ->whereNull('declined_at')
+            ->exists();
+    }
+
     public function infolist(Schema $schema): Schema
     {
         return $schema
@@ -225,14 +291,14 @@ final class ViewQuotationEvaluation extends ViewRecord
                                 if (! $record->preparedBy) {
                                     return null;
                                 }
-                                
+
                                 // Verify user has correct role
                                 $membership = Membership::where('team_id', $record->team_id)
                                     ->where('user_id', $record->prepared_by_id)
                                     ->where('role', 'central_purchasing')
                                     ->where('central_purchasing_role', CentralPurchasingRole::KEY_ACCOUNT->value)
                                     ->first();
-                                
+
                                 return $membership ? $record->preparedBy->name : null;
                             })
                             ->placeholder('—')
@@ -243,6 +309,7 @@ final class ViewQuotationEvaluation extends ViewRecord
                                 $membership = Membership::where('team_id', $record->team_id)
                                     ->where('user_id', $record->prepared_by_id)
                                     ->first();
+
                                 return $membership ? MemberResource::getUrl('view', ['record' => $membership]) : null;
                             })
                             ->color('primary'),
@@ -253,30 +320,31 @@ final class ViewQuotationEvaluation extends ViewRecord
                                 if (! $record->deptHeadSales) {
                                     return null;
                                 }
-                                
+
                                 // Verify user has correct role
                                 $membership = Membership::where('team_id', $record->team_id)
                                     ->where('user_id', $record->dept_head_sales_id)
                                     ->where('role', 'central_purchasing')
                                     ->where('central_purchasing_role', CentralPurchasingRole::DEPT_HEAD_SALES->value)
                                     ->first();
-                                
+
                                 return $membership ? $record->deptHeadSales->name : null;
                             })
                             ->formatStateUsing(function (?string $state, ?QuotationEvaluation $record): HtmlString|string|null {
                                 if ($state === null || $record === null) {
                                     return $state;
                                 }
-                                
+
                                 // Add approved badge if approved
                                 if ($record->hasDeptHeadSalesApproved()) {
                                     $approvedDate = $record->dept_head_sales_approved_at?->format('M j, Y');
+
                                     return new HtmlString(
-                                        $state . ' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span><br/>' .
-                                        ($approvedDate ? ' <span style="font-size: 0.75rem; color: #6b7280;">(' . $approvedDate . ')</span>' : '')
+                                        $state.' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span><br/>'.
+                                        ($approvedDate ? ' <span style="font-size: 0.75rem; color: #6b7280;">('.$approvedDate.')</span>' : '')
                                     );
                                 }
-                                
+
                                 return $state;
                             })
                             ->placeholder('—')
@@ -287,6 +355,7 @@ final class ViewQuotationEvaluation extends ViewRecord
                                 $membership = Membership::where('team_id', $record->team_id)
                                     ->where('user_id', $record->dept_head_sales_id)
                                     ->first();
+
                                 return $membership ? MemberResource::getUrl('view', ['record' => $membership]) : null;
                             })
                             ->color('primary'),
@@ -297,30 +366,31 @@ final class ViewQuotationEvaluation extends ViewRecord
                                 if (! $record->deputyDirector) {
                                     return null;
                                 }
-                                
+
                                 // Verify user has correct role
                                 $membership = Membership::where('team_id', $record->team_id)
                                     ->where('user_id', $record->deputy_director_id)
                                     ->where('role', 'central_purchasing')
                                     ->where('central_purchasing_role', CentralPurchasingRole::DEPUTY_DIRECTOR->value)
                                     ->first();
-                                
+
                                 return $membership ? $record->deputyDirector->name : null;
                             })
                             ->formatStateUsing(function (?string $state, ?QuotationEvaluation $record): HtmlString|string|null {
                                 if ($state === null || $record === null) {
                                     return $state;
                                 }
-                                
+
                                 // Add approved badge if approved
                                 if ($record->hasDeputyDirectorApproved()) {
                                     $approvedDate = $record->deputy_director_approved_at?->format('M j, Y');
+
                                     return new HtmlString(
-                                        $state . ' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span><br/>' .
-                                        ($approvedDate ? ' <span style="font-size: 0.75rem; color: #6b7280;">(' . $approvedDate . ')</span>' : '')
+                                        $state.' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span><br/>'.
+                                        ($approvedDate ? ' <span style="font-size: 0.75rem; color: #6b7280;">('.$approvedDate.')</span>' : '')
                                     );
                                 }
-                                
+
                                 return $state;
                             })
                             ->placeholder('—')
@@ -331,6 +401,7 @@ final class ViewQuotationEvaluation extends ViewRecord
                                 $membership = Membership::where('team_id', $record->team_id)
                                     ->where('user_id', $record->deputy_director_id)
                                     ->first();
+
                                 return $membership ? MemberResource::getUrl('view', ['record' => $membership]) : null;
                             })
                             ->color('primary'),
@@ -341,30 +412,31 @@ final class ViewQuotationEvaluation extends ViewRecord
                                 if (! $record->approvedBy) {
                                     return null;
                                 }
-                                
+
                                 // Verify user has correct role
                                 $membership = Membership::where('team_id', $record->team_id)
                                     ->where('user_id', $record->approved_by_id)
                                     ->where('role', 'central_purchasing')
                                     ->where('central_purchasing_role', CentralPurchasingRole::DIRECTOR->value)
                                     ->first();
-                                
+
                                 return $membership ? $record->approvedBy->name : null;
                             })
                             ->formatStateUsing(function (?string $state, ?QuotationEvaluation $record): HtmlString|string|null {
                                 if ($state === null || $record === null) {
                                     return $state;
                                 }
-                                
+
                                 // Add approved badge if approved
                                 if ($record->hasDirectorApproved()) {
                                     $approvedDate = $record->director_approved_at?->format('M j, Y');
+
                                     return new HtmlString(
-                                        $state . ' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span><br/>' .
-                                        ($approvedDate ? ' <span style="font-size: 0.75rem; color: #6b7280;">(' . $approvedDate . ')</span>' : '')
+                                        $state.' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span><br/>'.
+                                        ($approvedDate ? ' <span style="font-size: 0.75rem; color: #6b7280;">('.$approvedDate.')</span>' : '')
                                     );
                                 }
-                                
+
                                 return $state;
                             })
                             ->placeholder('—')
@@ -375,6 +447,7 @@ final class ViewQuotationEvaluation extends ViewRecord
                                 $membership = Membership::where('team_id', $record->team_id)
                                     ->where('user_id', $record->approved_by_id)
                                     ->first();
+
                                 return $membership ? MemberResource::getUrl('view', ['record' => $membership]) : null;
                             })
                             ->color('primary'),

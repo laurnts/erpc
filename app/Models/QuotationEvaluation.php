@@ -442,9 +442,11 @@ final class QuotationEvaluation extends Model implements HasMedia
         // requests keep the existing total_base ordering unchanged.
         $isMixedRequest = $this->request->hasGoodsItems() && $this->request->hasServiceItems();
 
-        // Get all active quotes
+        // Get all active quotes. REJECTED is included for display: once
+        // outcomes are announced, losers become REJECTED but must keep
+        // appearing in the snapshot so the full competitive picture survives.
         $quotes = $this->request->supplierQuotes()
-            ->whereIn('status', [SupplierQuoteStatus::RECEIVED, SupplierQuoteStatus::SELECTED])
+            ->whereIn('status', [SupplierQuoteStatus::RECEIVED, SupplierQuoteStatus::SELECTED, SupplierQuoteStatus::REJECTED])
             ->with(['supplier', 'currency', 'items.requestItem'])
             ->orderBy('total_base')
             ->get();

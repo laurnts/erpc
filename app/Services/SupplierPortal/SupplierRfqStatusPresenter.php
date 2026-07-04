@@ -9,10 +9,11 @@ use App\Models\SupplierQuote;
 
 /**
  * Supplier-facing status vocabulary. Precedence: a decline stamp always wins
- * (a declined quote never reads "Expired"); pre-announcement evaluation
- * churn (RECEIVED/SELECTED/REJECTED) renders uniformly as
- * "Submitted — under review" so internal selection state never leaks.
- * Announced Won/Lost labels land with the outcome-announcement slice.
+ * (a declined quote never reads "Expired"); announced outcomes come next
+ * ("Won" / "Not selected" — the internal REJECTED vocabulary never leaks);
+ * pre-announcement evaluation churn (RECEIVED/SELECTED/REJECTED) renders
+ * uniformly as "Submitted — under review" so internal selection state never
+ * leaks before the explicit outcome announcement.
  */
 final readonly class SupplierRfqStatusPresenter
 {
@@ -20,6 +21,16 @@ final readonly class SupplierRfqStatusPresenter
     {
         if ($quote->declined_at !== null) {
             return 'Declined';
+        }
+
+        if ($quote->outcomes_announced_at !== null) {
+            if ($quote->status === SupplierQuoteStatus::REJECTED) {
+                return 'Not selected';
+            }
+
+            if ($quote->status === SupplierQuoteStatus::SELECTED || $quote->status === SupplierQuoteStatus::RECEIVED) {
+                return 'Won';
+            }
         }
 
         return match ($quote->status) {
@@ -35,6 +46,16 @@ final readonly class SupplierRfqStatusPresenter
     {
         if ($quote->declined_at !== null) {
             return 'danger';
+        }
+
+        if ($quote->outcomes_announced_at !== null) {
+            if ($quote->status === SupplierQuoteStatus::REJECTED) {
+                return 'gray';
+            }
+
+            if ($quote->status === SupplierQuoteStatus::SELECTED || $quote->status === SupplierQuoteStatus::RECEIVED) {
+                return 'success';
+            }
         }
 
         return match ($quote->status) {
