@@ -92,6 +92,27 @@ final readonly class SupplierOrderPolicy
             && $supplierOrder->is_editable;
     }
 
+    public function send(User $user, SupplierOrder $supplierOrder): bool
+    {
+        if ($this->isAdmin($user)) {
+            return $user->belongsToTeam($supplierOrder->team);
+        }
+
+        return $user->belongsToTeam($supplierOrder->team)
+            && $user->hasPermissionTo('update supplier orders');
+    }
+
+    public function cancel(User $user, SupplierOrder $supplierOrder): bool
+    {
+        if ($this->isAdmin($user)) {
+            return $user->belongsToTeam($supplierOrder->team) && $supplierOrder->is_cancellable;
+        }
+
+        return $user->belongsToTeam($supplierOrder->team)
+            && $user->hasPermissionTo('update supplier orders')
+            && $supplierOrder->is_cancellable;
+    }
+
     public function delete(User $user, SupplierOrder $supplierOrder): bool
     {
         if ($this->isAdmin($user)) {

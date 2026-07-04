@@ -139,6 +139,21 @@ final readonly class BuyerOrderPolicy
     }
 
     /**
+     * Determine if the user can send (or resend) the order to the buyer.
+     * Status rules stay with BuyerOrder::markAsSent() and the action's
+     * visibility; this gates the capability only.
+     */
+    public function send(User $user, BuyerOrder $buyerOrder): bool
+    {
+        if ($this->isAdmin($user)) {
+            return $user->belongsToTeam($buyerOrder->team);
+        }
+
+        return $user->belongsToTeam($buyerOrder->team)
+            && $user->hasPermissionTo('update buyer orders');
+    }
+
+    /**
      * Determine if the user can cancel the order.
      */
     public function cancel(User $user, BuyerOrder $buyerOrder): bool

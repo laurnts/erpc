@@ -1051,7 +1051,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                             'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // docx
                         ])
                         ->disk('local')
-                        ->directory('buyer-quotes/po-files')
+                        ->directory(BuyerQuote::PO_FILES_UPLOAD_DIRECTORY)
                         ->visibility('private')
                         ->downloadable()
                         ->openable()
@@ -1878,6 +1878,14 @@ final class BuyerQuotesRelationManager extends RelationManager
                     ->icon('heroicon-o-paper-airplane')
                     ->size(Size::Small)
                     ->color('info')
+                    ->authorize(function () use ($request): bool {
+                        $draftQuote = $request->buyerQuotes()
+                            ->where('status', BuyerQuoteStatus::DRAFT)
+                            ->latest()
+                            ->first();
+
+                        return $draftQuote !== null && auth()->user()?->can('send', $draftQuote) === true;
+                    })
                     ->visible(function () use ($request): bool {
                         if (! $request->buyerQuotes()->where('status', BuyerQuoteStatus::DRAFT)->exists()) {
                             return false;
@@ -2233,6 +2241,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->label('Resend')
                         ->icon('heroicon-o-arrow-path')
                         ->color('info')
+                        ->authorize(fn (?BuyerQuote $record): bool => $record !== null && auth()->user()?->can('update', $record) === true)
                         ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->status === BuyerQuoteStatus::SENT)
                         ->requiresConfirmation()
                         ->modalHeading('Resend quote email?')
@@ -2320,6 +2329,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->label('Reject')
                         ->icon('heroicon-o-x-circle')
                         ->color('danger')
+                        ->authorize(fn (?BuyerQuote $record): bool => $record !== null && auth()->user()?->can('update', $record) === true)
                         ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->status === BuyerQuoteStatus::SENT)
                         ->requiresConfirmation()
                         ->modalHeading('Reject this quote?')
