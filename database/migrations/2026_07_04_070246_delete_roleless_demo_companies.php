@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -39,7 +40,9 @@ return new class extends Migration
             return;
         }
 
-        DB::table('opportunities')->whereIn('company_id', $companyIds)->delete();
+        if (Schema::hasTable('opportunities')) {
+            DB::table('opportunities')->whereIn('company_id', $companyIds)->delete();
+        }
 
         $this->deletePolymorphicAttachments('noteables', 'noteable', 'notes', 'note_id', $companyIds->all());
         $this->deletePolymorphicAttachments('taskables', 'taskable', 'tasks', 'task_id', $companyIds->all());

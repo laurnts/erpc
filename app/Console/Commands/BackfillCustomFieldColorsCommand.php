@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Enums\CustomFields\OpportunityField as OpportunityCustomField;
 use App\Enums\CustomFields\TaskField as TaskCustomField;
 use Illuminate\Console\Command;
 use Relaticle\CustomFields\Data\CustomFieldOptionSettingsData;
@@ -27,7 +26,7 @@ final class BackfillCustomFieldColorsCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Backfill colors for existing custom field options (Task status/priority and Opportunity stages)';
+    protected $description = 'Backfill colors for existing custom field options (Task status/priority)';
 
     /**
      * Execute the console command.
@@ -45,8 +44,8 @@ final class BackfillCustomFieldColorsCommand extends Command
 
         // Get fields to update
         $query = CustomField::with('options')
-            ->whereIn('name', ['Status', 'Priority', 'Stage'])
-            ->whereIn('entity_type', [\App\Models\Task::class, \App\Models\Opportunity::class])
+            ->whereIn('name', ['Status', 'Priority'])
+            ->whereIn('entity_type', [\App\Models\Task::class])
             ->where('type', 'select');
 
         if ($specificTeam) {
@@ -139,7 +138,6 @@ final class BackfillCustomFieldColorsCommand extends Command
         return match ([$field->entity_type, $field->name]) {
             [\App\Models\Task::class, 'Status'] => TaskCustomField::STATUS->getOptionColors(),
             [\App\Models\Task::class, 'Priority'] => TaskCustomField::PRIORITY->getOptionColors(),
-            [\App\Models\Opportunity::class, 'Stage'] => OpportunityCustomField::STAGE->getOptionColors(),
             default => null,
         };
     }

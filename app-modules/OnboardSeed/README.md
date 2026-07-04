@@ -78,7 +78,7 @@ The module supports defining different types of relationships directly in YAML f
     - For notes, use `noteable_type: company` (not `noteable_type: companies`)
 - **Registry Keys**: Always use the plural form of the entity type
     - Internally, entities are stored in the registry with plural keys
-    - Example: `companies`, `people`, `opportunities`
+    - Example: `companies`, `people`, `tasks`
 - **Relationship Lists**: Use plural form of the entity type
     - Example: `assigned_people`, `related_tasks`
 

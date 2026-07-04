@@ -435,7 +435,7 @@ final class InstallCommand extends Command
             $this->newLine();
             $this->line('  <options=bold>Demo data included:</>');
             $this->line('  • Sample companies and contacts');
-            $this->line('  • Example opportunities and tasks');
+            $this->line('  • Example tasks and notes');
             $this->line('  • Pre-configured custom fields');
         }
 

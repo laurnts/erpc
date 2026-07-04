@@ -210,14 +210,6 @@ final class Company extends Model implements HasCustomFields, HasMedia
     }
 
     /**
-     * @return HasMany<Opportunity, $this>
-     */
-    public function opportunities(): HasMany
-    {
-        return $this->hasMany(Opportunity::class);
-    }
-
-    /**
      * Key accounts (team members with Central Purchasing Key Account role) assigned to handle this buyer.
      *
      * @return BelongsToMany<User, $this>

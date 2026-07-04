@@ -26,6 +26,7 @@ final class Team extends JetstreamTeam implements HasAvatar, HasMedia
 {
     /** @use HasFactory<TeamFactory> */
     use HasFactory;
+
     use InteractsWithMedia;
 
     /**
@@ -125,14 +126,6 @@ final class Team extends JetstreamTeam implements HasAvatar, HasMedia
     public function tasks(): HasMany
     {
         return $this->hasMany(Task::class);
-    }
-
-    /**
-     * @return HasMany<Opportunity, $this>
-     */
-    public function opportunities(): HasMany
-    {
-        return $this->hasMany(Opportunity::class);
     }
 
     /**

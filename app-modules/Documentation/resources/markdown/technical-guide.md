@@ -39,7 +39,6 @@ Relaticle's data structure revolves around these key models:
 - **User**: System users with authentication and permissions
 - **Company**: Organizations your business interacts with
 - **People**: Individual contacts at companies
-- **Opportunity**: Potential deals in the sales pipeline
 - **Task**: Actionable items assigned to users
 - **Note**: Documentation of interactions and important information
 
@@ -48,9 +47,7 @@ Relaticle's data structure revolves around these key models:
 - Teams have many Users (through Memberships)
 - Companies belong to Teams
 - Companies have many People
-- Companies have many Opportunities
 - People belong to Companies
-- Opportunities belong to Companies
 - Tasks can be associated with various models (polymorphic)
 - Notes can be associated with various models (polymorphic)
 

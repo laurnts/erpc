@@ -15,7 +15,6 @@ title: "Entity Title"
 # The value should be the key of an existing fixture
 company: company_key   # NOT 'companies: company_key'
 person: person_key     # NOT 'people: person_key'
-opportunity: opportunity_key
 
 # Many-to-many relationships
 # --------------------------

@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace App\Services\AI;
 
 use App\Enums\CustomFields\NoteField;
-use App\Enums\CustomFields\OpportunityField;
 use App\Enums\CustomFields\PeopleField;
 use App\Enums\CustomFields\TaskField;
 use App\Models\Company;
 use App\Models\Note;
-use App\Models\Opportunity;
 use App\Models\People;
 use App\Models\Task;
 use Closure;
@@ -34,7 +32,6 @@ final readonly class RecordContextBuilder
         return match (true) {
             $record instanceof Company => $this->buildCompanyContext($record),
             $record instanceof People => $this->buildPeopleContext($record),
-            $record instanceof Opportunity => $this->buildOpportunityContext($record),
             default => throw new InvalidArgumentException('Unsupported record type: '.$record::class),
         };
     }
@@ -44,14 +41,13 @@ final readonly class RecordContextBuilder
      */
     private function buildCompanyContext(Company $company): array
     {
-        $company->loadCount(['notes', 'tasks', 'opportunities', 'people']);
+        $company->loadCount(['notes', 'tasks', 'people']);
 
         $company->load([
             'accountOwner',
             'customFieldValues.customField',
             'notes' => $this->recentWithCustomFields('notes'),
             'tasks' => $this->recentWithCustomFields('tasks'),
-            'opportunities' => $this->recentWithCustomFields('opportunities'),
         ]);
 
         return [
@@ -60,9 +56,7 @@ final readonly class RecordContextBuilder
             'basic_info' => $this->getCompanyBasicInfo($company),
             'relationships' => [
                 'people_count' => $company->people_count,
-                'opportunities_count' => $company->opportunities_count,
             ],
-            'opportunities' => $this->formatOpportunities($company->opportunities, $company->opportunities_count),
             'notes' => $this->formatNotes($company->notes, $company->notes_count),
             'tasks' => $this->formatTasks($company->tasks, $company->tasks_count),
             'last_updated' => $company->updated_at?->diffForHumans(),
@@ -96,34 +90,6 @@ final readonly class RecordContextBuilder
         ];
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    private function buildOpportunityContext(Opportunity $opportunity): array
-    {
-        $opportunity->loadCount(['notes', 'tasks']);
-
-        $opportunity->load([
-            'company',
-            'contact',
-            'customFieldValues.customField',
-            'notes' => $this->recentWithCustomFields('notes'),
-            'tasks' => $this->recentWithCustomFields('tasks'),
-        ]);
-
-        return [
-            'entity_type' => 'Opportunity',
-            'name' => $this->getOpportunityName($opportunity),
-            'basic_info' => $this->getOpportunityBasicInfo($opportunity),
-            'company' => $opportunity->company?->name,
-            'contact' => $opportunity->contact?->name,
-            'notes' => $this->formatNotes($opportunity->notes, $opportunity->notes_count),
-            'tasks' => $this->formatTasks($opportunity->tasks, $opportunity->tasks_count),
-            'last_updated' => $opportunity->updated_at?->diffForHumans(),
-            'created' => $opportunity->created_at?->diffForHumans(),
-        ];
-    }
-
     private function recentWithCustomFields(string $table): Closure
     {
         return fn (Relation $query): Relation => $query
@@ -154,28 +120,6 @@ final readonly class RecordContextBuilder
             'job_title' => $this->getCustomFieldValue($person, PeopleField::JOB_TITLE->value),
             'emails' => is_array($emails) ? implode(', ', $emails) : $emails,
         ])->filter(fn (mixed $value): bool => filled($value))->all();
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function getOpportunityBasicInfo(Opportunity $opportunity): array
-    {
-        $amount = $this->getCustomFieldValue($opportunity, OpportunityField::AMOUNT->value);
-        $closeDate = $this->getCustomFieldValue($opportunity, OpportunityField::CLOSE_DATE->value);
-
-        return collect([
-            'stage' => $this->getCustomFieldValue($opportunity, OpportunityField::STAGE->value),
-            'amount' => filled($amount) ? '$'.number_format((float) $amount, 2) : null,
-            'close_date' => $this->formatDate($closeDate),
-        ])->filter(fn (mixed $value): bool => filled($value))->all();
-    }
-
-    private function getOpportunityName(Opportunity $opportunity): string
-    {
-        $stage = $this->getCustomFieldValue($opportunity, OpportunityField::STAGE->value);
-
-        return $opportunity->company?->name.' - '.($stage ?? 'Opportunity');
     }
 
     /**
@@ -213,28 +157,6 @@ final readonly class RecordContextBuilder
             'priority' => $this->getCustomFieldValue($task, TaskField::PRIORITY->value),
             'due_date' => $this->formatDate($this->getCustomFieldValue($task, TaskField::DUE_DATE->value)),
         ])->values()->all();
-
-        return $this->withPaginationInfo($formatted, $totalCount);
-    }
-
-    /**
-     * @param  Collection<int, Opportunity>|null  $opportunities
-     * @return array<string, mixed>
-     */
-    private function formatOpportunities(?Collection $opportunities, int $totalCount): array
-    {
-        if ($opportunities === null) {
-            return $this->withPaginationInfo([], $totalCount);
-        }
-
-        $formatted = $opportunities->map(function (Opportunity $opportunity): array {
-            $amount = $this->getCustomFieldValue($opportunity, OpportunityField::AMOUNT->value);
-
-            return [
-                'stage' => $this->getCustomFieldValue($opportunity, OpportunityField::STAGE->value),
-                'amount' => filled($amount) ? '$'.number_format((float) $amount, 2) : null,
-            ];
-        })->values()->all();
 
         return $this->withPaginationInfo($formatted, $totalCount);
     }

@@ -74,14 +74,6 @@ final class TeamPerformanceTableWidget extends BaseWidget
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->description('Feature temporarily disabled'),
 
-                Tables\Columns\TextColumn::make('opportunities_created')
-                    ->label('Opportunities')
-                    ->numeric()
-                    ->sortable()
-                    ->alignCenter()
-                    ->badge()
-                    ->color('info'),
-
                 Tables\Columns\TextColumn::make('companies_created')
                     ->label('Companies')
                     ->numeric()
@@ -102,7 +94,7 @@ final class TeamPerformanceTableWidget extends BaseWidget
             ->defaultPaginationPageOption(10)
             ->striped()
             ->emptyStateHeading('No Team Activity')
-            ->emptyStateDescription('User performance data will appear here once team members start creating tasks, opportunities, and companies')
+            ->emptyStateDescription('User performance data will appear here once team members start creating tasks and companies')
             ->emptyStateIcon('heroicon-o-users');
     }
 
@@ -121,11 +113,9 @@ final class TeamPerformanceTableWidget extends BaseWidget
                 DB::raw("(SELECT COUNT(*) FROM tasks WHERE tasks.creator_id = users.id AND tasks.deleted_at IS NULL AND tasks.creation_source != '{$systemSource}') as tasks_created"),
                 DB::raw('0 as tasks_completed'),
                 DB::raw('0 as completion_rate'),
-                DB::raw("(SELECT COUNT(*) FROM opportunities WHERE opportunities.creator_id = users.id AND opportunities.deleted_at IS NULL AND opportunities.creation_source != '{$systemSource}') as opportunities_created"),
                 DB::raw("(SELECT COUNT(*) FROM companies WHERE companies.creator_id = users.id AND companies.deleted_at IS NULL AND companies.creation_source != '{$systemSource}') as companies_created"),
                 DB::raw("GREATEST(
                     COALESCE((SELECT MAX(created_at) FROM tasks WHERE creator_id = users.id AND creation_source != '{$systemSource}'), '1970-01-01'),
-                    COALESCE((SELECT MAX(created_at) FROM opportunities WHERE creator_id = users.id AND creation_source != '{$systemSource}'), '1970-01-01'),
                     COALESCE((SELECT MAX(created_at) FROM companies WHERE creator_id = users.id AND creation_source != '{$systemSource}'), '1970-01-01'),
                     COALESCE((SELECT MAX(created_at) FROM notes WHERE creator_id = users.id AND creation_source != '{$systemSource}'), '1970-01-01')
                 ) as last_activity"),
@@ -136,13 +126,6 @@ final class TeamPerformanceTableWidget extends BaseWidget
                     ->whereColumn('tasks.creator_id', 'users.id')
                     ->where('tasks.creation_source', '!=', $systemSource)
                     ->whereNull('tasks.deleted_at');
-            })
-            ->orWhereExists(function (QueryBuilder $query) use ($systemSource): void {
-                $query->select(DB::raw(1))
-                    ->from('opportunities')
-                    ->whereColumn('opportunities.creator_id', 'users.id')
-                    ->where('opportunities.creation_source', '!=', $systemSource)
-                    ->whereNull('opportunities.deleted_at');
             })
             ->orWhereExists(function (QueryBuilder $query) use ($systemSource): void {
                 $query->select(DB::raw(1))

@@ -2,31 +2,31 @@
 
 ## 1. Detach references from surviving entities
 
-- [ ] 1.1 Remove `opportunities()` relations from `Company` and `Team`; remove the opportunity morph relation from `Task` and the opportunity noteable relation from `Note`; drop opportunity options/params from `NoteForm` and `TaskForm` (and any Note/Task resource columns or filters that surface opportunities)
-- [ ] 1.2 Remove `buildOpportunityContext()` and opportunity branches from `RecordContextBuilder`/`RecordSummaryService`
-- [ ] 1.3 Remove custom-fields integration: `App\Enums\CustomFields\OpportunityField`, the `CreateTeamCustomFields` map entry, the `config/custom-fields.php` entry, and opportunity handling in `BackfillCustomFieldColorsCommand`
-- [ ] 1.4 Remove the `'opportunity'` morph map entry and the `Opportunity` TeamScope wiring in `ApplyTenantScopes`
+- [x] 1.1 Removed `opportunities()` relations from `Company`, `Team`, and `User`; removed the opportunity morph relations from `Task` and `Note`; Note/Task forms had no opportunity fields (the exclude-param usage was a no-op); removed the opportunities count column from `CompanyExporter`
+- [x] 1.2 Removed `buildOpportunityContext()`, `formatOpportunities()`, and related helpers from `RecordContextBuilder`; removed `addOpportunities()` from `RecordSummaryService`; removed opportunities from `InvalidatesRelatedAiSummaries`
+- [x] 1.3 Removed custom-fields integration: `OpportunityField` enum deleted, `CreateTeamCustomFields` map + union types updated, `config/custom-fields.php` entry removed, `BackfillCustomFieldColorsCommand` restricted to Task fields
+- [x] 1.4 Removed the `'opportunity'` morph map entry and the Opportunity TeamScope wiring in `ApplyTenantScopes`
 
 ## 2. Delete Opportunity code
 
-- [ ] 2.1 Delete app Filament surfaces: `OpportunityResource` (+ Pages, Forms, RelationManagers), `OpportunitiesBoard`, `OpportunityImporter`, `OpportunityExporter`
-- [ ] 2.2 Delete SystemAdmin surfaces: `OpportunityResource` (+ Pages) and `OpportunityPolicy`; strip opportunity/pipeline metrics from `BusinessOverviewWidget` and `SalesAnalyticsChartWidget`
-- [ ] 2.3 Delete `App\Models\Opportunity`, `OpportunityFactory`, `OpportunityObserver`, `App\Policies\OpportunityPolicy` (and observer/policy registrations)
-- [ ] 2.4 Delete OnboardSeed `OpportunitySeeder`, its `$entitySeederSequence` entry, and the 4 opportunity fixture YAMLs
+- [x] 2.1 Deleted `OpportunityResource` (+ Pages, Forms, RelationManagers), `OpportunitiesBoard`, `OpportunityImporter`, `OpportunityExporter`
+- [x] 2.2 Deleted SystemAdmin `OpportunityResource` (+ Pages) and `OpportunityPolicy`; deleted `SalesAnalyticsChartWidget` (entirely pipeline-based); stripped pipeline/opportunity stats from `BusinessOverviewWidget` and `TeamPerformanceTableWidget`
+- [x] 2.3 Deleted `Opportunity` model, `OpportunityFactory`, `OpportunityObserver` (attribute-registered, no separate registration), `App\Policies\OpportunityPolicy`
+- [x] 2.4 Deleted OnboardSeed `OpportunitySeeder`, its sequence entry, the 4 fixture YAMLs, the NoteSeeder type-map entry, and the fixture template reference
 
 ## 3. Database cleanup
 
-- [ ] 3.1 New idempotent migration: delete opportunity-typed rows from `noteables`/`taskables`, opportunity custom-field definitions/options/values, opportunity AI summary rows; then drop the `opportunities` table
-- [ ] 3.2 Run the migration locally and verify the table and residue are gone
+- [x] 3.1 Migration `2026_07_04_094354_remove_opportunities_entity`: purges opportunity-typed rows (both `'opportunity'` alias and FQCN forms) from `noteables`/`taskables`/`ai_summaries` and custom-fields tables (values, options, definitions, sections), then drops the table; also added a `Schema::hasTable` guard to the earlier `2026_07_04_070246` cleanup migration so its test harness re-run survives the drop
+- [x] 3.2 Ran locally; verified table gone and zero opportunity custom-field rows remain
 
 ## 4. Tests and docs
 
-- [ ] 4.1 Delete `OpportunityResourceTest`; remove opportunity cases from `CompanyTest`, `TeamTest`, `SearchableColumnsSmokeTest`, `RecordSummaryServiceTest`; rework `DemoCompanyRolesTest` to assert without the Opportunity factory
-- [ ] 4.2 Add/keep a test asserting notes and tasks still work for their remaining entities (people/companies) after the morph removal
-- [ ] 4.3 Strip opportunity feature descriptions from the Documentation module guides
-- [ ] 4.4 Verify no `Opportunit*` references remain in `app/`, `app-modules/` (excluding archived openspec content), `config/`, `database/factories/`, `tests/`
+- [x] 4.1 Deleted `OpportunityResourceTest`; removed opportunity cases from `CompanyTest`, `TeamTest`, `SearchableColumnsSmokeTest`, `RecordSummaryServiceTest`; reworked `DemoCompanyRolesTest` without the Opportunity factory
+- [x] 4.2 Notes/tasks coverage for remaining entities retained (`RecordSummaryServiceTest` note/task context tests, Note/Task resource tests — all green)
+- [x] 4.3 Stripped opportunity feature descriptions from the 4 Documentation module guides and `resources/docs/USER_GUIDE.md`
+- [x] 4.4 Reference sweep clean — remaining matches are generic English prose in two demo fixture descriptions and an email template
 
 ## 5. Validation
 
-- [ ] 5.1 `pint --dirty`, PHPStan on touched files (no new errors), affected test files green
-- [ ] 5.2 Full suite `php artisan test --compact`
+- [x] 5.1 pint clean; PHPStan on touched files shows no new errors (3 remaining findings pre-date this change in untouched code); affected test files green (126 tests)
+- [x] 5.2 Full suite `php artisan test --compact`

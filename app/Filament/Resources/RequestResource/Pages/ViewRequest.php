@@ -214,6 +214,23 @@ final class ViewRequest extends ViewRecord
                                 'Mixed' => 'warning',
                                 default => 'gray',
                             }),
+                        TextEntry::make('fulfillment_status')
+                            ->label('Fulfillment')
+                            ->state(fn (Request $record): string => $record->fulfillmentStatusLabel())
+                            ->badge()
+                            ->color(fn (Request $record): string => $record->isFulfilled() ? 'success' : 'warning'),
+                        TextEntry::make('goods_fulfillment_status')
+                            ->label('Goods')
+                            ->state(fn (Request $record): string => $record->goodsChannelComplete() ? 'Shipped' : 'Pending')
+                            ->badge()
+                            ->color(fn (Request $record): string => $record->goodsChannelComplete() ? 'success' : 'warning')
+                            ->visible(fn (Request $record): bool => $record->hasGoodsItems()),
+                        TextEntry::make('services_fulfillment_status')
+                            ->label('Services')
+                            ->state(fn (Request $record): string => $record->servicesChannelComplete() ? 'Accepted' : 'Pending')
+                            ->badge()
+                            ->color(fn (Request $record): string => $record->servicesChannelComplete() ? 'success' : 'warning')
+                            ->visible(fn (Request $record): bool => $record->hasServiceItems()),
                         TextEntry::make('project.name')
                             ->label('Project')
                             ->icon('heroicon-o-folder')

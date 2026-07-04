@@ -243,6 +243,18 @@ final class RequestResource extends Resource
                     ->counts('items')
                     ->sortable()
                     ->alignCenter(),
+                TextColumn::make('fulfillment_status')
+                    ->label('Fulfillment')
+                    // Derived from per-item shipment/acceptance-report coverage, which cannot
+                    // be expressed as a single eager-loadable count/exists per row without
+                    // duplicating the completion SQL. Hidden by default so the extra queries
+                    // (goodsChannelComplete()/servicesChannelComplete() per visible row) are
+                    // only paid when an operator explicitly opts into the column.
+                    ->state(fn (Request $record): string => $record->fulfillmentStatusLabel())
+                    ->badge()
+                    ->color(fn (Request $record): string => $record->isFulfilled() ? 'success' : 'warning')
+                    ->toggleable()
+                    ->toggledHiddenByDefault(),
                 IconColumn::make('is_active')
                     ->label('Active')
                     ->boolean()

@@ -40,7 +40,6 @@ test('list page search executes without SQL errors: :dataset', function (string 
     App\Filament\Resources\QuotationEvaluationResource\Pages\ListQuotationEvaluations::class,
     App\Filament\Resources\TaxCodeResource\Pages\ListTaxCodes::class,
     App\Filament\Resources\UnitOfMeasureResource\Pages\ListUnitOfMeasures::class,
-    App\Filament\Resources\OpportunityResource\Pages\ListOpportunities::class,
     App\Filament\Resources\PeopleResource\Pages\ListPeople::class,
     App\Filament\Resources\ProjectResource\Pages\ListProjects::class,
     App\Filament\Resources\TagResource\Pages\ListTags::class,

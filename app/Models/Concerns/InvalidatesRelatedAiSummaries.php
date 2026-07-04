@@ -15,7 +15,7 @@ trait InvalidatesRelatedAiSummaries
      */
     public function invalidateRelatedSummaries(): void
     {
-        foreach (['companies', 'people', 'opportunities'] as $relation) {
+        foreach (['companies', 'people'] as $relation) {
             if (method_exists($this, $relation)) {
                 $this->{$relation}->each->invalidateAiSummary();
             }

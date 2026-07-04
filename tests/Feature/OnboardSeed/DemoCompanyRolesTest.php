@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Models\Company;
 use App\Models\Note;
-use App\Models\Opportunity;
 use App\Models\People;
 use App\Models\User;
 use Relaticle\OnboardSeed\OnboardSeedManager;
@@ -29,7 +28,6 @@ it('deletes role-less demo companies and their seeded attachments via the cleanu
     $roleless = Company::factory()->for($team)->create(['is_buyer' => false, 'is_supplier' => false]);
     $buyer = Company::factory()->buyer()->for($team)->create();
 
-    $opportunity = Opportunity::factory()->for($team)->create(['company_id' => $roleless->id]);
     $note = Note::factory()->for($team)->create();
     $note->companies()->attach($roleless);
 
@@ -39,7 +37,6 @@ it('deletes role-less demo companies and their seeded attachments via the cleanu
 
     expect(Company::withoutGlobalScopes()->whereKey($roleless->id)->exists())->toBeFalse()
         ->and(Company::withoutGlobalScopes()->whereKey($buyer->id)->exists())->toBeTrue()
-        ->and(Opportunity::withoutGlobalScopes()->whereKey($opportunity->id)->exists())->toBeFalse()
         ->and(Note::withoutGlobalScopes()->whereKey($note->id)->exists())->toBeFalse();
 });
 

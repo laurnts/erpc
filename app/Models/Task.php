@@ -97,14 +97,6 @@ final class Task extends Model implements HasCustomFields
     }
 
     /**
-     * @return MorphToMany<Opportunity, $this>
-     */
-    public function opportunities(): MorphToMany
-    {
-        return $this->morphedByMany(Opportunity::class, 'taskable');
-    }
-
-    /**
      * @return MorphToMany<People, $this>
      */
     public function people(): MorphToMany

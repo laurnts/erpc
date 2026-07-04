@@ -79,12 +79,4 @@ final class Note extends Model implements HasCustomFields
     {
         return $this->morphedByMany(People::class, 'noteable');
     }
-
-    /**
-     * @return MorphToMany<Opportunity, $this>
-     */
-    public function opportunities(): MorphToMany
-    {
-        return $this->morphedByMany(Opportunity::class, 'noteable');
-    }
 }

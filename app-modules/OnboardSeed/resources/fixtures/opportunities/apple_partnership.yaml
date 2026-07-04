@@ -1,6 +1,0 @@
-name: Apple Developer Partnership
-company: apple
-custom_fields:
-  amount: 25000
-  close_date: '{{ +1m }}'
-  stage: Needs Analysis 

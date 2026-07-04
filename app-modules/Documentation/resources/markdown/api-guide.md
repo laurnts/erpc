@@ -10,7 +10,7 @@ Relaticle's API is currently under development. This section will be updated wit
 
 The Relaticle API will include:
 
-- REST API endpoints for all major resources (Companies, Contacts, Opportunities, Tasks, Notes)
+- REST API endpoints for all major resources (Companies, Contacts, Tasks, Notes)
 - Authentication via API tokens
 - Comprehensive query capabilities
 - Pagination and filtering options
@@ -40,15 +40,6 @@ The Contacts endpoint will allow you to:
 - Create new contacts
 - Update existing contacts
 - Delete contacts
-
-### Opportunities
-
-The Opportunities endpoint will allow you to:
-- List opportunities
-- Retrieve opportunity details
-- Create new opportunities
-- Update existing opportunities
-- Delete opportunities
 
 ### Tasks
 

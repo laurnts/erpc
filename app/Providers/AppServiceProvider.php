@@ -11,14 +11,12 @@ use App\Models\Company;
 use App\Models\GoodsReceiveBatch;
 use App\Models\Import;
 use App\Models\Note;
-use App\Models\Opportunity;
 use App\Models\People;
 use App\Models\Task;
-use App\Support\PanelDomain;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\GitHubService;
-use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use App\Support\PanelDomain;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Support\Assets\Css;
@@ -33,6 +31,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\View;
 use Relaticle\SystemAdmin\Models\SystemAdministrator;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class AppServiceProvider extends ServiceProvider
 {
@@ -60,7 +59,7 @@ final class AppServiceProvider extends ServiceProvider
         if (is_dir(resource_path('views/vendor/mail'))) {
             Facades\View::addNamespace('mail', resource_path('views/vendor/mail'));
         }
-        
+
         $this->configurePolicies();
         $this->configureModels();
         $this->configureFilament();
@@ -149,7 +148,6 @@ final class AppServiceProvider extends ServiceProvider
             'user' => User::class,
             'people' => People::class,
             'company' => Company::class,
-            'opportunity' => Opportunity::class,
             'task' => Task::class,
             'note' => Note::class,
             'system_administrator' => SystemAdministrator::class,

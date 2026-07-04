@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Data\TeamErpSettings;
 use App\Models\Company;
 use App\Models\Note;
-use App\Models\Opportunity;
 use App\Models\People;
 use App\Models\Task;
 use App\Models\Team;
@@ -47,18 +46,6 @@ test('team has many tasks', function () {
 
     expect($teamTask)->toBeInstanceOf(Task::class)
         ->and($teamTask?->id)->toBe($task->id);
-});
-
-test('team has many opportunities', function () {
-    $team = Team::factory()->create();
-    $opportunity = Opportunity::factory()->create([
-        'team_id' => $team->id,
-    ]);
-
-    $teamOpportunity = $team->opportunities()->firstWhere('id', $opportunity->id);
-
-    expect($teamOpportunity)->toBeInstanceOf(Opportunity::class)
-        ->and($teamOpportunity?->id)->toBe($opportunity->id);
 });
 
 test('team has many notes', function () {

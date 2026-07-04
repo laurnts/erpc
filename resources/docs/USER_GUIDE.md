@@ -286,7 +286,7 @@ Standalone finance views for **transactions and documents** (often linked to req
 
 ### 6.4 Notes
 
-**Purpose:** **Notes** attached to companies, people, requests, or opportunities.
+**Purpose:** **Notes** attached to companies, people, or requests.
 
 **Features:**
 
@@ -296,18 +296,7 @@ Standalone finance views for **transactions and documents** (often linked to req
 
 **Typical use:** Internal comments and history on a buyer, supplier, or request.
 
-### 6.5 Opportunities (if present)
-
-**Purpose:** **Sales/opportunity** pipeline (e.g. potential new buyers or projects).
-
-**Features:**
-
-- **List/Board:** Opportunity name, stage, value, company; filters and export.
-- **Create/Edit:** Link to company; stage; value; notes.
-
-**Typical use:** Track leads or opportunities before they become requests.
-
-### 6.6 Board (Tasks)
+### 6.5 Board (Tasks)
 
 **Purpose:** **Kanban-style board** for tasks (e.g. by status).
 

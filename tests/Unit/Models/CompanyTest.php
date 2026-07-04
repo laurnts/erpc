@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Models\Company;
 use App\Models\Note;
-use App\Models\Opportunity;
 use App\Models\People;
 use App\Models\Task;
 use App\Models\Team;
@@ -56,16 +55,6 @@ test('company has many people', function () {
 
     expect($company->people->first())->toBeInstanceOf(People::class)
         ->and($company->people->first()->getKey())->toBe($person->getKey());
-});
-
-test('company has many opportunities', function () {
-    $company = Company::factory()->create();
-    $opportunity = Opportunity::factory()->create([
-        'company_id' => $company->getKey(),
-    ]);
-
-    expect($company->opportunities->first())->toBeInstanceOf(Opportunity::class)
-        ->and($company->opportunities->first()->getKey())->toBe($opportunity->getKey());
 });
 
 test('company morph to many tasks', function () {

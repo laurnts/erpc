@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Models\AiSummary;
 use App\Models\Company;
 use App\Models\Note;
-use App\Models\Opportunity;
 use App\Models\People;
 use App\Models\Task;
 use App\Models\User;
@@ -53,27 +52,6 @@ describe('RecordContextBuilder', function () {
             ->toHaveKey('entity_type', 'Person')
             ->toHaveKey('name', 'John Doe')
             ->toHaveKey('basic_info')
-            ->toHaveKey('notes')
-            ->toHaveKey('tasks');
-    });
-
-    it('builds context for an opportunity', function () {
-        $company = Company::factory()
-            ->for($this->user->personalTeam())
-            ->create();
-
-        $opportunity = Opportunity::factory()
-            ->for($this->user->personalTeam())
-            ->for($company)
-            ->create(['name' => 'Test Deal']);
-
-        $builder = app(RecordContextBuilder::class);
-        $context = $builder->buildContext($opportunity);
-
-        expect($context)
-            ->toHaveKey('entity_type', 'Opportunity')
-            ->toHaveKey('basic_info')
-            ->toHaveKey('company', $company->name)
             ->toHaveKey('notes')
             ->toHaveKey('tasks');
     });
@@ -254,29 +232,6 @@ describe('RecordSummaryService', function () {
 
         expect($summary->summary)->toBe('John is a key decision maker at Acme Corp.');
     });
-
-    it('generates summary for an opportunity', function () {
-        Prism::fake([
-            TextResponseFake::make()
-                ->withText('High-value opportunity in negotiation stage.')
-                ->withUsage(new Usage(90, 45))
-                ->withFinishReason(FinishReason::Stop),
-        ]);
-
-        $company = Company::factory()
-            ->for($this->user->personalTeam())
-            ->create();
-
-        $opportunity = Opportunity::factory()
-            ->for($this->user->personalTeam())
-            ->for($company)
-            ->create();
-
-        $service = app(RecordSummaryService::class);
-        $summary = $service->getSummary($opportunity);
-
-        expect($summary->summary)->toBe('High-value opportunity in negotiation stage.');
-    });
 });
 
 describe('HasAiSummary trait', function () {
@@ -336,34 +291,6 @@ describe('HasAiSummary trait', function () {
         $this->assertDatabaseMissing('ai_summaries', [
             'summarizable_type' => $person->getMorphClass(),
             'summarizable_id' => $person->getKey(),
-        ]);
-    });
-
-    it('can invalidate summary for opportunity', function () {
-        $company = Company::factory()
-            ->for($this->user->personalTeam())
-            ->create();
-
-        $opportunity = Opportunity::factory()
-            ->for($this->user->personalTeam())
-            ->for($company)
-            ->create();
-
-        AiSummary::create([
-            'team_id' => $this->user->personalTeam()->getKey(),
-            'summarizable_type' => $opportunity->getMorphClass(),
-            'summarizable_id' => $opportunity->getKey(),
-            'summary' => 'Test summary',
-            'model_used' => 'claude-3-5-haiku-latest',
-            'prompt_tokens' => 50,
-            'completion_tokens' => 25,
-        ]);
-
-        $opportunity->invalidateAiSummary();
-
-        $this->assertDatabaseMissing('ai_summaries', [
-            'summarizable_type' => $opportunity->getMorphClass(),
-            'summarizable_id' => $opportunity->getKey(),
         ]);
     });
 });

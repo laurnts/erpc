@@ -47,25 +47,11 @@ After signing up for Relaticle:
    - Note their role in the decision-making process
    - Record any personal preferences or notes
 
-3. **Create your first opportunity**
-   - Go to Opportunities > Create New
-   - Link to the relevant company and contacts
-   - Set the opportunity stage, value, and expected close date
-   - Document any specific requirements
-
-4. **Schedule follow-up tasks**
-   - Create tasks linked to your opportunity
+3. **Schedule follow-up tasks**
+   - Create follow-up tasks
    - Assign responsibilities to team members
    - Set due dates and priorities
    - Add detailed instructions if needed
-
-## Configure Your Sales Process
-
-1. **Define your opportunity stages**
-   - Go to Settings > Opportunity Settings
-   - Customize the default stages or create new ones
-   - Set probability percentages for each stage
-   - Establish a clear workflow for your team
 
 ## Establish Your Daily Routine
 
@@ -74,16 +60,13 @@ Develop a daily Relaticle routine:
 1. **Morning review** (15 minutes)
    - Check your dashboard for an overview
    - Review today's tasks and prioritize
-   - Check for any new leads or opportunities
 
 2. **Throughout the day**
-   - Update opportunity stages as they progress
    - Log completed tasks and create follow-ups
    - Add notes after customer interactions
 
 3. **End of day** (10 minutes)
    - Ensure all activities from the day are logged
-   - Update any changes in opportunities
    - Plan tasks for tomorrow
 
 ## Best Practices

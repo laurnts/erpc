@@ -32,9 +32,6 @@ final class CompanyExporter extends BaseExporter
             ExportColumn::make('people_count')
                 ->label('Number of People')
                 ->state(fn (Company $company): int => $company->people()->count()),
-            ExportColumn::make('opportunities_count')
-                ->label('Number of Opportunities')
-                ->state(fn (Company $company): int => $company->opportunities()->count()),
             ExportColumn::make('created_at')
                 ->label('Created At')
                 ->formatStateUsing(fn (Carbon $state): string => $state->format('Y-m-d H:i:s')),

@@ -8,7 +8,6 @@ Relaticle is a powerful Customer Relationship Management (CRM) platform designed
 
 Relaticle helps you:
 - **Organize customer information** in one centralized system
-- **Track sales opportunities** from first contact to closing
 - **Collaborate effectively** within and across teams
 - **Manage tasks and follow-ups** to ensure nothing falls through the cracks
 - **Document important customer interactions** for future reference
@@ -33,9 +32,9 @@ Companies represent the organizations you do business with. Each record contains
 **Business Benefits:**
 - Complete view of each company's relationship with your business
 - Quick access to company information for better customer service
-- Clear visibility into company-wide opportunities and activities
+- Clear visibility into company-wide activities
 
-**Real-world example:** When a client calls, you can instantly pull up their company profile to see recent interactions, active opportunities, outstanding tasks, and key contacts—all in one place.
+**Real-world example:** When a client calls, you can instantly pull up their company profile to see recent interactions, outstanding tasks, and key contacts—all in one place.
 
 ### Contacts (People)
 
@@ -47,18 +46,6 @@ Contacts are the individuals you interact with at each company. Building relatio
 - Maintained relationships even when team members change
 
 **Real-world example:** When preparing for a meeting, you can review each attendee's profile, including their role, previous interactions, and personal preferences, allowing for more personalized and effective engagement.
-
-### Opportunities
-
-Opportunities track potential deals from initial interest through to closing. They help forecast revenue and focus sales efforts.
-
-**Business Benefits:**
-- Clear sales pipeline visibility
-- Better revenue forecasting
-- Focused sales strategies for each opportunity
-- Improved conversion rates through systematic tracking
-
-**Real-world example:** Your sales team can visualize their entire pipeline, prioritize high-value opportunities, and ensure appropriate follow-up at each stage of the sales process, from initial qualification to closing.
 
 ### Tasks
 
@@ -89,8 +76,7 @@ Relaticle's power comes from how these components connect:
 
 - **Teams** provide the collaborative framework
 - **Companies** serve as organizational hubs
-- **Contacts** link to their companies and opportunities
-- **Opportunities** connect to companies and specific contacts
+- **Contacts** link to their companies
 - **Tasks** ensure follow-through on commitments
 - **Notes** document important information
 
@@ -98,22 +84,12 @@ This connected approach ensures everyone in your organization has the context th
 
 ## Business Workflows Made Easy
 
-### Sales Pipeline Management
-
-1. Create company records for prospects
-2. Add key contacts at each company
-3. Create opportunities linked to companies and contacts
-4. Track opportunity stages from qualification to closing
-5. Document interactions with notes
-6. Assign follow-up tasks to team members
-
 ### Account Management
 
 1. Maintain complete company profiles
 2. Track all contacts within customer organizations
 3. Document important conversations and decisions
 4. Create tasks for account maintenance activities
-5. Monitor opportunities for account growth
 
 ### Team Collaboration
 
@@ -128,7 +104,6 @@ This connected approach ensures everyone in your organization has the context th
 1. **Complete Your Data**: Enter comprehensive information for companies and contacts
 2. **Document Everything**: Use notes to record important conversations and decisions
 3. **Follow Through**: Create and complete tasks for all commitments
-4. **Update Regularly**: Keep opportunity statuses current for accurate forecasting
-5. **Collaborate**: Share information across teams to provide consistent customer experiences
+4. **Collaborate**: Share information across teams to provide consistent customer experiences
 
 Relaticle empowers your organization to build stronger customer relationships through better information management, streamlined processes, and enhanced collaboration. 
