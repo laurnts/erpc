@@ -22,9 +22,9 @@ use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Gate;
 
 /**
  * Livewire component for creating Quotation Evaluation documents.
@@ -111,7 +111,7 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
      *
      * @return array<int, string>
      */
-    private function getKeyAccountOptions(): array
+    public function getKeyAccountOptions(): array
     {
         /** @var \App\Models\Team $team */
         $team = Filament::getTenant();
@@ -192,7 +192,7 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
     {
         // Check authorization first
         try {
-            Gate::authorize('create', QuotationEvaluation::class);
+            app(Gate::class)->authorize('create', QuotationEvaluation::class);
         } catch (AuthorizationException) {
             Notification::make()
                 ->title('Permission Denied')
@@ -306,7 +306,7 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
         foreach ($requestItems as $requestItem) {
             $itemData = [
                 'id' => $requestItem->getKey(),
-                'description' => $requestItem->article?->name ?? $requestItem->description,
+                'description' => $requestItem->article->name ?? $requestItem->description,
                 'quantity' => (float) $requestItem->quantity,
                 'unit' => $requestItem->unit ?? 'pcs',
                 'prices' => [],
@@ -340,13 +340,13 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
         foreach ($quotes as $quote) {
             $suppliers[] = [
                 'id' => $quote->getKey(),
-                'name' => $quote->supplier?->name ?? 'Unknown',
-                'currency_code' => $quote->currency?->code ?? 'USD',
-                'delivery_type' => $quote->supplier?->delivery_type ?? null,
-                'delivery_type_details' => $quote->supplier?->delivery_type_details ?? null,
-                'is_taxable' => $quote->supplier?->is_taxable ?? false,
-                'delivery_term' => $quote->supplier?->delivery_term ?? null,
-                'payment_terms_days' => $quote->supplier?->payment_terms ?? null,
+                'name' => $quote->supplier->name ?? 'Unknown',
+                'currency_code' => $quote->currency->code ?? 'USD',
+                'delivery_type' => $quote->supplier->delivery_type ?? null,
+                'delivery_type_details' => $quote->supplier->delivery_type_details ?? null,
+                'is_taxable' => $quote->supplier->is_taxable ?? false,
+                'delivery_term' => $quote->supplier->delivery_term ?? null,
+                'payment_terms_days' => $quote->supplier->payment_terms_days ?? null,
                 'subtotal' => (float) $quote->subtotal,
                 'tax_total' => (float) $quote->tax_total,
                 'grand_total' => (float) $quote->total,

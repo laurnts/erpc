@@ -31,6 +31,7 @@ use Livewire\Attributes\Computed;
  * @property-read float $selectionTotal
  * @property-read int $selectedSuppliersCount
  * @property-read bool $hasQuotes
+ * @property-read QuotationEvaluation|null $latestQuotationEvaluation
  */
 final class SupplierQuoteComparison extends BaseLivewireComponent
 {
@@ -68,6 +69,10 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
             ->get();
 
         foreach ($selectedItems as $item) {
+            if ($item->request_item_id === null) {
+                continue;
+            }
+
             $this->itemSelections[$item->request_item_id] = $item->supplier_quote_id;
         }
     }
