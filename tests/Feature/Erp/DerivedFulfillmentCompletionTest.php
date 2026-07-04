@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\ItemType;
+use App\Enums\RequestStage;
 use App\Models\AcceptanceReport;
 use App\Models\Company;
 use App\Models\Request;
@@ -125,5 +126,98 @@ describe('Derived fulfillment completion', function (): void {
 
         expect($this->request->servicesChannelComplete())->toBeTrue()
             ->and($this->request->isFulfilled())->toBeTrue();
+    });
+});
+
+describe('Fulfillment status label', function (): void {
+    it('names only the pending channels the request actually has items for', function (): void {
+        $goodsItem = RequestItem::factory()->recycle($this->request)->create([
+            'item_type' => ItemType::GOODS,
+            'quantity' => 10,
+        ]);
+
+        expect($this->request->fulfillmentStatusLabel())->toBe('Goods pending');
+
+        shipGoodsItem($this->request, $this->team, $this->supplier, $goodsItem, 10);
+        expect($this->request->refresh()->fulfillmentStatusLabel())->toBe('Fulfilled');
+
+        $serviceItem = RequestItem::factory()->recycle($this->request)->create([
+            'item_type' => ItemType::SERVICE,
+        ]);
+        expect($this->request->refresh()->fulfillmentStatusLabel())->toBe('Services pending');
+
+        acceptServiceItem($this->request, $serviceItem);
+        expect($this->request->refresh()->fulfillmentStatusLabel())->toBe('Fulfilled');
+    });
+
+    it('reports both channels pending on a mixed request with neither channel complete', function (): void {
+        RequestItem::factory()->recycle($this->request)->create([
+            'item_type' => ItemType::GOODS,
+            'quantity' => 10,
+        ]);
+        RequestItem::factory()->recycle($this->request)->create([
+            'item_type' => ItemType::SERVICE,
+        ]);
+
+        expect($this->request->fulfillmentStatusLabel())->toBe('Goods & services pending');
+    });
+});
+
+describe('Completed stage fulfillment gate', function (): void {
+    it('blocks the transition to Completed when the goods channel is incomplete, naming it', function (): void {
+        RequestItem::factory()->recycle($this->request)->matched()->create([
+            'item_type' => ItemType::GOODS,
+            'quantity' => 10,
+        ]);
+        $this->request->update(['stage' => RequestStage::PAID]);
+
+        expect(fn () => $this->request->refresh()->transitionTo(RequestStage::COMPLETED))
+            ->toThrow(InvalidArgumentException::class, 'goods items not fully shipped');
+
+        expect($this->request->refresh()->stage)->toBe(RequestStage::PAID);
+    });
+
+    it('blocks the transition to Completed when the services channel is incomplete, naming it', function (): void {
+        RequestItem::factory()->recycle($this->request)->matched()->create([
+            'item_type' => ItemType::SERVICE,
+        ]);
+        $this->request->update(['stage' => RequestStage::PAID]);
+
+        expect(fn () => $this->request->refresh()->transitionTo(RequestStage::COMPLETED))
+            ->toThrow(InvalidArgumentException::class, 'services items without acceptance report');
+
+        expect($this->request->refresh()->stage)->toBe(RequestStage::PAID);
+    });
+
+    it('names both channels when neither is complete on a mixed request', function (): void {
+        RequestItem::factory()->recycle($this->request)->matched()->create([
+            'item_type' => ItemType::GOODS,
+            'quantity' => 10,
+        ]);
+        RequestItem::factory()->recycle($this->request)->matched()->create([
+            'item_type' => ItemType::SERVICE,
+        ]);
+        $this->request->update(['stage' => RequestStage::PAID]);
+
+        expect(fn () => $this->request->refresh()->transitionTo(RequestStage::COMPLETED))
+            ->toThrow(InvalidArgumentException::class, 'goods items not fully shipped; services items without acceptance report');
+    });
+
+    it('allows the transition to Completed once both channels are complete', function (): void {
+        $goodsItem = RequestItem::factory()->recycle($this->request)->matched()->create([
+            'item_type' => ItemType::GOODS,
+            'quantity' => 10,
+        ]);
+        $serviceItem = RequestItem::factory()->recycle($this->request)->matched()->create([
+            'item_type' => ItemType::SERVICE,
+        ]);
+
+        shipGoodsItem($this->request, $this->team, $this->supplier, $goodsItem, 10);
+        acceptServiceItem($this->request, $serviceItem);
+
+        $this->request->update(['stage' => RequestStage::PAID]);
+        $this->request->refresh()->transitionTo(RequestStage::COMPLETED);
+
+        expect($this->request->refresh()->stage)->toBe(RequestStage::COMPLETED);
     });
 });

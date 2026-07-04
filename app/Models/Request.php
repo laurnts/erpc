@@ -418,6 +418,15 @@ final class Request extends Model implements HasCustomFields, HasMedia
             );
         }
 
+        // The completed stage is hard-gated on derived fulfillment: every
+        // goods main item must be fully shipped and every services main item
+        // must be covered by an acceptance report. No admin override.
+        if ($newStage === RequestStage::COMPLETED && ! $this->isFulfilled()) {
+            throw new \InvalidArgumentException(
+                'Cannot transition to Completed: '.implode('; ', $this->incompleteFulfillmentChannels())
+            );
+        }
+
         $this->stage = $newStage;
         $this->save();
     }
@@ -808,6 +817,46 @@ final class Request extends Model implements HasCustomFields, HasMedia
     public function isFulfilled(): bool
     {
         return $this->goodsChannelComplete() && $this->servicesChannelComplete();
+    }
+
+    /**
+     * Human-readable descriptions of the fulfillment channels that are not
+     * yet complete, for surfacing in the completed-stage gate error message.
+     * Empty when the request is fulfilled.
+     *
+     * @return list<string>
+     */
+    public function incompleteFulfillmentChannels(): array
+    {
+        $channels = [];
+
+        if (! $this->goodsChannelComplete()) {
+            $channels[] = 'goods items not fully shipped';
+        }
+
+        if (! $this->servicesChannelComplete()) {
+            $channels[] = 'services items without acceptance report';
+        }
+
+        return $channels;
+    }
+
+    /**
+     * Overall fulfillment status label for display, considering only the
+     * channels this request actually has items for (e.g. a goods-only
+     * request never mentions services).
+     */
+    public function fulfillmentStatusLabel(): string
+    {
+        $goodsPending = $this->hasGoodsItems() && ! $this->goodsChannelComplete();
+        $servicesPending = $this->hasServiceItems() && ! $this->servicesChannelComplete();
+
+        return match (true) {
+            $goodsPending && $servicesPending => 'Goods & services pending',
+            $goodsPending => 'Goods pending',
+            $servicesPending => 'Services pending',
+            default => 'Fulfilled',
+        };
     }
 
     /**

@@ -9,13 +9,13 @@ Approved 2026-07-04 (decisions recorded in proposal.md).
 
 ## 2. Stage gate
 
-- [ ] 2.1 Locate the stage-transition validation and require derived fulfillment for the completed stage; error names incomplete channel(s)
-- [ ] 2.2 Pest tests: blocked transition + message; allowed when fulfilled
+- [x] 2.1 Locate the stage-transition validation and require derived fulfillment for the completed stage; error names incomplete channel(s)
+- [x] 2.2 Pest tests: blocked transition + message; allowed when fulfilled
 
 ## 3. Display
 
-- [ ] 3.1 Request view page + list column/badge for per-channel and overall status
-- [ ] 3.2 Feature test for visibility
+- [x] 3.1 Request view page + list column/badge for per-channel and overall status
+- [x] 3.2 Feature test for visibility
 
 ## 4. QE ranking
 

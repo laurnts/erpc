@@ -2,15 +2,22 @@
 
 declare(strict_types=1);
 
+use App\Enums\ItemType;
 use App\Enums\OrderStatus;
 use App\Enums\PrepaymentType;
 use App\Enums\ShipmentStatus;
+use App\Filament\Resources\RequestResource\Pages\ListRequests;
 use App\Filament\Resources\RequestResource\Pages\ViewRequest;
 use App\Models\BuyerOrder;
 use App\Models\BuyerQuote;
 use App\Models\BuyerQuotePaymentTerm;
+use App\Models\Company;
 use App\Models\Request;
+use App\Models\RequestItem;
 use App\Models\Shipment;
+use App\Models\ShipmentItem;
+use App\Models\SupplierOrder;
+use App\Models\SupplierOrderItem;
 use App\Models\User;
 use Filament\Facades\Filament;
 
@@ -171,5 +178,75 @@ describe('Shipment section', function (): void {
         livewire(ViewRequest::class, ['record' => $record->getKey()])
             ->assertOk()
             ->assertSee('No shipments');
+    });
+});
+
+describe('Fulfillment status section', function (): void {
+    it('shows the goods channel as pending and hides the services badge on a goods-only request', function (): void {
+        $record = viewTestRequest($this);
+        $supplier = Company::factory()->supplier()->for($this->team)->create();
+
+        $goodsItem = RequestItem::factory()->recycle($record)->create([
+            'item_type' => ItemType::GOODS,
+            'quantity' => 10,
+        ]);
+
+        $order = SupplierOrder::factory()->for($this->team)->create([
+            'request_id' => $record->getKey(),
+            'supplier_id' => $supplier->getKey(),
+        ]);
+        $orderItem = SupplierOrderItem::factory()->recycle($order)->create([
+            'request_item_id' => $goodsItem->getKey(),
+            'quantity' => 10,
+        ]);
+        $shipment = Shipment::factory()->for($this->team)->create([
+            'request_id' => $record->getKey(),
+            'supplier_order_id' => $order->getKey(),
+        ]);
+        ShipmentItem::factory()->recycle($shipment)->forSupplierOrderItem($orderItem)->withQuantityShipped(6)->create();
+
+        livewire(ViewRequest::class, ['record' => $record->refresh()->getKey()])
+            ->assertOk()
+            ->assertSee('Goods pending')
+            ->assertDontSee('Services');
+    });
+
+    it('shows the overall status as Fulfilled once the only channel present is complete', function (): void {
+        $record = viewTestRequest($this);
+        $supplier = Company::factory()->supplier()->for($this->team)->create();
+
+        $goodsItem = RequestItem::factory()->recycle($record)->create([
+            'item_type' => ItemType::GOODS,
+            'quantity' => 5,
+        ]);
+
+        $order = SupplierOrder::factory()->for($this->team)->create([
+            'request_id' => $record->getKey(),
+            'supplier_id' => $supplier->getKey(),
+        ]);
+        $orderItem = SupplierOrderItem::factory()->recycle($order)->create([
+            'request_item_id' => $goodsItem->getKey(),
+            'quantity' => 5,
+        ]);
+        $shipment = Shipment::factory()->for($this->team)->create([
+            'request_id' => $record->getKey(),
+            'supplier_order_id' => $order->getKey(),
+        ]);
+        ShipmentItem::factory()->recycle($shipment)->forSupplierOrderItem($orderItem)->withQuantityShipped(5)->create();
+
+        livewire(ViewRequest::class, ['record' => $record->refresh()->getKey()])
+            ->assertOk()
+            ->assertSee('Fulfilled');
+    });
+});
+
+describe('Request list fulfillment column', function (): void {
+    it('exposes the fulfillment status column but keeps it hidden by default', function (): void {
+        viewTestRequest($this);
+
+        livewire(ListRequests::class)
+            ->assertOk()
+            ->assertTableColumnExists('fulfillment_status')
+            ->assertCanNotRenderTableColumn('fulfillment_status');
     });
 });
