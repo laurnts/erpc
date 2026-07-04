@@ -107,3 +107,28 @@ it('has `:dataset` filter', function (string $filter): void {
     livewire(App\Filament\Resources\PeopleResource\Pages\ListPeople::class)
         ->assertTableFilterExists($filter);
 })->with(['creation_source', 'trashed']);
+
+it('requires a buyer or supplier role when inline-creating a company', function (): void {
+    livewire(App\Filament\Resources\PeopleResource\Pages\CreatePeople::class)
+        ->callAction(
+            \Filament\Actions\Testing\TestAction::make('createOption')->schemaComponent('companies'),
+            data: ['name' => 'Roleless Co'],
+        )
+        ->assertHasActionErrors(['is_buyer', 'is_supplier']);
+
+    expect(App\Models\Company::query()->where('name', 'Roleless Co')->exists())->toBeFalse();
+});
+
+it('inline-creates a company reachable through the buyers list when the buyer role is selected', function (): void {
+    livewire(App\Filament\Resources\PeopleResource\Pages\CreatePeople::class)
+        ->callAction(
+            \Filament\Actions\Testing\TestAction::make('createOption')->schemaComponent('companies'),
+            data: ['name' => 'Inline Buyer Co', 'is_buyer' => true],
+        )
+        ->assertHasNoActionErrors();
+
+    $company = App\Models\Company::query()->where('name', 'Inline Buyer Co')->sole();
+
+    expect($company->is_buyer)->toBeTrue()
+        ->and($company->is_supplier)->toBeFalse();
+});

@@ -7,7 +7,7 @@ namespace Tests\Feature\Filament\App\Exports;
 use App\Enums\CustomFields\CompanyField as CompanyCustomField;
 use App\Enums\CustomFieldType;
 use App\Filament\Exports\CompanyExporter;
-use App\Filament\Resources\CompanyResource\Pages\ListCompanies;
+use App\Filament\Resources\BuyerResource\Pages\ListBuyers;
 use App\Models\Company;
 use App\Models\Team;
 use App\Models\User;
@@ -34,9 +34,9 @@ test('exports company records with basic functionality', function () {
     Filament::setTenant($team);
 
     // Create companies
-    $companies = Company::factory()->count(3)->create(['team_id' => $team->id]);
+    $companies = Company::factory()->buyer()->count(3)->create(['team_id' => $team->id]);
 
-    $livewireTest = Livewire::test(ListCompanies::class);
+    $livewireTest = Livewire::test(ListBuyers::class);
     $livewireTest->assertSuccessful();
     $livewireTest->assertActionExists('export');
 
@@ -65,11 +65,12 @@ test('exports respect team scoping', function () {
 
     // Create companies for first team
     $team1Companies = Company::factory()
+        ->buyer()
         ->count(2)
         ->create(['team_id' => $team1->id]);
 
     // Test export with team1
-    Livewire::test(ListCompanies::class)
+    Livewire::test(ListBuyers::class)
         ->callAction('export', $team1Companies)
         ->assertHasNoFormErrors();
 

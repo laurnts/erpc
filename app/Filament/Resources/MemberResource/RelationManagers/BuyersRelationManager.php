@@ -4,22 +4,20 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\MemberResource\RelationManagers;
 
-use App\Filament\Resources\CompanyResource;
+use App\Filament\Forms\CompanyForm;
 use App\Models\Company;
-use Filament\Actions\ActionGroup;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Schemas\Schema;
 use Filament\Support\Enums\Size;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 
 final class BuyersRelationManager extends RelationManager
@@ -67,7 +65,7 @@ final class BuyersRelationManager extends RelationManager
                     ->action(function (array $data, RelationManager $livewire): void {
                         /** @var \App\Models\Membership $membership */
                         $membership = $livewire->getOwnerRecord();
-                        
+
                         // Manually insert into pivot table since relationship uses user_id instead of id
                         \Illuminate\Support\Facades\DB::table('key_account_buyers')->insertOrIgnore([
                             'key_account_id' => $membership->user_id,
@@ -75,7 +73,7 @@ final class BuyersRelationManager extends RelationManager
                             'created_at' => now(),
                             'updated_at' => now(),
                         ]);
-                        
+
                         $livewire->dispatch('refresh');
                     }),
                 CreateAction::make()
@@ -83,7 +81,7 @@ final class BuyersRelationManager extends RelationManager
                     ->icon('heroicon-o-building-office')
                     ->size(Size::Small)
                     ->form([
-                        ...CompanyResource::getFormSchema(excludePeopleField: true),
+                        ...CompanyForm::components(excludePeopleField: true),
                     ])
                     ->mutateFormDataUsing(function (array $data): array {
                         $data['is_buyer'] = true;
@@ -103,7 +101,7 @@ final class BuyersRelationManager extends RelationManager
 
                         /** @var \App\Models\Membership $membership */
                         $membership = $livewire->getOwnerRecord();
-                        
+
                         // Manually insert into pivot table since relationship uses user_id instead of id
                         \Illuminate\Support\Facades\DB::table('key_account_buyers')->insertOrIgnore([
                             'key_account_id' => $membership->user_id,
@@ -125,13 +123,13 @@ final class BuyersRelationManager extends RelationManager
                         ->action(function ($record, RelationManager $livewire): void {
                             /** @var \App\Models\Membership $membership */
                             $membership = $livewire->getOwnerRecord();
-                            
+
                             // Manually delete from pivot table
                             \Illuminate\Support\Facades\DB::table('key_account_buyers')
                                 ->where('key_account_id', $membership->user_id)
                                 ->where('buyer_id', $record->id)
                                 ->delete();
-                            
+
                             $livewire->dispatch('refresh');
                         }),
                 ]),
@@ -147,13 +145,13 @@ final class BuyersRelationManager extends RelationManager
                             /** @var \App\Models\Membership $membership */
                             $membership = $livewire->getOwnerRecord();
                             $buyerIds = $records->pluck('id')->toArray();
-                            
+
                             // Manually delete from pivot table
                             \Illuminate\Support\Facades\DB::table('key_account_buyers')
                                 ->where('key_account_id', $membership->user_id)
                                 ->whereIn('buyer_id', $buyerIds)
                                 ->delete();
-                            
+
                             $livewire->dispatch('refresh');
                         }),
                 ]),

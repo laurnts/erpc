@@ -24,7 +24,6 @@ test('list page search executes without SQL errors: :dataset', function (string 
         ->searchTable('zzqzzq')
         ->assertOk();
 })->with([
-    App\Filament\Resources\CompanyResource\Pages\ListCompanies::class,
     App\Filament\Resources\BuyerResource\Pages\ListBuyers::class,
     App\Filament\Resources\BuyerOrderResource\Pages\ListBuyerOrders::class,
     App\Filament\Resources\BuyerQuoteResource\Pages\ListBuyerQuotes::class,

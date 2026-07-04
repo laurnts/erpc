@@ -8,7 +8,7 @@ use App\Enums\RequestSubmissionMethod;
 use App\Filament\Customer\Pages\Auth\CustomerLogin;
 use App\Filament\Customer\Pages\CustomerDashboard;
 use App\Filament\Pages\Auth\Login as AppLogin;
-use App\Filament\Resources\CompanyResource;
+use App\Filament\Resources\BuyerResource;
 use App\Http\Middleware\UseCustomerPanelSession;
 use App\Models\Company;
 use App\Models\CompanyPortalUser;
@@ -214,7 +214,7 @@ describe('Customer Portal Access', function (): void {
                 'password' => 'password',
             ])
             ->call('authenticate')
-            ->assertRedirect(CompanyResource::getUrl('index', ['tenant' => $this->team->getKey()]));
+            ->assertRedirect(BuyerResource::getUrl('index', ['tenant' => $this->team->getKey()]));
 
         $this->assertAuthenticatedAs($this->admin, 'web');
     });

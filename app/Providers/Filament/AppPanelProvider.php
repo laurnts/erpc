@@ -9,14 +9,13 @@ use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\CreateTeam;
 use App\Filament\Pages\EditProfile;
 use App\Filament\Pages\EditTeam;
-use App\Filament\Resources\CompanyResource;
+use App\Filament\Resources\BuyerResource;
 use App\Http\Middleware\ApplyTenantScopes;
 use App\Http\Middleware\AuthenticateAppPanel;
-use App\Support\PanelDomain;
 use App\Listeners\SwitchTeam;
 use App\Models\Team;
+use App\Support\PanelDomain;
 use Exception;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Filament\Actions\Action;
 use Filament\Events\TenantSet;
 use Filament\Facades\Filament;
@@ -34,6 +33,7 @@ use Illuminate\Contracts\View\Factory;
 use Illuminate\Contracts\View\View;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
@@ -76,7 +76,7 @@ final class AppPanelProvider extends PanelProvider
             ->default()
             ->id('app')
             ->domain(PanelDomain::appHost())
-            ->homeUrl(fn (): string => CompanyResource::getUrl())
+            ->homeUrl(fn (): string => BuyerResource::getUrl())
             ->brandName('Relaticle')
             ->login(Login::class)
             ->authGuard('web')
@@ -149,9 +149,6 @@ final class AppPanelProvider extends PanelProvider
                 NavigationGroup::make()
                     ->label('Finance')
                     ->icon('heroicon-o-banknotes'),
-                NavigationGroup::make()
-                    ->label('Workspace')
-                    ->icon('heroicon-o-briefcase'),
                 NavigationGroup::make()
                     ->label('Settings')
                     ->icon('heroicon-o-cog-6-tooth')

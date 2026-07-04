@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\ArticleResource\RelationManagers;
 
-use App\Filament\Resources\CompanyResource;
+use App\Filament\Forms\CompanyForm;
 use App\Models\Company;
 use App\Models\Currency;
 use Filament\Actions\ActionGroup;
@@ -51,7 +51,7 @@ final class SuppliersRelationManager extends RelationManager
                 Select::make('last_quoted_currency_id')
                     ->label('Currency')
                     ->options(fn () => Currency::query()->where('is_active', true)->pluck('code', 'id')->all())
-                    
+
                     ->preload(),
                 DateTimePicker::make('last_quoted_at')
                     ->label('Last Quoted At'),
@@ -81,11 +81,11 @@ final class SuppliersRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('code')
                     ->label('Code')
-                    
+
                     ->sortable(),
                 TextColumn::make('name')
                     ->label('Supplier Name')
-                    
+
                     ->sortable(),
                 TextColumn::make('supplier_sku')
                     ->label('Supplier SKU')
@@ -124,7 +124,7 @@ final class SuppliersRelationManager extends RelationManager
                     ->icon('heroicon-o-building-storefront')
                     ->size(Size::Small)
                     ->form([
-                        ...CompanyResource::getFormSchema(excludePeopleField: true),
+                        ...CompanyForm::components(excludePeopleField: true),
                         ...$this->getPivotFormSchema(),
                     ])
                     ->mutateFormDataUsing(function (array $data): array {
@@ -202,7 +202,7 @@ final class SuppliersRelationManager extends RelationManager
             Select::make('last_quoted_currency_id')
                 ->label('Currency')
                 ->options(fn () => Currency::query()->where('is_active', true)->pluck('code', 'id')->all())
-                
+
                 ->preload(),
             DateTimePicker::make('last_quoted_at')
                 ->label('Last Quoted At'),

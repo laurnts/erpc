@@ -38,7 +38,7 @@ final class TasksBoard extends BoardPage
 
     protected static ?string $navigationParentItem = 'Tasks';
 
-    protected static string|null|UnitEnum $navigationGroup = 'Workspace';
+    protected static string|null|UnitEnum $navigationGroup = 'Master Data';
 
     protected static string|null|BackedEnum $navigationIcon = 'heroicon-o-view-columns';
 

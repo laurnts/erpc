@@ -22,7 +22,7 @@ test('users can authenticate using the login screen', function () {
             'password' => 'password',
         ])
         ->call('authenticate')
-        ->assertRedirect(url()->getAppUrl('1/companies'));
+        ->assertRedirect(url()->getAppUrl('1/buyers'));
 
     $this->assertAuthenticated();
 });

@@ -34,7 +34,7 @@ final class NoteResource extends Resource
 
     protected static ?int $navigationSort = 5;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Workspace';
+    protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
 
     public static function form(Schema $schema): Schema
     {

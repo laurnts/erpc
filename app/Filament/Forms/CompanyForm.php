@@ -2,64 +2,39 @@
 
 declare(strict_types=1);
 
-namespace App\Filament\Resources;
+namespace App\Filament\Forms;
 
-use App\Enums\CreationSource;
-use App\Filament\Exports\CompanyExporter;
-use App\Filament\Resources\CompanyResource\Pages\CreateCompany;
-use App\Filament\Resources\CompanyResource\Pages\ListCompanies;
-use App\Filament\Resources\CompanyResource\Pages\ViewCompany;
+use App\Filament\Resources\ArticleResource;
+use App\Filament\Resources\CurrencyResource;
+use App\Filament\Resources\PeopleResource;
+use App\Filament\Resources\TagResource;
 use App\Models\Article;
-use App\Models\Company;
 use App\Models\Currency;
 use App\Models\People;
 use App\Models\Tag;
 use App\Models\Team;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\ExportBulkAction;
-use Filament\Actions\ForceDeleteBulkAction;
-use Filament\Actions\RestoreBulkAction;
+use Closure;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Schema;
-use Filament\Tables\Columns\IconColumn;
-use Filament\Tables\Columns\ImageColumn;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Filters\TernaryFilter;
-use Filament\Tables\Filters\TrashedFilter;
-use Filament\Tables\Table;
+use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Relaticle\CustomFields\Facades\CustomFields;
 
-final class CompanyResource extends Resource
+final class CompanyForm
 {
-    protected static ?string $model = Company::class;
-
-    protected static ?string $recordTitleAttribute = 'name';
-
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-building-office-2';
-
-    protected static ?int $navigationSort = 1;
-
-    protected static string|\UnitEnum|null $navigationGroup = 'Workspace';
-
     /**
-     * Get the base form fields for creating/editing a company.
-     * Used both in main form and inline create modals.
+     * Shared company form fields used by inline create modals (People, relation managers).
      *
      * @param  bool  $excludePeopleField  Exclude People field to prevent circular references
+     * @param  bool  $requireRole  Require at least one of the buyer/supplier roles to be selected
      * @return array<int, \Filament\Schemas\Components\Component>
      */
-    public static function getFormSchema(bool $excludePeopleField = false): array
+    public static function components(bool $excludePeopleField = false, bool $requireRole = false): array
     {
         $fields = [
             TextInput::make('name')
@@ -74,25 +49,13 @@ final class CompanyResource extends Resource
                 ->maxLength(255)
                 ->helperText('Company website domain'),
 
-            Section::make('Company Type')
-                ->schema([
-                    Checkbox::make('is_buyer')
-                        ->label('This company is a Buyer (Customer)')
-                        ->inline()
-                        ->helperText('Enable to track buyer-specific fields like credit limits'),
-                    Checkbox::make('is_supplier')
-                        ->label('This company is a Supplier (Vendor)')
-                        ->inline()
-                        ->helperText('Enable to track supplier-specific fields like lead times'),
-                ])
-                ->columns(2),
+            self::roleSection($requireRole),
 
             Select::make('tags')
                 ->label('Categories')
                 ->relationship('tags', 'name')
                 ->multiple()
                 ->preload()
-
                 ->helperText('What products/services they supply')
                 ->createOptionForm(TagResource::getFormSchema())
                 ->createOptionUsing(function (array $data): int {
@@ -114,7 +77,7 @@ final class CompanyResource extends Resource
             Section::make('Location')
                 ->schema([
                     Select::make('country')
-                        ->options(self::getCountryOptions())
+                        ->options(self::countryOptions())
                         ->default('Indonesia'),
                     Textarea::make('address')
                         ->label('Address')
@@ -140,12 +103,11 @@ final class CompanyResource extends Resource
                             return Currency::query()->where('code', $defaultCode)->where('is_active', true)->value('id');
                         })
                         ->nullable()
-
                         ->preload()
                         ->createOptionForm(CurrencyResource::getFormSchema(excludeDefaultField: true))
                         ->createOptionUsing(function (array $data): int {
                             /** @var \App\Models\Currency $currency */
-                            $currency = \App\Models\Currency::create($data);
+                            $currency = Currency::create($data);
 
                             return $currency->id;
                         }),
@@ -159,9 +121,11 @@ final class CompanyResource extends Resource
                         ->relationship(
                             'accountOwner',
                             'name',
-                            fn (Builder $query): Builder => $query->whereKey(
-                                Filament::getTenant()?->allUsers()->modelKeys() ?? []
-                            )
+                            function (Builder $query): Builder {
+                                $team = Filament::getTenant();
+
+                                return $query->whereKey($team instanceof Team ? $team->allUsers()->pluck('id')->all() : []);
+                            }
                         )
                         ->label('Account Owner')
                         ->nullable()
@@ -217,7 +181,6 @@ final class CompanyResource extends Resource
                         ->relationship('articles', 'name')
                         ->multiple()
                         ->preload()
-
                         ->helperText('Articles this supplier provides. Manage pricing details in the Articles tab.')
                         ->createOptionForm(ArticleResource::getFormSchema(forModal: true))
                         ->createOptionUsing(function (array $data): int {
@@ -248,14 +211,13 @@ final class CompanyResource extends Resource
 
         // Add People field unless excluded (to prevent circular references)
         if (! $excludePeopleField) {
-            // Insert after Categories (index 2)
-            array_splice($fields, 3, 0, [
+            // Insert after Categories (index 3)
+            array_splice($fields, 4, 0, [
                 Select::make('people')
                     ->label('People / Contacts')
                     ->relationship('people', 'name')
                     ->multiple()
                     ->preload()
-
                     ->helperText('Add people associated with this company')
                     ->createOptionForm(PeopleResource::getFormSchema(excludeCompaniesField: true))
                     ->createOptionUsing(function (array $data): int {
@@ -280,169 +242,10 @@ final class CompanyResource extends Resource
         return $fields;
     }
 
-    public static function form(Schema $schema): Schema
-    {
-        return $schema
-            ->components([
-                // Code field only in main form (auto-generated)
-                TextInput::make('code')
-                    ->label('Code')
-                    ->disabled()
-                    ->dehydrated(false)
-                    ->placeholder('Auto-generated'),
-
-                // Use shared form schema (includes all fields + custom fields)
-                ...self::getFormSchema(),
-            ])
-            ->columns(1);
-    }
-
-    public static function table(Table $table): Table
-    {
-        return $table
-            ->columns([
-                ImageColumn::make('logo')->label('')->imageSize(28)->square(),
-                TextColumn::make('code')
-                    ->label('Code')
-                    ->searchable()
-                    ->sortable(),
-                TextColumn::make('name')
-                    ->searchable()
-                    ->sortable(),
-                TextColumn::make('domain')
-                    ->searchable()
-                    ->sortable()
-                    ->toggleable()
-                    ->url(fn (?string $state): ?string => $state ? "https://{$state}" : null)
-                    ->openUrlInNewTab(),
-                TextColumn::make('people_count')
-                    ->label('Contacts')
-                    ->counts('people')
-                    ->sortable()
-                    ->toggleable(),
-                TextColumn::make('country')
-
-                    ->sortable()
-                    ->toggleable(),
-                IconColumn::make('is_buyer')
-                    ->label('Buyer')
-                    ->boolean()
-                    ->sortable(),
-                IconColumn::make('is_supplier')
-                    ->label('Supplier')
-                    ->boolean()
-                    ->sortable(),
-                TextColumn::make('defaultCurrency.code')
-                    ->label('Currency')
-                    ->toggleable()
-                    ->toggledHiddenByDefault(),
-                TextColumn::make('payment_terms_days')
-                    ->label('Payment Terms')
-                    ->suffix(' days')
-                    ->sortable()
-                    ->toggleable()
-                    ->toggledHiddenByDefault(),
-                IconColumn::make('is_active')
-                    ->label('Active')
-                    ->boolean()
-                    ->sortable(),
-                TextColumn::make('accountOwner.name')
-                    ->label('Account Owner')
-                    ->searchable()
-                    ->sortable()
-                    ->toggleable()
-                    ->toggledHiddenByDefault(),
-                TextColumn::make('creator.name')
-                    ->label('Created By')
-                    ->searchable()
-                    ->sortable()
-                    ->toggleable()
-                    ->toggledHiddenByDefault()
-                    ->getStateUsing(fn (Company $record): string => $record->created_by)
-                    ->color(fn (Company $record): string => $record->isSystemCreated() ? 'secondary' : 'primary'),
-                TextColumn::make('created_at')
-                    ->label('Created')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable()
-                    ->toggledHiddenByDefault(),
-                TextColumn::make('updated_at')
-                    ->label('Last Update')
-                    ->since()
-                    ->sortable()
-                    ->toggleable(),
-            ])
-            ->defaultSort('created_at', 'desc')
-            ->filters([
-                TernaryFilter::make('is_buyer')
-                    ->label('Buyers'),
-                TernaryFilter::make('is_supplier')
-                    ->label('Suppliers'),
-                SelectFilter::make('is_active')
-                    ->label('Status')
-                    ->options([
-                        '1' => 'Active',
-                        '0' => 'Inactive',
-                    ]),
-                SelectFilter::make('country')
-                    ->label('Country')
-
-                    ->preload()
-                    ->options(fn () => Company::query()->whereNotNull('country')->distinct()->pluck('country', 'country')->toArray()),
-                SelectFilter::make('default_currency_id')
-                    ->label('Currency')
-                    ->options(fn () => Currency::query()
-                        ->where('is_active', true)
-                        ->pluck('code', 'id')
-                        ->all()),
-                SelectFilter::make('creation_source')
-                    ->label('Creation Source')
-                    ->options(CreationSource::class)
-                    ->multiple(),
-                TrashedFilter::make(),
-            ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    ExportBulkAction::make()
-                        ->exporter(CompanyExporter::class),
-                    DeleteBulkAction::make(),
-                    ForceDeleteBulkAction::make(),
-                    RestoreBulkAction::make(),
-                ]),
-            ]);
-    }
-
-    public static function getPages(): array
-    {
-        return [
-            'index' => ListCompanies::route('/'),
-            'create' => CreateCompany::route('/create'),
-            'view' => ViewCompany::route('/{record}'),
-        ];
-    }
-
-    public static function getGloballySearchableAttributes(): array
-    {
-        return ['code', 'name', 'domain', 'country'];
-    }
-
     /**
-     * @return Builder<Company>
-     */
-    public static function getEloquentQuery(): Builder
-    {
-        return parent::getEloquentQuery()
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
-    }
-
-    /**
-     * Get country options for select field.
-     *
      * @return array<string, string>
      */
-    public static function getCountryOptions(): array
+    public static function countryOptions(): array
     {
         return [
             'Indonesia' => 'Indonesia',
@@ -509,5 +312,42 @@ final class CompanyResource extends Resource
             'United States' => 'United States',
             'Vietnam' => 'Vietnam',
         ];
+    }
+
+    /**
+     * The Company Type section. Every company must be a buyer, a supplier, or both;
+     * paths that do not force a role via mutateFormDataUsing must pass $requireRole.
+     */
+    private static function roleSection(bool $requireRole): Section
+    {
+        $atLeastOneRole = fn (string $other): Closure => function (Get $get) use ($other): Closure {
+            return function (string $attribute, mixed $value, Closure $fail) use ($get, $other): void {
+                if (! $value && ! $get($other)) {
+                    $fail('The company must be a Buyer, a Supplier, or both.');
+                }
+            };
+        };
+
+        $isBuyer = Checkbox::make('is_buyer')
+            ->label('This company is a Buyer (Customer)')
+            ->inline()
+            ->helperText('Enable to track buyer-specific fields like credit limits');
+
+        $isSupplier = Checkbox::make('is_supplier')
+            ->label('This company is a Supplier (Vendor)')
+            ->inline()
+            ->helperText('Enable to track supplier-specific fields like lead times');
+
+        if ($requireRole) {
+            $isBuyer->live()->rules([$atLeastOneRole('is_supplier')]);
+            $isSupplier->live()->rules([$atLeastOneRole('is_buyer')]);
+        } else {
+            $isBuyer->live();
+            $isSupplier->live();
+        }
+
+        return Section::make('Company Type')
+            ->schema([$isBuyer, $isSupplier])
+            ->columns(2);
     }
 }

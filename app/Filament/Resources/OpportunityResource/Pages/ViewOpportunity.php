@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace App\Filament\Resources\OpportunityResource\Pages;
 
 use App\Filament\Actions\GenerateRecordSummaryAction;
-use App\Filament\Resources\CompanyResource;
+use App\Filament\Resources\BuyerResource;
 use App\Filament\Resources\OpportunityResource;
 use App\Filament\Resources\PeopleResource;
+use App\Filament\Resources\SupplierResource;
 use App\Models\Opportunity;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -43,7 +44,11 @@ final class ViewOpportunity extends ViewRecord
                     TextEntry::make('company.name')
                         ->label('Company')
                         ->color('primary')
-                        ->url(fn (Opportunity $record): ?string => $record->company ? CompanyResource::getUrl('view', [$record->company]) : null)
+                        ->url(fn (Opportunity $record): ?string => $record->company
+                            ? ($record->company->is_buyer
+                                ? BuyerResource::getUrl('view', [$record->company])
+                                : SupplierResource::getUrl('view', [$record->company]))
+                            : null)
                         ->grow(false),
                     TextEntry::make('contact.name')
                         ->label('Point of Contact')

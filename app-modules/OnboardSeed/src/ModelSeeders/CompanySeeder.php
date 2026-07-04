@@ -48,10 +48,16 @@ final class CompanySeeder extends BaseModelSeeder
      */
     private function createCompanyFromFixture(Team $team, Authenticatable $user, string $key, array $data): Company
     {
+        $isBuyer = (bool) ($data['is_buyer'] ?? false);
+        $isSupplier = (bool) ($data['is_supplier'] ?? false);
+
         $attributes = [
             'name' => $data['name'],
             'domain' => $data['domain'] ?? null,
             'account_owner_id' => $user->getAuthIdentifier(),
+            // Every company must carry at least one role to stay reachable via Buyers/Suppliers
+            'is_buyer' => $isBuyer || ! $isSupplier,
+            'is_supplier' => $isSupplier,
         ];
 
         $customFields = $data['custom_fields'] ?? [];

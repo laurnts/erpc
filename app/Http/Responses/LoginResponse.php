@@ -7,7 +7,7 @@ namespace App\Http\Responses;
 use App\Filament\Customer\Pages\Auth\CustomerLogin;
 use App\Filament\Customer\Pages\CustomerDashboard;
 use App\Filament\Pages\Auth\Login;
-use App\Filament\Resources\CompanyResource;
+use App\Filament\Resources\BuyerResource;
 use Filament\Facades\Filament;
 use Filament\Panel;
 use Illuminate\Http\RedirectResponse;
@@ -111,7 +111,7 @@ final readonly class LoginResponse implements \Filament\Auth\Http\Responses\Cont
         $user = $request->user('web');
 
         $default = ($user && $user->currentTeam)
-            ? CompanyResource::getUrl('index', ['tenant' => $user->currentTeam->getKey()])
+            ? BuyerResource::getUrl('index', ['tenant' => $user->currentTeam->getKey()])
             : Filament::getPanel('app')->getUrl();
 
         $intended = session()->pull('url.intended');

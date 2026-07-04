@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace App\Filament\Resources\PeopleResource\Pages;
 
 use App\Filament\Actions\GenerateRecordSummaryAction;
-use App\Filament\Resources\CompanyResource;
+use App\Filament\Resources\BuyerResource;
 use App\Filament\Resources\PeopleResource;
 use App\Filament\Resources\PeopleResource\RelationManagers\BuyersRelationManager;
 use App\Filament\Resources\PeopleResource\RelationManagers\NotesRelationManager;
 use App\Filament\Resources\PeopleResource\RelationManagers\TasksRelationManager;
+use App\Filament\Resources\SupplierResource;
 use App\Models\People;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -54,7 +55,11 @@ final class ViewPeople extends ViewRecord
                     TextEntry::make('company.name')
                         ->label('Company')
                         ->color('primary')
-                        ->url(fn (People $record): ?string => $record->company ? CompanyResource::getUrl('view', [$record->company]) : null),
+                        ->url(fn (People $record): ?string => $record->company
+                            ? ($record->company->is_buyer
+                                ? BuyerResource::getUrl('view', [$record->company])
+                                : SupplierResource::getUrl('view', [$record->company]))
+                            : null),
                 ]),
                 CustomFields::infolist()->forSchema($schema)->build()->columnSpanFull(),
             ])->columnSpanFull(),

@@ -7,6 +7,7 @@ namespace App\Filament\Resources;
 use App\Enums\CreationSource;
 use App\Enums\DeliveryType;
 use App\Filament\Exports\SupplierExporter;
+use App\Filament\Forms\CompanyForm;
 use App\Filament\Resources\SupplierResource\Pages\CreateSupplier;
 use App\Filament\Resources\SupplierResource\Pages\ListSuppliers;
 use App\Filament\Resources\SupplierResource\Pages\ViewSupplier;
@@ -20,6 +21,7 @@ use Filament\Actions\ExportBulkAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -111,6 +113,11 @@ final class SupplierResource extends Resource
                 ->label('Company Name')
                 ->required()
                 ->maxLength(255),
+
+            Checkbox::make('is_buyer')
+                ->label('Also a Buyer (Customer)')
+                ->inline()
+                ->helperText('This company also appears in the Buyers list'),
 
             TextInput::make('domain')
                 ->label('Domain')
@@ -392,6 +399,6 @@ final class SupplierResource extends Resource
      */
     public static function getCountryOptions(): array
     {
-        return CompanyResource::getCountryOptions();
+        return CompanyForm::countryOptions();
     }
 }

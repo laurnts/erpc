@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Enums\CreationSource;
 use App\Filament\Exports\PeopleExporter;
+use App\Filament\Forms\CompanyForm;
 use App\Filament\Resources\PeopleResource\Pages\CreatePeople;
 use App\Filament\Resources\PeopleResource\Pages\ListPeople;
 use App\Filament\Resources\PeopleResource\Pages\ViewPeople;
@@ -44,7 +45,7 @@ final class PeopleResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Workspace';
+    protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
 
     /**
      * Get the base form fields for creating/editing a person.
@@ -79,7 +80,7 @@ final class PeopleResource extends Resource
                 ->preload()
 
                 ->helperText('Assign this person to one or more companies')
-                ->createOptionForm(CompanyResource::getFormSchema(excludePeopleField: true))
+                ->createOptionForm(CompanyForm::components(excludePeopleField: true, requireRole: true))
                 ->createOptionUsing(function (array $data): int {
                     /** @var \App\Models\Team $team */
                     $team = Filament::getTenant();
