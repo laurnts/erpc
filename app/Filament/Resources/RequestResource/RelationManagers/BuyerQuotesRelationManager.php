@@ -25,6 +25,7 @@ use App\Models\TaxCode;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
 use App\Services\Erp\Financial\LineCalculator;
+use App\Services\Erp\Financial\MarginConvention;
 use App\Services\TeamMemberService;
 use App\Support\Media\DocumentPathGenerator;
 use Filament\Actions\Action;
@@ -650,7 +651,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->dehydrated()
                                         ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0')
                                         ->dehydrateStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0'),
-                                    // Margin %: default from general settings. Unit price = cost × (1 + margin%/100); margin% = (selling - cost)/cost×100. +Tax adds tax to line total.
+                                    // Margin %: default from general settings. Unit price = cost / (1 - margin%/100); margin% = (selling - cost)/selling×100. +Tax adds tax to line total.
                                     TextInput::make('margin_percent_input')
                                         ->label('Margin %')
                                         ->numeric()
@@ -695,7 +696,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             $marginPercent = $state ?? 0;
                                             $costPrice = (float) ($get('cost_price') ?? 0);
                                             if ($costPrice > 0 && $marginPercent >= 0) {
-                                                $unitPriceExcTax = round($costPrice * (1 + $marginPercent / 100), 0);
+                                                $unitPriceExcTax = round(MarginConvention::netUnitPrice($costPrice, $marginPercent), 0);
                                                 $set('unit_price', $unitPriceExcTax);
                                                 $set('unit_price_exc_tax', $unitPriceExcTax);
                                             }
@@ -1576,7 +1577,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         : 0.0;
                                     $childQuantity = (float) $childRequestItem->quantity;
 
-                                    $childUnitPriceExcTax = $childCostPrice > 0 ? round($childCostPrice * (1 + $defaultMarginPercent / 100), 0) : 0.0;
+                                    $childUnitPriceExcTax = $childCostPrice > 0 ? round(MarginConvention::netUnitPrice($childCostPrice, $defaultMarginPercent), 0) : 0.0;
                                     $childUnitPrice = round($childUnitPriceExcTax, 0);
 
                                     $childLineSubtotal = $childQuantity * $childUnitPriceExcTax;
@@ -1656,9 +1657,9 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 $addTax = $defaultTaxCode !== null && $defaultTaxCode->is_inclusive_default;
                                 $quantity = (float) $requestItem->quantity;
 
-                                // Unit price (Selling net) = Cost × (1 + margin%/100)
+                                // Unit price (Selling net) = Cost / (1 - margin%/100)
                                 $unitPriceExcTax = $costPrice > 0
-                                    ? round($costPrice * (1 + $defaultMarginPercent / 100), 4)
+                                    ? round(MarginConvention::netUnitPrice($costPrice, $defaultMarginPercent), 4)
                                     : 0.0;
 
                                 // If tax is inclusive, unit_price should include tax; otherwise unit_price = net price
