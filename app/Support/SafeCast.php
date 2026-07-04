@@ -10,7 +10,7 @@ use Stringable;
  * Utility class for validated casting of mixed values, typically sourced
  * from JSON columns or Filament form state, to a specific scalar type.
  */
-final class SafeCast
+final readonly class SafeCast
 {
     /**
      * Cast a value to float. Numeric strings, ints, and floats pass through;
