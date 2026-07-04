@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\RequestResource\RelationManagers;
 
+use App\Actions\SupplierPortal\StampSupplierQuoteSent;
 use App\Enums\RequestStage;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Mail\Erp\QuoteToSupplierMail;
@@ -524,6 +525,8 @@ final class ItemsRelationManager extends RelationManager
                                             $needsResend = true; // Email was never sent
                                         } elseif ($metadata['email_sent'] === false) {
                                             $needsResend = true; // Email failed previously
+                                        } elseif ($existingQuote->declined_at !== null) {
+                                            $needsResend = true; // Supplier declined — staff re-send is a fresh RFQ
                                         }
 
                                         if ($needsResend) {
@@ -569,6 +572,8 @@ final class ItemsRelationManager extends RelationManager
                                     $needsResend = true; // Email was never sent
                                 } elseif ($metadata['email_sent'] === false) {
                                     $needsResend = true; // Email failed previously
+                                } elseif ($quote->declined_at !== null) {
+                                    $needsResend = true; // Supplier declined — staff re-send is a fresh RFQ
                                 }
 
                                 if ($needsResend) {
@@ -640,6 +645,8 @@ final class ItemsRelationManager extends RelationManager
                                             ]
                                         ),
                                     ]);
+                                    // Stamp the supplier-portal visibility gate (clears a prior decline)
+                                    app(StampSupplierQuoteSent::class)->execute($quote);
                                 } catch (\Exception $e) {
                                     Log::error('Failed to send quote request email to supplier', [
                                         'quote_id' => $quote->id,
@@ -867,6 +874,8 @@ final class ItemsRelationManager extends RelationManager
                                         $needsResend = true; // Email was never sent
                                     } elseif ($metadata['email_sent'] === false) {
                                         $needsResend = true; // Email failed previously
+                                    } elseif ($existingQuote->declined_at !== null) {
+                                        $needsResend = true; // Supplier declined — staff re-send is a fresh RFQ
                                     }
 
                                     if ($needsResend) {
@@ -934,6 +943,8 @@ final class ItemsRelationManager extends RelationManager
                                     $needsResend = true; // Email was never sent
                                 } elseif ($metadata['email_sent'] === false) {
                                     $needsResend = true; // Email failed previously
+                                } elseif ($quote->declined_at !== null) {
+                                    $needsResend = true; // Supplier declined — staff re-send is a fresh RFQ
                                 }
 
                                 if ($needsResend) {
@@ -1005,6 +1016,8 @@ final class ItemsRelationManager extends RelationManager
                                             ]
                                         ),
                                     ]);
+                                    // Stamp the supplier-portal visibility gate (clears a prior decline)
+                                    app(StampSupplierQuoteSent::class)->execute($quote);
                                 } catch (\Exception $e) {
                                     Log::error('Failed to send quote request email to supplier', [
                                         'quote_id' => $quote->id,

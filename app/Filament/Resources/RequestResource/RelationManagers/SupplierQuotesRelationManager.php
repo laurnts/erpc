@@ -1082,6 +1082,13 @@ final class SupplierQuotesRelationManager extends RelationManager
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('status')
                     ->badge()
+                    // A declined RFQ keeps PENDING status; the timestamp drives the badge.
+                    ->formatStateUsing(fn (SupplierQuote $record): string => $record->declined_at !== null
+                        ? 'Declined'
+                        : $record->status->getLabel())
+                    ->color(fn (SupplierQuote $record): string => $record->declined_at !== null
+                        ? 'danger'
+                        : $record->status->getColor())
                     ->sortable(),
                 TextColumn::make('currency.code')
                     ->label('Currency')

@@ -111,6 +111,21 @@
                                 </table>
                             @endif
                             
+                            @if(!empty($portalUrl))
+                                <table width="100%" cellpadding="0" cellspacing="0" style="margin: 25px 0 5px;">
+                                    <tr>
+                                        <td align="center">
+                                            <a href="{{ $portalUrl }}" style="display: inline-block; background-color: #2563eb; color: #ffffff; font-size: 14px; font-weight: bold; text-decoration: none; padding: 12px 28px; border-radius: 6px;">Respond in the Supplier Portal</a>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align="center" style="padding-top: 10px;">
+                                            <span style="font-size: 12px; color: #6b7280;">Submit your prices or decline this request online.</span>
+                                        </td>
+                                    </tr>
+                                </table>
+                            @endif
+
                             @if($team->getErpSettings()->email_signature)
                                 <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 13px; color: #6b7280;">
                                     {!! nl2br(e($team->getErpSettings()->email_signature)) !!}

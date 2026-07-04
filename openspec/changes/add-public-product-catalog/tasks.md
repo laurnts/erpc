@@ -22,13 +22,13 @@
 
 ## Slice 3 — RFQ participation (receive, quote, decline)
 
-- [ ] 3.1 Migration `supplier_quotes`: `submitted_via` enum default `internal`, `submitted_at`, `submitted_by_user_id` (nullOnDelete), `declined_at`, `sent_to_supplier_at`; backfill `sent_to_supplier_at` from `notification_metadata` where a send is recorded
-- [ ] 3.2 "Send to Suppliers" path stamps `sent_to_supplier_at`; re-send to a declined supplier clears `declined_at`/`submitted_*` and re-stamps; `QuoteToSupplierMail` gains a portal deep-link
-- [ ] 3.3 Decline rules: `CheckAwaitingSupplierQuotesJob` adds `whereNull('declined_at')`; expiry sweep skips declined rows
-- [ ] 3.4 `SupplierRfqResource` (slug `rfqs`): List tabs Open/Submitted (Won/Lost tabs land in Slice 4); View with item hierarchy (own `is_selected` only); `SupplierQuote::scopeForSupplierPortal()` (own company AND `whereNotNull('sent_to_supplier_at')`); `SupplierQuotePolicy` supplier branch via `ResolvesPanelContext`
-- [ ] 3.5 `SubmitSupplierRfqResponse` (same write as admin "Input price": per-item prices, validity, notes, quotation upload via `AttachUploadedFiles`; `exchange_rate` server-resolved, client values rejected; stamps `submitted_*`; observer PENDING→RECEIVED unchanged) + `DeclineSupplierRfq` (stamps `declined_at`, notifies team) + `SupplierQuoteSubmittedNotification`
-- [ ] 3.6 `SupplierRfqStatusPresenter` (precedence: Declined → Awaiting your quote / Expired → Submitted — under review); admin views show a Declined badge from the timestamp
-- [ ] 3.7 Pest tests: unsent RFQs invisible, submit happy/tampered-rate/expired-validity, decline + reminder-job + expiry interactions, re-send reset, confidentiality (no buyer identity, no other suppliers, no comparison/QE data in any portal response)
+- [x] 3.1 Migration `supplier_quotes`: `submitted_via` enum default `internal`, `submitted_at`, `submitted_by_user_id` (nullOnDelete), `declined_at`, `sent_to_supplier_at`; backfill `sent_to_supplier_at` from `notification_metadata` where a send is recorded
+- [x] 3.2 "Send to Suppliers" path stamps `sent_to_supplier_at`; re-send to a declined supplier clears `declined_at`/`submitted_*` and re-stamps; `QuoteToSupplierMail` gains a portal deep-link
+- [x] 3.3 Decline rules: `CheckAwaitingSupplierQuotesJob` adds `whereNull('declined_at')`; expiry sweep skips declined rows
+- [x] 3.4 `SupplierRfqResource` (slug `rfqs`): List tabs Open/Submitted (Won/Lost tabs land in Slice 4); View with item hierarchy (own `is_selected` only); `SupplierQuote::scopeForSupplierPortal()` (own company AND `whereNotNull('sent_to_supplier_at')`); `SupplierQuotePolicy` supplier branch via `ResolvesPanelContext`
+- [x] 3.5 `SubmitSupplierRfqResponse` (same write as admin "Input price": per-item prices, validity, notes, quotation upload via `AttachUploadedFiles`; `exchange_rate` server-resolved, client values rejected; stamps `submitted_*`; observer PENDING→RECEIVED unchanged) + `DeclineSupplierRfq` (stamps `declined_at`, notifies team) + `SupplierQuoteSubmittedNotification`
+- [x] 3.6 `SupplierRfqStatusPresenter` (precedence: Declined → Awaiting your quote / Expired → Submitted — under review); admin views show a Declined badge from the timestamp
+- [x] 3.7 Pest tests: unsent RFQs invisible, submit happy/tampered-rate/expired-validity, decline + reminder-job + expiry interactions, re-send reset, confidentiality (no buyer identity, no other suppliers, no comparison/QE data in any portal response)
 
 ## Slice 4 — Won/lost outcomes via announce
 

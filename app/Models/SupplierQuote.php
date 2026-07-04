@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\ItemType;
 use App\Enums\PrepaymentType;
 use App\Enums\SupplierQuoteStatus;
+use App\Enums\SupplierQuoteSubmissionMethod;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use App\Observers\SupplierQuoteObserver;
@@ -14,6 +15,7 @@ use App\Services\Erp\Financial\TotalsCollector;
 use App\Services\Erp\Financial\TotalsLine;
 use Database\Factories\SupplierQuoteFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -47,6 +49,11 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property Carbon|null $quoted_at
  * @property Carbon|null $valid_until
  * @property bool $obtained
+ * @property SupplierQuoteSubmissionMethod $submitted_via
+ * @property Carbon|null $submitted_at
+ * @property int|null $submitted_by_user_id
+ * @property Carbon|null $declined_at
+ * @property Carbon|null $sent_to_supplier_at
  * @property string|null $notes
  * @property string|null $internal_notes
  * @property array<string, mixed>|null $notification_metadata
@@ -115,6 +122,7 @@ final class SupplierQuote extends Model implements HasMedia
         'prepayment_amount' => '0.0000',
         'prepayment_percent' => 0,
         'obtained' => false,
+        'submitted_via' => SupplierQuoteSubmissionMethod::Internal,
     ];
 
     /**
@@ -137,6 +145,10 @@ final class SupplierQuote extends Model implements HasMedia
             'quoted_at' => 'date',
             'valid_until' => 'date',
             'obtained' => 'boolean',
+            'submitted_via' => SupplierQuoteSubmissionMethod::class,
+            'submitted_at' => 'datetime',
+            'declined_at' => 'datetime',
+            'sent_to_supplier_at' => 'datetime',
             'notification_metadata' => 'array',
         ];
     }
@@ -188,6 +200,16 @@ final class SupplierQuote extends Model implements HasMedia
     public function currency(): BelongsTo
     {
         return $this->belongsTo(Currency::class);
+    }
+
+    /**
+     * The portal user who submitted this quote (when submitted via portal).
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function submittedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'submitted_by_user_id');
     }
 
     /**
@@ -398,14 +420,34 @@ final class SupplierQuote extends Model implements HasMedia
     }
 
     /**
-     * Check and update expired status if needed.
+     * Check and update expired status if needed. Declined quotes are skipped:
+     * "Declined" takes precedence and a declined quote never mutates to EXPIRED.
      */
     public function checkAndUpdateExpiredStatus(): void
     {
+        if ($this->declined_at !== null) {
+            return;
+        }
+
         if ($this->status === SupplierQuoteStatus::PENDING && $this->is_expired) {
             $this->status = SupplierQuoteStatus::EXPIRED;
             $this->saveQuietly();
         }
+    }
+
+    /**
+     * Supplier-portal visibility scope: the supplier's own quotes, and only
+     * those actually sent ("Send to Suppliers" stamps the gate). Auto-generated
+     * pending quotes without a send never surface in any portal view.
+     *
+     * @param  Builder<SupplierQuote>  $query
+     * @return Builder<SupplierQuote>
+     */
+    public function scopeForSupplierPortal(Builder $query, int $companyId): Builder
+    {
+        return $query
+            ->where('supplier_id', $companyId)
+            ->whereNotNull('sent_to_supplier_at');
     }
 
     /**

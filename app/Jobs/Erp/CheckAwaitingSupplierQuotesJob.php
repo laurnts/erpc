@@ -42,10 +42,12 @@ final class CheckAwaitingSupplierQuotesJob implements ShouldQueue
     {
         $thresholdDate = Carbon::today()->subDays($this->thresholdDays);
 
-        // Find supplier quotes that have been in PENDING status for too long
+        // Find supplier quotes that have been in PENDING status for too long.
+        // Declined quotes keep PENDING status but must never nag staff.
         $quotes = SupplierQuote::query()
             ->with(['supplier', 'creator', 'request'])
             ->where('status', SupplierQuoteStatus::PENDING)
+            ->whereNull('declined_at')
             ->where('created_at', '<=', $thresholdDate)
             ->get();
 

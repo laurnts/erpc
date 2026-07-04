@@ -188,4 +188,24 @@ final class SupplierQuoteFactory extends Factory
             'status' => SupplierQuoteStatus::EXPIRED,
         ]);
     }
+
+    /**
+     * The RFQ has actually been sent to the supplier (portal visibility gate).
+     */
+    public function sentToSupplier(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'sent_to_supplier_at' => now(),
+        ]);
+    }
+
+    /**
+     * The supplier has declined to quote (status stays PENDING).
+     */
+    public function declined(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'declined_at' => now(),
+        ]);
+    }
 }
