@@ -23,6 +23,6 @@ The item-level fulfillment change (`2026-07-04-move-fulfillment-to-item-level`) 
 
 ## Decisions (approved 2026-07-04)
 
-1. Goods completion basis: **full quantity coverage** by shipments, using existing partial-shipment data.
+1. Goods completion basis: **full quantity coverage** by shipments, using existing partial-shipment data. Amendment (2026-07-04, post-review): only **delivered** shipments count as coverage (DELIVERED, and PARTIAL for its shipped quantities); pending/in-transit/failed shipments do not — "Completed" means goods arrived, not paperwork exists.
 2. Completed-stage gate: **hard block** — no admin override; the error names the incomplete channel(s).
 3. QE ranking on mixed requests: **sort by goods-only subtotal AND display both** the goods subtotal and the full quote total per supplier.

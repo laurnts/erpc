@@ -16,7 +16,7 @@ The system SHALL fulfill each item through the channel of its type — goods ite
 ## ADDED Requirements
 
 ### Requirement: Derived Fulfillment Completion
-The system SHALL derive per-channel fulfillment completion on a request — the goods channel is complete when every goods main item is fully covered by shipment quantities, the services channel is complete when every services main item is covered by an acceptance report, and a channel with no items is complete — and SHALL derive the request as fulfilled when all channels are complete. Stage progression remains manual, but the transition to the completed stage MUST require derived fulfillment.
+The system SHALL derive per-channel fulfillment completion on a request — the goods channel is complete when every goods main item is fully covered by **delivered** shipment quantities (pending, in-transit, and failed shipments do not count), the services channel is complete when every services main item is covered by an acceptance report, and a channel with no items is complete — and SHALL derive the request as fulfilled when all channels are complete. Stage progression remains manual, but the transition to the completed stage MUST require derived fulfillment.
 
 #### Scenario: Mixed request fulfilled when both channels complete
 - **WHEN** a request has goods items fully shipped and every services main item covered by an acceptance report
@@ -26,6 +26,10 @@ The system SHALL derive per-channel fulfillment completion on a request — the 
 - **WHEN** a goods main item with quantity 10 has shipments covering only 6
 - **THEN** the goods channel is incomplete
 - **AND** the request's derived fulfillment status is not "fulfilled"
+
+#### Scenario: Undelivered shipments do not count as coverage
+- **WHEN** a goods main item is fully covered by shipment documents that are still pending or in transit
+- **THEN** the goods channel is incomplete until those shipments are delivered
 
 #### Scenario: Single-type request derives from its only channel
 - **WHEN** a services-only request has every services main item covered by an acceptance report
