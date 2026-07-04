@@ -4,16 +4,21 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Actions\Jetstream\RemoveTeamMember;
 use App\Enums\CentralPurchasingRole;
 use App\Filament\Resources\MemberResource\Pages\ListMembers;
 use App\Models\Membership;
+use Filament\Actions\Action;
 use Filament\Facades\Filament;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Validation\ValidationException;
+use Livewire\Component;
 
 final class MemberResource extends Resource
 {
@@ -90,7 +95,27 @@ final class MemberResource extends Resource
                         'central_purchasing' => 'Central Purchasing',
                     ]),
             ])
-            ->actions([]);
+            ->actions([
+                Action::make('leaveTeam')
+                    ->label('Leave Team')
+                    ->icon('heroicon-o-arrow-right-start-on-rectangle')
+                    ->color('danger')
+                    ->visible(fn (Membership $record): bool => auth()->id() === $record->user_id)
+                    ->requiresConfirmation()
+                    ->modalDescription('Are you sure you want to leave this team? You will lose access immediately and will need a new invitation to rejoin.')
+                    ->action(function (Membership $record, Component $livewire): void {
+                        try {
+                            app(RemoveTeamMember::class)->remove(auth()->user(), Filament::getTenant(), $record->user);
+
+                            $livewire->redirect(Filament::getHomeUrl());
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->title($e->validator->errors()->first())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
+            ]);
     }
 
     /**
