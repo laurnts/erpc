@@ -1,6 +1,6 @@
 # Implementation Tasks
 
-Awaiting proposal approval (three Open Questions in proposal.md). Do not start until approved.
+Approved 2026-07-04 (decisions recorded in proposal.md).
 
 ## 1. Derived completion on Request
 
@@ -19,8 +19,8 @@ Awaiting proposal approval (three Open Questions in proposal.md). Do not start u
 
 ## 4. QE ranking
 
-- [ ] 4.1 Change `QuotationEvaluationForm` quote ordering (currently `->orderBy('total_base')`) to a goods-lines-only subtotal on mixed requests
-- [ ] 4.2 Pest test: mixed-request ranking scenario from the spec delta; goods-only request unchanged
+- [ ] 4.1 Change `QuotationEvaluationForm` quote ordering (currently `->orderBy('total_base')`) to a goods-lines-only subtotal on mixed requests, and display both goods subtotal and full total per supplier on mixed requests
+- [ ] 4.2 Pest test: mixed-request ranking scenario from the spec delta (ordering + both totals shown); goods-only request unchanged
 
 ## 5. Verification
 

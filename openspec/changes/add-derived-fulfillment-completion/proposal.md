@@ -21,8 +21,8 @@ The item-level fulfillment change (`2026-07-04-move-fulfillment-to-item-level`) 
   - `app/Livewire/QuotationEvaluationForm.php:291` — ranking basis
   - Tests: extend `tests/Feature/Erp/ItemLevelFulfillmentTest.php`; new QE ranking test
 
-## Open Questions (for review)
+## Decisions (approved 2026-07-04)
 
-1. Goods completion basis: full quantity coverage by shipments (proposed) vs "at least one shipment touching the item". Proposal assumes quantity coverage using existing partial-shipment data.
-2. Should the completed-stage gate be a hard block (proposed) or an override-able warning for admins?
-3. QE ranking on mixed requests: strictly goods-only subtotal (proposed) vs showing both totals with goods-only as the sort key.
+1. Goods completion basis: **full quantity coverage** by shipments, using existing partial-shipment data.
+2. Completed-stage gate: **hard block** — no admin override; the error names the incomplete channel(s).
+3. QE ranking on mixed requests: **sort by goods-only subtotal AND display both** the goods subtotal and the full quote total per supplier.
