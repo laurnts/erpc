@@ -54,16 +54,6 @@ final class ViewMember extends ViewRecord
                             ->label('Name')
                             ->required()
                             ->maxLength(255),
-                        TextInput::make('email')
-                            ->label('Email')
-                            ->email()
-                            ->required()
-                            ->unique(\App\Models\User::class, ignorable: $membership->user),
-                        TextInput::make('password')
-                            ->label('Password')
-                            ->password()
-                            ->helperText('Leave blank to keep the current password.')
-                            ->maxLength(255),
                         Radio::make('role')
                             ->label('Role')
                             ->options([
@@ -99,7 +89,6 @@ final class ViewMember extends ViewRecord
                     ->fillForm(function () use ($membership): array {
                         return [
                             'name' => $membership->user->name,
-                            'email' => $membership->user->email,
                             'profile_photo_path' => $membership->user->profile_photo_path,
                             'role' => $membership->role,
                             'central_purchasing_role' => $membership->central_purchasing_role?->value,
@@ -121,13 +110,7 @@ final class ViewMember extends ViewRecord
                         // Update user information
                         $userData = [
                             'name' => $data['name'],
-                            'email' => $data['email'],
                         ];
-
-                        // Update password if provided
-                        if (! empty($data['password'])) {
-                            $userData['password'] = bcrypt($data['password']);
-                        }
 
                         $user->forceFill($userData)->save();
 
