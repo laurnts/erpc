@@ -67,7 +67,7 @@
 - [x] 10.4 Feature test: manual request submission creates correct records
 - [x] 10.5 Feature test: customer cannot see supplier quotes or internal notes
 - [x] 10.6 Feature test: invite flow creates portal access
-- [ ] 10.7 Architecture test: `CustomerPanelProvider` registered, panel path correct
+- [x] 10.7 Architecture test: `CustomerPanelProvider` registered, panel path correct (covered by CustomerPortalTest panel-path + registration checks)
 
 ---
 

@@ -90,31 +90,39 @@ The system SHALL allow receiving quotes from multiple suppliers for a single req
 ---
 
 ### Requirement: Buyer Quotes
-The system SHALL allow creating consolidated buyer quotes from multiple supplier sources, with versioning support.
+The system SHALL allow creating consolidated buyer quotes from multiple supplier
+sources, with versioning support and consistent financial calculations across
+all creation paths.
 
 #### Scenario: Create buyer quote
 - **WHEN** an admin creates a buyer quote from selected supplier quotes
-- **THEN** quote_number is generated (e.g., "Q-2024-0089-v1")
+- **THEN** `quote_number` is generated (e.g., "Q-2024-0089-v1")
 - **AND** version defaults to 1
 - **AND** items are consolidated from all selected supplier quotes
 
 #### Scenario: Buyer quote items with margin
-- **WHEN** cost_price is $4,838.71 and unit_price is set to $5,200
-- **THEN** margin_percent is calculated as 7.5%
-- **AND** total is quantity × unit_price_exc_tax + tax_amount
-- **AND** sort_order defaults to sequential position
+- **WHEN** `cost_price` is $4,838.71 and `unit_price_exc_tax` is $5,200
+- **THEN** `margin_percent` is calculated as 6.95% (`(5200 − 4838.71) / 5200 × 100`)
+- **AND** the same formula applies regardless of which creation path was used (single supplier, consolidated, or manual)
+- **AND** `line_subtotal` is `quantity × unit_price_exc_tax`
+
+#### Scenario: Prepayment synced across all creation paths
+- **WHEN** a buyer quote with PERCENT prepayment is created via any path (single supplier, consolidated, or manual)
+- **THEN** `prepayment_percent` is set to the entered percentage
+- **AND** `prepayment_amount` is set to 0
+- **AND** `ViewRequest::getPrepaymentDisplay()` shows the correct percentage
 
 #### Scenario: Item-level tax on buyer quote (tax-exclusive price)
 - **WHEN** admin adds item with unit_price $5,200 and tax code "PPN 11%" (exclusive)
-- **THEN** tax_rate is snapshotted as 11.00
-- **AND** unit_price_exc_tax equals $5,200
-- **AND** tax_amount per unit equals $572
+- **THEN** `tax_rate` is snapshotted as 11.00
+- **AND** `unit_price_exc_tax` equals $5,200
+- **AND** `tax_amount` per unit equals $572
 - **AND** total per unit equals $5,772
 
 #### Scenario: Item-level tax on buyer quote (tax-inclusive price)
-- **WHEN** admin adds item with unit_price $5,772 and is_tax_inclusive = true, tax code "PPN 11%"
-- **THEN** unit_price_exc_tax is calculated as $5,200 ($5,772 / 1.11)
-- **AND** margin_percent calculation uses unit_price_exc_tax vs cost_price
+- **WHEN** admin adds item with unit_price $5,772 and `is_tax_inclusive` = true, tax code "PPN 11%"
+- **THEN** `unit_price_exc_tax` is calculated as $5,200 ($5,772 / 1.11)
+- **AND** `margin_percent` calculation uses `unit_price_exc_tax` vs `cost_price`
 - **AND** total per unit equals $5,772
 
 #### Scenario: Tax code from article default
@@ -148,7 +156,11 @@ The system SHALL allow creating consolidated buyer quotes from multiple supplier
 - **THEN** supplier names and cost prices are NOT included
 - **AND** only item description, quantity, unit, and sell price are shown
 
----
+#### Scenario: Service child items excluded from buyer quote PDF total
+- **WHEN** a buyer quote PDF is generated for a service request
+- **THEN** the grand total on the PDF equals `BuyerQuote::total` (main items only)
+- **AND** service child/detail breakdown lines are not independently summed into the PDF total
+- **AND** the PDF total matches the figure used for margin and PNL generation
 
 ### Requirement: Buyer Quote Versioning
 The system SHALL support creating revised versions of buyer quotes during negotiation.
@@ -220,24 +232,37 @@ The system SHALL enforce a status-based workflow for quotes.
 ---
 
 ### Requirement: Margin Analysis
-The system SHALL calculate and display margin analysis on buyer quotes.
+The system SHALL calculate and display margin analysis on buyer quotes using the
+canonical on-selling (gross margin) formula defined in `MarginConvention`.
 
 #### Scenario: Calculate gross margin
-- **WHEN** buyer quote total (excl. tax) is $9,840 and supplier costs are $8,623
+- **WHEN** buyer quote net sell total (excl. tax) is $9,840 and supplier costs are $8,623
 - **THEN** gross_margin is $1,217
 
-#### Scenario: Calculate margin percentage
-- **WHEN** gross_margin is $1,217 and selling price is $9,840
-- **THEN** margin_percent is 12.4%
+#### Scenario: Calculate margin percentage (on-selling)
+- **WHEN** gross_margin is $1,217 and net sell total is $9,840
+- **THEN** margin_percent is 12.4% (`1,217 / 9,840 × 100`)
+- **AND** this formula (`(sell_net − cost) / sell_net × 100`) is the single definition used for all line-item margins, quote-level rollup margins, and P&L margin displays
+
+#### Scenario: P&L margin uses net sell, not gross
+- **WHEN** a buyer quote item (qty 2) has `is_tax_inclusive` true, `unit_price_exc_tax` $5,200, `cost_price` $4,600, tax 11%
+- **THEN** `line_subtotal` is $10,400, `line_tax` is $1,144, `line_total` is $11,544
+- **AND** the P&L margin for this item uses `line_subtotal` ($10,400) as the sell base
+- **AND** NOT `line_total` ($11,544), which includes collected VAT
+- **AND** `marginAmount` is $10,400 − $9,200 = $1,200
+- **AND** `marginPercent` is 11.54%
 
 #### Scenario: Display margin indicator
 - **WHEN** viewing buyer quote
 - **THEN** margin is displayed with visual indicator
-- **AND** color coding: green >15%, yellow 5-15%, red <5%
+- **AND** color coding: green ≥15%, yellow 5–14.99%, red <5%
 
-#### Scenario: Per-item margin
-- **WHEN** viewing buyer quote items
-- **THEN** each item shows cost_price, unit_price, and margin_percent
+#### Scenario: Per-item margin display is consistent
+- **WHEN** viewing a buyer quote item in the form, the P&L infolist, and the P&L PDF
+- **THEN** the same margin percentage is shown in all three views
+- **AND** the per-item margin and the quote-level rollup margin use the same formula and base
+
+---
 
 ### Requirement: Key Accounts Master Data
 The system SHALL maintain Central Purchasing personnel for use in approval workflows through team member roles.
@@ -322,7 +347,9 @@ The system SHALL provide a Master Data resource for viewing and managing Quotati
 - **AND** PDF contains QE Information, Item Comparison table, Supplier Information, and Central Purchasing approval section with signature lines
 
 ### Requirement: Profit and Loss Document
-The system SHALL allow generating Profit and Loss (PNL) documents for tracking profitability of buyer quotes.
+The system SHALL allow generating Profit and Loss (PNL) documents for tracking
+profitability of buyer quotes, with financial figures frozen at the moment of
+approval.
 
 #### Scenario: Central Purchasing fields
 - **WHEN** admin creates or edits a Profit and Loss document
@@ -332,6 +359,25 @@ The system SHALL allow generating Profit and Loss (PNL) documents for tracking p
 - **AND** "Approved By" field shows team members with Director role
 - **AND** all fields query team members instead of People records
 - **AND** foreign key references store User IDs instead of People IDs
+
+#### Scenario: PNL approval freezes financial figures
+- **WHEN** all three approver timestamps are set on a PNL
+- **THEN** a `FinancialSnapshot` is stored on the PNL record
+- **AND** subsequent renders of the PNL view page and PDF use the snapshot totals
+- **AND** the snapshot includes the net sell subtotal, tax total, grand total, cost total, margin amount, margin percent, currency, and the linked buyer quote ID at time of snapshot
+
+#### Scenario: Approved PNL totals do not change after buyer quote soft-delete
+- **WHEN** an approved PNL exists with a `FinancialSnapshot`
+- **AND** the source buyer quote is later soft-deleted
+- **THEN** the PNL view and PDF continue to show the snapshotted figures
+- **AND** no automatic re-linking to a different buyer quote occurs
+
+#### Scenario: Approved PNL totals do not change on page render
+- **WHEN** an approved PNL page is loaded
+- **THEN** no write operations occur as a side effect of rendering
+- **AND** no queries are issued against `buyer_quote_items` to compute financial totals
+
+---
 
 ### Requirement: PNL Status
 The system SHALL compute and display PNL status based on buyer order existence.
@@ -428,4 +474,37 @@ The Request view page SHALL display a summary section with three columns: Financ
 - **THEN** Payment Terms section shows empty state or placeholder
 - **WHEN** a Request has no Shipments
 - **THEN** Shipment section shows empty state or placeholder
+
+### Requirement: Quotation Evaluation Item Scope
+The system SHALL make Quotation Evaluation available when a request has at least one goods item, and SHALL limit the evaluation's contents to goods items.
+
+#### Scenario: QE on a mixed request covers goods items only
+- **WHEN** an admin creates a Quotation Evaluation for a request with goods and services items
+- **THEN** the evaluation lists supplier quote lines for goods items only
+- **AND** services items are excluded from the comparison
+
+#### Scenario: QE unavailable for service-only requests
+- **WHEN** all of a request's items are services items
+- **THEN** Quotation Evaluation creation is blocked with a notice that it applies to goods items only
+
+---
+
+### Requirement: Item-Type-Driven Quote Composition
+The system SHALL derive quote structure per item from the item's type: services items carry their child-item breakdown into quotes, and job-progress payment terms are available when a quote's request has at least one services item.
+
+#### Scenario: Supplier quote generation for a mixed request
+- **WHEN** supplier quotes are generated for a request with a goods item and a services main item having two child items
+- **THEN** the goods item produces one flat quote line
+- **AND** the services main item produces a quote line with its two child lines nested beneath it
+- **AND** child lines are excluded from quote totals
+
+#### Scenario: Job progress on payment terms
+- **WHEN** an admin edits payment terms on a quote whose request has at least one services item
+- **THEN** the Job Progress (%) field is available on each payment-term row
+- **AND** the field is absent when the request has only goods items
+
+#### Scenario: Totals on mixed documents
+- **WHEN** totals are computed for a quote covering goods lines and a services main line with children
+- **THEN** goods lines and the services main line are summed
+- **AND** child lines are always excluded from totals
 
