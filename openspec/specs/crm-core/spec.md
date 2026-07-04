@@ -4,37 +4,6 @@
 
 Core CRM functionality for managing Companies, People, Opportunities, Tasks, and Notes with team-based multi-tenancy.
 ## Requirements
-### Requirement: Company Management
-The system SHALL provide CRUD operations for Company entities with team-based isolation.
-
-#### Scenario: Create Company
-- **WHEN** a user creates a company with valid data
-- **THEN** the company is saved with the current team and creator assigned
-
-#### Scenario: View Company
-- **WHEN** a user views a company
-- **THEN** they see company details including custom fields, associated people (contacts), notes, and tasks
-- **AND** the contacts count is displayed in the list view
-
-#### Scenario: Assign People to Company
-- **WHEN** a user assigns people to a company
-- **THEN** the associations are stored in the company_people pivot table
-- **AND** each association can have a role and primary contact flag
-
-#### Scenario: Inline Create Person from Company
-- **WHEN** user creates a Company and clicks (+) on People field
-- **THEN** inline Person form shows: Name, CustomFields (Emails, Phone, Job Title, LinkedIn)
-- **AND** Companies field is excluded (circular reference)
-- **AND** created Person is linked to the new Company
-
-#### Scenario: List Companies
-- **WHEN** a user lists companies
-- **THEN** only companies belonging to their current team are shown
-
-#### Scenario: Delete Company
-- **WHEN** a user deletes a company
-- **THEN** the company is soft-deleted and can be restored
-
 ### Requirement: People Management
 The system SHALL allow users to create and manage People records.
 
@@ -52,6 +21,12 @@ The system SHALL allow users to create and manage People records.
 - **WHEN** a user views a person
 - **THEN** they see person details and related information
 - **AND** BuyersRelationManager is shown based on team member role (not People Central Purchasing role)
+
+#### Scenario: Inline Create Company from Person
+- **WHEN** a user creates or edits a person and inline-creates a company via the company field
+- **THEN** the inline form uses the shared company form schema with visible Buyer and Supplier role checkboxes
+- **AND** validation requires at least one role to be selected
+- **AND** the created company is reachable via the Buyers and/or Suppliers list according to its roles
 
 ### Requirement: Opportunity Management
 The system SHALL provide CRUD operations for Opportunities (deals) with pipeline tracking.
