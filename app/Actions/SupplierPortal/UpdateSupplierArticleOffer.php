@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\SupplierPortal;
 
+use App\Actions\Catalog\RefreshArticlePriceReview;
 use App\Models\SupplierArticle;
 use Illuminate\Support\Arr;
 
@@ -22,13 +23,20 @@ final readonly class UpdateSupplierArticleOffer
         'lead_time_days',
     ];
 
+    public function __construct(private RefreshArticlePriceReview $refreshArticlePriceReview) {}
+
     /**
      * @param  array<string, mixed>  $attributes
      */
     public function execute(SupplierArticle $link, array $attributes): SupplierArticle
     {
         $link->fill(Arr::only($attributes, self::SUPPLIER_WRITABLE));
+        $priceChanged = $link->isDirty(['supplier_price', 'supplier_price_currency_id']);
         $link->save();
+
+        if ($priceChanged && $link->article !== null) {
+            $this->refreshArticlePriceReview->execute($link->article);
+        }
 
         return $link->refresh();
     }

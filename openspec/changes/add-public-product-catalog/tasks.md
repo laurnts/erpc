@@ -39,12 +39,12 @@
 
 ## Slice 5 — Catalog price plumbing (admin-only; parallel after Slice 1)
 
-- [ ] 5.1 Migration `articles`: `list_price` (decimal 15,4), `list_price_updated_at`, `show_in_product_grid` (default false, indexed with team_id), `price_review_needed` (default false, indexed)
+- [x] 5.1 Migration `articles`: `list_price` (decimal 15,4), `list_price_updated_at`, `show_in_product_grid` (default false, indexed with team_id), `price_review_needed` (default false, indexed)
 - [x] 5.2 `Article`: `InteractsWithMedia` + `product_images` collection (ordered, thumb/medium conversions); casts; factory states — media + `withProductImages` factory state done; `list_price` casts land with 5.1
-- [ ] 5.3 ArticleResource: Images section; Public Catalog section (flag + `list_price`; saving stamps `list_price_updated_at`, clears review flag); review badge + table filter on the persisted flag — Images section done (via `filament/spatie-laravel-media-library-plugin`, excluded from inline modals); Public Catalog section pending
-- [ ] 5.4 Suggest-price action (cost rungs preferred `supplier_price` → preferred `last_quoted_price` → lowest converted active `supplier_price`; per-rung FX-failure notices; `MarginConvention` + `TeamErpSettings::default_margin_percent`)
-- [ ] 5.5 `price_review_needed` recompute hooks (`UpdateSupplierArticleOffer`, `SetPreferredSupplier`, list-price save) + daily `articles:refresh-price-review` command
-- [ ] 5.6 Pest tests: suggest rungs incl. FX skip/abort notices, review-flag lifecycle, media collection — media collection tests done (collection, conversions, ordering, mime rejection, factory state, create-form upload); price tests pending
+- [x] 5.3 ArticleResource: Images section; Public Catalog section (flag + `list_price`; saving stamps `list_price_updated_at`, clears review flag); review badge + table filter on the persisted flag — Images section done (via `filament/spatie-laravel-media-library-plugin`, excluded from inline modals); Public Catalog section done (non-modal form only; grid toggle column + list price column + ternary filters)
+- [x] 5.4 Suggest-price action (cost rungs preferred `supplier_price` → preferred `last_quoted_price` → lowest converted active `supplier_price`; per-rung FX-failure notices; `MarginConvention` + `TeamErpSettings::default_margin_percent`)
+- [x] 5.5 `price_review_needed` recompute hooks (`UpdateSupplierArticleOffer`, `SetPreferredSupplier`, list-price save) + daily `articles:refresh-price-review` command
+- [x] 5.6 Pest tests: suggest rungs incl. FX skip/abort notices, review-flag lifecycle, media collection — media collection tests done (collection, conversions, ordering, mime rejection, factory state, create-form upload); price tests done (`tests/Feature/Erp/CatalogPricingTest.php`)
 
 ## Slice 6 — Public catalog + cart + buyer registration
 

@@ -49,3 +49,10 @@ Schedule::job(new CheckAwaitingSupplierQuotesJob)
     ->name('erp:check-awaiting-supplier-quotes')
     ->withoutOverlapping()
     ->onOneServer();
+
+// Recompute price_review_needed on published articles (FX drift, quoted-price changes)
+Schedule::command('articles:refresh-price-review')
+    ->dailyAt('07:00')
+    ->name('articles:refresh-price-review')
+    ->withoutOverlapping()
+    ->onOneServer();

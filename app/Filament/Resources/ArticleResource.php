@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Actions\Catalog\SuggestArticleListPrice;
 use App\Filament\Exports\ArticleExporter;
 use App\Filament\Resources\ArticleResource\Pages\CreateArticle;
 use App\Filament\Resources\ArticleResource\Pages\ListArticles;
@@ -12,7 +13,9 @@ use App\Models\Article;
 use App\Models\Company;
 use App\Models\Tag;
 use App\Models\TaxCode;
+use App\Models\Team;
 use App\Models\UnitOfMeasure;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ExportBulkAction;
@@ -25,12 +28,16 @@ use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -173,6 +180,62 @@ final class ArticleResource extends Resource
             ])
             ->collapsible();
 
+        $publicCatalogSection = Section::make('Public Catalog')
+            ->schema([
+                Toggle::make('show_in_product_grid')
+                    ->label('Show in Product Grid')
+                    ->default(false)
+                    ->helperText('Publish this article on the public catalog (active articles only).'),
+                TextInput::make('list_price')
+                    ->label('List Price')
+                    ->numeric()
+                    ->minValue(0)
+                    ->suffix(function (): ?string {
+                        $team = Filament::getTenant();
+
+                        return $team instanceof Team ? $team->getBaseCurrencyCode() : null;
+                    })
+                    ->helperText('Published in the team default currency. Empty shows "Price on request". Saving publishes the price and clears the review flag.')
+                    ->suffixAction(
+                        Action::make('suggestListPrice')
+                            ->label('Suggest price')
+                            ->icon('heroicon-m-calculator')
+                            ->visible(fn (?Article $record): bool => $record !== null)
+                            ->action(function (Set $set, ?Article $record): void {
+                                $team = Filament::getTenant();
+
+                                if ($record === null || ! $team instanceof Team) {
+                                    return;
+                                }
+
+                                $result = app(SuggestArticleListPrice::class)->execute($record, $team);
+
+                                if ($result['price'] === null) {
+                                    Notification::make()
+                                        ->title('No price suggestion available')
+                                        ->body(implode(' ', $result['notices']))
+                                        ->warning()
+                                        ->send();
+
+                                    return;
+                                }
+
+                                $set('list_price', $result['price']);
+
+                                $notification = Notification::make()
+                                    ->title('Suggested price filled — review and save to publish')
+                                    ->success();
+
+                                if ($result['notices'] !== []) {
+                                    $notification->body(implode(' ', $result['notices']));
+                                }
+
+                                $notification->send();
+                            })
+                    ),
+            ])
+            ->collapsible();
+
         return [
             TextInput::make('name')
                 ->label('Article Name')
@@ -202,7 +265,7 @@ final class ArticleResource extends Resource
             Toggle::make('is_active')
                 ->label('Active')
                 ->default(true),
-            ...($forModal ? [] : [$imagesSection]),
+            ...($forModal ? [] : [$imagesSection, $publicCatalogSection]),
             Section::make('Custom Attributes')
                 ->schema([
                     KeyValue::make('attributes')
@@ -255,6 +318,25 @@ final class ArticleResource extends Resource
                     ->label('Active')
                     ->boolean()
                     ->sortable(),
+                ToggleColumn::make('show_in_product_grid')
+                    ->label('In Grid')
+                    ->sortable()
+                    ->toggleable(),
+                TextColumn::make('list_price')
+                    ->label('List Price')
+                    ->numeric(decimalPlaces: 2)
+                    ->sortable()
+                    ->toggleable()
+                    ->toggledHiddenByDefault(),
+                IconColumn::make('price_review_needed')
+                    ->label('Price Review')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-exclamation-triangle')
+                    ->trueColor('warning')
+                    ->falseIcon('heroicon-o-check-circle')
+                    ->falseColor('gray')
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('creator.name')
                     ->label('Created By')
                     ->sortable()
@@ -283,6 +365,10 @@ final class ArticleResource extends Resource
                 SelectFilter::make('default_tax_code_id')
                     ->label('Tax Code')
                     ->relationship('defaultTaxCode', 'name'),
+                TernaryFilter::make('show_in_product_grid')
+                    ->label('In product grid'),
+                TernaryFilter::make('price_review_needed')
+                    ->label('Price review needed'),
                 TrashedFilter::make(),
             ])
             ->toolbarActions([

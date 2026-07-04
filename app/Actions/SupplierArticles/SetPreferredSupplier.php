@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Actions\SupplierArticles;
 
+use App\Actions\Catalog\RefreshArticlePriceReview;
+use App\Models\Article;
 use App\Models\SupplierArticle;
 use Illuminate\Support\Facades\DB;
 
@@ -14,6 +16,8 @@ use Illuminate\Support\Facades\DB;
  */
 final readonly class SetPreferredSupplier
 {
+    public function __construct(private RefreshArticlePriceReview $refreshArticlePriceReview) {}
+
     public function execute(int $articleId, int $supplierId): void
     {
         DB::transaction(function () use ($articleId, $supplierId): void {
@@ -24,6 +28,12 @@ final readonly class SetPreferredSupplier
                 ->where('supplier_id', $supplierId)
                 ->update(['is_preferred' => true]);
         });
+
+        $article = Article::query()->find($articleId);
+
+        if ($article !== null) {
+            $this->refreshArticlePriceReview->execute($article);
+        }
     }
 
     /**

@@ -34,6 +34,10 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
  * @property array<string, mixed>|null $attributes
  * @property string|null $notes
  * @property bool $is_active
+ * @property numeric-string|null $list_price
+ * @property Carbon|null $list_price_updated_at
+ * @property bool $show_in_product_grid
+ * @property bool $price_review_needed
  * @property Carbon|null $deleted_at
  * @property-read string $created_by
  */
@@ -65,6 +69,8 @@ final class Article extends Model implements HasCustomFields, HasMedia
         'attributes',
         'notes',
         'is_active',
+        'list_price',
+        'show_in_product_grid',
     ];
 
     /**
@@ -84,6 +90,10 @@ final class Article extends Model implements HasCustomFields, HasMedia
             'unit' => SafeUnitCast::class,
             'attributes' => 'array',
             'is_active' => 'boolean',
+            'list_price' => 'decimal:4',
+            'list_price_updated_at' => 'datetime',
+            'show_in_product_grid' => 'boolean',
+            'price_review_needed' => 'boolean',
         ];
     }
 
@@ -105,6 +115,15 @@ final class Article extends Model implements HasCustomFields, HasMedia
             // Ensure unit is never null or empty
             if (empty($article->unit)) {
                 $article->unit = 'pcs';
+            }
+        });
+
+        self::saving(function (Article $article): void {
+            // Saving a changed list_price is the publish act: stamp the
+            // publication time and clear any pending price review flag.
+            if ($article->isDirty('list_price')) {
+                $article->list_price_updated_at = now();
+                $article->price_review_needed = false;
             }
         });
     }
