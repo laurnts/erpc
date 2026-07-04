@@ -221,7 +221,7 @@ describe('Request Item Editing', function (): void {
 describe('Supplier Quote Auto-Generation', function (): void {
     beforeEach(function (): void {
         // Create a default currency for supplier quote generation
-        \App\Models\Currency::factory()->create([
+        $this->defaultCurrency = \App\Models\Currency::factory()->create([
             'code' => 'USD',
             'name' => 'US Dollar',
             'symbol' => '$',
@@ -271,6 +271,7 @@ describe('Supplier Quote Auto-Generation', function (): void {
             'is_active' => true,
             'is_preferred' => false,
             'last_quoted_price' => '150.0000',
+            'last_quoted_currency_id' => $this->defaultCurrency->getKey(),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
