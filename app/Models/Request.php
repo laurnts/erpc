@@ -18,7 +18,6 @@ use App\Models\Concerns\HasTeam;
 use App\Observers\RequestObserver;
 use Database\Factories\RequestFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -150,18 +149,6 @@ final class Request extends Model implements HasCustomFields, HasMedia
     public function buyer(): BelongsTo
     {
         return $this->belongsTo(Company::class, 'buyer_id');
-    }
-
-    /**
-     * Scope a query to requests belonging to a buyer company. Portal surfaces
-     * must use this scope instead of inline buyer_id where-clauses.
-     *
-     * @param  Builder<self>  $query
-     * @return Builder<self>
-     */
-    public function scopeForBuyer(Builder $query, int $buyerCompanyId): Builder
-    {
-        return $query->where('buyer_id', $buyerCompanyId);
     }
 
     /**
