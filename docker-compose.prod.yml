@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
-    image: ghcr.io/relaticle/relaticle:latest
+    image: ${DEPLOY_IMAGE:-ghcr.io/laurnts/erpc:main}
     restart: unless-stopped
     ports:
       - "${APP_PORT:-80}:8080"
@@ -60,7 +60,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
-    image: ghcr.io/relaticle/relaticle:latest
+    image: ${DEPLOY_IMAGE:-ghcr.io/laurnts/erpc:main}
     restart: unless-stopped
     command: ["php", "/var/www/html/artisan", "horizon"]
     stop_signal: SIGTERM
@@ -99,7 +99,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
-    image: ghcr.io/relaticle/relaticle:latest
+    image: ${DEPLOY_IMAGE:-ghcr.io/laurnts/erpc:main}
     restart: unless-stopped
     command: ["php", "/var/www/html/artisan", "schedule:work"]
     stop_signal: SIGTERM
