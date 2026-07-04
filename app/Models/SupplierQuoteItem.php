@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $supplier_quote_id
  * @property int|null $request_item_id
  * @property int|null $article_id
+ * @property int|null $unit_of_measure_id
  * @property string $description
  * @property string $quantity
  * @property Unit $unit
