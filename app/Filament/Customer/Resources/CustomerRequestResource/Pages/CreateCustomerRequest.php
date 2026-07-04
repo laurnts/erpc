@@ -80,7 +80,7 @@ final class CreateCustomerRequest extends CreateRecord
         }
 
         if ($method === RequestSubmissionMethod::DOCUMENT) {
-            app(AttachUploadedFiles::class)->execute($record, $formState['attachment_files'] ?? [], 'attachments');
+            app(AttachUploadedFiles::class)->execute($record, $formState['attachment_files'] ?? [], 'attachments', 'requests/portal-attachments');
         }
 
         app(NotifyTeamOfPortalRequest::class)->execute($record);

@@ -103,7 +103,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                             return;
                         }
 
-                        app(AttachUploadedFiles::class)->execute($record, $data['buyer_po_files'] ?? [], 'buyer_po');
+                        app(AttachUploadedFiles::class)->execute($record, $data['buyer_po_files'] ?? [], 'buyer_po', 'buyer-quotes/po-files');
 
                         $record->refresh();
 

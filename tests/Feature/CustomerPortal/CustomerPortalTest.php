@@ -811,3 +811,32 @@ it('does not notify supplier-typed members of a dual-role company via customer p
     \Illuminate\Support\Facades\Notification::assertSentTo($customerContact, $notification::class);
     \Illuminate\Support\Facades\Notification::assertNotSentTo($supplierContact, $notification::class);
 });
+
+it('rejects path traversal in uploaded file attachment and accepts files inside the upload directory', function (): void {
+    $request = Request::factory()->for($this->team)->create([
+        'buyer_id' => $this->buyer->getKey(),
+    ]);
+
+    $uploadDir = storage_path('app/requests/portal-attachments');
+    \Illuminate\Support\Facades\File::ensureDirectoryExists($uploadDir);
+    $legit = $uploadDir.'/legit-'.uniqid().'.pdf';
+    file_put_contents($legit, '%PDF-1.4 test');
+
+    app(\App\Actions\Media\AttachUploadedFiles::class)->execute(
+        $request,
+        [
+            '../../.env',
+            'requests/portal-attachments/../../../.env',
+            'requests/portal-attachments/'.basename($legit),
+        ],
+        'attachments',
+        'requests/portal-attachments',
+    );
+
+    $media = $request->getMedia('attachments');
+
+    expect($media)->toHaveCount(1)
+        ->and($media->first()?->file_name)->toBe(basename($legit));
+
+    @unlink($legit);
+});
