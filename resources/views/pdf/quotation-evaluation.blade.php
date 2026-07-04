@@ -171,6 +171,7 @@
     @php
         $items = $qe->getItems();
         $suppliers = collect($qe->getSuppliers());
+        $isMixedRequest = $qe->getRequestInfo()['is_mixed'] ?? false;
     @endphp
 
     @if(count($items) > 0 && $suppliers->count() > 0)
@@ -220,6 +221,14 @@
                         <td class="text-right">{{ number_format($supplier['tax_total'] ?? 0, 2) }}</td>
                     @endforeach
                 </tr>
+                @if($isMixedRequest)
+                    <tr>
+                        <td colspan="2" class="text-right">Goods Total</td>
+                        @foreach($suppliers as $supplier)
+                            <td class="text-right">{{ number_format($supplier['goods_total'] ?? 0, 2) }}</td>
+                        @endforeach
+                    </tr>
+                @endif
                 <tr>
                     <td colspan="2" class="text-right"><strong>Grand Total</strong></td>
                     @foreach($suppliers as $supplier)

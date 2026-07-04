@@ -437,12 +437,21 @@ final class QuotationEvaluation extends Model implements HasMedia
             $this->director_approved_at = null;
         }
 
+        // Mixed requests must rank suppliers by their goods-only subtotal so
+        // services pricing never influences the goods comparison; single-type
+        // requests keep the existing total_base ordering unchanged.
+        $isMixedRequest = $this->request->hasGoodsItems() && $this->request->hasServiceItems();
+
         // Get all active quotes
         $quotes = $this->request->supplierQuotes()
             ->whereIn('status', [SupplierQuoteStatus::RECEIVED, SupplierQuoteStatus::SELECTED])
             ->with(['supplier', 'currency', 'items.requestItem'])
             ->orderBy('total_base')
             ->get();
+
+        if ($isMixedRequest) {
+            $quotes = $quotes->sortBy(fn (\App\Models\SupplierQuote $quote): float => $quote->goodsSubtotalBase())->values();
+        }
 
         // Get request items
         $requestItems = $this->request->items()->with('article')->orderBy('sort_order')->get();
@@ -499,6 +508,7 @@ final class QuotationEvaluation extends Model implements HasMedia
                 'subtotal' => (float) $quote->subtotal,
                 'tax_total' => (float) $quote->tax_total,
                 'grand_total' => (float) $quote->total,
+                'goods_total' => (float) $quote->goodsLineTotal(),
             ];
         }
 
@@ -508,6 +518,7 @@ final class QuotationEvaluation extends Model implements HasMedia
                 'id' => $this->request->getKey(),
                 'request_number' => $this->request->request_number,
                 'title' => $this->request->title,
+                'is_mixed' => $isMixedRequest,
             ],
             'items' => $items,
             'suppliers' => $suppliers,

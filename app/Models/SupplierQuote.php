@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\ItemType;
 use App\Enums\PrepaymentType;
 use App\Enums\SupplierQuoteStatus;
 use App\Models\Concerns\HasCreator;
@@ -320,6 +321,33 @@ final class SupplierQuote extends Model implements HasMedia
         }
 
         $this->saveQuietly();
+    }
+
+    /**
+     * Sum of goods main-item line totals, in the quote's transaction
+     * currency. Child/detail lines are excluded, matching the
+     * recalculateTotals() convention that totals roll up from main items
+     * only. Requires `items.requestItem` to be loaded (or accepts the N+1
+     * cost of lazy-loading it) to know each line's item type.
+     */
+    public function goodsLineTotal(): float
+    {
+        return (float) $this->items
+            ->filter(fn (SupplierQuoteItem $item): bool => $item->requestItem !== null
+                && $item->requestItem->item_type === ItemType::GOODS
+                && $item->requestItem->parent_id === null)
+            ->sum(fn (SupplierQuoteItem $item): float => (float) $item->line_total);
+    }
+
+    /**
+     * Goods-only comparable total in base currency, using the same FX
+     * normalization as total_base (line totals * exchange_rate). This is
+     * the ranking basis for mixed requests, so services pricing never
+     * influences the goods comparison.
+     */
+    public function goodsSubtotalBase(): float
+    {
+        return round($this->goodsLineTotal() * (float) $this->exchange_rate, 4);
     }
 
     /**

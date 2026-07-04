@@ -2,7 +2,8 @@
     $data = $getState();
     $items = $data['items'] ?? [];
     $suppliers = collect($data['suppliers'] ?? []);
-    
+    $isMixedRequest = $data['request']['is_mixed'] ?? false;
+
     if (empty($items) || $suppliers->isEmpty()) {
         return;
     }
@@ -79,6 +80,17 @@
                     </td>
                 @endforeach
             </tr>
+            {{-- Goods Total row (mixed requests only: the ranking basis, excludes services pricing) --}}
+            @if($isMixedRequest)
+                <tr class="border-b border-gray-100 dark:border-gray-800">
+                    <td class="px-3 py-2 font-medium text-gray-700 dark:text-gray-300" colspan="2">Goods Total</td>
+                    @foreach($suppliers as $supplier)
+                        <td class="px-3 py-2 text-right text-gray-900 dark:text-gray-100">
+                            {{ number_format($supplier['goods_total'] ?? 0, 2) }}
+                        </td>
+                    @endforeach
+                </tr>
+            @endif
             {{-- Grand Total row --}}
             <tr class="bg-gray-50 dark:bg-gray-900">
                 <td class="px-3 py-2 font-bold text-gray-900 dark:text-gray-100" colspan="2">Grand Total</td>
