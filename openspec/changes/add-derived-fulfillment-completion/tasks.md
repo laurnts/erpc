@@ -4,8 +4,8 @@ Approved 2026-07-04 (decisions recorded in proposal.md).
 
 ## 1. Derived completion on Request
 
-- [ ] 1.1 Add channel-completion accessors to `app/Models/Request.php`: goods (shipment quantity coverage per goods main item), services (acceptance-report coverage per services main item), vacuous-complete for empty channels; overall `isFulfilled`
-- [ ] 1.2 Pest tests: mixed fulfilled, partial goods blocks, services-only vacuous case (extend `ItemLevelFulfillmentTest` patterns)
+- [x] 1.1 Add channel-completion accessors to `app/Models/Request.php`: goods (shipment quantity coverage per goods main item), services (acceptance-report coverage per services main item), vacuous-complete for empty channels; overall `isFulfilled`
+- [x] 1.2 Pest tests: mixed fulfilled, partial goods blocks, services-only vacuous case (extend `ItemLevelFulfillmentTest` patterns)
 
 ## 2. Stage gate
 
@@ -24,6 +24,6 @@ Approved 2026-07-04 (decisions recorded in proposal.md).
 
 ## 5. Verification
 
-- [ ] 5.1 PHPStan clean on touched files (scope was just brought to zero — keep it)
-- [ ] 5.2 `php artisan test --compact tests/Feature/Erp` green; pint clean
-- [ ] 5.3 `openspec validate add-derived-fulfillment-completion --strict`
+- [x] 5.1 PHPStan clean on touched files (scope was just brought to zero — keep it)
+- [x] 5.2 `php artisan test --compact tests/Feature/Erp` green; pint clean
+- [x] 5.3 `openspec validate add-derived-fulfillment-completion --strict`
