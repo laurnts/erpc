@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Customer\Pages;
 
+use App\Enums\PortalType;
 use App\Models\CompanyPortalUser;
 use App\Models\PortalInvitation;
 use App\Models\User;
@@ -59,6 +60,7 @@ final class AcceptPortalInvitation extends Page implements HasForms
 
         $this->invitation = PortalInvitation::query()
             ->where('token', $token)
+            ->where('portal', PortalType::Customer)
             ->whereNull('accepted_at')
             ->with('company')
             ->firstOrFail();

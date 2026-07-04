@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Actions\CustomerPortal\InvitePortalUser;
+use App\Enums\PortalType;
 use App\Enums\RequestStage;
 use App\Enums\RequestSubmissionMethod;
 use App\Filament\Customer\Pages\Auth\CustomerLogin;
@@ -296,6 +297,39 @@ describe('Portal Invitation', function (): void {
             ->and($invitation->email)->toBe('new.portal@buyer.test');
 
         Mail::assertSent(\App\Mail\PortalUserInvitationMail::class);
+    });
+
+    it('rejects invitations for companies without the buyer role', function (): void {
+        Mail::fake();
+
+        $supplierOnly = Company::factory()->supplier()->for($this->team)->create();
+
+        expect(fn () => app(InvitePortalUser::class)->execute(
+            team: $this->team,
+            buyer: $supplierOnly,
+            email: 'contact@supplier.test',
+            name: 'Supplier Contact',
+            invitedBy: $this->admin,
+        ))->toThrow(\Illuminate\Validation\ValidationException::class);
+
+        Mail::assertNothingSent();
+    });
+
+    it('does not resolve supplier-typed invitation tokens on the customer accept page', function (): void {
+        $supplier = Company::factory()->supplier()->for($this->team)->create();
+
+        $invitation = PortalInvitation::query()->create([
+            'team_id' => $this->team->getKey(),
+            'company_id' => $supplier->getKey(),
+            'email' => 'supplier.invite@supplier.test',
+            'name' => 'Supplier Invitee',
+            'portal' => PortalType::Supplier,
+            'invited_by' => $this->admin->getKey(),
+            'token' => PortalInvitation::generateToken(),
+        ]);
+
+        expect(fn () => livewire(\App\Filament\Customer\Pages\AcceptPortalInvitation::class, ['token' => $invitation->token]))
+            ->toThrow(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
     });
 
     it('accepts invitation and creates portal access', function (): void {
