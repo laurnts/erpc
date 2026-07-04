@@ -22,8 +22,6 @@ return [
         ->include([
             App\Models\People::class,
             App\Models\Company::class,
-            App\Models\Task::class,
-            App\Models\Note::class,
         ])
         ->cache(),
 

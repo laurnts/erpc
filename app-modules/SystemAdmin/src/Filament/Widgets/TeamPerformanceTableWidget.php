@@ -12,12 +12,9 @@ use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\DB;
-use Relaticle\SystemAdmin\Filament\Widgets\Concerns\HasCustomFieldQueries;
 
 final class TeamPerformanceTableWidget extends BaseWidget
 {
-    use HasCustomFieldQueries;
-
     protected static ?string $heading = 'Team Performance Analytics';
 
     protected static ?int $sort = 4;
@@ -48,32 +45,6 @@ final class TeamPerformanceTableWidget extends BaseWidget
                     ->weight('semibold')
                     ->icon('heroicon-o-user'),
 
-                Tables\Columns\TextColumn::make('tasks_created')
-                    ->label('Tasks')
-                    ->numeric()
-                    ->sortable()
-                    ->alignCenter()
-                    ->badge()
-                    ->color('gray'),
-
-                Tables\Columns\TextColumn::make('tasks_completed')
-                    ->label('Completed')
-                    ->numeric()
-                    ->sortable()
-                    ->alignCenter()
-                    ->badge()
-                    ->color('gray')
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->description('Feature temporarily disabled'),
-
-                Tables\Columns\TextColumn::make('completion_rate')
-                    ->label('Success Rate')
-                    ->formatStateUsing(fn (mixed $state): string => 'N/A')
-                    ->badge()
-                    ->color('gray')
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->description('Feature temporarily disabled'),
-
                 Tables\Columns\TextColumn::make('companies_created')
                     ->label('Companies')
                     ->numeric()
@@ -89,12 +60,12 @@ final class TeamPerformanceTableWidget extends BaseWidget
                     ->sortable()
                     ->toggleable(),
             ])
-            ->defaultSort('tasks_created', 'desc')
+            ->defaultSort('companies_created', 'desc')
             ->paginated([10, 25, 50])
             ->defaultPaginationPageOption(10)
             ->striped()
             ->emptyStateHeading('No Team Activity')
-            ->emptyStateDescription('User performance data will appear here once team members start creating tasks and companies')
+            ->emptyStateDescription('User performance data will appear here once team members start creating companies')
             ->emptyStateIcon('heroicon-o-users');
     }
 
@@ -110,24 +81,10 @@ final class TeamPerformanceTableWidget extends BaseWidget
                 'users.id',
                 'users.name',
                 'users.created_at',
-                DB::raw("(SELECT COUNT(*) FROM tasks WHERE tasks.creator_id = users.id AND tasks.deleted_at IS NULL AND tasks.creation_source != '{$systemSource}') as tasks_created"),
-                DB::raw('0 as tasks_completed'),
-                DB::raw('0 as completion_rate'),
                 DB::raw("(SELECT COUNT(*) FROM companies WHERE companies.creator_id = users.id AND companies.deleted_at IS NULL AND companies.creation_source != '{$systemSource}') as companies_created"),
-                DB::raw("GREATEST(
-                    COALESCE((SELECT MAX(created_at) FROM tasks WHERE creator_id = users.id AND creation_source != '{$systemSource}'), '1970-01-01'),
-                    COALESCE((SELECT MAX(created_at) FROM companies WHERE creator_id = users.id AND creation_source != '{$systemSource}'), '1970-01-01'),
-                    COALESCE((SELECT MAX(created_at) FROM notes WHERE creator_id = users.id AND creation_source != '{$systemSource}'), '1970-01-01')
-                ) as last_activity"),
+                DB::raw("COALESCE((SELECT MAX(created_at) FROM companies WHERE creator_id = users.id AND creation_source != '{$systemSource}'), '1970-01-01') as last_activity"),
             ])
             ->whereExists(function (QueryBuilder $query) use ($systemSource): void {
-                $query->select(DB::raw(1))
-                    ->from('tasks')
-                    ->whereColumn('tasks.creator_id', 'users.id')
-                    ->where('tasks.creation_source', '!=', $systemSource)
-                    ->whereNull('tasks.deleted_at');
-            })
-            ->orWhereExists(function (QueryBuilder $query) use ($systemSource): void {
                 $query->select(DB::raw(1))
                     ->from('companies')
                     ->whereColumn('companies.creator_id', 'users.id')

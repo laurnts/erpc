@@ -4,7 +4,6 @@
 @source '../../../../resources/views';
 
 /* Custom Fields */
-@source '../../../../vendor/relaticle/flowforge/resources/views/**/*.blade.php';
 @source '../../../../vendor/relaticle/custom-fields/resources';
 
 /* ===================================
@@ -391,11 +390,6 @@
 
 .fi-fo-builder-block {
     @apply rounded-xl;
-}
-
-/* FlowForge Specific Customizations */
-.flowforge-column-header {
-    @apply bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 rounded-t-xl;
 }
 
 /* Customer portal login */

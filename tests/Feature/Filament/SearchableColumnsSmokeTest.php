@@ -44,6 +44,4 @@ test('list page search executes without SQL errors: :dataset', function (string 
     App\Filament\Resources\ProjectResource\Pages\ListProjects::class,
     App\Filament\Resources\TagResource\Pages\ListTags::class,
     App\Filament\Resources\MemberResource\Pages\ListMembers::class,
-    App\Filament\Resources\NoteResource\Pages\ManageNotes::class,
-    App\Filament\Resources\TaskResource\Pages\ManageTasks::class,
 ]);

@@ -7,7 +7,6 @@ namespace App\Models;
 use App\Enums\CreationSource;
 use App\Models\Concerns\HasAiSummary;
 use App\Models\Concerns\HasCreator;
-use App\Models\Concerns\HasNotes;
 use App\Models\Concerns\HasTeam;
 use App\Observers\PeopleObserver;
 use App\Services\AvatarService;
@@ -17,7 +16,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Relaticle\CustomFields\Models\Concerns\UsesCustomFields;
@@ -36,7 +34,6 @@ final class People extends Model implements HasCustomFields
     /** @use HasFactory<PeopleFactory> */
     use HasFactory;
 
-    use HasNotes;
     use HasTeam;
     use SoftDeletes;
     use UsesCustomFields;
@@ -112,14 +109,6 @@ final class People extends Model implements HasCustomFields
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
-    }
-
-    /**
-     * @return MorphToMany<Task, $this>
-     */
-    public function tasks(): MorphToMany
-    {
-        return $this->morphToMany(Task::class, 'taskable');
     }
 
     /**

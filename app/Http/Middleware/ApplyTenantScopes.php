@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Models\Company;
-use App\Models\Note;
 use App\Models\People;
 use App\Models\Scopes\TeamScope;
-use App\Models\Task;
 use App\Models\User;
 use Closure;
 use Filament\Facades\Filament;
@@ -30,8 +28,6 @@ final readonly class ApplyTenantScopes
 
         Company::addGlobalScope(new TeamScope);
         People::addGlobalScope(new TeamScope);
-        Task::addGlobalScope(new TeamScope);
-        Note::addGlobalScope(new TeamScope);
 
         return $next($request);
     }

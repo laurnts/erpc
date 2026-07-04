@@ -4,12 +4,8 @@ declare(strict_types=1);
 
 namespace App\Listeners;
 
-use App\Enums\CustomFields\NoteField as NoteCustomField;
 use App\Enums\CustomFields\PeopleField as PeopleCustomField;
-use App\Enums\CustomFields\TaskField as TaskCustomField;
-use App\Models\Note;
 use App\Models\People;
-use App\Models\Task;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Laravel\Jetstream\Events\TeamCreated;
 use Laravel\Jetstream\Features;
@@ -32,9 +28,7 @@ final readonly class CreateTeamCustomFields
      * @var array<class-string, class-string>
      */
     private const array MODEL_ENUM_MAP = [
-        Note::class => NoteCustomField::class,
         People::class => PeopleCustomField::class,
-        Task::class => TaskCustomField::class,
     ];
 
     /**
@@ -77,9 +71,9 @@ final readonly class CreateTeamCustomFields
      * Create a custom field using the provided enum configuration
      *
      * @param  class-string  $model  The model class name
-     * @param  PeopleCustomField|TaskCustomField|NoteCustomField  $enum  The custom field enum instance
+     * @param  PeopleCustomField  $enum  The custom field enum instance
      */
-    private function createCustomField(string $model, PeopleCustomField|TaskCustomField|NoteCustomField $enum): void
+    private function createCustomField(string $model, PeopleCustomField $enum): void
     {
         // Extract field configuration from the enum
         $fieldData = new CustomFieldData(
@@ -122,9 +116,9 @@ final readonly class CreateTeamCustomFields
      * Apply colors to field options based on enum configuration
      *
      * @param  mixed  $customField  The created custom field
-     * @param  PeopleCustomField|TaskCustomField|NoteCustomField  $enum  The custom field enum instance
+     * @param  PeopleCustomField  $enum  The custom field enum instance
      */
-    private function applyColorsToOptions(mixed $customField, PeopleCustomField|TaskCustomField|NoteCustomField $enum): void
+    private function applyColorsToOptions(mixed $customField, PeopleCustomField $enum): void
     {
         $colorMapping = $enum->getOptionColors();
         if ($colorMapping === null) {

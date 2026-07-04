@@ -45,7 +45,7 @@ The app is a **tenant-based** Central Purchasing panel. After login you choose a
 
 **Stages (simplified):** Draft → Awaiting Supplier Response → Preparing Buyer Quote → Awaiting Buyer Confirmation → Preparing Supplier Order → Goods Receive → Awaiting Shipment → Shipped → Delivered → Invoiced → Paid → Completed (or Cancelled).
 
-**Also on request:** Notes, Tasks, Activities. Stage can auto-advance when you open the relevant tab (e.g. Supplier Orders).
+**Also on request:** Activities. Stage can auto-advance when you open the relevant tab (e.g. Supplier Orders).
 
 **Typical use:** Create requests, maintain items, manage supplier/buyer quotes and orders, record goods receipt and shipments, and track through to completion.
 
@@ -73,7 +73,7 @@ The app is a **tenant-based** Central Purchasing panel. After login you choose a
 
 - **List:** Name, domain, email, categories (tags), status. Filters and export.
 - **Create/Edit:** Company name, domain, email, categories, linked people; custom fields.
-- **View:** Buyer profile; relation managers for **People**, **Articles**, **Tasks**, etc.
+- **View:** Buyer profile; relation managers for **People**, **Articles**, etc.
 
 **Typical use:** Maintain buyer companies and their contacts; ensure every request has a buyer.
 
@@ -256,7 +256,7 @@ Standalone finance views for **transactions and documents** (often linked to req
 
 - **List:** Name, domain, type (buyer/supplier/both), people, tags. Filters and export.
 - **Create/Edit:** Name, domain, company type (buyer/supplier), people, tags; custom fields.
-- **View:** Company profile; **People**, **Articles**, **Tasks**, **Notes** relation managers.
+- **View:** Company profile; **People** and **Articles** relation managers.
 
 **Typical use:** Single place for all companies; mark as buyer/supplier; manage contacts (people) and linked data.
 
@@ -268,39 +268,9 @@ Standalone finance views for **transactions and documents** (often linked to req
 
 - **List:** Name, phone, email, companies. Filters and export.
 - **Create/Edit:** Name, phone, email, linked companies; custom fields.
-- **View:** Person profile; **Notes**, **Tasks**; **Buyers** relation (companies where they are linked).
+- **View:** Person profile; **Buyers** relation (companies where they are linked).
 
 **Typical use:** Maintain contact persons and assign them to companies used in requests and quotes.
-
-### 6.3 Tasks
-
-**Purpose:** **Tasks** (to-dos) that can be linked to companies, people, or requests.
-
-**Features:**
-
-- **List:** Title, due date, assignee, related record, status. Filters.
-- **Create/Edit:** Title, description, due date, assignee, related company/person/request.
-- **Board:** Optional **Tasks Board** (e.g. by status) if enabled in navigation.
-
-**Typical use:** Follow-up on buyers, suppliers, or requests (e.g. “Send quote”, “Confirm delivery”).
-
-### 6.4 Notes
-
-**Purpose:** **Notes** attached to companies, people, or requests.
-
-**Features:**
-
-- **List:** Note content, author, date, related record. Filters.
-- **Create/Edit:** Content, optional link to company/person/request.
-- **Manage:** Often used from within a Company, Person, or Request view.
-
-**Typical use:** Internal comments and history on a buyer, supplier, or request.
-
-### 6.5 Board (Tasks)
-
-**Purpose:** **Kanban-style board** for tasks (e.g. by status).
-
-**Typical use:** Visual task management; drag-and-drop status updates.
 
 ---
 

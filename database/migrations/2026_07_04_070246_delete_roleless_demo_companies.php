@@ -44,8 +44,15 @@ return new class extends Migration
             DB::table('opportunities')->whereIn('company_id', $companyIds)->delete();
         }
 
-        $this->deletePolymorphicAttachments('noteables', 'noteable', 'notes', 'note_id', $companyIds->all());
-        $this->deletePolymorphicAttachments('taskables', 'taskable', 'tasks', 'task_id', $companyIds->all());
+        // hasTable guards: the later remove_tasks_and_notes_entities migration
+        // drops these tables, so re-runs (tests) may find them gone.
+        if (Schema::hasTable('noteables')) {
+            $this->deletePolymorphicAttachments('noteables', 'noteable', 'notes', 'note_id', $companyIds->all());
+        }
+
+        if (Schema::hasTable('taskables')) {
+            $this->deletePolymorphicAttachments('taskables', 'taskable', 'tasks', 'task_id', $companyIds->all());
+        }
 
         DB::table('companies')->whereIn('id', $companyIds)->delete();
     }

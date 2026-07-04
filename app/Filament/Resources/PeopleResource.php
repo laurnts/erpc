@@ -10,8 +10,6 @@ use App\Filament\Forms\CompanyForm;
 use App\Filament\Resources\PeopleResource\Pages\CreatePeople;
 use App\Filament\Resources\PeopleResource\Pages\ListPeople;
 use App\Filament\Resources\PeopleResource\Pages\ViewPeople;
-use App\Filament\Resources\PeopleResource\RelationManagers\NotesRelationManager;
-use App\Filament\Resources\PeopleResource\RelationManagers\TasksRelationManager;
 use App\Models\Company;
 use App\Models\People;
 use Filament\Actions\BulkActionGroup;
@@ -43,7 +41,7 @@ final class PeopleResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-user';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 3;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
 
@@ -167,10 +165,7 @@ final class PeopleResource extends Resource
 
     public static function getRelations(): array
     {
-        return [
-            TasksRelationManager::class,
-            NotesRelationManager::class,
-        ];
+        return [];
     }
 
     public static function getPages(): array

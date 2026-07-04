@@ -45,13 +45,6 @@ After signing up for Relaticle:
    - From the company page, click "Add Contact"
    - Enter contact details (name, title, contact information)
    - Note their role in the decision-making process
-   - Record any personal preferences or notes
-
-3. **Schedule follow-up tasks**
-   - Create follow-up tasks
-   - Assign responsibilities to team members
-   - Set due dates and priorities
-   - Add detailed instructions if needed
 
 ## Establish Your Daily Routine
 
@@ -59,15 +52,12 @@ Develop a daily Relaticle routine:
 
 1. **Morning review** (15 minutes)
    - Check your dashboard for an overview
-   - Review today's tasks and prioritize
 
 2. **Throughout the day**
-   - Log completed tasks and create follow-ups
-   - Add notes after customer interactions
+   - Keep company and contact records up to date
 
 3. **End of day** (10 minutes)
    - Ensure all activities from the day are logged
-   - Plan tasks for tomorrow
 
 ## Best Practices
 

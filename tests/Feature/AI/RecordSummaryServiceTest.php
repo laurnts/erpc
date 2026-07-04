@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 use App\Models\AiSummary;
 use App\Models\Company;
-use App\Models\Note;
 use App\Models\People;
-use App\Models\Task;
 use App\Models\User;
 use App\Services\AI\RecordContextBuilder;
 use App\Services\AI\RecordSummaryService;
@@ -35,9 +33,7 @@ describe('RecordContextBuilder', function () {
             ->toHaveKey('entity_type', 'Company')
             ->toHaveKey('name', 'Test Company')
             ->toHaveKey('basic_info')
-            ->toHaveKey('relationships')
-            ->toHaveKey('notes')
-            ->toHaveKey('tasks');
+            ->toHaveKey('relationships');
     });
 
     it('builds context for a person', function () {
@@ -51,77 +47,7 @@ describe('RecordContextBuilder', function () {
         expect($context)
             ->toHaveKey('entity_type', 'Person')
             ->toHaveKey('name', 'John Doe')
-            ->toHaveKey('basic_info')
-            ->toHaveKey('notes')
-            ->toHaveKey('tasks');
-    });
-
-    it('includes related notes in context', function () {
-        $company = Company::factory()
-            ->for($this->user->personalTeam())
-            ->create();
-
-        $notes = Note::factory()
-            ->for($this->user->personalTeam())
-            ->count(3)
-            ->create();
-
-        $company->notes()->attach($notes);
-
-        $builder = app(RecordContextBuilder::class);
-        $context = $builder->buildContext($company->fresh());
-
-        expect($context['notes'])
-            ->toHaveKey('items')
-            ->toHaveKey('showing', 3)
-            ->toHaveKey('total', 3)
-            ->toHaveKey('has_more', false)
-            ->and($context['notes']['items'])->toHaveCount(3);
-    });
-
-    it('includes related tasks in context', function () {
-        $company = Company::factory()
-            ->for($this->user->personalTeam())
-            ->create();
-
-        $tasks = Task::factory()
-            ->for($this->user->personalTeam())
-            ->count(2)
-            ->create();
-
-        $company->tasks()->attach($tasks);
-
-        $builder = app(RecordContextBuilder::class);
-        $context = $builder->buildContext($company->fresh());
-
-        expect($context['tasks'])
-            ->toHaveKey('items')
-            ->toHaveKey('showing', 2)
-            ->toHaveKey('total', 2)
-            ->toHaveKey('has_more', false)
-            ->and($context['tasks']['items'])->toHaveCount(2);
-    });
-
-    it('limits related records and shows pagination info', function () {
-        $company = Company::factory()
-            ->for($this->user->personalTeam())
-            ->create();
-
-        $notes = Note::factory()
-            ->for($this->user->personalTeam())
-            ->count(15)
-            ->create();
-
-        $company->notes()->attach($notes);
-
-        $builder = app(RecordContextBuilder::class);
-        $context = $builder->buildContext($company->fresh());
-
-        expect($context['notes'])
-            ->toHaveKey('showing', 10)
-            ->toHaveKey('total', 15)
-            ->toHaveKey('has_more', true)
-            ->and($context['notes']['items'])->toHaveCount(10);
+            ->toHaveKey('basic_info');
     });
 
     it('throws exception for unsupported model', function () {

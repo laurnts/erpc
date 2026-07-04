@@ -3,9 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\Company;
-use App\Models\Note;
 use App\Models\People;
-use App\Models\Task;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -55,26 +53,6 @@ test('company has many people', function () {
 
     expect($company->people->first())->toBeInstanceOf(People::class)
         ->and($company->people->first()->getKey())->toBe($person->getKey());
-});
-
-test('company morph to many tasks', function () {
-    $company = Company::factory()->create();
-    $task = Task::factory()->create();
-
-    $company->tasks()->attach($task);
-
-    expect($company->tasks->first())->toBeInstanceOf(Task::class)
-        ->and($company->tasks->first()->getKey())->toBe($task->getKey());
-});
-
-test('company morph to many notes', function () {
-    $company = Company::factory()->create();
-    $note = Note::factory()->create();
-
-    $company->notes()->attach($note);
-
-    expect($company->notes->first())->toBeInstanceOf(Note::class)
-        ->and($company->notes->first()->getKey())->toBe($note->getKey());
 });
 
 test('company has logo attribute', function () {

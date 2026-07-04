@@ -14,11 +14,9 @@ use App\Filament\Resources\RequestResource\RelationManagers\AcceptanceReportsRel
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerOrdersRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerQuotesRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\ItemsRelationManager;
-use App\Filament\Resources\RequestResource\RelationManagers\NotesRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\ShipmentsRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierOrdersRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierQuotesRelationManager;
-use App\Filament\Resources\RequestResource\RelationManagers\TasksRelationManager;
 use App\Models\Request;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -345,8 +343,6 @@ final class RequestResource extends Resource
             SupplierOrdersRelationManager::class,
             ShipmentsRelationManager::class,
             AcceptanceReportsRelationManager::class,
-            TasksRelationManager::class,
-            NotesRelationManager::class,
         ];
     }
 

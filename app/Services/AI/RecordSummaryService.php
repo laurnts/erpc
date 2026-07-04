@@ -7,7 +7,6 @@ namespace App\Services\AI;
 use App\Models\AiSummary;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Arr;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Usage;
@@ -104,8 +103,6 @@ PROMPT;
 
         $this->addBasicInfo($parts, $context);
         $this->addRelationships($parts, $context);
-        $this->addNotes($parts, $context);
-        $this->addTasks($parts, $context);
         $this->addTimestamps($parts, $context);
 
         return $parts->implode("\n");
@@ -149,77 +146,6 @@ PROMPT;
         foreach ($context['relationships'] as $key => $value) {
             $parts->push("- {$this->formatLabel($key)}: {$value}");
         }
-    }
-
-    /**
-     * @param  \Illuminate\Support\Collection<int, string>  $parts
-     * @param  array<string, mixed>  $context
-     */
-    private function addNotes(\Illuminate\Support\Collection $parts, array $context): void
-    {
-        $notes = Arr::get($context, 'notes.items', []);
-        if (empty($notes)) {
-            return;
-        }
-
-        $total = Arr::get($context, 'notes.total', count($notes));
-        $showing = Arr::get($context, 'notes.showing', count($notes));
-
-        $header = $total > $showing
-            ? "Recent Notes (showing {$showing} of {$total}):"
-            : 'Recent Notes:';
-
-        $parts->push('', $header);
-        foreach (array_slice($notes, 0, 5) as $note) {
-            $title = $note['title'] ?? 'Untitled';
-            $content = $note['content'] ?? '';
-            $created = $note['created'] ?? '';
-            $parts->push("- [{$created}] {$title}: {$content}");
-        }
-    }
-
-    /**
-     * @param  \Illuminate\Support\Collection<int, string>  $parts
-     * @param  array<string, mixed>  $context
-     */
-    private function addTasks(\Illuminate\Support\Collection $parts, array $context): void
-    {
-        $tasks = Arr::get($context, 'tasks.items', []);
-        if (empty($tasks)) {
-            return;
-        }
-
-        $total = Arr::get($context, 'tasks.total', count($tasks));
-        $showing = Arr::get($context, 'tasks.showing', count($tasks));
-
-        $header = $total > $showing
-            ? "Tasks (showing {$showing} of {$total}):"
-            : 'Tasks:';
-
-        $parts->push('', $header);
-        foreach ($tasks as $task) {
-            $parts->push($this->formatTaskLine($task));
-        }
-    }
-
-    /**
-     * @param  array<string, mixed>  $task
-     */
-    private function formatTaskLine(array $task): string
-    {
-        $title = $task['title'] ?? 'Untitled';
-        $status = $task['status'] ?? 'Unknown';
-        $line = "- {$title} ({$status})";
-
-        if (filled($task['priority'] ?? null)) {
-            $line .= " - Priority: {$task['priority']}";
-        }
-
-        if (filled($task['due_date'] ?? null)) {
-            $line .= " - Due: {$task['due_date']}";
-        }
-
-        return $line;
     }
 
     /**

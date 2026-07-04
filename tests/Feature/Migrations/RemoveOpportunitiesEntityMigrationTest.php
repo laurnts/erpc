@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Models\Note;
-use App\Models\Task;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -14,16 +12,6 @@ it('purges opportunity-typed residue in both morph forms and is idempotent', fun
     /** @var Team $team */
     $team = $user->personalTeam();
 
-    $note = Note::factory()->for($team)->create();
-    $task = Task::factory()->for($team)->create();
-
-    DB::table('noteables')->insert([
-        ['note_id' => $note->id, 'noteable_type' => 'opportunity', 'noteable_id' => 991],
-        ['note_id' => $note->id, 'noteable_type' => 'App\Models\Opportunity', 'noteable_id' => 992],
-    ]);
-    DB::table('taskables')->insert([
-        ['task_id' => $task->id, 'taskable_type' => 'opportunity', 'taskable_id' => 991],
-    ]);
     DB::table('ai_summaries')->insert([
         'team_id' => $team->id,
         'summarizable_type' => 'opportunity',
@@ -60,15 +48,58 @@ it('purges opportunity-typed residue in both morph forms and is idempotent', fun
 
     $migration = require database_path('migrations/2026_07_04_094354_remove_opportunities_entity.php');
     $migration->up();
-    $migration->up(); // idempotent
+    $migration->up(); // idempotent, and survives the dropped noteables/taskables pivots
 
-    expect(DB::table('noteables')->whereIn('noteable_type', ['opportunity', 'App\Models\Opportunity'])->count())->toBe(0)
-        ->and(DB::table('taskables')->where('taskable_type', 'opportunity')->count())->toBe(0)
-        ->and(DB::table('ai_summaries')->where('summarizable_type', 'opportunity')->count())->toBe(0)
+    expect(DB::table('ai_summaries')->where('summarizable_type', 'opportunity')->count())->toBe(0)
         ->and(DB::table('custom_fields')->whereKey($fieldId)->count())->toBe(0)
         ->and(DB::table('custom_field_options')->where('custom_field_id', $fieldId)->count())->toBe(0)
         ->and(DB::table('custom_field_values')->where('custom_field_id', $fieldId)->count())->toBe(0)
-        ->and(Schema::hasTable('opportunities'))->toBeFalse()
-        ->and(Note::query()->whereKey($note->id)->exists())->toBeTrue()
-        ->and(Task::query()->whereKey($task->id)->exists())->toBeTrue();
+        ->and(Schema::hasTable('opportunities'))->toBeFalse();
+});
+
+it('drops the task and note tables and purges their custom-field residue', function (): void {
+    $user = User::factory()->withPersonalTeam()->create();
+    /** @var Team $team */
+    $team = $user->personalTeam();
+
+    DB::table('ai_summaries')->insert([
+        'team_id' => $team->id,
+        'summarizable_type' => 'task',
+        'summarizable_id' => 991,
+        'summary' => 'stale task summary',
+        'model_used' => 'test',
+        'prompt_tokens' => 1,
+        'completion_tokens' => 1,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $fieldId = DB::table('custom_fields')->insertGetId([
+        'tenant_id' => $team->id,
+        'code' => 'status',
+        'name' => 'Status',
+        'type' => 'select',
+        'entity_type' => 'App\Models\Task',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    DB::table('custom_field_values')->insert([
+        'tenant_id' => $team->id,
+        'custom_field_id' => $fieldId,
+        'entity_type' => 'task',
+        'entity_id' => 991,
+    ]);
+
+    $migration = require database_path('migrations/2026_07_04_113447_remove_tasks_and_notes_entities.php');
+    $migration->up();
+    $migration->up(); // idempotent
+
+    expect(DB::table('ai_summaries')->whereIn('summarizable_type', ['task', 'note'])->count())->toBe(0)
+        ->and(DB::table('custom_fields')->whereKey($fieldId)->count())->toBe(0)
+        ->and(DB::table('custom_field_values')->where('custom_field_id', $fieldId)->count())->toBe(0)
+        ->and(Schema::hasTable('tasks'))->toBeFalse()
+        ->and(Schema::hasTable('notes'))->toBeFalse()
+        ->and(Schema::hasTable('taskables'))->toBeFalse()
+        ->and(Schema::hasTable('noteables'))->toBeFalse()
+        ->and(Schema::hasTable('task_user'))->toBeFalse();
 });

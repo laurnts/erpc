@@ -13,17 +13,16 @@ use App\Enums\RequestSubmissionMethod;
 use App\Enums\ShipmentStatus;
 use App\Enums\SupplierQuoteStatus;
 use App\Models\Concerns\HasCreator;
-use App\Models\Concerns\HasNotes;
 use App\Models\Concerns\HasTeam;
 use App\Observers\RequestObserver;
 use Database\Factories\RequestFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -77,7 +76,6 @@ final class Request extends Model implements HasCustomFields, HasMedia
     /** @use HasFactory<RequestFactory> */
     use HasFactory;
 
-    use HasNotes;
     use HasTeam;
     use InteractsWithMedia;
     use SoftDeletes;
@@ -152,6 +150,18 @@ final class Request extends Model implements HasCustomFields, HasMedia
     }
 
     /**
+     * Scope a query to requests belonging to a buyer company. Portal surfaces
+     * must use this scope instead of inline buyer_id where-clauses.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeForBuyer(Builder $query, int $buyerCompanyId): Builder
+    {
+        return $query->where('buyer_id', $buyerCompanyId);
+    }
+
+    /**
      * Portal user who submitted this request.
      *
      * @return BelongsTo<User, $this>
@@ -190,16 +200,6 @@ final class Request extends Model implements HasCustomFields, HasMedia
     public function items(): HasMany
     {
         return $this->hasMany(RequestItem::class)->orderBy('sort_order');
-    }
-
-    /**
-     * The tasks associated with this request.
-     *
-     * @return MorphToMany<Task, $this>
-     */
-    public function tasks(): MorphToMany
-    {
-        return $this->morphToMany(Task::class, 'taskable');
     }
 
     /**

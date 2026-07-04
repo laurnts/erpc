@@ -21,8 +21,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        DB::table('noteables')->whereIn('noteable_type', $this->opportunityTypes)->delete();
-        DB::table('taskables')->whereIn('taskable_type', $this->opportunityTypes)->delete();
+        // hasTable guards: the later remove_tasks_and_notes_entities migration
+        // drops both pivots, so re-runs (tests) may find them gone.
+        if (Schema::hasTable('noteables')) {
+            DB::table('noteables')->whereIn('noteable_type', $this->opportunityTypes)->delete();
+        }
+
+        if (Schema::hasTable('taskables')) {
+            DB::table('taskables')->whereIn('taskable_type', $this->opportunityTypes)->delete();
+        }
+
         DB::table('ai_summaries')->whereIn('summarizable_type', $this->opportunityTypes)->delete();
 
         $customFieldIds = DB::table('custom_fields')

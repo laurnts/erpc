@@ -121,22 +121,6 @@ final class Team extends JetstreamTeam implements HasAvatar, HasMedia
     }
 
     /**
-     * @return HasMany<Task, $this>
-     */
-    public function tasks(): HasMany
-    {
-        return $this->hasMany(Task::class);
-    }
-
-    /**
-     * @return HasMany<Note, $this>
-     */
-    public function notes(): HasMany
-    {
-        return $this->hasMany(Note::class);
-    }
-
-    /**
      * Get the team's base currency model.
      */
     public function getBaseCurrency(): ?Currency

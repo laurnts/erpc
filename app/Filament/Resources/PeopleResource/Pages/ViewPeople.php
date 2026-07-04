@@ -7,9 +7,6 @@ namespace App\Filament\Resources\PeopleResource\Pages;
 use App\Filament\Actions\GenerateRecordSummaryAction;
 use App\Filament\Resources\BuyerResource;
 use App\Filament\Resources\PeopleResource;
-use App\Filament\Resources\PeopleResource\RelationManagers\BuyersRelationManager;
-use App\Filament\Resources\PeopleResource\RelationManagers\NotesRelationManager;
-use App\Filament\Resources\PeopleResource\RelationManagers\TasksRelationManager;
 use App\Filament\Resources\SupplierResource;
 use App\Models\People;
 use Filament\Actions\ActionGroup;
@@ -68,10 +65,6 @@ final class ViewPeople extends ViewRecord
 
     public function getRelationManagers(): array
     {
-        return [
-            TasksRelationManager::class,
-            NotesRelationManager::class,
-            // Note: BuyersRelationManager removed - Key Accounts are now managed as team members
-        ];
+        return [];
     }
 }

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "25e219167c742b2126bdd39750012308",
+    "content-hash": "5b0eb5aec95772dc08aad42a1fcbceef",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -7320,86 +7320,6 @@
                 "source": "https://github.com/relaticle/custom-fields"
             },
             "time": "2026-01-20T21:52:38+00:00"
-        },
-        {
-            "name": "relaticle/flowforge",
-            "version": "v4.0.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/Relaticle/flowforge.git",
-                "reference": "909980c9f32c6043ec152f818b19af413c5f3b5a"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/Relaticle/flowforge/zipball/909980c9f32c6043ec152f818b19af413c5f3b5a",
-                "reference": "909980c9f32c6043ec152f818b19af413c5f3b5a",
-                "shasum": ""
-            },
-            "require": {
-                "ext-bcmath": "*",
-                "filament/filament": "^5.0",
-                "php": "^8.3",
-                "spatie/laravel-package-tools": "^1.15.0"
-            },
-            "require-dev": {
-                "larastan/larastan": "^3.0",
-                "laravel/pint": "^1.0",
-                "nunomaduro/collision": "^8.0",
-                "orchestra/testbench": "^10.0",
-                "pestphp/pest": "^4.0",
-                "pestphp/pest-plugin-arch": "^4.0",
-                "pestphp/pest-plugin-laravel": "^4.0",
-                "phpstan/extension-installer": "^1.4",
-                "phpstan/phpstan-deprecation-rules": "^2.0",
-                "phpstan/phpstan-phpunit": "^2.0",
-                "spatie/laravel-ray": "^1.26"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "aliases": {
-                        "Flowforge": "Relaticle\\Flowforge\\Facades\\Flowforge"
-                    },
-                    "providers": [
-                        "Relaticle\\Flowforge\\FlowforgeServiceProvider"
-                    ]
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Relaticle\\Flowforge\\": "src/",
-                    "Relaticle\\Flowforge\\Database\\Factories\\": "database/factories/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "manukminasyan",
-                    "email": "manuk.minasyan1@gmail.com",
-                    "role": "Developer"
-                }
-            ],
-            "description": "Flowforge is a lightweight Kanban board package for Filament that works with existing Eloquent models.",
-            "homepage": "https://github.com/relaticle/flowforge",
-            "keywords": [
-                "Relaticle",
-                "flowforge",
-                "laravel"
-            ],
-            "support": {
-                "issues": "https://github.com/relaticle/flowforge/issues",
-                "source": "https://github.com/relaticle/flowforge"
-            },
-            "funding": [
-                {
-                    "url": "https://github.com/Relaticle",
-                    "type": "github"
-                }
-            ],
-            "time": "2026-01-17T12:27:24+00:00"
         },
         {
             "name": "ryangjchandler/blade-capture-directive",

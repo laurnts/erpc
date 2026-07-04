@@ -10,9 +10,7 @@ use App\Http\Responses\LoginResponse;
 use App\Models\Company;
 use App\Models\GoodsReceiveBatch;
 use App\Models\Import;
-use App\Models\Note;
 use App\Models\People;
-use App\Models\Task;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\GitHubService;
@@ -148,8 +146,6 @@ final class AppServiceProvider extends ServiceProvider
             'user' => User::class,
             'people' => People::class,
             'company' => Company::class,
-            'task' => Task::class,
-            'note' => Note::class,
             'system_administrator' => SystemAdministrator::class,
             'import' => Import::class,
 

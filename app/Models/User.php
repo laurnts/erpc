@@ -105,14 +105,6 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
     }
 
     /**
-     * @return BelongsToMany<Task, $this>
-     */
-    public function tasks(): BelongsToMany
-    {
-        return $this->belongsToMany(Task::class);
-    }
-
-    /**
      * Buyers assigned to this key account user.
      *
      * @return BelongsToMany<Company, $this>

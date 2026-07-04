@@ -134,8 +134,14 @@ final class Article extends Model implements HasCustomFields
     {
         return $this->belongsToMany(Company::class, 'supplier_articles', 'article_id', 'supplier_id')
             ->where('is_supplier', true)
+            ->using(SupplierArticle::class)
             ->withPivot([
                 'supplier_sku',
+                'supplier_price',
+                'supplier_price_currency_id',
+                'supplier_price_updated_at',
+                'available_quantity',
+                'quantity_updated_at',
                 'last_quoted_price',
                 'last_quoted_currency_id',
                 'last_quoted_at',

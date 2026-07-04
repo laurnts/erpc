@@ -8,7 +8,6 @@ use App\Enums\CreationSource;
 use App\Enums\DeliveryType;
 use App\Models\Concerns\HasAiSummary;
 use App\Models\Concerns\HasCreator;
-use App\Models\Concerns\HasNotes;
 use App\Models\Concerns\HasTags;
 use App\Models\Concerns\HasTeam;
 use App\Observers\CompanyObserver;
@@ -20,7 +19,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Relaticle\CustomFields\Models\Concerns\UsesCustomFields;
@@ -74,7 +72,6 @@ final class Company extends Model implements HasCustomFields, HasMedia
     /** @use HasFactory<CompanyFactory> */
     use HasFactory;
 
-    use HasNotes;
     use HasTags;
     use HasTeam;
     use InteractsWithMedia;
@@ -225,14 +222,6 @@ final class Company extends Model implements HasCustomFields, HasMedia
     }
 
     /**
-     * @return MorphToMany<Task, $this>
-     */
-    public function tasks(): MorphToMany
-    {
-        return $this->morphToMany(Task::class, 'taskable');
-    }
-
-    /**
      * Get all articles supplied by this company (when acting as supplier).
      *
      * @return BelongsToMany<Article, $this>
@@ -240,8 +229,14 @@ final class Company extends Model implements HasCustomFields, HasMedia
     public function articles(): BelongsToMany
     {
         return $this->belongsToMany(Article::class, 'supplier_articles', 'supplier_id', 'article_id')
+            ->using(SupplierArticle::class)
             ->withPivot([
                 'supplier_sku',
+                'supplier_price',
+                'supplier_price_currency_id',
+                'supplier_price_updated_at',
+                'available_quantity',
+                'quantity_updated_at',
                 'last_quoted_price',
                 'last_quoted_currency_id',
                 'last_quoted_at',

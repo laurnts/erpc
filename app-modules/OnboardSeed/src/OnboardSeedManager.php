@@ -8,9 +8,7 @@ use App\Models\User;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Relaticle\OnboardSeed\Contracts\ModelSeederInterface;
 use Relaticle\OnboardSeed\ModelSeeders\CompanySeeder;
-use Relaticle\OnboardSeed\ModelSeeders\NoteSeeder;
 use Relaticle\OnboardSeed\ModelSeeders\PeopleSeeder;
-use Relaticle\OnboardSeed\ModelSeeders\TaskSeeder;
 use Throwable;
 
 final class OnboardSeedManager
@@ -23,8 +21,6 @@ final class OnboardSeedManager
     private array $entitySeederSequence = [
         CompanySeeder::class,
         PeopleSeeder::class,
-        TaskSeeder::class,
-        NoteSeeder::class,
     ];
 
     /**

@@ -4,16 +4,15 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\Exports\ArticleExporter;
 use App\Filament\Resources\ArticleResource\Pages\CreateArticle;
 use App\Filament\Resources\ArticleResource\Pages\ListArticles;
 use App\Filament\Resources\ArticleResource\Pages\ViewArticle;
-use App\Filament\Resources\SupplierResource;
 use App\Models\Article;
 use App\Models\Company;
 use App\Models\Tag;
 use App\Models\TaxCode;
 use App\Models\UnitOfMeasure;
-use App\Filament\Exports\ArticleExporter;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ExportBulkAction;
@@ -44,7 +43,7 @@ final class ArticleResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-cube';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 4;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
 
@@ -64,7 +63,7 @@ final class ArticleResource extends Resource
                 ->where('is_default', true)
                 ->where('is_active', true)
                 ->value('id'))
-            
+
             ->preload()
             ->helperText('Tax code to apply when using this article');
 
@@ -87,7 +86,7 @@ final class ArticleResource extends Resource
             ->label('Categories')
             ->multiple()
             ->preload()
-            
+
             ->createOptionForm(TagResource::getFormSchema())
             ->createOptionUsing(function (array $data): int {
                 /** @var \App\Models\Team $team */
@@ -123,7 +122,7 @@ final class ArticleResource extends Resource
             ->label('Suppliers')
             ->multiple()
             ->preload()
-            
+
             ->createOptionForm(SupplierResource::getFormSchema(excludePeopleField: true, forModal: true))
             ->createOptionUsing(function (array $data): int {
                 /** @var \App\Models\Team $team */
@@ -170,7 +169,7 @@ final class ArticleResource extends Resource
             Select::make('unit_of_measure_id')
                 ->label('Unit of Measure')
                 ->relationship('unitOfMeasure', 'label')
-                
+
                 ->preload()
                 ->required()
                 ->default(fn (): ?int => UnitOfMeasure::query()

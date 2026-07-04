@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Models\Task;
 use App\Models\Team;
 use App\Models\User;
 use App\Models\UserSocialAccount;
@@ -18,16 +17,6 @@ test('user has many social accounts', function () {
 
     expect($user->socialAccounts->first())->toBeInstanceOf(UserSocialAccount::class)
         ->and($user->socialAccounts->first()->id)->toBe($socialAccount->id);
-});
-
-test('user belongs to many tasks', function () {
-    $user = User::factory()->create();
-    $task = Task::factory()->create();
-
-    $user->tasks()->attach($task);
-
-    expect($user->tasks->first())->toBeInstanceOf(Task::class)
-        ->and($user->tasks->first()->id)->toBe($task->id);
 });
 
 test('user can access tenants', function () {
