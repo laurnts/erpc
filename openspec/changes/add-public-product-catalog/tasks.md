@@ -48,14 +48,14 @@
 
 ## Slice 6 — Public catalog + cart + buyer registration
 
-- [ ] 6.1 `config/catalog.php` team resolution; catalog query scope (team + `is_active` + `show_in_product_grid`)
-- [ ] 6.2 Replace `/`: Livewire catalog page — tag category menu (only tags on grid-visible articles), debounced search (name/SKU/description), paginated grid (primary image, tags, `list_price` or "Price on request", stock badge via `withExists` incl. "On request" state, quantity + add)
-- [ ] 6.3 Product detail `/products/{article}` with gallery; 404 unless grid-visible; header links customer/supplier/staff logins
-- [ ] 6.4 Session cart service + Livewire components (add, summary, header badge); guest submit gate preserving cart through login redirect
-- [ ] 6.5 `RequestSubmissionMethod::Catalog`; submit action → `Request` + `RequestItems` per spec (line validation, confirmation with request number, cart cleared)
-- [ ] 6.6 `portal_registration_requests` migration + model; public registration form (linked from header + submit gate); duplicate email/application rules
-- [ ] 6.7 Approval Filament resource (approve → buyer Company + User + active `portal = customer` membership + verification/welcome mail; reject → mail); application-received mail
-- [ ] 6.8 Pest tests: grid scoping/search/category/detail-404, price + stock display states, no supplier/cost leakage in public responses, cart lifecycle, guest gate, submission records, registration lifecycle (nothing exists pre-approval; approved user signs in and submits)
+- [x] 6.1 `config/catalog.php` team resolution; catalog query scope (team + `is_active` + `show_in_product_grid`) — `CatalogTeamResolver` (config → first team, null-safe for fresh installs) + `Article::scopeInPublicCatalog()`; `catalog.enabled` kill switch restores the marketing homepage
+- [x] 6.2 Replace `/`: Livewire catalog page — tag category menu (only tags on grid-visible articles), debounced search (name/SKU/description), paginated grid (primary image, tags, `list_price` or "Price on request", stock badge via `withExists` incl. "On request" state, quantity + add)
+- [x] 6.3 Product detail `/products/{article}` with gallery; 404 unless grid-visible; header links customer/supplier/staff logins
+- [x] 6.4 Session cart service + Livewire components (add, summary, header badge); guest submit gate preserving cart through login redirect — gate offers an inline customer-guard sign-in on the cart page (portal login lives on a different session cookie/host, so a portal redirect cannot authenticate the public session) plus portal-login and register links
+- [x] 6.5 `RequestSubmissionMethod::CATALOG`; submit action → `Request` + `RequestItems` per spec (line validation, confirmation with request number, cart cleared)
+- [x] 6.6 `portal_registration_requests` migration + model; public registration form (linked from header + submit gate); duplicate email/application rules
+- [x] 6.7 Approval Filament resource (approve → buyer Company + User + active `portal = customer` membership + verification/welcome mail; reject → mail); application-received mail
+- [x] 6.8 Pest tests: grid scoping/search/category/detail-404, price + stock display states, no supplier/cost leakage in public responses, cart lifecycle, guest gate, submission records, registration lifecycle (nothing exists pre-approval; approved user signs in and submits) — `tests/Feature/Catalog/{PublicCatalogTest,QuoteCartTest,PortalRegistrationTest}.php`
 
 ## Hardening (every slice)
 

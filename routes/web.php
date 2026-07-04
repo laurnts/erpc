@@ -10,6 +10,10 @@ use App\Http\Controllers\PrivacyPolicyController;
 use App\Http\Controllers\SupplierQuoteQuotationDownloadController;
 use App\Http\Controllers\TermsOfServiceController;
 use App\Http\Controllers\UserGuideDownloadController;
+use App\Livewire\Catalog\CatalogHome;
+use App\Livewire\Catalog\ProductDetail;
+use App\Livewire\Catalog\QuoteCartPage;
+use App\Livewire\Catalog\RegistrationPage;
 use App\Models\BuyerQuote;
 use App\Models\GoodsReceiveBatch;
 use App\Models\Request;
@@ -51,7 +55,16 @@ Route::middleware('guest')->group(function () {
     })->name('password.request');
 });
 
-Route::get('/', HomeController::class);
+// Public product catalog replaces the marketing homepage. CATALOG_ENABLED=false
+// is the kill switch that restores the static marketing page.
+if (config('catalog.enabled', true)) {
+    Route::get('/', CatalogHome::class)->name('catalog.home');
+    Route::get('/products/{article}', ProductDetail::class)->name('catalog.product');
+    Route::get('/quote-cart', QuoteCartPage::class)->name('catalog.cart');
+    Route::get('/registration', RegistrationPage::class)->name('catalog.register');
+} else {
+    Route::get('/', HomeController::class);
+}
 
 Route::get('/terms-of-service', TermsOfServiceController::class)->name('terms.show');
 Route::get('/privacy-policy', PrivacyPolicyController::class)->name('policy.show');
@@ -76,34 +89,34 @@ Route::get('/user-guide/download', UserGuideDownloadController::class)
 Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/buyer-quotes/{buyerQuote}/po/{media}', BuyerQuotePoDownloadController::class)
         ->name('buyer-quotes.po.download');
-    
+
     // Shipment PDF download
     Route::get('/shipments/{shipment}/pdf', \App\Http\Controllers\ShipmentPdfController::class)
         ->name('shipment.pdf');
-    
+
     Route::delete('/buyer-quotes/{buyerQuote}/po/{media}', function (BuyerQuote $buyerQuote, Media $media) {
         // Verify ownership
         // Check both morph alias and full class name (Spatie stores it as morph alias)
-        $isValidModelType = $media->model_type === BuyerQuote::class || 
+        $isValidModelType = $media->model_type === BuyerQuote::class ||
                            $media->model_type === 'buyer_quote' ||
                            $media->model_type === 'App\\Models\\BuyerQuote';
-        
-        if (!$isValidModelType || (int) $media->model_id !== (int) $buyerQuote->id) {
+
+        if (! $isValidModelType || (int) $media->model_id !== (int) $buyerQuote->id) {
             abort(404);
         }
-        
+
         if ($media->collection_name !== 'buyer_po') {
             abort(404);
         }
-        
+
         // Check authorization - user must be authenticated
-        if (!auth()->check()) {
+        if (! auth()->check()) {
             abort(403);
         }
-        
+
         try {
             $media->delete();
-            
+
             // Return JSON response for AJAX requests
             if (request()->wantsJson() || request()->expectsJson()) {
                 return response()->json([
@@ -111,16 +124,16 @@ Route::middleware(['web', 'auth'])->group(function () {
                     'message' => 'File deleted successfully',
                 ]);
             }
-            
+
             return redirect()->back()->with('success', 'File deleted successfully');
         } catch (\Exception $e) {
             if (request()->wantsJson() || request()->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Failed to delete file: ' . $e->getMessage(),
+                    'message' => 'Failed to delete file: '.$e->getMessage(),
                 ], 500);
             }
-            
+
             return redirect()->back()->with('error', 'Failed to delete file');
         }
     })->name('buyer-quotes.po.delete');

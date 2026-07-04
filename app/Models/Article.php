@@ -11,6 +11,7 @@ use App\Models\Concerns\HasTeam;
 use App\Observers\ArticleObserver;
 use Database\Factories\ArticleFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -226,6 +227,23 @@ final class Article extends Model implements HasCustomFields, HasMedia
     public function preferredSupplier(): BelongsToMany
     {
         return $this->suppliers()->wherePivot('is_preferred', true)->limit(1);
+    }
+
+    /**
+     * Scope to articles visible on the public catalog: the configured catalog
+     * team's active articles that are explicitly published to the grid.
+     * Columns are qualified so the scope stays safe inside whereHas/joins.
+     * Never combine with TeamScope/auth — the catalog serves guests (D1).
+     *
+     * @param  Builder<Article>  $query
+     * @return Builder<Article>
+     */
+    public function scopeInPublicCatalog(Builder $query, int $teamId): Builder
+    {
+        return $query
+            ->where('articles.team_id', $teamId)
+            ->where('articles.is_active', true)
+            ->where('articles.show_in_product_grid', true);
     }
 
     /**

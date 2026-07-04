@@ -1,0 +1,283 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Data\TeamErpSettings;
+use App\Livewire\Catalog\CatalogHome;
+use App\Models\Article;
+use App\Models\Company;
+use App\Models\Currency;
+use App\Models\SupplierArticle;
+use App\Models\Tag;
+use App\Models\Team;
+use App\Models\User;
+
+use function Pest\Livewire\livewire;
+
+beforeEach(function (): void {
+    $this->owner = User::factory()->withPersonalTeam()->create();
+    $this->team = $this->owner->personalTeam();
+
+    config(['catalog.team_id' => $this->team->getKey()]);
+
+    $this->team->forceFill([
+        'erp_settings' => new TeamErpSettings(default_currency: 'USD'),
+    ])->save();
+
+    Currency::factory()->usd()->create();
+});
+
+function makeCatalogArticle(Team $team, array $attributes = []): Article
+{
+    return Article::factory()->for($team)->create([
+        'is_active' => true,
+        'show_in_product_grid' => true,
+        ...$attributes,
+    ]);
+}
+
+describe('Homepage smoke', function (): void {
+    it('renders the catalog homepage for guests without errors', function (): void {
+        makeCatalogArticle($this->team, ['name' => 'Smoke Test Product']);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee(config('app.name'))
+            ->assertSee('Smoke Test Product');
+    });
+
+    it('renders for guests even when no team exists', function (): void {
+        config(['catalog.team_id' => null]);
+        $this->team->delete();
+
+        $this->get('/')->assertOk();
+    });
+});
+
+describe('Grid scoping', function (): void {
+    it('shows only active, grid-published articles of the catalog team', function (): void {
+        makeCatalogArticle($this->team, ['name' => 'Visible Product Alpha']);
+        makeCatalogArticle($this->team, ['name' => 'Hidden Unpublished Product', 'show_in_product_grid' => false]);
+        makeCatalogArticle($this->team, ['name' => 'Hidden Inactive Product', 'is_active' => false]);
+
+        $otherOwner = User::factory()->withPersonalTeam()->create();
+        makeCatalogArticle($otherOwner->personalTeam(), ['name' => 'Foreign Team Product']);
+
+        livewire(CatalogHome::class)
+            ->assertSee('Visible Product Alpha')
+            ->assertDontSee('Hidden Unpublished Product')
+            ->assertDontSee('Hidden Inactive Product')
+            ->assertDontSee('Foreign Team Product');
+    });
+
+    it('returns 404 on the detail page for unpublished, inactive, foreign, and missing articles', function (): void {
+        $unpublished = makeCatalogArticle($this->team, ['show_in_product_grid' => false]);
+        $inactive = makeCatalogArticle($this->team, ['is_active' => false]);
+        $otherOwner = User::factory()->withPersonalTeam()->create();
+        $foreign = makeCatalogArticle($otherOwner->personalTeam());
+        $published = makeCatalogArticle($this->team, ['name' => 'Published Detail Product']);
+
+        $this->get('/products/'.$unpublished->getKey())->assertNotFound();
+        $this->get('/products/'.$inactive->getKey())->assertNotFound();
+        $this->get('/products/'.$foreign->getKey())->assertNotFound();
+        $this->get('/products/999999')->assertNotFound();
+        $this->get('/products/'.$published->getKey())
+            ->assertOk()
+            ->assertSee('Published Detail Product');
+    });
+});
+
+describe('Search', function (): void {
+    it('filters by name, SKU, and description with an empty state and clear affordance', function (): void {
+        makeCatalogArticle($this->team, ['name' => 'Steel Bracket Deluxe', 'sku' => 'SKU-111111', 'description' => 'A very sturdy bracket']);
+        makeCatalogArticle($this->team, ['name' => 'Copper Pipe', 'sku' => 'SKU-222222', 'description' => 'Round copper tubing']);
+
+        livewire(CatalogHome::class)
+            ->set('search', 'steel bracket')
+            ->assertSee('Steel Bracket Deluxe')
+            ->assertDontSee('Copper Pipe')
+            ->set('search', 'SKU-222222')
+            ->assertSee('Copper Pipe')
+            ->assertDontSee('Steel Bracket Deluxe')
+            ->set('search', 'sturdy')
+            ->assertSee('Steel Bracket Deluxe')
+            ->set('search', 'zzz-no-match-zzz')
+            ->assertSee('No products found')
+            ->assertSee('Clear search')
+            ->call('clearSearch')
+            ->assertSee('Steel Bracket Deluxe')
+            ->assertSee('Copper Pipe');
+    });
+
+    it('does not surface unpublished articles through search', function (): void {
+        makeCatalogArticle($this->team, ['name' => 'Secret Draft Product', 'show_in_product_grid' => false]);
+
+        livewire(CatalogHome::class)
+            ->set('search', 'Secret Draft')
+            ->assertDontSee('Secret Draft Product')
+            ->assertSee('No products found');
+    });
+});
+
+describe('Category menu', function (): void {
+    it('lists only tags attached to grid-visible articles and filters by category', function (): void {
+        $visibleTag = Tag::factory()->create(['team_id' => $this->team->getKey(), 'name' => 'Fasteners', 'is_active' => true]);
+        $orphanTag = Tag::factory()->create(['team_id' => $this->team->getKey(), 'name' => 'Lubricants', 'is_active' => true]);
+
+        $tagged = makeCatalogArticle($this->team, ['name' => 'Tagged Hex Bolt']);
+        $tagged->tags()->attach($visibleTag);
+
+        $unpublished = makeCatalogArticle($this->team, ['name' => 'Unpublished Grease', 'show_in_product_grid' => false]);
+        $unpublished->tags()->attach($orphanTag);
+
+        makeCatalogArticle($this->team, ['name' => 'Untagged Washer']);
+
+        livewire(CatalogHome::class)
+            ->assertSee('Fasteners')
+            ->assertDontSee('Lubricants')
+            ->call('selectCategory', $visibleTag->getKey())
+            ->assertSee('Tagged Hex Bolt')
+            ->assertDontSee('Untagged Washer')
+            ->call('selectCategory', null)
+            ->assertSee('Untagged Washer');
+    });
+
+    it('combines category filter with search', function (): void {
+        $tag = Tag::factory()->create(['team_id' => $this->team->getKey(), 'name' => 'Pipes', 'is_active' => true]);
+        $a = makeCatalogArticle($this->team, ['name' => 'Copper Pipe Large']);
+        $b = makeCatalogArticle($this->team, ['name' => 'Steel Pipe Large']);
+        $a->tags()->attach($tag);
+        $b->tags()->attach($tag);
+
+        livewire(CatalogHome::class)
+            ->call('selectCategory', $tag->getKey())
+            ->set('search', 'Copper')
+            ->assertSee('Copper Pipe Large')
+            ->assertDontSee('Steel Pipe Large');
+    });
+});
+
+describe('Price display', function (): void {
+    it('shows the list price formatted in the team default currency', function (): void {
+        makeCatalogArticle($this->team, ['name' => 'Priced Product', 'list_price' => '1250.0000']);
+
+        livewire(CatalogHome::class)
+            ->assertSee('Priced Product')
+            ->assertSee('$ 1,250.00');
+    });
+
+    it('shows Price on request when list_price is null', function (): void {
+        $article = makeCatalogArticle($this->team, ['name' => 'Unpriced Product', 'list_price' => null]);
+
+        livewire(CatalogHome::class)->assertSee('Price on request');
+        $this->get('/products/'.$article->getKey())->assertSee('Price on request');
+    });
+});
+
+describe('Availability badge', function (): void {
+    it('shows In stock when an active supplier link has positive quantity', function (): void {
+        $article = makeCatalogArticle($this->team, ['name' => 'Stocked Product']);
+        SupplierArticle::factory()->create([
+            'article_id' => $article->getKey(),
+            'supplier_id' => Company::factory()->supplier()->for($this->team)->create()->getKey(),
+            'available_quantity' => '25.0000',
+            'is_active' => true,
+        ]);
+
+        livewire(CatalogHome::class)->assertSee('In stock');
+        $this->get('/products/'.$article->getKey())->assertSee('In stock');
+    });
+
+    it('shows Out of stock when quantities are recorded but none positive', function (): void {
+        $article = makeCatalogArticle($this->team, ['name' => 'Depleted Product']);
+        SupplierArticle::factory()->create([
+            'article_id' => $article->getKey(),
+            'supplier_id' => Company::factory()->supplier()->for($this->team)->create()->getKey(),
+            'available_quantity' => '0.0000',
+            'is_active' => true,
+        ]);
+
+        livewire(CatalogHome::class)->assertSee('Out of stock');
+    });
+
+    it('shows On request when quantities are unknown or no qualifying supplier link exists', function (): void {
+        makeCatalogArticle($this->team, ['name' => 'Unknown Availability Product']);
+
+        $nullQuantity = makeCatalogArticle($this->team, ['name' => 'Null Quantity Product']);
+        SupplierArticle::factory()->create([
+            'article_id' => $nullQuantity->getKey(),
+            'supplier_id' => Company::factory()->supplier()->for($this->team)->create()->getKey(),
+            'available_quantity' => null,
+            'is_active' => true,
+        ]);
+
+        livewire(CatalogHome::class)
+            ->assertSee('On request')
+            ->assertDontSee('In stock')
+            ->assertDontSee('Out of stock');
+    });
+
+    it('ignores inactive links and demoted suppliers for the stock badge', function (): void {
+        $article = makeCatalogArticle($this->team, ['name' => 'Formerly Stocked Product']);
+
+        SupplierArticle::factory()->create([
+            'article_id' => $article->getKey(),
+            'supplier_id' => Company::factory()->supplier()->for($this->team)->create()->getKey(),
+            'available_quantity' => '10.0000',
+            'is_active' => false,
+        ]);
+
+        $demoted = Company::factory()->supplier()->for($this->team)->create();
+        SupplierArticle::factory()->create([
+            'article_id' => $article->getKey(),
+            'supplier_id' => $demoted->getKey(),
+            'available_quantity' => '10.0000',
+            'is_active' => true,
+        ]);
+        $demoted->forceFill(['is_supplier' => false])->save();
+
+        livewire(CatalogHome::class)
+            ->assertSee('On request')
+            ->assertDontSee('In stock');
+    });
+});
+
+describe('Confidentiality', function (): void {
+    it('never exposes supplier identities, costs, or article codes on public pages', function (): void {
+        $article = makeCatalogArticle($this->team, [
+            'name' => 'Public Facing Product',
+            'code' => 'ARTSECRETCODE',
+            'list_price' => '150.0000',
+        ]);
+
+        $supplier = Company::factory()->supplier()->for($this->team)->create(['name' => 'Very Secret Supplier GmbH']);
+        SupplierArticle::factory()->create([
+            'article_id' => $article->getKey(),
+            'supplier_id' => $supplier->getKey(),
+            'supplier_price' => '4242.4242',
+            'available_quantity' => '99.0000',
+            'is_active' => true,
+            'last_quoted_price' => '3333.33',
+        ]);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('Public Facing Product')
+            ->assertDontSee('Very Secret Supplier')
+            ->assertDontSee('ARTSECRETCODE')
+            ->assertDontSee('4242.4242')
+            ->assertDontSee('4,242.42')
+            ->assertDontSee('3333.33')
+            ->assertDontSee('3,333.33');
+
+        $this->get('/products/'.$article->getKey())
+            ->assertOk()
+            ->assertDontSee('Very Secret Supplier')
+            ->assertDontSee('ARTSECRETCODE')
+            ->assertDontSee('4242.4242')
+            ->assertDontSee('4,242.42')
+            ->assertDontSee('3333.33')
+            ->assertDontSee('3,333.33')
+            ->assertDontSee('99.0000');
+    });
+});

@@ -2,27 +2,22 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Http;
-
 describe('Home page', function () {
+    // The homepage now serves the public product catalog (add-public-product-catalog
+    // change); the previous marketing-page assertions (GitHub stars) moved with it.
     it('returns a successful response', function () {
         $response = $this->get('/');
 
         $response->assertStatus(200);
-        $response->assertSee('Relaticle');
+        $response->assertSee(config('app.name'));
     });
 
-    it('displays the GitHub stars count', function () {
-        Http::fake([
-            'api.github.com/repos/Relaticle/relaticle' => Http::response([
-                'stargazers_count' => 125,
-            ], 200),
-        ]);
-
+    it('shows the catalog entry points', function () {
         $response = $this->get('/');
 
         $response->assertStatus(200);
-        $response->assertSee('125');
+        $response->assertSee('Customer login');
+        $response->assertSee('Register');
     });
 });
 

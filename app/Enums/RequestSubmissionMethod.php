@@ -11,12 +11,14 @@ enum RequestSubmissionMethod: string implements HasColor, HasLabel
 {
     case MANUAL = 'manual';
     case DOCUMENT = 'document';
+    case CATALOG = 'catalog';
 
     public function getLabel(): string
     {
         return match ($this) {
             self::MANUAL => 'Manual Entry',
             self::DOCUMENT => 'Document Upload',
+            self::CATALOG => 'Catalog',
         };
     }
 
@@ -25,6 +27,7 @@ enum RequestSubmissionMethod: string implements HasColor, HasLabel
         return match ($this) {
             self::MANUAL => 'info',
             self::DOCUMENT => 'warning',
+            self::CATALOG => 'success',
         };
     }
 }
