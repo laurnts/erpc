@@ -78,7 +78,7 @@ final class AcceptPortalInvitation extends Page implements HasForms
 
     public function getHeading(): string|Htmlable
     {
-        return 'Create Customer Portal Account';
+        return 'Create Buyer Portal Account';
     }
 
     public function getSubheading(): string|Htmlable|null
@@ -156,7 +156,7 @@ final class AcceptPortalInvitation extends Page implements HasForms
 
         Notification::make()
             ->title('Account created successfully')
-            ->body('Please sign in to the customer portal.')
+            ->body('Please sign in to the buyer portal.')
             ->success()
             ->send();
 

@@ -24,7 +24,7 @@ final class PortalUserInvitationMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Customer Portal Access Invitation',
+            subject: 'Buyer Portal Access Invitation',
         );
     }
 

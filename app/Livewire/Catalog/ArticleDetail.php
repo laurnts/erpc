@@ -13,7 +13,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Component;
 
 /**
- * Public product detail page. 404s unless the article is grid-visible for the
+ * Public article detail page. 404s unless the article is grid-visible for the
  * catalog team. Renders only public, whitelisted information: images, name,
  * description, tags, unit, attributes, list price, availability badge.
  *
@@ -22,7 +22,7 @@ use Livewire\Component;
  * render, so hydration can never resurrect confidential attributes.
  */
 #[Layout('components.layouts.catalog')]
-final class ProductDetail extends Component
+final class ArticleDetail extends Component
 {
     public int $articleId;
 
@@ -50,7 +50,7 @@ final class ProductDetail extends Component
             ->exists();
 
         if (! $isInCatalog) {
-            $this->addError('quantity', 'This product is no longer available.');
+            $this->addError('quantity', 'This article is no longer available.');
 
             return;
         }
@@ -87,7 +87,7 @@ final class ProductDetail extends Component
             ])
             ->findOrFail($this->articleId);
 
-        return view('livewire.catalog.product-detail', [
+        return view('livewire.catalog.article-detail', [
             'article' => $article,
             'baseCurrency' => $resolver->team()?->getBaseCurrency(),
         ])->title($article->name.' — '.config('app.name'));

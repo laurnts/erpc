@@ -24,7 +24,7 @@ final class PortalRegistrationApprovedMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Your customer portal access has been approved',
+            subject: 'Your buyer portal access has been approved',
         );
     }
 

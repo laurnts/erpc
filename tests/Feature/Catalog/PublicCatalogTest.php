@@ -77,11 +77,11 @@ describe('Grid scoping', function (): void {
         $foreign = makeCatalogArticle($otherOwner->personalTeam());
         $published = makeCatalogArticle($this->team, ['name' => 'Published Detail Product']);
 
-        $this->get('/products/'.$unpublished->getKey())->assertNotFound();
-        $this->get('/products/'.$inactive->getKey())->assertNotFound();
-        $this->get('/products/'.$foreign->getKey())->assertNotFound();
-        $this->get('/products/999999')->assertNotFound();
-        $this->get('/products/'.$published->getKey())
+        $this->get('/articles/'.$unpublished->getKey())->assertNotFound();
+        $this->get('/articles/'.$inactive->getKey())->assertNotFound();
+        $this->get('/articles/'.$foreign->getKey())->assertNotFound();
+        $this->get('/articles/999999')->assertNotFound();
+        $this->get('/articles/'.$published->getKey())
             ->assertOk()
             ->assertSee('Published Detail Product');
     });
@@ -102,7 +102,7 @@ describe('Search', function (): void {
             ->set('search', 'sturdy')
             ->assertSee('Steel Bracket Deluxe')
             ->set('search', 'zzz-no-match-zzz')
-            ->assertSee('No products found')
+            ->assertSee('No articles found')
             ->assertSee('Clear search')
             ->call('clearSearch')
             ->assertSee('Steel Bracket Deluxe')
@@ -115,7 +115,7 @@ describe('Search', function (): void {
         livewire(CatalogHome::class)
             ->set('search', 'Secret Draft')
             ->assertDontSee('Secret Draft Product')
-            ->assertSee('No products found');
+            ->assertSee('No articles found');
     });
 });
 
@@ -170,7 +170,7 @@ describe('Price display', function (): void {
         $article = makeCatalogArticle($this->team, ['name' => 'Unpriced Product', 'list_price' => null]);
 
         livewire(CatalogHome::class)->assertSee('Price on request');
-        $this->get('/products/'.$article->getKey())->assertSee('Price on request');
+        $this->get('/articles/'.$article->getKey())->assertSee('Price on request');
     });
 });
 
@@ -185,7 +185,7 @@ describe('Availability badge', function (): void {
         ]);
 
         livewire(CatalogHome::class)->assertSee('In stock');
-        $this->get('/products/'.$article->getKey())->assertSee('In stock');
+        $this->get('/articles/'.$article->getKey())->assertSee('In stock');
     });
 
     it('shows Out of stock when quantities are recorded but none positive', function (): void {
@@ -270,7 +270,7 @@ describe('Confidentiality', function (): void {
             ->assertDontSee('3333.33')
             ->assertDontSee('3,333.33');
 
-        $this->get('/products/'.$article->getKey())
+        $this->get('/articles/'.$article->getKey())
             ->assertOk()
             ->assertDontSee('Very Secret Supplier')
             ->assertDontSee('ARTSECRETCODE')

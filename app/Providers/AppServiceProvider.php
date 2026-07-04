@@ -191,7 +191,7 @@ final class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        $prefix = trim((string) config('app.customer_path', 'customer'), '/');
+        $prefix = trim((string) config('app.customer_path', 'buyer'), '/');
 
         Route::domain($publicHost)
             ->middleware('web')

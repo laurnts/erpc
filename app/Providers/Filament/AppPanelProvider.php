@@ -202,7 +202,7 @@ final class AppPanelProvider extends PanelProvider
                 ->tenantRegistration(CreateTeam::class)
                 ->tenantProfile(EditTeam::class)
                 ->resolveTenantUsing(function (string $key): Team {
-                    $customerPrefix = trim((string) config('app.customer_path', 'customer'), '/');
+                    $customerPrefix = trim((string) config('app.customer_path', 'buyer'), '/');
 
                     if ($key === $customerPrefix) {
                         throw (new ModelNotFoundException)->setModel(Team::class, [$key]);

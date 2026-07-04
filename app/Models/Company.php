@@ -224,7 +224,7 @@ final class Company extends Model implements HasCustomFields, HasMedia
     /**
      * Get all articles supplied by this company (when acting as supplier).
      *
-     * @return BelongsToMany<Article, $this>
+     * @return BelongsToMany<Article, $this, SupplierArticle>
      */
     public function articles(): BelongsToMany
     {

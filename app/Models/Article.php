@@ -183,7 +183,7 @@ final class Article extends Model implements HasCustomFields, HasMedia
      * Get all suppliers for this article.
      * Suppliers are Companies with is_supplier = true.
      *
-     * @return BelongsToMany<Company, $this>
+     * @return BelongsToMany<Company, $this, SupplierArticle>
      */
     public function suppliers(): BelongsToMany
     {
@@ -212,7 +212,7 @@ final class Article extends Model implements HasCustomFields, HasMedia
      * Alias for suppliers() method.
      * Some form fields may reference this relationship as "companies".
      *
-     * @return BelongsToMany<Company, $this>
+     * @return BelongsToMany<Company, $this, SupplierArticle>
      */
     public function companies(): BelongsToMany
     {
@@ -222,7 +222,7 @@ final class Article extends Model implements HasCustomFields, HasMedia
     /**
      * Get the preferred supplier for this article.
      *
-     * @return BelongsToMany<Company, $this>
+     * @return BelongsToMany<Company, $this, SupplierArticle>
      */
     public function preferredSupplier(): BelongsToMany
     {

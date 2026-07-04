@@ -26,15 +26,15 @@ final class PortalRegistrationRequestResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-user-plus';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
+    protected static string|\UnitEnum|null $navigationGroup = 'Approval';
 
     protected static ?int $navigationSort = 7;
 
-    protected static ?string $navigationLabel = 'Portal Registrations';
+    protected static ?string $navigationLabel = 'Registrations';
 
-    protected static ?string $modelLabel = 'Portal Registration';
+    protected static ?string $modelLabel = 'Registration';
 
-    protected static ?string $pluralModelLabel = 'Portal Registrations';
+    protected static ?string $pluralModelLabel = 'Registrations';
 
     public static function canCreate(): bool
     {

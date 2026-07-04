@@ -76,11 +76,11 @@ describe('Customer Portal Access', function (): void {
     it('shows customer login on app subdomain', function (): void {
         $host = PanelDomain::customerHost();
 
-        expect(url()->getCustomerPortalUrl('login'))->toBe("http://{$host}/customer/login");
+        expect(url()->getCustomerPortalUrl('login'))->toBe("http://{$host}/buyer/login");
 
         $this->get(url()->getCustomerPortalUrl('login'), ['Host' => $host])
             ->assertOk()
-            ->assertSee('Customer Sign in')
+            ->assertSee('Buyer Sign in')
             ->assertSee('Email address')
             ->assertSee('Password')
             ->assertSee('Remember me')
@@ -98,7 +98,7 @@ describe('Customer Portal Access', function (): void {
             return;
         }
 
-        $this->get("http://{$publicHost}/customer/login", ['Host' => $publicHost])
+        $this->get("http://{$publicHost}/buyer/login", ['Host' => $publicHost])
             ->assertRedirect(url()->getCustomerPortalUrl('login'));
     });
 
@@ -106,7 +106,7 @@ describe('Customer Portal Access', function (): void {
         $host = PanelDomain::customerHost();
 
         $this->actingAs($this->portalUser, 'customer')
-            ->get("http://{$host}/customer", ['Host' => $host])
+            ->get("http://{$host}/buyer", ['Host' => $host])
             ->assertOk();
     });
 
@@ -116,14 +116,14 @@ describe('Customer Portal Access', function (): void {
         $this->actingAs($this->admin)
             ->get(url()->getCustomerPortalUrl('login'), ['Host' => $host])
             ->assertOk()
-            ->assertSee('Customer Sign in');
+            ->assertSee('Buyer Sign in');
     });
 
     it('redirects staff user from customer dashboard to login', function (): void {
         $host = PanelDomain::customerHost();
 
         $this->actingAs($this->admin)
-            ->get("http://{$host}/customer", ['Host' => $host])
+            ->get("http://{$host}/buyer", ['Host' => $host])
             ->assertRedirect(url()->getCustomerPortalUrl('login'));
     });
 
@@ -145,7 +145,7 @@ describe('Customer Portal Access', function (): void {
         $host = PanelDomain::customerHost();
 
         $this->actingAs($this->portalUser, 'customer')
-            ->get("http://{$host}/customer", ['Host' => $host])
+            ->get("http://{$host}/buyer", ['Host' => $host])
             ->assertOk();
 
         $this->actingAs($this->admin, 'web')
@@ -153,7 +153,7 @@ describe('Customer Portal Access', function (): void {
             ->assertRedirect();
 
         $this->actingAs($this->portalUser, 'customer')
-            ->get("http://{$host}/customer", ['Host' => $host])
+            ->get("http://{$host}/buyer", ['Host' => $host])
             ->assertOk();
     });
 
@@ -172,7 +172,7 @@ describe('Customer Portal Access', function (): void {
 
         $adminRequestWithCustomerSnapshot = \Illuminate\Http\Request::create('/livewire-af864c3a/update', 'POST', [
             'components' => [[
-                'snapshot' => json_encode(['memo' => ['path' => 'customer/login']]),
+                'snapshot' => json_encode(['memo' => ['path' => 'buyer/login']]),
             ]],
         ], server: [
             'HTTP_REFERER' => url()->getAppUrl('login'),
@@ -191,7 +191,7 @@ describe('Customer Portal Access', function (): void {
             ->toResponse(request())
             ->getTargetUrl();
 
-        expect($redirectUrl)->not->toContain('/customer');
+        expect($redirectUrl)->not->toContain('/buyer');
     });
 
     it('redirects admin login to app dashboard after customer login', function (): void {

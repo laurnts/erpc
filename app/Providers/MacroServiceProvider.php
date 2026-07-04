@@ -33,7 +33,7 @@ final class MacroServiceProvider extends ServiceProvider
             $parsed = parse_url((string) config('app.url'));
             $scheme = $parsed['scheme'] ?? 'https';
             $host = PanelDomain::customerHost();
-            $prefix = trim((string) config('app.customer_path', 'customer'), '/');
+            $prefix = trim((string) config('app.customer_path', 'buyer'), '/');
 
             if ($path === '') {
                 return $scheme.'://'.$host.'/'.$prefix;

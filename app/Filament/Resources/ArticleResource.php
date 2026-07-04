@@ -183,7 +183,7 @@ final class ArticleResource extends Resource
         $publicCatalogSection = Section::make('Public Catalog')
             ->schema([
                 Toggle::make('show_in_product_grid')
-                    ->label('Show in Product Grid')
+                    ->label('Show in Catalog')
                     ->default(false)
                     ->helperText('Publish this article on the public catalog (active articles only).'),
                 TextInput::make('list_price')

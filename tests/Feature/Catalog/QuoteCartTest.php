@@ -6,8 +6,8 @@ use App\Data\TeamErpSettings;
 use App\Enums\PortalType;
 use App\Enums\RequestStage;
 use App\Enums\RequestSubmissionMethod;
+use App\Livewire\Catalog\ArticleDetail;
 use App\Livewire\Catalog\CatalogHome;
-use App\Livewire\Catalog\ProductDetail;
 use App\Livewire\Catalog\QuoteCartPage;
 use App\Models\Article;
 use App\Models\Company;
@@ -64,7 +64,7 @@ describe('Cart lifecycle', function (): void {
     });
 
     it('adds from the product detail page and accumulates quantities', function (): void {
-        livewire(ProductDetail::class, ['article' => $this->article])
+        livewire(ArticleDetail::class, ['article' => $this->article])
             ->set('quantity', 2)
             ->call('addToCart')
             ->set('quantity', 3)

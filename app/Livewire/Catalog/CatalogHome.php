@@ -17,7 +17,7 @@ use Livewire\WithPagination;
 
 /**
  * Public catalog homepage: category menu from tags, debounced search over
- * name/SKU/description, paginated product grid with add-to-quote controls.
+ * name/SKU/description, paginated article grid with add-to-quote controls.
  * Everything rendered here is whitelist-only — supplier identities, costs,
  * margins, and article codes are never selected (architecture §F).
  */
@@ -64,7 +64,7 @@ final class CatalogHome extends Component
             ->exists();
 
         if (! $isInCatalog) {
-            $this->addError('quantities.'.$articleId, 'This product is no longer available.');
+            $this->addError('quantities.'.$articleId, 'This article is no longer available.');
 
             return;
         }
@@ -135,6 +135,6 @@ final class CatalogHome extends Component
             'articles' => $articles,
             'categories' => $categories,
             'baseCurrency' => $resolver->team()?->getBaseCurrency(),
-        ])->title(config('app.name').' — Product Catalog');
+        ])->title(config('app.name').' — Article Catalog');
     }
 }

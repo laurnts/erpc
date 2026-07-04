@@ -33,7 +33,7 @@ final class CustomerPanelProvider extends PanelProvider
         $panel = $panel
             ->id('customer')
             ->domain($this->resolveCustomerDomain())
-            ->path(config('app.customer_path', 'customer'))
+            ->path(config('app.customer_path', 'buyer'))
             ->login(CustomerLogin::class)
             ->authGuard('customer')
             ->homeUrl(fn (): string => CustomerDashboard::getUrl(panel: 'customer'))
@@ -100,13 +100,13 @@ final class CustomerPanelProvider extends PanelProvider
     private function resolveBrandName(): string
     {
         if (! Filament::auth()->check()) {
-            return 'Customer Portal';
+            return 'Buyer Portal';
         }
 
         try {
             return app(CustomerPortalContext::class)->company()->name;
         } catch (\Throwable) {
-            return 'Customer Portal';
+            return 'Buyer Portal';
         }
     }
 

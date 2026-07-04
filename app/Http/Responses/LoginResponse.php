@@ -99,7 +99,7 @@ final readonly class LoginResponse implements \Filament\Auth\Http\Responses\Cont
         $customerHome = CustomerDashboard::getUrl(panel: 'customer');
         $intended = session()->pull('url.intended');
 
-        if (is_string($intended) && str_contains($intended, '/customer')) {
+        if (is_string($intended) && str_contains($intended, $this->customerPortalPathNeedle())) {
             return redirect()->to($intended);
         }
 
@@ -116,10 +116,15 @@ final readonly class LoginResponse implements \Filament\Auth\Http\Responses\Cont
 
         $intended = session()->pull('url.intended');
 
-        if (is_string($intended) && ! str_contains($intended, '/customer')) {
+        if (is_string($intended) && ! str_contains($intended, $this->customerPortalPathNeedle())) {
             return redirect()->to($intended);
         }
 
         return redirect()->to($default);
+    }
+
+    private function customerPortalPathNeedle(): string
+    {
+        return '/'.trim((string) config('app.customer_path', 'buyer'), '/');
     }
 }

@@ -82,7 +82,7 @@ return [
     |
     */
 
-    'customer_path' => env('CUSTOMER_PATH', 'customer'),
+    'customer_path' => env('CUSTOMER_PATH', 'buyer'),
     'customer_domain' => env('CUSTOMER_DOMAIN'),
     'customer_session_cookie' => $customerSessionCookie = env('CUSTOMER_SESSION_COOKIE', 'erpc_customer_session'),
     'customer_portal_enabled' => (bool) env('CUSTOMER_PORTAL_ENABLED', true),
@@ -114,7 +114,7 @@ return [
     */
 
     'panel_session_cookies' => [
-        env('CUSTOMER_PATH', 'customer') => $customerSessionCookie,
+        env('CUSTOMER_PATH', 'buyer') => $customerSessionCookie,
         env('SUPPLIER_PATH', 'supplier') => $supplierSessionCookie,
     ],
 

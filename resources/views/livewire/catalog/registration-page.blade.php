@@ -1,5 +1,5 @@
 <div class="max-w-xl mx-auto">
-    <h1 class="text-2xl font-bold text-black dark:text-white mb-2">Register for Customer Portal Access</h1>
+    <h1 class="text-2xl font-bold text-black dark:text-white mb-2">Register for Buyer Portal Access</h1>
 
     @if ($submitted)
         <div class="flex flex-col items-center gap-4 rounded-xl border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/40 p-10 text-center mt-6">
@@ -15,7 +15,7 @@
         </div>
     @else
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
-            Apply for access to our customer portal. Once approved by our team, you can submit quote requests and
+            Apply for access to our buyer portal. Once approved by our team, you can submit quote requests and
             track them online.
         </p>
 

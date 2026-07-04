@@ -1,7 +1,7 @@
 <x-mail::message>
-# Customer Portal Invitation
+# Buyer Portal Invitation
 
-You have been invited to access the customer portal for **{{ $companyName }}**.
+You have been invited to access the buyer portal for **{{ $companyName }}**.
 
 Click the button below to create your account and start submitting goods and services requests on your own.
 

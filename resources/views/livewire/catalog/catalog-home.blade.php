@@ -5,7 +5,7 @@
             <button type="button"
                     wire:click="selectCategory(null)"
                     class="whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition {{ $category === null ? 'bg-black text-white dark:bg-white dark:text-black' : 'bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800' }}">
-                All products
+                All articles
             </button>
             @foreach ($categories as $tag)
                 <button type="button"
@@ -21,15 +21,15 @@
         <div class="relative">
             <input type="search"
                    wire:model.live.debounce.400ms="search"
-                   placeholder="Search products by name, SKU, or description…"
+                   placeholder="Search articles by name, SKU, or description…"
                    class="w-full rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-4 py-3 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-primary focus:ring-primary"
-                   aria-label="Search products">
+                   aria-label="Search articles">
         </div>
 
         {{-- Grid --}}
         @if ($articles->isEmpty())
             <div class="flex flex-col items-center gap-3 py-16 text-center">
-                <p class="text-lg font-medium text-gray-700 dark:text-gray-300">No products found</p>
+                <p class="text-lg font-medium text-gray-700 dark:text-gray-300">No articles found</p>
                 <p class="text-sm text-gray-500 dark:text-gray-400">Try a different search term or category.</p>
                 @if ($search !== '')
                     <button type="button" wire:click="clearSearch" class="text-sm font-medium text-primary hover:underline">
@@ -42,7 +42,7 @@
                 @foreach ($articles as $article)
                     <div wire:key="article-{{ $article->id }}"
                          class="flex flex-col rounded-xl border border-gray-100 dark:border-gray-900 bg-white dark:bg-gray-950 overflow-hidden hover:shadow-md transition-shadow">
-                        <a href="{{ route('catalog.product', $article) }}" class="block aspect-square bg-gray-50 dark:bg-gray-900">
+                        <a href="{{ route('catalog.article', $article) }}" class="block aspect-square bg-gray-50 dark:bg-gray-900">
                             @if ($article->getFirstMediaUrl('product_images', 'thumb') !== '')
                                 <img src="{{ $article->getFirstMediaUrl('product_images', 'thumb') }}"
                                      alt="{{ $article->name }}"
@@ -57,7 +57,7 @@
 
                         <div class="flex flex-1 flex-col gap-2 p-4">
                             <div class="flex items-start justify-between gap-2">
-                                <a href="{{ route('catalog.product', $article) }}"
+                                <a href="{{ route('catalog.article', $article) }}"
                                    class="font-medium text-black dark:text-white hover:text-primary line-clamp-2">
                                     {{ $article->name }}
                                 </a>

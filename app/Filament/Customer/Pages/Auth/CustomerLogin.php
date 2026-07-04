@@ -42,12 +42,12 @@ final class CustomerLogin extends BaseLogin
 
     public function getTitle(): string
     {
-        return 'Customer Sign in';
+        return 'Buyer Sign in';
     }
 
     public function getHeading(): string
     {
-        return 'Customer Sign in';
+        return 'Buyer Sign in';
     }
 
     protected function hasFullWidthFormActions(): bool

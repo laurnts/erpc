@@ -24,13 +24,13 @@ final readonly class InvitePortalUser
     ): PortalInvitation {
         if (! $buyer->is_buyer) {
             throw ValidationException::withMessages([
-                'email' => ['Customer portal invitations can only be issued for buyer companies.'],
+                'email' => ['Buyer portal invitations can only be issued for buyer companies.'],
             ]);
         }
 
         if (User::query()->where('email', $email)->exists()) {
             throw ValidationException::withMessages([
-                'email' => ['A user with this email address already has an account. Only new users can be invited to the customer portal.'],
+                'email' => ['A user with this email address already has an account. Only new users can be invited to the buyer portal.'],
             ]);
         }
 
