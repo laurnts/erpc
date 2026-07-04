@@ -8,6 +8,12 @@ use App\Enums\CentralPurchasingRole;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Laravel\Jetstream\TeamInvitation as JetstreamTeamInvitation;
 
+/**
+ * @property string $email
+ * @property string|null $role
+ * @property CentralPurchasingRole|null $central_purchasing_role
+ * @property-read Team $team
+ */
 final class TeamInvitation extends JetstreamTeamInvitation
 {
     /**
