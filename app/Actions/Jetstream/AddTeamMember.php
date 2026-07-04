@@ -6,6 +6,7 @@ namespace App\Actions\Jetstream;
 
 use App\Enums\CentralPurchasingRole;
 use App\Models\Team;
+use App\Models\TeamInvitation;
 use App\Models\User;
 use Closure;
 use Illuminate\Contracts\Validation\Rule;
@@ -28,7 +29,11 @@ final readonly class AddTeamMember implements AddsTeamMembers
         Gate::forUser($user)->authorize('addTeamMember', $team);
 
         if ($centralPurchasingRole === null && $role === 'central_purchasing') {
-            $centralPurchasingRole = $team->teamInvitations()->where('email', $email)->first()?->central_purchasing_role?->value;
+            $invitation = $team->teamInvitations()->where('email', $email)->first();
+
+            if ($invitation instanceof TeamInvitation) {
+                $centralPurchasingRole = $invitation->central_purchasing_role?->value;
+            }
         }
 
         $this->validate($team, $email, $role, $centralPurchasingRole);

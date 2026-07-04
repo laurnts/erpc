@@ -116,6 +116,10 @@ final class ViewMember extends ViewRecord
 
                         // Update role and central_purchasing_role
                         if (isset($data['role'])) {
+                            if (! $team instanceof \App\Models\Team || ! $membership instanceof \App\Models\Membership) {
+                                return;
+                            }
+
                             app(UpdateTeamMemberRole::class)->execute(
                                 $team,
                                 $membership,
