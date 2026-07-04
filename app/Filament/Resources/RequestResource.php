@@ -10,6 +10,7 @@ use App\Enums\RequestSubmissionMethod;
 use App\Filament\Resources\RequestResource\Pages\CreateRequest;
 use App\Filament\Resources\RequestResource\Pages\ListRequests;
 use App\Filament\Resources\RequestResource\Pages\ViewRequest;
+use App\Filament\Resources\RequestResource\RelationManagers\AcceptanceReportsRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerOrdersRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerQuotesRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\ItemsRelationManager;
