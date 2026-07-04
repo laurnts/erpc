@@ -4,12 +4,12 @@
 
 ## Slice 1 — Data model + admin plumbing (additive, no UI risk)
 
-- [ ] 1.1 Migration `supplier_articles`: `supplier_price` (decimal 15,4), `supplier_price_currency_id` (FK nullOnDelete), `supplier_price_updated_at`, `available_quantity` (decimal 15,4), `quantity_updated_at`; index `(article_id, is_active)`; dedupe multi-preferred rows (keep lowest id) then partial unique `UNIQUE (article_id) WHERE is_preferred`
-- [ ] 1.2 `SupplierArticle` pivot model (extends `Pivot`; touch logic for `*_updated_at`); add new columns to `withPivot` on `Article::suppliers()` / `Company::suppliedArticles()`; factory
-- [ ] 1.3 `App\Actions\SupplierArticles\SetPreferredSupplier` (transactional demote-siblings/promote); wire into both admin relation managers' create/attach/edit paths
-- [ ] 1.4 `App\Actions\SupplierPortal\UpdateSupplierArticleOffer` (whitelisted 4 fields + timestamp stamps); admin relation managers gain the new fields through it (staff can maintain supplier prices/quantities before any portal exists)
-- [ ] 1.5 `GenerateSupplierQuotesForRequest::getLastQuotedPrice()` → prefer `supplier_price` (currency respected), fallback `last_quoted_price`; stop cross-currency verbatim copies
-- [ ] 1.6 Pest tests: pivot model, preferred-supplier uniqueness (incl. race via unique index), offer update stamps, prefill source + currency behavior
+- [x] 1.1 Migration `supplier_articles`: `supplier_price` (decimal 15,4), `supplier_price_currency_id` (FK nullOnDelete), `supplier_price_updated_at`, `available_quantity` (decimal 15,4), `quantity_updated_at`; index `(article_id, is_active)`; dedupe multi-preferred rows (keep lowest id) then partial unique `UNIQUE (article_id) WHERE is_preferred`
+- [x] 1.2 `SupplierArticle` pivot model (extends `Pivot`; touch logic for `*_updated_at`); add new columns to `withPivot` on `Article::suppliers()` / `Company::suppliedArticles()`; factory
+- [x] 1.3 `App\Actions\SupplierArticles\SetPreferredSupplier` (transactional demote-siblings/promote); wire into both admin relation managers' create/attach/edit paths
+- [x] 1.4 `App\Actions\SupplierPortal\UpdateSupplierArticleOffer` (whitelisted 4 fields + timestamp stamps); admin relation managers gain the new fields through it (staff can maintain supplier prices/quantities before any portal exists)
+- [x] 1.5 `GenerateSupplierQuotesForRequest::getLastQuotedPrice()` → prefer `supplier_price` (currency respected), fallback `last_quoted_price`; stop cross-currency verbatim copies
+- [x] 1.6 Pest tests: pivot model, preferred-supplier uniqueness (incl. race via unique index), offer update stamps, prefill source + currency behavior
 
 ## Slice 2 — Supplier panel shell + article self-service
 

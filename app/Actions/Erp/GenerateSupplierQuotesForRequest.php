@@ -9,6 +9,7 @@ use App\Models\Company;
 use App\Models\Currency;
 use App\Models\Request;
 use App\Models\RequestItem;
+use App\Models\SupplierArticle;
 use App\Models\SupplierQuote;
 use App\Models\SupplierQuoteItem;
 use Illuminate\Support\Collection;
@@ -124,16 +125,31 @@ final readonly class GenerateSupplierQuotesForRequest
     }
 
     /**
-     * Get the last quoted price for an article from a specific supplier.
+     * Unit-price prefill for a supplier's quote line: the supplier-maintained
+     * standing offer first, then the staff-recorded last quoted price — but a
+     * price is only copied when its currency matches the quote currency;
+     * prices are never copied across currencies verbatim.
      */
-    private function getLastQuotedPrice(int $articleId, int $supplierId): string
+    private function getPrefillUnitPrice(int $articleId, int $supplierId, ?int $quoteCurrencyId): string
     {
-        $price = DB::table('supplier_articles')
+        $link = SupplierArticle::query()
             ->where('article_id', $articleId)
             ->where('supplier_id', $supplierId)
-            ->value('last_quoted_price');
+            ->first();
 
-        return $price !== null ? (string) $price : '0.0000';
+        if ($link === null || $quoteCurrencyId === null) {
+            return '0.0000';
+        }
+
+        if ($link->supplier_price !== null && $link->supplier_price_currency_id === $quoteCurrencyId) {
+            return $link->supplier_price;
+        }
+
+        if ($link->last_quoted_price !== null && $link->last_quoted_currency_id === $quoteCurrencyId) {
+            return $link->last_quoted_price;
+        }
+
+        return '0.0000';
     }
 
     /**
@@ -149,7 +165,7 @@ final readonly class GenerateSupplierQuotesForRequest
         $article = $item->article;
 
         // Get supplier-specific pricing from supplier_articles pivot
-        $lastQuotedPrice = $this->getLastQuotedPrice($article->getKey(), $supplierId);
+        $prefillUnitPrice = $this->getPrefillUnitPrice($article->getKey(), $supplierId, $quote->currency_id);
 
         $taxCode = $article->defaultTaxCode;
         $taxRate = $taxCode !== null ? (string) $taxCode->rate : '0.0000';
@@ -161,7 +177,7 @@ final readonly class GenerateSupplierQuotesForRequest
             'description' => $article->name,
             'quantity' => $item->quantity,
             'unit' => $item->unit ?? $article->unit,
-            'unit_price' => $lastQuotedPrice,
+            'unit_price' => $prefillUnitPrice,
             'tax_code_id' => $taxCode?->getKey(),
             'tax_rate' => $taxRate,
             'is_tax_inclusive' => false,

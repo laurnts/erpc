@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\ArticleResource\RelationManagers;
 
+use App\Actions\SupplierArticles\SetPreferredSupplier;
 use App\Filament\Forms\CompanyForm;
 use App\Models\Company;
 use App\Models\Currency;
@@ -44,6 +45,20 @@ final class SuppliersRelationManager extends RelationManager
                     ->label('Supplier SKU')
                     ->maxLength(255)
                     ->helperText('The SKU/code this supplier uses for this article'),
+                TextInput::make('supplier_price')
+                    ->label('Supplier Price')
+                    ->numeric()
+                    ->minValue(0)
+                    ->helperText('Standing offer price maintained by the supplier'),
+                Select::make('supplier_price_currency_id')
+                    ->label('Price Currency')
+                    ->options(fn () => Currency::query()->where('is_active', true)->pluck('code', 'id')->all())
+                    ->preload(),
+                TextInput::make('available_quantity')
+                    ->label('Available Quantity')
+                    ->numeric()
+                    ->minValue(0)
+                    ->helperText('Leave empty when availability is unknown'),
                 TextInput::make('last_quoted_price')
                     ->label('Last Quoted Price')
                     ->numeric()
@@ -90,6 +105,16 @@ final class SuppliersRelationManager extends RelationManager
                 TextColumn::make('supplier_sku')
                     ->label('Supplier SKU')
                     ->sortable(),
+                TextColumn::make('supplier_price')
+                    ->label('Supplier Price')
+                    ->numeric(decimalPlaces: 2)
+                    ->placeholder('—')
+                    ->sortable(),
+                TextColumn::make('available_quantity')
+                    ->label('Available Qty')
+                    ->numeric()
+                    ->placeholder('—')
+                    ->sortable(),
                 TextColumn::make('last_quoted_price')
                     ->label('Last Price')
                     ->money(fn ($record): string => Currency::find($record->last_quoted_currency_id)->code ?? 'USD')
@@ -118,7 +143,14 @@ final class SuppliersRelationManager extends RelationManager
                     ->form(fn (AttachAction $action): array => [
                         $action->getRecordSelect(),
                         ...$this->getPivotFormSchema(),
-                    ]),
+                    ])
+                    ->mutateFormDataUsing(function (array $data): array {
+                        if (($data['is_preferred'] ?? false) === true) {
+                            app(SetPreferredSupplier::class)->demoteOthers((int) $this->getOwnerRecord()->getKey());
+                        }
+
+                        return $data;
+                    }),
                 CreateAction::make()
                     ->label('Create Supplier')
                     ->icon('heroicon-o-building-storefront')
@@ -138,6 +170,9 @@ final class SuppliersRelationManager extends RelationManager
 
                         $pivotData = [
                             'supplier_sku' => $data['supplier_sku'] ?? null,
+                            'supplier_price' => $data['supplier_price'] ?? null,
+                            'supplier_price_currency_id' => $data['supplier_price_currency_id'] ?? null,
+                            'available_quantity' => $data['available_quantity'] ?? null,
                             'last_quoted_price' => $data['last_quoted_price'] ?? null,
                             'last_quoted_currency_id' => $data['last_quoted_currency_id'] ?? null,
                             'last_quoted_at' => $data['last_quoted_at'] ?? null,
@@ -149,6 +184,9 @@ final class SuppliersRelationManager extends RelationManager
 
                         unset(
                             $data['supplier_sku'],
+                            $data['supplier_price'],
+                            $data['supplier_price_currency_id'],
+                            $data['available_quantity'],
                             $data['last_quoted_price'],
                             $data['last_quoted_currency_id'],
                             $data['last_quoted_at'],
@@ -167,6 +205,11 @@ final class SuppliersRelationManager extends RelationManager
 
                         /** @var \App\Models\Article $article */
                         $article = $livewire->getOwnerRecord();
+
+                        if ($pivotData['is_preferred'] === true) {
+                            app(SetPreferredSupplier::class)->demoteOthers((int) $article->getKey());
+                        }
+
                         $article->suppliers()->attach($supplier->id, $pivotData);
 
                         return $supplier;
@@ -174,7 +217,17 @@ final class SuppliersRelationManager extends RelationManager
             ])
             ->recordActions([
                 ActionGroup::make([
-                    EditAction::make(),
+                    EditAction::make()
+                        ->mutateFormDataUsing(function (array $data, Company $record): array {
+                            if (($data['is_preferred'] ?? false) === true) {
+                                app(SetPreferredSupplier::class)->demoteOthers(
+                                    (int) $this->getOwnerRecord()->getKey(),
+                                    (int) $record->getKey(),
+                                );
+                            }
+
+                            return $data;
+                        }),
                     DetachAction::make(),
                 ]),
             ])
@@ -196,6 +249,18 @@ final class SuppliersRelationManager extends RelationManager
             TextInput::make('supplier_sku')
                 ->label('Supplier SKU')
                 ->maxLength(255),
+            TextInput::make('supplier_price')
+                ->label('Supplier Price')
+                ->numeric()
+                ->minValue(0),
+            Select::make('supplier_price_currency_id')
+                ->label('Price Currency')
+                ->options(fn () => Currency::query()->where('is_active', true)->pluck('code', 'id')->all())
+                ->preload(),
+            TextInput::make('available_quantity')
+                ->label('Available Quantity')
+                ->numeric()
+                ->minValue(0),
             TextInput::make('last_quoted_price')
                 ->label('Last Quoted Price')
                 ->numeric(),
