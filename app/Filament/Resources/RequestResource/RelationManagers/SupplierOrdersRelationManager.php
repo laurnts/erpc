@@ -22,6 +22,7 @@ use App\Models\SupplierQuote;
 use App\Models\TaxCode;
 use App\Models\UnitOfMeasure;
 use App\Services\Email\EmailTemplateService;
+use App\Support\SafeCast;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -106,9 +107,8 @@ final class SupplierOrdersRelationManager extends RelationManager
                                         $isTaxable = true; // Default
 
                                         if ($supplierId !== null) {
-                                            /** @var Company|null $supplier */
-                                            $supplier = Company::query()->find($supplierId);
-                                            $isTaxable = $supplier?->is_taxable ?? true;
+                                            $supplier = Company::query()->find(SafeCast::toInt($supplierId));
+                                            $isTaxable = $supplier->is_taxable ?? true;
                                         }
 
                                         // Trigger recalculation for all line items when supplier changes
@@ -413,7 +413,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                         }
 
                                         // Fallback to record values
-                                        $record = $this->getRecord();
+                                        $record = $this->getMountedTableActionRecord();
 
                                         return $record instanceof \App\Models\SupplierOrder
                                             ? ($record->currency?->formatNumber((float) $record->subtotal) ?? number_format((float) $record->subtotal, 2))
@@ -442,7 +442,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                         }
 
                                         // Fallback to record values
-                                        $record = $this->getRecord();
+                                        $record = $this->getMountedTableActionRecord();
 
                                         return $record instanceof \App\Models\SupplierOrder
                                             ? ($record->currency?->formatNumber((float) $record->tax_total) ?? number_format((float) $record->tax_total, 2))
@@ -452,14 +452,13 @@ final class SupplierOrdersRelationManager extends RelationManager
                                         // Check form state first
                                         $supplierId = $get('supplier_id');
                                         if ($supplierId !== null) {
-                                            /** @var Company|null $supplier */
-                                            $supplier = Company::query()->find($supplierId);
+                                            $supplier = Company::query()->find(SafeCast::toInt($supplierId));
 
-                                            return $supplier?->is_taxable ?? true;
+                                            return $supplier->is_taxable ?? true;
                                         }
 
                                         // Fallback to record
-                                        $record = $this->getRecord();
+                                        $record = $this->getMountedTableActionRecord();
 
                                         return ! $record instanceof \App\Models\SupplierOrder || $this->isRecordSupplierTaxable($record);
                                     }),
@@ -484,7 +483,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                         }
 
                                         // Fallback to record values
-                                        $record = $this->getRecord();
+                                        $record = $this->getMountedTableActionRecord();
 
                                         return $record instanceof \App\Models\SupplierOrder
                                             ? ($record->currency?->format((float) $record->total) ?? number_format((float) $record->total, 2))
@@ -521,7 +520,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                         }
 
                                         // Fallback to record values
-                                        $record = $this->getRecord();
+                                        $record = $this->getMountedTableActionRecord();
                                         if (! $record instanceof \App\Models\SupplierOrder) {
                                             return '0,-';
                                         }
@@ -561,7 +560,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                         }
 
                                         // Fallback to record values
-                                        $record = $this->getRecord();
+                                        $record = $this->getMountedTableActionRecord();
                                         if (! $record instanceof \App\Models\SupplierOrder) {
                                             return '0,-';
                                         }
@@ -577,14 +576,13 @@ final class SupplierOrdersRelationManager extends RelationManager
                                         // Check form state first
                                         $supplierId = $get('supplier_id');
                                         if ($supplierId !== null) {
-                                            /** @var Company|null $supplier */
-                                            $supplier = Company::query()->find($supplierId);
+                                            $supplier = Company::query()->find(SafeCast::toInt($supplierId));
 
-                                            return $supplier?->is_taxable ?? true;
+                                            return $supplier->is_taxable ?? true;
                                         }
 
                                         // Fallback to record
-                                        $record = $this->getRecord();
+                                        $record = $this->getMountedTableActionRecord();
 
                                         return ! $record instanceof \App\Models\SupplierOrder || $this->isRecordSupplierTaxable($record);
                                     }),
@@ -614,7 +612,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                         }
 
                                         // Fallback to record values
-                                        $record = $this->getRecord();
+                                        $record = $this->getMountedTableActionRecord();
                                         if (! $record instanceof \App\Models\SupplierOrder) {
                                             return '0,-';
                                         }
@@ -1130,38 +1128,6 @@ final class SupplierOrdersRelationManager extends RelationManager
     }
 
     /**
-     * Handle record creation - recalculate totals after items are saved.
-     */
-    protected function handleRecordCreation(array $data): Model
-    {
-        $record = parent::handleRecordCreation($data);
-
-        // Recalculate totals after creation (items are saved via relationship)
-        if ($record instanceof SupplierOrder) {
-            $record->load('items');
-            $record->recalculateTotals();
-        }
-
-        return $record;
-    }
-
-    /**
-     * Handle record update - recalculate totals after items are saved.
-     */
-    protected function handleRecordUpdate(Model $record, array $data): Model
-    {
-        $updated = parent::handleRecordUpdate($record, $data);
-
-        // Recalculate totals after update (items are saved via relationship)
-        if ($updated instanceof SupplierOrder) {
-            $updated->load('items');
-            $updated->recalculateTotals();
-        }
-
-        return $updated;
-    }
-
-    /**
      * Calculate item totals based on form values.
      */
     private function calculateItemTotals(Set $set, Get $get): void
@@ -1220,7 +1186,7 @@ final class SupplierOrdersRelationManager extends RelationManager
 
         if ($supplierId === null) {
             // When editing existing order, check the record's supplier
-            $record = $this->getMountedTableActionRecord() ?? $this->getRecord();
+            $record = $this->getMountedTableActionRecord();
             if ($record instanceof SupplierOrder && $record->supplier_id !== null) {
                 $supplierId = $record->supplier_id;
             } else {
@@ -1228,10 +1194,9 @@ final class SupplierOrdersRelationManager extends RelationManager
             }
         }
 
-        /** @var Company|null $supplier */
-        $supplier = Company::query()->find($supplierId);
+        $supplier = Company::query()->find(SafeCast::toInt($supplierId));
 
-        return $supplier?->is_taxable ?? true;
+        return $supplier->is_taxable ?? true;
     }
 
     /**
@@ -1243,10 +1208,9 @@ final class SupplierOrdersRelationManager extends RelationManager
             return true; // Default to showing tax fields
         }
 
-        /** @var Company|null $supplier */
         $supplier = Company::query()->find($record->supplier_id);
 
-        return $supplier?->is_taxable ?? true;
+        return $supplier->is_taxable ?? true;
     }
 
     public static function getBadgeColor(Model $ownerRecord, string $pageClass): ?string
@@ -1284,7 +1248,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                 }
 
                 if (! isset($itemsBySupplier[$supplierId])) {
-                    $supplier = $quoteItem->requestItem?->supplier
+                    $supplier = $quoteItem->requestItem->supplier
                         ?? $quoteItem->supplierQuoteItem?->supplierQuote?->supplier;
 
                     if ($supplier === null) {
@@ -1400,7 +1364,7 @@ final class SupplierOrdersRelationManager extends RelationManager
         $costPrice = $this->getBuyerQuoteItemCostUnitPrice($quoteItem);
         $unitCode = $this->getBuyerQuoteItemUnitLabel($quoteItem);
 
-        $item = SupplierOrderItem::make([
+        $item = new SupplierOrderItem([
             'supplier_order_id' => $supplierOrder->getKey(),
             'request_item_id' => $quoteItem->request_item_id,
             'article_id' => $quoteItem->article_id,
