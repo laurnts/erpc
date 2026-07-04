@@ -8,6 +8,8 @@ use App\Actions\Jetstream\RemoveTeamMember;
 use App\Enums\CentralPurchasingRole;
 use App\Filament\Resources\MemberResource\Pages\ListMembers;
 use App\Models\Membership;
+use App\Models\Team;
+use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
@@ -104,8 +106,15 @@ final class MemberResource extends Resource
                     ->requiresConfirmation()
                     ->modalDescription('Are you sure you want to leave this team? You will lose access immediately and will need a new invitation to rejoin.')
                     ->action(function (Membership $record, Component $livewire): void {
+                        $user = auth()->user();
+                        $team = Filament::getTenant();
+
+                        if (! $user instanceof User || ! $team instanceof Team) {
+                            return;
+                        }
+
                         try {
-                            app(RemoveTeamMember::class)->remove(auth()->user(), Filament::getTenant(), $record->user);
+                            app(RemoveTeamMember::class)->remove($user, $team, $record->user);
 
                             $livewire->redirect(Filament::getHomeUrl());
                         } catch (ValidationException $e) {
