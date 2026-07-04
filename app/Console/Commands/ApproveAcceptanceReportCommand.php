@@ -16,7 +16,7 @@ use Throwable;
 
 final class ApproveAcceptanceReportCommand extends Command
 {
-    protected $signature = 'approve:acceptance-report
+    protected $signature = 'acceptance-report:approve
                             {source : The source identifier (e.g. "PNL 0014/EL-PNL/III/2026", "PO PO-2026-0007-B", or "0014/EL-PNL/III/2026")}
                             {approver : The name of the approver (e.g., Sabrina)}
                             {--team= : Team ID or name (required)}';
@@ -74,7 +74,7 @@ final class ApproveAcceptanceReportCommand extends Command
                     'media_id' => $media->id,
                     'user_id' => $approver->id,
                     'approved_at' => now(),
-                    'notes' => 'Approved via approve:acceptance-report (test)',
+                    'notes' => 'Approved via acceptance-report:approve (test)',
                 ]);
                 $model->approveViaDocumentAcceptance($approver);
                 $this->info("Approved document: {$media->file_name} (media id: {$media->id})");
@@ -112,8 +112,6 @@ final class ApproveAcceptanceReportCommand extends Command
 
     /**
      * Resolve QE, PNL, or SupplierOrder by number and team.
-     *
-     * @return QuotationEvaluation|ProfitAndLoss|SupplierOrder|null
      */
     private function resolveModel(string $number, int $teamId): QuotationEvaluation|ProfitAndLoss|SupplierOrder|null
     {
@@ -148,7 +146,6 @@ final class ApproveAcceptanceReportCommand extends Command
     /**
      * Get Media records in model's "documents" collection that have no PaymentDocumentApproval for this team.
      *
-     * @param QuotationEvaluation|ProfitAndLoss|SupplierOrder $model
      * @return \Illuminate\Support\Collection<int, Media>
      */
     private function getPendingMediaForModel(QuotationEvaluation|ProfitAndLoss|SupplierOrder $model, int $teamId): \Illuminate\Support\Collection

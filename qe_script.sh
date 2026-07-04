@@ -29,8 +29,16 @@ case "$NUMBER" in
     PO-*|PO\ *|po-*|po\ *)
         php artisan supplier-order:approve "$NUMBER"
         ;;
+    *-DS/QE/*)
+        php artisan quotation-evaluation:approve "$NUMBER"
+        ;;
+    */EL-PNL/*)
+        php artisan profit-and-loss:approve "$NUMBER"
+        ;;
     *)
-        php artisan approve:qe-or-pnl "$NUMBER"
+        echo "Error: Unrecognized document number format: $NUMBER"
+        echo "Expected QE (XXX-DS/QE/...), PNL (XXXX/EL-PNL/...), or PO (PO-...)"
+        exit 1
         ;;
 esac
 

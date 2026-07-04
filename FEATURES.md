@@ -653,7 +653,7 @@ Export uses `ExportCompletion` job for reliable download links when queued.
 - Email verification, password reset
 - Soft deletes on most transactional entities
 - Spatie Activity Log, Permission (team-scoped policies)
-- `approve:qe-or-pnl` artisan command for CLI approval
+- `quotation-evaluation:approve` and `profit-and-loss:approve` artisan commands for CLI approval
 
 ---
 
