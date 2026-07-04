@@ -11,7 +11,7 @@ use App\Filament\Pages\EditProfile;
 use App\Filament\Pages\EditTeam;
 use App\Filament\Resources\BuyerResource;
 use App\Http\Middleware\ApplyTenantScopes;
-use App\Http\Middleware\AuthenticateAppPanel;
+use App\Http\Middleware\AuthenticatePanelUser;
 use App\Listeners\SwitchTeam;
 use App\Models\Team;
 use App\Support\PanelDomain;
@@ -168,7 +168,7 @@ final class AppPanelProvider extends PanelProvider
             ->authGuard('web')
             ->authPasswordBroker('users')
             ->authMiddleware([
-                AuthenticateAppPanel::class,
+                AuthenticatePanelUser::class,
             ])
             ->tenantMiddleware(
                 [

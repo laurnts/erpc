@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\CustomerPortal;
 
+use App\Enums\PortalType;
 use App\Models\Request;
 use App\Models\User;
 use Illuminate\Notifications\Notification;
@@ -42,6 +43,7 @@ final readonly class NotifyPortalUsers
         return User::query()
             ->whereHas('portalMemberships', fn ($query) => $query
                 ->where('company_id', $companyId)
+                ->where('portal', PortalType::Customer)
                 ->where('is_active', true))
             ->whereNotNull('email_verified_at')
             ->get();

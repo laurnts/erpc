@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\PortalType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $team_id
  * @property int $company_id
  * @property int $user_id
+ * @property PortalType $portal
  * @property int|null $invited_by
  * @property bool $is_active
  */
@@ -24,6 +26,7 @@ final class CompanyPortalUser extends Model
         'team_id',
         'company_id',
         'user_id',
+        'portal',
         'invited_by',
         'is_active',
     ];
@@ -34,6 +37,7 @@ final class CompanyPortalUser extends Model
     protected function casts(): array
     {
         return [
+            'portal' => PortalType::class,
             'is_active' => 'boolean',
         ];
     }

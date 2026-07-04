@@ -7,12 +7,11 @@ namespace App\Filament\Customer\Widgets;
 use App\Filament\Customer\Resources\CustomerRequestResource;
 use App\Models\Request;
 use App\Services\CustomerPortal\CustomerRequestStagePresenter;
-use App\Services\CustomerPortal\PortalContext;
+use App\Services\Portal\CustomerPortalContext;
 use Filament\Facades\Filament;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
-use Illuminate\Database\Eloquent\Builder;
 
 final class PortalRecentRequestsWidget extends BaseWidget
 {
@@ -30,12 +29,12 @@ final class PortalRecentRequestsWidget extends BaseWidget
     public function table(Table $table): Table
     {
         $presenter = app(CustomerRequestStagePresenter::class);
-        $companyId = app(PortalContext::class)->companyId();
+        $companyId = app(CustomerPortalContext::class)->companyId();
 
         return $table
             ->query(
                 Request::query()
-                    ->where('buyer_id', $companyId)
+                    ->forBuyer($companyId)
                     ->whereNotNull('submitted_at')
                     ->latest('submitted_at')
                     ->limit(10),

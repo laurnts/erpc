@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Customer\Resources\CustomerRequestResource\Pages;
 
 use App\Filament\Customer\Resources\CustomerRequestResource;
+use App\Filament\Customer\Resources\CustomerRequestResource\Schemas\CustomerRequestForm;
 use App\Models\RequestItem;
 use App\Models\UnitOfMeasure;
 use Filament\Resources\Pages\EditRecord;
@@ -36,7 +37,7 @@ final class EditCustomerRequest extends EditRecord
     public function form(Schema $schema): Schema
     {
         return $schema
-            ->components(CreateCustomerRequest::formComponents())
+            ->components(CustomerRequestForm::components())
             ->columns(1);
     }
 

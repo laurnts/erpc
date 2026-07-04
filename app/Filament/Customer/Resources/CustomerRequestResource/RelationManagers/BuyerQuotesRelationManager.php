@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Customer\Resources\CustomerRequestResource\RelationManagers;
 
+use App\Actions\Media\AttachUploadedFiles;
 use App\Enums\BuyerQuoteStatus;
 use App\Models\BuyerQuote;
-use App\Support\Media\DocumentPathGenerator;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
@@ -103,23 +103,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                             return;
                         }
 
-                        $files = $data['buyer_po_files'] ?? [];
-
-                        if (is_array($files)) {
-                            foreach ($files as $file) {
-                                if (! is_string($file)) {
-                                    continue;
-                                }
-
-                                $filePath = storage_path('app/'.ltrim($file, '/'));
-
-                                if (file_exists($filePath)) {
-                                    $record->addMedia($filePath)
-                                        ->withCustomProperties([DocumentPathGenerator::PATH_VERSION_PROPERTY => DocumentPathGenerator::PATH_VERSION_V2])
-                                        ->toMediaCollection('buyer_po');
-                                }
-                            }
-                        }
+                        app(AttachUploadedFiles::class)->execute($record, $data['buyer_po_files'] ?? [], 'buyer_po');
 
                         $record->refresh();
 

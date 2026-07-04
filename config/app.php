@@ -84,8 +84,23 @@ return [
 
     'customer_path' => env('CUSTOMER_PATH', 'customer'),
     'customer_domain' => env('CUSTOMER_DOMAIN'),
-    'customer_session_cookie' => env('CUSTOMER_SESSION_COOKIE', 'erpc_customer_session'),
+    'customer_session_cookie' => $customerSessionCookie = env('CUSTOMER_SESSION_COOKIE', 'erpc_customer_session'),
     'customer_portal_enabled' => (bool) env('CUSTOMER_PORTAL_ENABLED', true),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Panel Session Cookies
+    |--------------------------------------------------------------------------
+    |
+    | Map of portal panel path prefix => dedicated session cookie, consumed by
+    | the UsePanelSession middleware so portal logins never share a session
+    | with the internal panel. Future portals add one entry here.
+    |
+    */
+
+    'panel_session_cookies' => [
+        env('CUSTOMER_PATH', 'customer') => $customerSessionCookie,
+    ],
 
     /*
     |--------------------------------------------------------------------------

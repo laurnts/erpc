@@ -7,32 +7,21 @@ namespace App\Providers\Filament;
 use App\Filament\Customer\Pages\AcceptPortalInvitation;
 use App\Filament\Customer\Pages\Auth\CustomerLogin;
 use App\Filament\Customer\Pages\CustomerDashboard;
-use App\Http\Middleware\AuthenticateAppPanel;
-use App\Http\Middleware\AuthenticateCustomerPanel;
+use App\Http\Middleware\AuthenticatePanelUser;
 use App\Http\Middleware\EnsureCustomerPortalEnabled;
-use App\Http\Middleware\InitializePortalContext;
-use App\Http\Middleware\UseCustomerPanelSession;
-use App\Services\CustomerPortal\PortalContext;
+use App\Http\Middleware\InitializeCustomerPortalContext;
+use App\Services\Portal\CustomerPortalContext;
 use App\Support\PanelDomain;
+use App\Support\PortalPanelConfigurator;
 use Exception;
-use Filament\Facades\Filament;
 use Filament\Actions\Action;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
-use Filament\Http\Middleware\DisableBladeIconComponents;
-use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Notifications\Notification;
 use Filament\Panel;
 use Filament\PanelProvider;
-use Filament\Support\Colors\Color;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Contracts\View\View;
-use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
-use Illuminate\Cookie\Middleware\EncryptCookies;
-use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
-use Illuminate\Routing\Middleware\SubstituteBindings;
-use Illuminate\Session\Middleware\AuthenticateSession;
-use Illuminate\Session\Middleware\StartSession;
-use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 final class CustomerPanelProvider extends PanelProvider
 {
@@ -41,25 +30,16 @@ final class CustomerPanelProvider extends PanelProvider
      */
     public function panel(Panel $panel): Panel
     {
-        return $panel
+        $panel = $panel
             ->id('customer')
             ->domain($this->resolveCustomerDomain())
             ->path(config('app.customer_path', 'customer'))
             ->login(CustomerLogin::class)
             ->authGuard('customer')
-            ->authPasswordBroker('users')
-            ->passwordReset()
-            ->emailVerification()
-            ->strictAuthorization()
-            ->databaseNotifications()
             ->homeUrl(fn (): string => CustomerDashboard::getUrl(panel: 'customer'))
             ->brandName(fn (): string => $this->resolveBrandName())
             ->brandLogo(fn (): View|Factory|string|null => $this->resolveBrandLogo())
-            ->brandLogoHeight('2.6rem')
             ->favicon(fn (): string => $this->resolveFaviconUrl())
-            ->colors([
-                'primary' => Color::Blue,
-            ])
             ->discoverResources(
                 in: app_path('Filament/Customer/Resources'),
                 for: 'App\\Filament\\Customer\\Resources',
@@ -81,22 +61,22 @@ final class CustomerPanelProvider extends PanelProvider
                     ->label('Switch Company')
                     ->icon('heroicon-o-building-office-2')
                     ->visible(fn (): bool => Filament::auth()->check()
-                        && app(PortalContext::class)->activeMemberships()->count() > 1)
+                        && app(CustomerPortalContext::class)->activeMemberships()->count() > 1)
                     ->schema([
                         Select::make('company_id')
                             ->label('Company')
-                            ->options(fn (): array => app(PortalContext::class)
+                            ->options(fn (): array => app(CustomerPortalContext::class)
                                 ->activeMemberships()
                                 ->mapWithKeys(fn ($membership): array => [
                                     $membership->company_id => (string) $membership->company?->name,
                                 ])
                                 ->all())
-                            ->default(fn (): int => app(PortalContext::class)->companyId())
+                            ->default(fn (): int => app(CustomerPortalContext::class)->companyId())
                             ->required()
                             ->native(false),
                     ])
                     ->action(function (array $data): void {
-                        app(PortalContext::class)->setCompany((int) $data['company_id']);
+                        app(CustomerPortalContext::class)->setCompany((int) $data['company_id']);
 
                         Notification::make()
                             ->title('Company selected')
@@ -108,22 +88,13 @@ final class CustomerPanelProvider extends PanelProvider
             ])
             ->middleware([
                 EnsureCustomerPortalEnabled::class,
-                UseCustomerPanelSession::class,
-                EncryptCookies::class,
-                AddQueuedCookiesToResponse::class,
-                StartSession::class,
-                AuthenticateSession::class,
-                ShareErrorsFromSession::class,
-                VerifyCsrfToken::class,
-                SubstituteBindings::class,
-                DisableBladeIconComponents::class,
-                DispatchServingFilamentEvent::class,
             ])
             ->authMiddleware([
-                AuthenticateCustomerPanel::class,
-                InitializePortalContext::class,
-            ])
-            ->viteTheme('resources/css/filament/app/theme.css');
+                AuthenticatePanelUser::class,
+                InitializeCustomerPortalContext::class,
+            ]);
+
+        return PortalPanelConfigurator::apply($panel);
     }
 
     private function resolveBrandName(): string
@@ -133,7 +104,7 @@ final class CustomerPanelProvider extends PanelProvider
         }
 
         try {
-            return app(PortalContext::class)->company()->name;
+            return app(CustomerPortalContext::class)->company()->name;
         } catch (\Throwable) {
             return 'Customer Portal';
         }
@@ -146,7 +117,7 @@ final class CustomerPanelProvider extends PanelProvider
         }
 
         try {
-            $portalContext = app(PortalContext::class);
+            $portalContext = app(CustomerPortalContext::class);
             $team = $portalContext->team();
             $logoUrl = $team->getCompanyLogoUrl();
 
@@ -166,7 +137,7 @@ final class CustomerPanelProvider extends PanelProvider
         }
 
         try {
-            return app(PortalContext::class)->team()->getFaviconUrl() ?? asset('favicon.svg');
+            return app(CustomerPortalContext::class)->team()->getFaviconUrl() ?? asset('favicon.svg');
         } catch (\Throwable) {
             return asset('favicon.svg');
         }

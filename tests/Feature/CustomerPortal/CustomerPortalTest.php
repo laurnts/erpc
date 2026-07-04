@@ -9,7 +9,7 @@ use App\Filament\Customer\Pages\Auth\CustomerLogin;
 use App\Filament\Customer\Pages\CustomerDashboard;
 use App\Filament\Pages\Auth\Login as AppLogin;
 use App\Filament\Resources\BuyerResource;
-use App\Http\Middleware\UseCustomerPanelSession;
+use App\Http\Middleware\UsePanelSession;
 use App\Models\Company;
 use App\Models\CompanyPortalUser;
 use App\Models\PortalInvitation;
@@ -19,7 +19,7 @@ use App\Models\Shipment;
 use App\Models\Team;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
-use App\Services\CustomerPortal\PortalContext;
+use App\Services\Portal\CustomerPortalContext;
 use App\Support\PanelDomain;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Mail;
@@ -161,13 +161,13 @@ describe('Customer Portal Access', function (): void {
             'HTTP_REFERER' => url()->getCustomerPortalUrl('login'),
         ]);
 
-        expect(UseCustomerPanelSession::shouldUseCustomerSession($request))->toBeTrue();
+        expect(UsePanelSession::cookieForRequest($request))->toBe((string) config('app.customer_session_cookie'));
 
         $adminRequest = \Illuminate\Http\Request::create('/livewire-af864c3a/update', 'POST', server: [
             'HTTP_REFERER' => url()->getAppUrl('login'),
         ]);
 
-        expect(UseCustomerPanelSession::shouldUseCustomerSession($adminRequest))->toBeFalse();
+        expect(UsePanelSession::cookieForRequest($adminRequest))->toBeNull();
 
         $adminRequestWithCustomerSnapshot = \Illuminate\Http\Request::create('/livewire-af864c3a/update', 'POST', [
             'components' => [[
@@ -177,7 +177,7 @@ describe('Customer Portal Access', function (): void {
             'HTTP_REFERER' => url()->getAppUrl('login'),
         ]);
 
-        expect(UseCustomerPanelSession::shouldUseCustomerSession($adminRequestWithCustomerSnapshot))->toBeFalse();
+        expect(UsePanelSession::cookieForRequest($adminRequestWithCustomerSnapshot))->toBeNull();
     });
 
     it('redirects admin login to app panel not stale customer intended url', function (): void {
@@ -330,7 +330,7 @@ describe('Customer Request Submission', function (): void {
 
         $this->actingAs($this->portalUser, 'customer');
         Filament::setCurrentPanel('customer');
-        app(PortalContext::class)->setCompany($this->buyer->getKey());
+        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
 
         $component = livewire(\App\Filament\Customer\Resources\CustomerRequestResource\Pages\CreateCustomerRequest::class);
 
@@ -387,7 +387,7 @@ describe('Customer Request Submission', function (): void {
 
         $this->actingAs($this->portalUser, 'customer');
         Filament::setCurrentPanel('customer');
-        app(PortalContext::class)->setCompany($this->buyer->getKey());
+        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
 
         livewire(\App\Filament\Customer\Resources\CustomerRequestResource\Pages\EditCustomerRequest::class, [
             'record' => $request->getKey(),
@@ -417,7 +417,7 @@ describe('Customer Request Submission', function (): void {
 
         $this->actingAs($this->portalUser, 'customer');
         Filament::setCurrentPanel('customer');
-        app(PortalContext::class)->setCompany($this->buyer->getKey());
+        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
 
         livewire(\App\Filament\Customer\Resources\CustomerRequestResource\Pages\ListCustomerRequests::class)
             ->assertCanSeeTableRecords(Request::query()->where('buyer_id', $this->buyer->getKey())->get())
@@ -437,7 +437,7 @@ describe('Customer Request Submission', function (): void {
 
         $this->actingAs($this->portalUser, 'customer');
         Filament::setCurrentPanel('customer');
-        app(PortalContext::class)->setCompany($this->buyer->getKey());
+        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
 
         livewire(\App\Filament\Customer\Resources\CustomerRequestResource\Pages\ViewCustomerRequest::class, [
             'record' => $request->getKey(),
@@ -460,7 +460,7 @@ describe('Customer Portal Phase 2', function (): void {
 
         $this->actingAs($this->portalUser, 'customer');
         Filament::setCurrentPanel('customer');
-        app(PortalContext::class)->setCompany($this->buyer->getKey());
+        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
 
         livewire(\App\Filament\Customer\Resources\CustomerRequestResource\Pages\CreateCustomerRequest::class)
             ->fillForm([
@@ -497,7 +497,7 @@ describe('Customer Portal Phase 2', function (): void {
 
         $this->actingAs($this->portalUser, 'customer');
         Filament::setCurrentPanel('customer');
-        app(PortalContext::class)->setCompany($this->buyer->getKey());
+        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
 
         expect($this->portalUser->can('respond', $quote))->toBeTrue();
 
@@ -562,7 +562,7 @@ describe('Customer Portal Phase 3', function (): void {
 
         $this->actingAs($this->portalUser, 'customer');
         Filament::setCurrentPanel('customer');
-        app(PortalContext::class)->setCompany($this->buyer->getKey());
+        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
 
         expect($this->portalUser->can('view', $outbound))->toBeTrue()
             ->and($this->portalUser->can('view', $inbound))->toBeFalse();
@@ -584,7 +584,7 @@ describe('Customer Portal Phase 3', function (): void {
 
         $this->actingAs($this->portalUser, 'customer');
         Filament::setCurrentPanel('customer');
-        app(PortalContext::class)->setCompany($this->buyer->getKey());
+        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
 
         livewire(\App\Filament\Customer\Pages\CustomerDashboard::class)->assertOk();
 
@@ -594,10 +594,10 @@ describe('Customer Portal Phase 3', function (): void {
 
     it('resolves portal team from company context', function (): void {
         $this->actingAs($this->portalUser, 'customer');
-        app(PortalContext::class)->setCompany($this->buyer->getKey());
+        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
 
-        expect(app(PortalContext::class)->team()->getKey())->toBe($this->team->getKey())
-            ->and(app(PortalContext::class)->company()->getKey())->toBe($this->buyer->getKey());
+        expect(app(CustomerPortalContext::class)->team()->getKey())->toBe($this->team->getKey())
+            ->and(app(CustomerPortalContext::class)->company()->getKey())->toBe($this->buyer->getKey());
     });
 
     it('switches portal company context', function (): void {
@@ -615,11 +615,11 @@ describe('Customer Portal Phase 3', function (): void {
 
         $this->actingAs($this->portalUser, 'customer');
 
-        app(PortalContext::class)->setCompany($this->buyer->getKey());
-        expect(app(PortalContext::class)->companyId())->toBe($this->buyer->getKey());
+        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
+        expect(app(CustomerPortalContext::class)->companyId())->toBe($this->buyer->getKey());
 
-        app(PortalContext::class)->setCompany($secondBuyer->getKey());
-        expect(app(PortalContext::class)->companyId())->toBe($secondBuyer->getKey());
+        app(CustomerPortalContext::class)->setCompany($secondBuyer->getKey());
+        expect(app(CustomerPortalContext::class)->companyId())->toBe($secondBuyer->getKey());
     });
 
     it('lists outbound shipments in customer relation manager', function (): void {
@@ -639,7 +639,7 @@ describe('Customer Portal Phase 3', function (): void {
 
         $this->actingAs($this->portalUser, 'customer');
         Filament::setCurrentPanel('customer');
-        app(PortalContext::class)->setCompany($this->buyer->getKey());
+        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
 
         livewire(
             \App\Filament\Customer\Resources\CustomerRequestResource\RelationManagers\ShipmentsRelationManager::class,
@@ -651,4 +651,163 @@ describe('Customer Portal Phase 3', function (): void {
             ->assertOk()
             ->assertCanSeeTableRecords([$shipment]);
     });
+});
+
+describe('Portal-Typed Membership', function (): void {
+    it('denies customer panel access for a supplier-typed membership at a dual-role company', function (): void {
+        $dualRole = Company::factory()->buyerAndSupplier()->for($this->team)->create();
+        $supplierContact = User::factory()->create();
+
+        CompanyPortalUser::query()->create([
+            'team_id' => $this->team->getKey(),
+            'company_id' => $dualRole->getKey(),
+            'user_id' => $supplierContact->getKey(),
+            'portal' => \App\Enums\PortalType::Supplier,
+            'is_active' => true,
+        ]);
+
+        expect($supplierContact->canAccessPanel(Filament::getPanel('customer')))->toBeFalse()
+            ->and($supplierContact->hasActiveBuyerPortalAccess())->toBeFalse();
+    });
+
+    it('denies customer panel access when the membership company is supplier-only', function (): void {
+        $supplierCompany = Company::factory()->supplier()->for($this->team)->create();
+        $contact = User::factory()->create();
+
+        CompanyPortalUser::query()->create([
+            'team_id' => $this->team->getKey(),
+            'company_id' => $supplierCompany->getKey(),
+            'user_id' => $contact->getKey(),
+            'portal' => \App\Enums\PortalType::Customer,
+            'is_active' => true,
+        ]);
+
+        expect($contact->canAccessPanel(Filament::getPanel('customer')))->toBeFalse()
+            ->and($contact->hasActiveBuyerPortalAccess())->toBeFalse();
+    });
+
+    it('grants customer capability only for the customer-typed membership at a dual-role company', function (): void {
+        $dualRole = Company::factory()->buyerAndSupplier()->for($this->team)->create();
+        $contact = User::factory()->create();
+
+        CompanyPortalUser::query()->create([
+            'team_id' => $this->team->getKey(),
+            'company_id' => $dualRole->getKey(),
+            'user_id' => $contact->getKey(),
+            'portal' => \App\Enums\PortalType::Customer,
+            'is_active' => true,
+        ]);
+
+        expect($contact->hasActiveBuyerPortalAccess())->toBeTrue()
+            ->and($contact->activeCustomerPortalCompanyIds())->toBe([$dualRole->getKey()]);
+    });
+
+    it('allows one person to hold customer and supplier memberships at the same company', function (): void {
+        $dualRole = Company::factory()->buyerAndSupplier()->for($this->team)->create();
+        $contact = User::factory()->create();
+
+        foreach ([\App\Enums\PortalType::Customer, \App\Enums\PortalType::Supplier] as $portal) {
+            CompanyPortalUser::query()->create([
+                'team_id' => $this->team->getKey(),
+                'company_id' => $dualRole->getKey(),
+                'user_id' => $contact->getKey(),
+                'portal' => $portal,
+                'is_active' => true,
+            ]);
+        }
+
+        expect(CompanyPortalUser::query()->where('user_id', $contact->getKey())->count())->toBe(2)
+            ->and($contact->activeCustomerPortalCompanyIds())->toBe([$dualRole->getKey()]);
+    });
+
+    it('excludes supplier-typed memberships from the customer company switcher', function (): void {
+        $dualRole = Company::factory()->buyerAndSupplier()->for($this->team)->create();
+
+        CompanyPortalUser::query()->create([
+            'team_id' => $this->team->getKey(),
+            'company_id' => $dualRole->getKey(),
+            'user_id' => $this->portalUser->getKey(),
+            'portal' => \App\Enums\PortalType::Supplier,
+            'is_active' => true,
+        ]);
+
+        $memberships = app(CustomerPortalContext::class)->activeMemberships($this->portalUser);
+
+        expect($memberships->pluck('company_id')->all())->toBe([$this->buyer->getKey()]);
+    });
+
+    it('copies the invitation portal type onto the membership on accept', function (): void {
+        $invitation = PortalInvitation::query()->create([
+            'team_id' => $this->team->getKey(),
+            'company_id' => $this->buyer->getKey(),
+            'email' => 'typed@buyer.test',
+            'name' => 'Typed User',
+            'portal' => \App\Enums\PortalType::Customer,
+            'invited_by' => $this->admin->getKey(),
+            'token' => PortalInvitation::generateToken(),
+        ]);
+
+        livewire(\App\Filament\Customer\Pages\AcceptPortalInvitation::class, ['token' => $invitation->token])
+            ->fillForm([
+                'name' => 'Typed User',
+                'email' => 'typed@buyer.test',
+                'password' => 'password',
+                'password_confirmation' => 'password',
+            ])
+            ->call('accept')
+            ->assertHasNoFormErrors();
+
+        $membership = CompanyPortalUser::query()
+            ->where('company_id', $this->buyer->getKey())
+            ->whereHas('user', fn ($q) => $q->where('email', 'typed@buyer.test'))
+            ->firstOrFail();
+
+        expect($membership->portal)->toBe(\App\Enums\PortalType::Customer);
+    });
+});
+
+it('does not notify supplier-typed members of a dual-role company via customer portal fan-out', function (): void {
+    $dualRole = Company::factory()->buyerAndSupplier()->for($this->team)->create();
+
+    $customerContact = User::factory()->create();
+    $supplierContact = User::factory()->create();
+
+    foreach ([
+        [$customerContact, \App\Enums\PortalType::Customer],
+        [$supplierContact, \App\Enums\PortalType::Supplier],
+    ] as [$contact, $portal]) {
+        CompanyPortalUser::query()->create([
+            'team_id' => $this->team->getKey(),
+            'company_id' => $dualRole->getKey(),
+            'user_id' => $contact->getKey(),
+            'portal' => $portal,
+            'is_active' => true,
+        ]);
+    }
+
+    \Illuminate\Support\Facades\Notification::fake();
+
+    $notification = new class extends \Illuminate\Notifications\Notification
+    {
+        /**
+         * @return list<string>
+         */
+        public function via(object $notifiable): array
+        {
+            return ['database'];
+        }
+
+        /**
+         * @return array<string, mixed>
+         */
+        public function toArray(object $notifiable): array
+        {
+            return [];
+        }
+    };
+
+    app(\App\Actions\CustomerPortal\NotifyPortalUsers::class)->forCompany($dualRole->getKey(), $notification);
+
+    \Illuminate\Support\Facades\Notification::assertSentTo($customerContact, $notification::class);
+    \Illuminate\Support\Facades\Notification::assertNotSentTo($supplierContact, $notification::class);
 });

@@ -9,7 +9,11 @@ use Filament\Http\Middleware\Authenticate as FilamentAuthenticate;
 use Filament\Models\Contracts\FilamentUser;
 use Illuminate\Database\Eloquent\Model;
 
-final class AuthenticateAppPanel extends FilamentAuthenticate
+/**
+ * Panel-agnostic authentication: on every request, re-check canAccessPanel()
+ * and force-logout users whose panel access has been revoked mid-session.
+ */
+final class AuthenticatePanelUser extends FilamentAuthenticate
 {
     /**
      * @param  array<string>  $guards

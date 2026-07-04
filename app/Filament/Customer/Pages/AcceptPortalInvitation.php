@@ -140,6 +140,7 @@ final class AcceptPortalInvitation extends Page implements HasForms
                 [
                     'company_id' => $this->invitation->company_id,
                     'user_id' => $user->getKey(),
+                    'portal' => $this->invitation->portal,
                 ],
                 [
                     'team_id' => $this->invitation->team_id,

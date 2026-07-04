@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\CustomerPortal;
 
+use App\Enums\PortalType;
 use App\Mail\PortalUserInvitationMail;
 use App\Models\Company;
 use App\Models\PortalInvitation;
@@ -30,6 +31,7 @@ final readonly class InvitePortalUser
         PortalInvitation::query()
             ->where('company_id', $buyer->getKey())
             ->where('email', $email)
+            ->where('portal', PortalType::Customer)
             ->whereNull('accepted_at')
             ->delete();
 
@@ -38,6 +40,7 @@ final readonly class InvitePortalUser
             'company_id' => $buyer->getKey(),
             'email' => $email,
             'name' => $name,
+            'portal' => PortalType::Customer,
             'invited_by' => $invitedBy->getKey(),
             'token' => PortalInvitation::generateToken(),
         ]);

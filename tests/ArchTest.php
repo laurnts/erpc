@@ -18,6 +18,9 @@ arch()->preset()
         'App\Providers\AppServiceProvider',
         'App\Providers\Filament\AppPanelProvider',
         'App\Providers\Filament\CustomerPanelProvider',
+        // Extracted panel-provider configuration; references the shared panel
+        // middleware stack just like the panel providers above.
+        'App\Support\PortalPanelConfigurator',
         'Relaticle\Admin\AdminPanelProvider',
         'App\Enums\EnumValues',
         'App\Enums\CustomFields\CustomFieldTrait',

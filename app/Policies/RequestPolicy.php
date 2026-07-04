@@ -6,21 +6,18 @@ namespace App\Policies;
 
 use App\Models\Request;
 use App\Models\User;
+use App\Policies\Concerns\ResolvesPanelContext;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
 final readonly class RequestPolicy
 {
     use HandlesAuthorization;
-
-    private function isCustomerPanel(): bool
-    {
-        return Filament::getCurrentPanel()?->getId() === 'customer';
-    }
+    use ResolvesPanelContext;
 
     private function userCanAccessPortalRequest(User $user, Request $request): bool
     {
-        return in_array($request->buyer_id, $user->activePortalCompanyIds(), true);
+        return $this->userOwnsBuyerCompany($user, $request->buyer_id);
     }
 
     /**
@@ -36,7 +33,7 @@ final readonly class RequestPolicy
     public function viewAny(User $user): bool
     {
         if ($this->isCustomerPanel()) {
-            return $user->hasActivePortalAccess();
+            return $user->hasActiveBuyerPortalAccess();
         }
 
         return $user->hasVerifiedEmail() && $user->currentTeam !== null;
@@ -59,7 +56,7 @@ final readonly class RequestPolicy
     public function create(User $user): bool
     {
         if ($this->isCustomerPanel()) {
-            return $user->hasActivePortalAccess();
+            return $user->hasActiveBuyerPortalAccess();
         }
 
         if ($this->isAdmin($user)) {

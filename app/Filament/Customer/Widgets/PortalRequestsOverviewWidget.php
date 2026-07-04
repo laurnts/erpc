@@ -6,7 +6,7 @@ namespace App\Filament\Customer\Widgets;
 
 use App\Enums\RequestStage;
 use App\Models\Request;
-use App\Services\CustomerPortal\PortalContext;
+use App\Services\Portal\CustomerPortalContext;
 use Filament\Facades\Filament;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -27,10 +27,10 @@ final class PortalRequestsOverviewWidget extends BaseWidget
      */
     protected function getStats(): array
     {
-        $companyId = app(PortalContext::class)->companyId();
+        $companyId = app(CustomerPortalContext::class)->companyId();
 
         $baseQuery = Request::query()
-            ->where('buyer_id', $companyId)
+            ->forBuyer($companyId)
             ->whereNotNull('submitted_at');
 
         $activeCount = (clone $baseQuery)

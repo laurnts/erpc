@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\BuyerResource\RelationManagers;
 
+use App\Enums\PortalType;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -32,6 +33,8 @@ final class PortalUsersRelationManager extends RelationManager
                     ->label('Added')
                     ->dateTime(),
             ])
-            ->modifyQueryUsing(fn ($query) => $query->with(['user', 'invitedBy']));
+            ->modifyQueryUsing(fn ($query) => $query
+                ->where('portal', PortalType::Customer)
+                ->with(['user', 'invitedBy']));
     }
 }

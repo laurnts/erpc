@@ -7,7 +7,7 @@ namespace App\Filament\Customer\Widgets;
 use App\Enums\ShipmentStatus;
 use App\Enums\ShipmentType;
 use App\Models\Shipment;
-use App\Services\CustomerPortal\PortalContext;
+use App\Services\Portal\CustomerPortalContext;
 use Filament\Facades\Filament;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -26,11 +26,11 @@ final class PortalActiveShipmentsWidget extends BaseWidget
      */
     protected function getStats(): array
     {
-        $companyId = app(PortalContext::class)->companyId();
+        $companyId = app(CustomerPortalContext::class)->companyId();
 
         $baseQuery = Shipment::query()
             ->where('type', ShipmentType::OUTBOUND)
-            ->whereHas('request', fn ($query) => $query->where('buyer_id', $companyId));
+            ->forBuyerCompany($companyId);
 
         $inTransit = (clone $baseQuery)
             ->where('status', ShipmentStatus::IN_TRANSIT)

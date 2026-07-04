@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\PortalType;
 use App\Models\Concerns\HasProfilePhoto;
 use Database\Factories\UserFactory;
 use Exception;
@@ -136,7 +137,7 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
     public function portalCompanies(): BelongsToMany
     {
         return $this->belongsToMany(Company::class, 'company_portal_users')
-            ->withPivot(['team_id', 'invited_by', 'is_active'])
+            ->withPivot(['team_id', 'portal', 'invited_by', 'is_active'])
             ->withTimestamps();
     }
 
@@ -148,11 +149,9 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
         return $this->hasMany(CompanyPortalUser::class);
     }
 
-    public function hasActivePortalAccess(): bool
+    public function hasActiveBuyerPortalAccess(): bool
     {
-        return $this->portalMemberships()
-            ->where('is_active', true)
-            ->exists();
+        return $this->activeCustomerPortalMembershipsQuery()->exists();
     }
 
     public function belongsToAnyInternalTeam(): bool
@@ -163,12 +162,26 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
     /**
      * @return list<int>
      */
-    public function activePortalCompanyIds(): array
+    public function activeCustomerPortalCompanyIds(): array
+    {
+        return $this->activeCustomerPortalMembershipsQuery()
+            ->pluck('company_id')
+            ->all();
+    }
+
+    /**
+     * Customer portal capability requires an explicit customer-typed membership
+     * AND the company actually being a buyer — a supplier-only membership must
+     * never grant customer panel access.
+     *
+     * @return HasMany<CompanyPortalUser, $this>
+     */
+    private function activeCustomerPortalMembershipsQuery(): HasMany
     {
         return $this->portalMemberships()
             ->where('is_active', true)
-            ->pluck('company_id')
-            ->all();
+            ->where('portal', PortalType::Customer)
+            ->whereHas('company', fn ($query) => $query->where('is_buyer', true));
     }
 
     public function getDefaultTenant(Panel $panel): ?Model
@@ -187,7 +200,7 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
 
         return match ($panel->getId()) {
             'app' => $this->belongsToAnyInternalTeam(),
-            'customer' => $this->hasActivePortalAccess(),
+            'customer' => $this->hasActiveBuyerPortalAccess(),
             default => false,
         };
     }

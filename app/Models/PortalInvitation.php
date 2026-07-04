@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\PortalType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -15,6 +16,7 @@ use Illuminate\Support\Str;
  * @property int $company_id
  * @property string $email
  * @property string $name
+ * @property PortalType $portal
  * @property int $invited_by
  * @property string $token
  * @property Carbon|null $accepted_at
@@ -29,6 +31,7 @@ final class PortalInvitation extends Model
         'company_id',
         'email',
         'name',
+        'portal',
         'invited_by',
         'token',
         'accepted_at',
@@ -40,6 +43,7 @@ final class PortalInvitation extends Model
     protected function casts(): array
     {
         return [
+            'portal' => PortalType::class,
             'accepted_at' => 'datetime',
         ];
     }

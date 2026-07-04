@@ -7,17 +7,14 @@ namespace App\Policies;
 use App\Enums\ShipmentType;
 use App\Models\Shipment;
 use App\Models\User;
+use App\Policies\Concerns\ResolvesPanelContext;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
 final readonly class ShipmentPolicy
 {
     use HandlesAuthorization;
-
-    private function isCustomerPanel(): bool
-    {
-        return Filament::getCurrentPanel()?->getId() === 'customer';
-    }
+    use ResolvesPanelContext;
 
     private function userCanAccessPortalShipment(User $user, Shipment $shipment): bool
     {
@@ -25,13 +22,7 @@ final readonly class ShipmentPolicy
             return false;
         }
 
-        $buyerId = $shipment->request?->buyer_id;
-
-        if ($buyerId === null) {
-            return false;
-        }
-
-        return in_array($buyerId, $user->activePortalCompanyIds(), true);
+        return $this->userOwnsBuyerCompany($user, $shipment->request?->buyer_id);
     }
 
     /**
@@ -47,7 +38,7 @@ final readonly class ShipmentPolicy
     public function viewAny(User $user): bool
     {
         if ($this->isCustomerPanel()) {
-            return $user->hasActivePortalAccess();
+            return $user->hasActiveBuyerPortalAccess();
         }
 
         if ($this->isAdmin($user)) {

@@ -10,9 +10,10 @@ use App\Filament\Customer\Resources\CustomerRequestResource\Pages\ListCustomerRe
 use App\Filament\Customer\Resources\CustomerRequestResource\Pages\ViewCustomerRequest;
 use App\Filament\Customer\Resources\CustomerRequestResource\RelationManagers\BuyerQuotesRelationManager;
 use App\Filament\Customer\Resources\CustomerRequestResource\RelationManagers\ShipmentsRelationManager;
+use App\Filament\Customer\Resources\CustomerRequestResource\Schemas\CustomerRequestForm;
 use App\Models\Request;
 use App\Services\CustomerPortal\CustomerRequestStagePresenter;
-use App\Services\CustomerPortal\PortalContext;
+use App\Services\Portal\CustomerPortalContext;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -35,7 +36,7 @@ final class CustomerRequestResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->components(CreateCustomerRequest::formComponents());
+        return $schema->components(CustomerRequestForm::components());
     }
 
     public static function table(Table $table): Table
@@ -105,10 +106,12 @@ final class CustomerRequestResource extends Resource
      */
     public static function getEloquentQuery(): Builder
     {
-        $companyId = app(PortalContext::class)->companyId();
+        $companyId = app(CustomerPortalContext::class)->companyId();
 
-        return parent::getEloquentQuery()
-            ->where('buyer_id', $companyId);
+        /** @var Builder<Request> $query */
+        $query = parent::getEloquentQuery();
+
+        return $query->forBuyer($companyId);
     }
 
     public static function canDelete($record): bool

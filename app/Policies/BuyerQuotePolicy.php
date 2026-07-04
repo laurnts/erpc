@@ -7,21 +7,18 @@ namespace App\Policies;
 use App\Enums\BuyerQuoteStatus;
 use App\Models\BuyerQuote;
 use App\Models\User;
+use App\Policies\Concerns\ResolvesPanelContext;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
 final readonly class BuyerQuotePolicy
 {
     use HandlesAuthorization;
-
-    private function isCustomerPanel(): bool
-    {
-        return Filament::getCurrentPanel()?->getId() === 'customer';
-    }
+    use ResolvesPanelContext;
 
     private function userCanAccessPortalQuote(User $user, BuyerQuote $buyerQuote): bool
     {
-        return in_array($buyerQuote->buyer_id, $user->activePortalCompanyIds(), true);
+        return $this->userOwnsBuyerCompany($user, $buyerQuote->buyer_id);
     }
 
     /**
@@ -37,7 +34,7 @@ final readonly class BuyerQuotePolicy
     public function viewAny(User $user): bool
     {
         if ($this->isCustomerPanel()) {
-            return $user->hasActivePortalAccess();
+            return $user->hasActiveBuyerPortalAccess();
         }
 
         return $user->hasVerifiedEmail() && $user->currentTeam !== null;

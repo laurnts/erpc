@@ -12,6 +12,7 @@ use App\Observers\ShipmentObserver;
 use App\Support\RomanNumerals;
 use Database\Factories\ShipmentFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -131,6 +132,18 @@ final class Shipment extends Model implements HasMedia
     public function request(): BelongsTo
     {
         return $this->belongsTo(Request::class);
+    }
+
+    /**
+     * Scope a query to shipments whose request belongs to a buyer company.
+     * Portal surfaces must use this scope instead of inline buyer_id clauses.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeForBuyerCompany(Builder $query, int $buyerCompanyId): Builder
+    {
+        return $query->whereHas('request', fn (Builder $requestQuery) => $requestQuery->where('buyer_id', $buyerCompanyId));
     }
 
     /**
@@ -360,8 +373,6 @@ final class Shipment extends Model implements HasMedia
     /**
      * Generate Delivery Order number.
      * Format: {4digit_increment}-CP/DO/{roman_month}/{year}
-     *
-     * @return string
      */
     public function generateDoNumber(): string
     {
@@ -380,7 +391,7 @@ final class Shipment extends Model implements HasMedia
             ->toArray();
 
         $nextIncrement = 1;
-        if (!empty($existingDoNumbers)) {
+        if (! empty($existingDoNumbers)) {
             $regex = '/^(\d{4})-CP\/DO\/'.preg_quote($romanMonth, '/').'\/'.$year.'$/';
             foreach ($existingDoNumbers as $doNumber) {
                 if (preg_match($regex, $doNumber, $matches)) {
@@ -401,8 +412,6 @@ final class Shipment extends Model implements HasMedia
 
     /**
      * Get DO number, generating if not set (without saving).
-     *
-     * @return string
      */
     public function getDoNumber(): string
     {
@@ -425,7 +434,7 @@ final class Shipment extends Model implements HasMedia
             ->toArray();
 
         $nextIncrement = 1;
-        if (!empty($existingDoNumbers)) {
+        if (! empty($existingDoNumbers)) {
             $regex = '/^(\d{4})-CP\/DO\/'.preg_quote($romanMonth, '/').'\/'.$year.'$/';
             foreach ($existingDoNumbers as $doNumber) {
                 if (preg_match($regex, $doNumber, $matches)) {
