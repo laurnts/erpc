@@ -205,7 +205,84 @@ final class ProfitAndLoss extends Model implements HasMedia
             currency: $quote->currency->code ?? '',
             snapshotAt: CarbonImmutable::now(),
             buyerQuoteId: $quote->getKey(),
+            supplierGroups: $this->computeLiveLineGroups(),
         ))->toArray();
+    }
+
+    /**
+     * Per-supplier line groups for the P&L views and PDF: read from the frozen
+     * snapshot when present so approved documents never change, otherwise
+     * computed live from the source buyer quote.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function financialLineGroups(): array
+    {
+        $snapshot = $this->financialSnapshotData();
+
+        if ($snapshot !== null && $snapshot->supplierGroups !== []) {
+            return $snapshot->supplierGroups;
+        }
+
+        return $this->computeLiveLineGroups();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function computeLiveLineGroups(): array
+    {
+        $quote = $this->resolveSourceBuyerQuote();
+        if ($quote === null) {
+            return [];
+        }
+
+        $items = $quote->items()
+            ->whereNotNull('request_item_id')
+            ->with(['supplierQuoteItem.supplierQuote.supplier', 'supplierQuoteItem.supplierQuote.currency', 'article'])
+            ->orderBy('sort_order')
+            ->get();
+
+        return $items
+            ->groupBy(fn (BuyerQuoteItem $item): int => $item->supplierQuoteItem?->supplierQuote->supplier_id ?? 0)
+            ->map(function (Collection $supplierItems): array {
+                $firstItem = $supplierItems->first();
+                $supplierQuote = $firstItem?->supplierQuoteItem?->supplierQuote;
+                $totals = BuyerQuoteItem::collectTotals($supplierItems);
+
+                $lines = [];
+                foreach (BuyerQuoteItem::organizeHierarchically($supplierItems) as $entry) {
+                    /** @var BuyerQuoteItem $item */
+                    $item = $entry['item'];
+
+                    $lines[] = [
+                        'label' => $item->article !== null
+                            ? sprintf('[%s] %s', $item->article->code, $item->article->name)
+                            : (string) $item->description,
+                        'isChild' => (bool) $entry['is_child'],
+                        'quantity' => (float) $item->quantity,
+                        'unitLabel' => (string) $item->unit_label,
+                        'costPrice' => (float) $item->cost_price,
+                        'sellPrice' => (float) $item->unit_price_exc_tax,
+                        'lineTax' => $item->getEffectiveLineTax(),
+                        'marginPercent' => $item->getDisplayMarginPercent(),
+                        'lineTotal' => $item->getEffectiveLineTotal(),
+                    ];
+                }
+
+                return [
+                    'supplierName' => $supplierQuote?->supplier->name ?? 'No Supplier',
+                    'supplierCurrency' => $supplierQuote?->currency?->code,
+                    'costTotal' => $totals->costTotal,
+                    'netSell' => $totals->subtotal,
+                    'marginAmount' => $totals->marginAmount,
+                    'grossTotal' => $totals->grandTotal,
+                    'hasChildLines' => $supplierItems->contains(fn (BuyerQuoteItem $item): bool => $item->isChildItem()),
+                    'lines' => $lines,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     /**

@@ -209,58 +209,29 @@
     <div class="section-title">Items by Supplier</div>
     
     @php
-        // Use the buyer quote this PNL was created from (includes soft-deleted quotes)
-        $buyerQuote = $pnl->resolveSourceBuyerQuote();
-        $buyerQuote?->loadMissing('currency');
-        
-        $groupedItems = collect();
-        $buyerCurrency = null;
-        
-        if ($buyerQuote !== null) {
-            $buyerCurrency = $buyerQuote->currency;
-            
-            $items = $buyerQuote->items()
-                ->whereNotNull('request_item_id')
-                ->with(['supplierQuoteItem.supplierQuote.supplier', 'article', 'requestItem'])
-                ->orderBy('sort_order')
-                ->get();
-            
-            $groupedItems = $items->groupBy(function ($item) {
-                return $item->supplierQuoteItem?->supplierQuote?->supplier_id ?? 0;
-            });
-        }
-        
+        // Approved PNLs read the frozen snapshot groups; drafts compute live.
+        $lineGroups = $pnl->financialLineGroups();
+
         $grandTotalCost = 0;
         $grandTotalSell = 0;
     @endphp
 
-    @if($groupedItems->isNotEmpty())
-        @foreach($groupedItems as $supplierId => $supplierItems)
+    @if(count($lineGroups) > 0)
+        @foreach($lineGroups as $group)
             @php
-                $firstItem = $supplierItems->first();
-                $supplier = $firstItem->supplierQuoteItem?->supplierQuote?->supplier;
-                $supplierName = $supplier?->name ?? 'No Supplier';
-                $groupTotals = \App\Models\BuyerQuoteItem::collectTotals($supplierItems);
-                $groupHasChildLines = $supplierItems->contains(fn ($item) => $item->isChildItem());
-                $supplierCostTotal = $groupTotals->costTotal;
-                $supplierNetSell = $groupTotals->subtotal;      // net revenue (margin base)
-                $supplierMargin = $groupTotals->marginAmount;   // net sell - cost (VAT excluded)
-                $supplierGrossTotal = $groupTotals->grandTotal; // gross, for the Line Total footer
-                $organizedItems = \App\Models\BuyerQuoteItem::organizeHierarchically($supplierItems);
-
-                $grandTotalCost += $supplierCostTotal;
-                $grandTotalSell += $supplierNetSell;
+                $grandTotalCost += $group['costTotal'];
+                $grandTotalSell += $group['netSell'];
             @endphp
-            
+
             <div class="supplier-header">
-                {{ $supplierName }}
+                {{ $group['supplierName'] }}
                 <span class="supplier-totals">
-                    Cost: {{ number_format($supplierCostTotal, 2) }} | 
-                    Sell: {{ number_format($supplierNetSell, 2) }} |
-                    Margin: {{ number_format($supplierMargin, 2) }}
+                    Cost: {{ number_format($group['costTotal'], 2) }} |
+                    Sell: {{ number_format($group['netSell'], 2) }} |
+                    Margin: {{ number_format($group['marginAmount'], 2) }}
                 </span>
             </div>
-            
+
             <table class="items-table">
                 <thead>
                     <tr>
@@ -274,32 +245,20 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($organizedItems as $entry)
-                        @php
-                            /** @var \App\Models\BuyerQuoteItem $item */
-                            $item = $entry['item'];
-                            $isChild = $entry['is_child'];
-                            $lineTax = $item->getEffectiveLineTax();
-                            $lineTotal = $item->getEffectiveLineTotal();
-                            $marginPercent = $item->getDisplayMarginPercent();
-                        @endphp
-                        <tr class="{{ $isChild ? 'row-child' : 'row-main' }}">
+                    @foreach($group['lines'] as $line)
+                        <tr class="{{ $line['isChild'] ? 'row-child' : 'row-main' }}">
                             <td>
-                                @if($isChild)
+                                @if($line['isChild'])
                                     &nbsp;&nbsp;&nbsp;↳
                                 @endif
-                                @if($item->article)
-                                    [{{ $item->article->code }}] {{ $item->article->name }}
-                                @else
-                                    {{ $item->description }}
-                                @endif
+                                {{ $line['label'] }}
                             </td>
-                            <td class="text-center">{{ number_format((float) $item->quantity, 0) }} {{ $item->unit_label }}</td>
-                            <td class="text-right">{{ number_format((float) $item->cost_price, 2) }}</td>
-                            <td class="text-right">{{ number_format((float) $item->unit_price_exc_tax, 2) }}</td>
-                            <td class="text-right">{{ number_format($lineTax, 2) }}</td>
-                            <td class="text-right {{ $marginPercent >= 0 ? 'positive' : 'negative' }}">{{ number_format($marginPercent, 0) }}%</td>
-                            <td class="text-right line-total">{{ number_format($lineTotal, 2) }}</td>
+                            <td class="text-center">{{ number_format($line['quantity'], 0) }} {{ $line['unitLabel'] }}</td>
+                            <td class="text-right">{{ number_format($line['costPrice'], 2) }}</td>
+                            <td class="text-right">{{ number_format($line['sellPrice'], 2) }}</td>
+                            <td class="text-right">{{ number_format($line['lineTax'], 2) }}</td>
+                            <td class="text-right {{ $line['marginPercent'] >= 0 ? 'positive' : 'negative' }}">{{ number_format($line['marginPercent'], 0) }}%</td>
+                            <td class="text-right line-total">{{ number_format($line['lineTotal'], 2) }}</td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -307,11 +266,11 @@
                     <tr>
                         <td colspan="6" class="text-right">
                             Supplier Subtotal
-                            @if($groupHasChildLines)
+                            @if($group['hasChildLines'])
                                 <br><span style="font-size: 7pt; font-weight: normal;">(main items)</span>
                             @endif
                         </td>
-                        <td class="text-right subtotal-amount">{{ number_format($supplierGrossTotal, 2) }}</td>
+                        <td class="text-right subtotal-amount">{{ number_format($group['grossTotal'], 2) }}</td>
                     </tr>
                 </tfoot>
             </table>

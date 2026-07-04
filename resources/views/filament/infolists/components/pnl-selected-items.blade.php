@@ -1,39 +1,27 @@
 @php
     /** @var \App\Models\ProfitAndLoss $record */
     $record = $getRecord();
-    
-    // Use the buyer quote this PNL was created from (includes soft-deleted quotes)
+
+    // Approved PNLs read the frozen snapshot groups; drafts compute live.
+    $lineGroups = $record->financialLineGroups();
+
+    if ($lineGroups === []) {
+        return;
+    }
+
+    // The buyer currency is used for number formatting only — all figures come from $lineGroups.
     $buyerQuote = $record->resolveSourceBuyerQuote();
     $buyerQuote?->loadMissing('currency');
-    
-    if ($buyerQuote === null) {
-        return;
-    }
-    
-    // Get buyer quote items with supplier info, grouped by supplier (exclude invalid orphans)
-    $items = $buyerQuote->items()
-        ->whereNotNull('request_item_id')
-        ->with(['supplierQuoteItem.supplierQuote.supplier', 'supplierQuoteItem.supplierQuote.currency', 'article', 'requestItem'])
-        ->orderBy('sort_order')
-        ->get();
-    
-    // Group items by supplier (using supplier_quote_item relationship)
-    $groupedItems = $items->groupBy(function ($item) {
-        return $item->supplierQuoteItem?->supplierQuote?->supplier_id ?? 0;
-    });
-    
-    if ($groupedItems->isEmpty()) {
-        return;
-    }
-    
-    $buyerCurrency = $buyerQuote->currency;
+    $buyerCurrency = $buyerQuote?->currency;
 
     // Team target (minimum) margin — below it we warn the approver, never block.
     $targetMargin = (float) ($record->team?->getErpSettings()->default_margin_percent ?? 3.0);
-    // Approved PNLs read the frozen snapshot; otherwise compute live.
+    // Approved PNLs read the frozen snapshot; otherwise compute from the live groups.
     $snapshot = $record->financialSnapshotData();
+    $overallNetSell = collect($lineGroups)->sum('netSell');
+    $overallMarginAmount = collect($lineGroups)->sum('marginAmount');
     $overallMarginPercent = (int) round(
-        $snapshot?->marginPercent ?? \App\Models\BuyerQuoteItem::collectTotals($items)->marginPercent
+        $snapshot?->marginPercent ?? ($overallNetSell > 0 ? ($overallMarginAmount / $overallNetSell) * 100 : 0)
     );
     $overallBelowTarget = $overallMarginPercent < $targetMargin;
 @endphp
@@ -51,21 +39,7 @@
         </div>
     @endif
 
-    @foreach($groupedItems as $supplierId => $supplierItems)
-        @php
-            $firstItem = $supplierItems->first();
-            $supplier = $firstItem->supplierQuoteItem?->supplierQuote?->supplier;
-            $supplierCurrency = $firstItem->supplierQuoteItem?->supplierQuote?->currency;
-            $supplierName = $supplier?->name ?? 'No Supplier';
-            $groupTotals = \App\Models\BuyerQuoteItem::collectTotals($supplierItems);
-            $groupHasChildLines = $supplierItems->contains(fn ($item) => $item->isChildItem());
-            $supplierCostTotal = $groupTotals->costTotal;
-            $supplierNetSell = $groupTotals->subtotal;      // net revenue (margin base)
-            $supplierMargin = $groupTotals->marginAmount;   // net sell - cost (VAT excluded)
-            $supplierGrossTotal = $groupTotals->grandTotal; // gross, for the Line Total footer
-            $organizedItems = \App\Models\BuyerQuoteItem::organizeHierarchically($supplierItems);
-        @endphp
-        
+    @foreach($lineGroups as $group)
         <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
             {{-- Supplier Header --}}
             <div class="bg-gray-50 dark:bg-gray-800 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
@@ -73,11 +47,11 @@
                     <div class="flex items-center gap-2">
                         <x-heroicon-o-building-storefront class="w-5 h-5 text-gray-500" />
                         <span class="font-semibold text-gray-900 dark:text-gray-100">
-                            {{ $supplierName }}
+                            {{ $group['supplierName'] }}
                         </span>
-                        @if($supplierCurrency)
+                        @if($group['supplierCurrency'])
                             <span class="text-xs text-gray-500 dark:text-gray-400">
-                                (Cost: {{ $supplierCurrency->code }})
+                                (Cost: {{ $group['supplierCurrency'] }})
                             </span>
                         @endif
                     </div>
@@ -85,25 +59,25 @@
                         <div>
                             <span class="text-gray-500">Cost:</span>
                             <span class="font-medium text-gray-900 dark:text-gray-100">
-                                {{ $buyerCurrency?->formatNumber($supplierCostTotal) ?? number_format($supplierCostTotal, 2) }}
+                                {{ $buyerCurrency?->formatNumber($group['costTotal']) ?? number_format($group['costTotal'], 2) }}
                             </span>
                         </div>
                         <div>
                             <span class="text-gray-500">Sell:</span>
                             <span class="font-medium text-gray-900 dark:text-gray-100">
-                                {{ $buyerCurrency?->formatNumber($supplierNetSell) ?? number_format($supplierNetSell, 2) }}
+                                {{ $buyerCurrency?->formatNumber($group['netSell']) ?? number_format($group['netSell'], 2) }}
                             </span>
                         </div>
                         <div>
                             <span class="text-gray-500">Margin:</span>
-                            <span class="font-medium {{ $supplierMargin >= 0 ? 'text-success-600 dark:text-success-400' : 'text-danger-600 dark:text-danger-400' }}">
-                                {{ $buyerCurrency?->formatNumber($supplierMargin) ?? number_format($supplierMargin, 2) }}
+                            <span class="font-medium {{ $group['marginAmount'] >= 0 ? 'text-success-600 dark:text-success-400' : 'text-danger-600 dark:text-danger-400' }}">
+                                {{ $buyerCurrency?->formatNumber($group['marginAmount']) ?? number_format($group['marginAmount'], 2) }}
                             </span>
                         </div>
                     </div>
                 </div>
             </div>
-            
+
             {{-- Items Table --}}
             <table class="w-full text-sm">
                 <thead class="bg-gray-50/50 dark:bg-gray-800/50">
@@ -118,16 +92,11 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                    @foreach($organizedItems as $entry)
+                    @foreach($group['lines'] as $line)
                         @php
-                            /** @var \App\Models\BuyerQuoteItem $item */
-                            $item = $entry['item'];
-                            $isChild = $entry['is_child'];
-                            $lineTax = $item->getEffectiveLineTax();
-                            $lineTotal = $item->getEffectiveLineTotal();
-                            $marginPercent = $item->getDisplayMarginPercent();
-                            $marginNegative = ! $isChild && $marginPercent < 0;
-                            $marginBelowTarget = ! $isChild && ! $marginNegative && $item->isMarginBelowTarget($targetMargin);
+                            $isChild = $line['isChild'];
+                            $marginNegative = ! $isChild && $line['marginPercent'] < 0;
+                            $marginBelowTarget = ! $isChild && ! $marginNegative && $line['marginPercent'] < $targetMargin;
                         @endphp
                         <tr class="{{ $isChild
                             ? 'text-gray-500 dark:text-gray-400'
@@ -137,30 +106,20 @@
                                 @if($isChild)
                                     <span class="text-gray-400 dark:text-gray-500 mr-1">↳</span>
                                 @endif
-                                @if($item->article)
-                                    @if($isChild)
-                                        <span class="text-xs text-gray-400 dark:text-gray-500">[{{ $item->article->code }}]</span>
-                                        {{ $item->article->name }}
-                                    @else
-                                        <span class="text-xs text-primary-600 dark:text-primary-400">[{{ $item->article->code }}]</span>
-                                        {{ $item->article->name }}
-                                    @endif
-                                @else
-                                    {{ $item->description }}
-                                @endif
+                                {{ $line['label'] }}
                             </td>
                             <td class="px-4 py-2 text-center {{ $isChild ? 'text-sm' : '' }}">
-                                {{ number_format((float) $item->quantity, 0) }}
-                                <span class="text-xs">{{ $item->unit }}</span>
+                                {{ number_format($line['quantity'], 0) }}
+                                <span class="text-xs">{{ $line['unitLabel'] }}</span>
                             </td>
                             <td class="px-4 py-2 text-right {{ $isChild ? 'text-sm' : '' }}">
-                                {{ $buyerCurrency?->formatNumber((float) $item->cost_price) ?? number_format((float) $item->cost_price, 2) }}
+                                {{ $buyerCurrency?->formatNumber($line['costPrice']) ?? number_format($line['costPrice'], 2) }}
                             </td>
                             <td class="px-4 py-2 text-right {{ $isChild ? 'text-sm font-normal' : '' }}">
-                                {{ $buyerCurrency?->formatNumber((float) $item->unit_price_exc_tax) ?? number_format((float) $item->unit_price_exc_tax, 2) }}
+                                {{ $buyerCurrency?->formatNumber($line['sellPrice']) ?? number_format($line['sellPrice'], 2) }}
                             </td>
                             <td class="px-4 py-2 text-right {{ $isChild ? 'text-sm' : '' }}">
-                                {{ $buyerCurrency?->formatNumber($lineTax) ?? number_format($lineTax, 2) }}
+                                {{ $buyerCurrency?->formatNumber($line['lineTax']) ?? number_format($line['lineTax'], 2) }}
                             </td>
                             <td @class([
                                 'px-4 py-2 text-right',
@@ -172,10 +131,10 @@
                                 @if($marginBelowTarget)
                                     <x-heroicon-m-exclamation-triangle class="inline-block h-3.5 w-3.5 -mt-0.5 mr-0.5" title="Below {{ (int) round($targetMargin) }}% target" />
                                 @endif
-                                {{ number_format($marginPercent, 0) }}%
+                                {{ number_format($line['marginPercent'], 0) }}%
                             </td>
                             <td class="px-4 py-2 text-right {{ $isChild ? 'text-sm font-normal' : 'font-bold text-primary-700 dark:text-primary-300' }}">
-                                {{ $buyerCurrency?->formatNumber($lineTotal) ?? number_format($lineTotal, 2) }}
+                                {{ $buyerCurrency?->formatNumber($line['lineTotal']) ?? number_format($line['lineTotal'], 2) }}
                             </td>
                         </tr>
                     @endforeach
@@ -184,17 +143,17 @@
                     <tr class="bg-primary-100 dark:bg-primary-950/50 border-t-2 border-primary-400 dark:border-primary-600">
                         <td colspan="6" class="px-4 py-2.5 text-right font-semibold text-primary-800 dark:text-primary-200">
                             Supplier Subtotal
-                            @if($groupHasChildLines)
+                            @if($group['hasChildLines'])
                                 <span class="block text-xs font-normal text-primary-600/80 dark:text-primary-400/80">(main items)</span>
                             @endif
                         </td>
                         <td class="px-4 py-2.5 text-right text-base font-bold text-primary-700 dark:text-primary-300">
-                            {{ $buyerCurrency?->formatNumber($supplierGrossTotal) ?? number_format($supplierGrossTotal, 2) }}
+                            {{ $buyerCurrency?->formatNumber($group['grossTotal']) ?? number_format($group['grossTotal'], 2) }}
                         </td>
                     </tr>
                 </tfoot>
             </table>
         </div>
     @endforeach
-    
+
 </div>

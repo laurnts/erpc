@@ -15,6 +15,13 @@ use Spatie\LaravelData\Data;
  */
 final class FinancialSnapshot extends Data
 {
+    /**
+     * @param  array<int, array<string, mixed>>  $supplierGroups  Per-supplier line detail frozen
+     *                                                            with the totals; each group holds supplierName, supplierCurrency, costTotal, netSell,
+     *                                                            marginAmount, grossTotal, hasChildLines and a list of lines (label, isChild, quantity,
+     *                                                            unitLabel, costPrice, sellPrice, lineTax, marginPercent, lineTotal). Empty on
+     *                                                            snapshots captured before line detail was frozen; views fall back to live rows then.
+     */
     public function __construct(
         public float $subtotal,
         public float $taxTotal,
@@ -25,5 +32,6 @@ final class FinancialSnapshot extends Data
         public string $currency,
         public CarbonImmutable $snapshotAt,
         public int $buyerQuoteId,
+        public array $supplierGroups = [],
     ) {}
 }
