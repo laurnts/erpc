@@ -13,17 +13,16 @@ use App\Enums\RequestSubmissionMethod;
 use App\Enums\ShipmentStatus;
 use App\Enums\SupplierQuoteStatus;
 use App\Models\Concerns\HasCreator;
-use App\Models\Concerns\HasNotes;
 use App\Models\Concerns\HasTeam;
 use App\Observers\RequestObserver;
 use Database\Factories\RequestFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -77,7 +76,6 @@ final class Request extends Model implements HasCustomFields, HasMedia
     /** @use HasFactory<RequestFactory> */
     use HasFactory;
 
-    use HasNotes;
     use HasTeam;
     use InteractsWithMedia;
     use SoftDeletes;
@@ -152,6 +150,18 @@ final class Request extends Model implements HasCustomFields, HasMedia
     }
 
     /**
+     * Scope a query to requests belonging to a buyer company. Portal surfaces
+     * must use this scope instead of inline buyer_id where-clauses.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeForBuyer(Builder $query, int $buyerCompanyId): Builder
+    {
+        return $query->where('buyer_id', $buyerCompanyId);
+    }
+
+    /**
      * Portal user who submitted this request.
      *
      * @return BelongsTo<User, $this>
@@ -190,16 +200,6 @@ final class Request extends Model implements HasCustomFields, HasMedia
     public function items(): HasMany
     {
         return $this->hasMany(RequestItem::class)->orderBy('sort_order');
-    }
-
-    /**
-     * The tasks associated with this request.
-     *
-     * @return MorphToMany<Task, $this>
-     */
-    public function tasks(): MorphToMany
-    {
-        return $this->morphToMany(Task::class, 'taskable');
     }
 
     /**
@@ -387,11 +387,22 @@ final class Request extends Model implements HasCustomFields, HasMedia
     }
 
     /**
-     * Check if stage transition is allowed.
+     * Check if stage transition is allowed. Also gates the transition to
+     * Completed on derived fulfillment, so callers building UI on this
+     * method (e.g. offering the transition as an option) can never offer
+     * an impossible completion.
      */
     public function canTransitionTo(RequestStage $newStage): bool
     {
-        return $this->stage->canTransitionTo($newStage);
+        if (! $this->stage->canTransitionTo($newStage)) {
+            return false;
+        }
+
+        if ($newStage === RequestStage::COMPLETED && $this->completionFulfillmentError() !== null) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -401,7 +412,11 @@ final class Request extends Model implements HasCustomFields, HasMedia
      */
     public function transitionTo(RequestStage $newStage): void
     {
-        if (! $this->canTransitionTo($newStage)) {
+        // Uses the enum-level check directly (not the model's canTransitionTo(),
+        // which also folds in the fulfillment gate) so the completed-stage
+        // fulfillment error below can report its specific, named-channel
+        // message instead of being masked by the generic stage-transition error.
+        if (! $this->stage->canTransitionTo($newStage)) {
             throw new \InvalidArgumentException(
                 sprintf(
                     'Cannot transition from %s to %s',
@@ -796,8 +811,10 @@ final class Request extends Model implements HasCustomFields, HasMedia
      * main items.
      *
      * Coverage only counts shipment/supplier-order pairs that are not
-     * soft-deleted, and deliberately excludes FAILED shipments — a failed
-     * shipment never delivered goods, so it is not delivery coverage.
+     * soft-deleted, and only counts DELIVERED and PARTIAL shipments — a
+     * shipment that is still pending, in transit, or has failed never
+     * delivered goods, so it is not delivery coverage. PARTIAL shipments
+     * count the quantity they actually shipped.
      */
     public function goodsChannelComplete(): bool
     {
@@ -814,9 +831,9 @@ final class Request extends Model implements HasCustomFields, HasMedia
                 'coalesce(sum(case '
                 .'when shipments.deleted_at is null '
                 .'and supplier_orders.deleted_at is null '
-                .'and shipments.status != ? '
+                .'and shipments.status in (?, ?) '
                 .'then shipment_items.quantity_shipped else 0 end), 0) < request_items.quantity',
-                [ShipmentStatus::FAILED->value]
+                [ShipmentStatus::DELIVERED->value, ShipmentStatus::PARTIAL->value]
             )
             ->exists();
     }

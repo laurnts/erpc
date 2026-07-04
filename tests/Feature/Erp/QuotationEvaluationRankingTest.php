@@ -151,4 +151,83 @@ describe('Goods-only quote ranking on mixed requests', function (): void {
 
         expect($html)->not->toContain('Goods Total');
     });
+
+    it('ranks the goods-cheaper supplier first even when it quotes in a non-base currency', function (): void {
+        $goodsItem = RequestItem::factory()->recycle($this->request)->withQuantity(1)->create([
+            'item_type' => ItemType::GOODS,
+        ]);
+        $serviceItem = RequestItem::factory()->recycle($this->request)->withQuantity(1)->create([
+            'item_type' => ItemType::SERVICE,
+        ]);
+
+        $supplierA = Company::factory()->supplier()->recycle($this->team)->create(['name' => 'Supplier A']);
+        $supplierB = Company::factory()->supplier()->recycle($this->team)->create(['name' => 'Supplier B']);
+        $foreignCurrency = Currency::factory()->create(['code' => 'IDR', 'is_default' => false]);
+
+        // Supplier A quotes in IDR with a nominally huge line total (1,500,000)
+        // but a low exchange rate (0.0001), so its real, base-currency goods
+        // cost is only 150 -- cheaper than Supplier B's plain USD quote of 200.
+        // Comparing raw line totals without FX normalization would rank B
+        // first (200 < 1,500,000); goodsSubtotalBase() must convert first.
+        $quoteA = SupplierQuote::factory()
+            ->recycle($this->team)
+            ->forRequest($this->request)
+            ->forSupplier($supplierA)
+            ->withCurrency($foreignCurrency)
+            ->withExchangeRate(0.0001)
+            ->create();
+
+        SupplierQuoteItem::factory()
+            ->forSupplierQuote($quoteA)
+            ->forRequestItem($goodsItem)
+            ->withPricing(1, 1_500_000)
+            ->create();
+        SupplierQuoteItem::factory()
+            ->forSupplierQuote($quoteA)
+            ->forRequestItem($serviceItem)
+            ->withPricing(1, 1_000_000)
+            ->create();
+
+        $quoteB = makeSingleLineQuote($this->team, $this->request, $supplierB, $this->currency, $goodsItem, 200.0);
+        addQuoteLine($quoteB, $serviceItem, 300.0);
+
+        expect($quoteA->refresh()->goodsSubtotalBase())->toBe(150.0)
+            ->and($quoteB->refresh()->goodsSubtotalBase())->toBe(200.0);
+
+        livewire(QuotationEvaluationForm::class, ['request' => $this->request])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $qe = QuotationEvaluation::query()->where('request_id', $this->request->getKey())->firstOrFail();
+        $suppliers = $qe->getSuppliers();
+
+        expect($qe->getRequestInfo()['is_mixed'] ?? null)->toBeTrue()
+            ->and($suppliers)->toHaveCount(2)
+            ->and($suppliers[0]['name'])->toBe('Supplier A')
+            ->and($suppliers[1]['name'])->toBe('Supplier B');
+    });
+
+    it('carries the supplier company payment_terms_days field into the snapshot', function (): void {
+        $goodsItem = RequestItem::factory()->recycle($this->request)->withQuantity(1)->create([
+            'item_type' => ItemType::GOODS,
+        ]);
+
+        $supplier = Company::factory()->supplier()->recycle($this->team)->create([
+            'name' => 'Supplier A',
+            'payment_terms_days' => 45,
+        ]);
+
+        makeSingleLineQuote($this->team, $this->request, $supplier, $this->currency, $goodsItem, 100.0);
+
+        livewire(QuotationEvaluationForm::class, ['request' => $this->request])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $qe = QuotationEvaluation::query()->where('request_id', $this->request->getKey())->firstOrFail();
+        $suppliers = $qe->getSuppliers();
+
+        expect($suppliers)->toHaveCount(1)
+            ->and($suppliers[0]['payment_terms_days'])->toBe($supplier->payment_terms_days)
+            ->and($suppliers[0]['payment_terms_days'])->toBe(45);
+    });
 });

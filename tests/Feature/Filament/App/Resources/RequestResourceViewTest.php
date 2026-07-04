@@ -232,6 +232,7 @@ describe('Fulfillment status section', function (): void {
         $shipment = Shipment::factory()->for($this->team)->create([
             'request_id' => $record->getKey(),
             'supplier_order_id' => $order->getKey(),
+            'status' => ShipmentStatus::DELIVERED,
         ]);
         ShipmentItem::factory()->recycle($shipment)->forSupplierOrderItem($orderItem)->withQuantityShipped(5)->create();
 
@@ -277,6 +278,7 @@ describe('Completed stage fulfillment gate on the edit action', function (): voi
         $shipment = Shipment::factory()->for($this->team)->create([
             'request_id' => $record->getKey(),
             'supplier_order_id' => $order->getKey(),
+            'status' => ShipmentStatus::DELIVERED,
         ]);
         ShipmentItem::factory()->recycle($shipment)->forSupplierOrderItem($orderItem)->withQuantityShipped(5)->create();
 

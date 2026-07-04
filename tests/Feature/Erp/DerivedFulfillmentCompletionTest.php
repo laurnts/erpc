@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\ItemType;
 use App\Enums\RequestStage;
+use App\Enums\ShipmentStatus;
 use App\Models\AcceptanceReport;
 use App\Models\Company;
 use App\Models\Request;
@@ -26,7 +27,9 @@ beforeEach(function (): void {
 
 /**
  * Ship a request item for the given quantity via a supplier order, recording
- * a shipment covering only $quantityShipped of it.
+ * a DELIVERED shipment covering only $quantityShipped of it. Delivered is
+ * the baseline status for "this shipment is coverage" throughout this file;
+ * tests that need a different status override it after creation.
  */
 function shipGoodsItem(Request $request, Team $team, Company $supplier, RequestItem $requestItem, float $quantityShipped): ShipmentItem
 {
@@ -39,6 +42,7 @@ function shipGoodsItem(Request $request, Team $team, Company $supplier, RequestI
 
     $shipment = Shipment::factory()->recycle($team)->recycle($request)->create([
         'supplier_order_id' => $order->getKey(),
+        'status' => ShipmentStatus::DELIVERED,
     ]);
 
     return ShipmentItem::factory()
@@ -180,9 +184,43 @@ describe('Fulfillment coverage excludes soft-deleted and failed documents', func
         $shipmentItem = shipGoodsItem($this->request, $this->team, $this->supplier, $goodsItem, 10);
         expect($this->request->goodsChannelComplete())->toBeTrue();
 
-        $shipmentItem->shipment->update(['status' => \App\Enums\ShipmentStatus::FAILED]);
+        $shipmentItem->shipment->update(['status' => ShipmentStatus::FAILED]);
 
         expect($this->request->goodsChannelComplete())->toBeFalse();
+    });
+
+    it('does not count PENDING or IN_TRANSIT shipments as delivery coverage until the shipment is DELIVERED', function (): void {
+        $goodsItem = RequestItem::factory()->recycle($this->request)->create([
+            'item_type' => ItemType::GOODS,
+            'quantity' => 10,
+        ]);
+
+        $shipmentItem = shipGoodsItem($this->request, $this->team, $this->supplier, $goodsItem, 10);
+        $shipment = $shipmentItem->shipment;
+
+        $shipment->update(['status' => ShipmentStatus::PENDING]);
+        expect($this->request->refresh()->goodsChannelComplete())->toBeFalse();
+
+        $shipment->update(['status' => ShipmentStatus::IN_TRANSIT]);
+        expect($this->request->refresh()->goodsChannelComplete())->toBeFalse();
+
+        $shipment->update(['status' => ShipmentStatus::DELIVERED]);
+        expect($this->request->refresh()->goodsChannelComplete())->toBeTrue();
+    });
+
+    it('counts a PARTIAL shipment toward coverage for the quantity it actually shipped', function (): void {
+        $goodsItem = RequestItem::factory()->recycle($this->request)->create([
+            'item_type' => ItemType::GOODS,
+            'quantity' => 10,
+        ]);
+
+        $shipmentItem = shipGoodsItem($this->request, $this->team, $this->supplier, $goodsItem, 6);
+        $shipmentItem->shipment->update(['status' => ShipmentStatus::PARTIAL]);
+
+        expect($this->request->refresh()->goodsChannelComplete())->toBeFalse();
+
+        shipGoodsItem($this->request, $this->team, $this->supplier, $goodsItem, 4);
+        expect($this->request->refresh()->goodsChannelComplete())->toBeTrue();
     });
 });
 
@@ -276,6 +314,20 @@ describe('Completed stage fulfillment gate', function (): void {
         $this->request->refresh()->transitionTo(RequestStage::COMPLETED);
 
         expect($this->request->refresh()->stage)->toBe(RequestStage::COMPLETED);
+    });
+
+    it('reports canTransitionTo(Completed) as false while unfulfilled and true once fulfilled', function (): void {
+        $goodsItem = RequestItem::factory()->recycle($this->request)->matched()->create([
+            'item_type' => ItemType::GOODS,
+            'quantity' => 10,
+        ]);
+        $this->request->update(['stage' => RequestStage::PAID]);
+
+        expect($this->request->refresh()->canTransitionTo(RequestStage::COMPLETED))->toBeFalse();
+
+        shipGoodsItem($this->request, $this->team, $this->supplier, $goodsItem, 10);
+
+        expect($this->request->refresh()->canTransitionTo(RequestStage::COMPLETED))->toBeTrue();
     });
 });
 
