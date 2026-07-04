@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Models\Company;
-
 use App\Models\User;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -92,4 +90,16 @@ test('user can have multiple roles', function () {
         ->and($user->hasRole('finance'))->toBeTrue()
         ->and($user->can('view buyer invoices'))->toBeTrue()
         ->and($user->can('create requests'))->toBeTrue();
+});
+
+test('request list access requires the view requests permission', function () {
+    $withPermission = User::factory()->withPersonalTeam()->create();
+
+    $stripped = User::factory()->withPersonalTeam()->create();
+    $stripped->syncRoles([]);
+
+    $policy = new \App\Policies\RequestPolicy;
+
+    expect($policy->viewAny($withPermission))->toBeTrue()
+        ->and($policy->viewAny($stripped))->toBeFalse();
 });

@@ -36,7 +36,9 @@ final readonly class RequestPolicy
             return $user->hasActiveBuyerPortalAccess();
         }
 
-        return $user->hasVerifiedEmail() && $user->currentTeam !== null;
+        return $user->hasVerifiedEmail()
+            && $user->currentTeam !== null
+            && $user->hasPermissionTo('view requests');
     }
 
     public function view(User $user, Request $request): bool
