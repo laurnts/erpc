@@ -27,6 +27,10 @@ final readonly class AddTeamMember implements AddsTeamMembers
     {
         Gate::forUser($user)->authorize('addTeamMember', $team);
 
+        if ($centralPurchasingRole === null && $role === 'central_purchasing') {
+            $centralPurchasingRole = $team->teamInvitations()->where('email', $email)->first()?->central_purchasing_role?->value;
+        }
+
         $this->validate($team, $email, $role, $centralPurchasingRole);
 
         $newTeamMember = Jetstream::findUserByEmailOrFail($email);
