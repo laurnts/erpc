@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Database\Factories\SupplierArticleFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\Pivot;
@@ -90,6 +91,18 @@ final class SupplierArticle extends Pivot
                 $supplierArticle->quantity_updated_at = now();
             }
         });
+    }
+
+    /**
+     * Own-company scoping for supplier portal surfaces — the single source of
+     * truth for "rows this supplier may see" (never inline where-clauses).
+     *
+     * @param  Builder<$this>  $query
+     * @return Builder<$this>
+     */
+    public function scopeForSupplier(Builder $query, int $supplierCompanyId): Builder
+    {
+        return $query->where('supplier_id', $supplierCompanyId);
     }
 
     /**

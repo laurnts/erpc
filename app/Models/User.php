@@ -146,6 +146,11 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
         return $this->activeCustomerPortalMembershipsQuery()->exists();
     }
 
+    public function hasActiveSupplierPortalAccess(): bool
+    {
+        return $this->activeSupplierPortalMembershipsQuery()->exists();
+    }
+
     public function belongsToAnyInternalTeam(): bool
     {
         return $this->allTeams()->isNotEmpty();
@@ -162,6 +167,19 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
     }
 
     /**
+     * @return list<int>
+     */
+    public function activeSupplierPortalCompanyIds(): array
+    {
+        /** @var list<int> $companyIds */
+        $companyIds = $this->activeSupplierPortalMembershipsQuery()
+            ->pluck('company_id')
+            ->all();
+
+        return $companyIds;
+    }
+
+    /**
      * Customer portal capability requires an explicit customer-typed membership
      * AND the company actually being a buyer — a supplier-only membership must
      * never grant customer panel access.
@@ -174,6 +192,21 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
             ->where('is_active', true)
             ->where('portal', PortalType::Customer)
             ->whereHas('company', fn ($query) => $query->where('is_buyer', true));
+    }
+
+    /**
+     * Supplier portal capability requires an explicit supplier-typed membership
+     * AND the company actually being a supplier — a customer-only membership
+     * must never grant supplier panel access, including at dual-role companies.
+     *
+     * @return HasMany<CompanyPortalUser, $this>
+     */
+    private function activeSupplierPortalMembershipsQuery(): HasMany
+    {
+        return $this->portalMemberships()
+            ->where('is_active', true)
+            ->where('portal', PortalType::Supplier)
+            ->whereHas('company', fn ($query) => $query->where('is_supplier', true));
     }
 
     public function getDefaultTenant(Panel $panel): ?Model
@@ -193,6 +226,7 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
         return match ($panel->getId()) {
             'app' => $this->belongsToAnyInternalTeam(),
             'customer' => $this->hasActiveBuyerPortalAccess(),
+            'supplier' => $this->hasActiveSupplierPortalAccess(),
             default => false,
         };
     }

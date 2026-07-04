@@ -38,4 +38,17 @@ final readonly class PanelDomain
 
         return self::appHost();
     }
+
+    public static function supplierHost(): string
+    {
+        $configured = config('app.supplier_domain');
+
+        if (is_string($configured) && $configured !== '') {
+            $parsed = parse_url(str_contains($configured, '://') ? $configured : 'https://'.$configured);
+
+            return $parsed['host'] ?? self::appHost();
+        }
+
+        return self::appHost();
+    }
 }

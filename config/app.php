@@ -89,6 +89,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Supplier Portal Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Path-based supplier portal on the app subdomain (e.g. app.example.com/supplier/login).
+    | Optional SUPPLIER_DOMAIN overrides the host; defaults to the app panel domain.
+    |
+    */
+
+    'supplier_path' => env('SUPPLIER_PATH', 'supplier'),
+    'supplier_domain' => env('SUPPLIER_DOMAIN'),
+    'supplier_session_cookie' => $supplierSessionCookie = env('SUPPLIER_SESSION_COOKIE', 'erpc_supplier_session'),
+    'supplier_portal_enabled' => (bool) env('SUPPLIER_PORTAL_ENABLED', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Panel Session Cookies
     |--------------------------------------------------------------------------
     |
@@ -100,6 +115,7 @@ return [
 
     'panel_session_cookies' => [
         env('CUSTOMER_PATH', 'customer') => $customerSessionCookie,
+        env('SUPPLIER_PATH', 'supplier') => $supplierSessionCookie,
     ],
 
     /*

@@ -18,6 +18,7 @@ arch()->preset()
         'App\Providers\AppServiceProvider',
         'App\Providers\Filament\AppPanelProvider',
         'App\Providers\Filament\CustomerPanelProvider',
+        'App\Providers\Filament\SupplierPanelProvider',
         // Extracted panel-provider configuration; references the shared panel
         // middleware stack just like the panel providers above.
         'App\Support\PortalPanelConfigurator',

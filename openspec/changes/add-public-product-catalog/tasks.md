@@ -13,12 +13,12 @@
 
 ## Slice 2 — Supplier panel shell + article self-service
 
-- [ ] 2.1 `config/auth.php` `supplier` guard (same `users` provider); `config/app.php` supplier path/domain/cookie/enabled keys; `PanelDomain::supplierHost()`; `SupplierPanelProvider` (id `supplier`, `strictAuthorization()`, `PortalPanelConfigurator::apply()`); register in `bootstrap/providers.php`; `EnsureSupplierPortalEnabled` middleware
-- [ ] 2.2 `User::hasActiveSupplierPortalAccess()` (+ `activeSupplierPortalCompanyIds()`), `canAccessPanel('supplier')` arm; `SupplierPortalContext` (from the shared core)
-- [ ] 2.3 Invitation flow: `InviteSupplierPortalUser` + `SupplierPortalUserInvitationMail` + supplier-panel `AcceptPortalInvitation` (creates `portal = supplier` membership, marks email verified); invite action on supplier company records
-- [ ] 2.4 `SupplierLogin`, `SupplierDashboard` + `SupplierStalePricesWidget`, `SupplierOpenRfqsWidget` (RFQ widget ships empty-gated until Slice 3)
-- [ ] 2.5 `SupplierArticleResource` (slug `my-articles`): list + edit of own rows via `SupplierArticle::scopeForSupplier()`; article identity/unit read-only; only the 4 supplier-writable fields in `Schemas/SupplierArticleForm.php`; **no create/delete/attach anywhere in the panel**; `SupplierArticlePolicy` (view/update own-company rows; create/delete denied)
-- [ ] 2.6 Pest tests (`tests/Feature/SupplierPortal/`): access matrix (internal user, buyer-only membership, supplier membership, dual-role person-level both directions), invitation accept, own-rows-only scoping, field whitelist against tampered payloads, deactivation force-logout
+- [x] 2.1 `config/auth.php` `supplier` guard (same `users` provider); `config/app.php` supplier path/domain/cookie/enabled keys; `PanelDomain::supplierHost()`; `SupplierPanelProvider` (id `supplier`, `strictAuthorization()`, `PortalPanelConfigurator::apply()`); register in `bootstrap/providers.php`; `EnsureSupplierPortalEnabled` middleware
+- [x] 2.2 `User::hasActiveSupplierPortalAccess()` (+ `activeSupplierPortalCompanyIds()`), `canAccessPanel('supplier')` arm; `SupplierPortalContext` (from the shared core)
+- [x] 2.3 Invitation flow: `InviteSupplierPortalUser` + `SupplierPortalUserInvitationMail` + supplier-panel `AcceptPortalInvitation` (creates `portal = supplier` membership, marks email verified); invite action on supplier company records
+- [x] 2.4 `SupplierLogin`, `SupplierDashboard` + `SupplierStalePricesWidget`, `SupplierOpenRfqsWidget` (RFQ widget ships empty-gated until Slice 3)
+- [x] 2.5 `SupplierArticleResource` (slug `my-articles`): list + edit of own rows via `SupplierArticle::scopeForSupplier()`; article identity/unit read-only; only the 4 supplier-writable fields in `Schemas/SupplierArticleForm.php`; **no create/delete/attach anywhere in the panel**; `SupplierArticlePolicy` (view/update own-company rows; create/delete denied)
+- [x] 2.6 Pest tests (`tests/Feature/SupplierPortal/`): access matrix (internal user, buyer-only membership, supplier membership, dual-role person-level both directions), invitation accept, own-rows-only scoping, field whitelist against tampered payloads, deactivation force-logout
 
 ## Slice 3 — RFQ participation (receive, quote, decline)
 

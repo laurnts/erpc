@@ -41,5 +41,18 @@ final class MacroServiceProvider extends ServiceProvider
 
             return $scheme.'://'.$host.'/'.$prefix.'/'.ltrim($path, '/');
         });
+
+        URL::macro('getSupplierPortalUrl', function (string $path = ''): string {
+            $parsed = parse_url((string) config('app.url'));
+            $scheme = $parsed['scheme'] ?? 'https';
+            $host = PanelDomain::supplierHost();
+            $prefix = trim((string) config('app.supplier_path', 'supplier'), '/');
+
+            if ($path === '') {
+                return $scheme.'://'.$host.'/'.$prefix;
+            }
+
+            return $scheme.'://'.$host.'/'.$prefix.'/'.ltrim($path, '/');
+        });
     }
 }

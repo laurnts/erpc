@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SupplierResource\Pages;
 
+use App\Actions\SupplierPortal\InviteSupplierPortalUser;
 use App\Enums\DeliveryType;
 use App\Filament\Resources\SupplierResource;
 use App\Filament\Resources\SupplierResource\RelationManagers\ArticlesRelationManager;
+use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Facades\Filament;
+use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Flex;
 use Filament\Schemas\Components\Section;
@@ -26,6 +31,43 @@ final class ViewSupplier extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('invitePortalUser')
+                ->label('Invite Portal User')
+                ->icon('heroicon-o-envelope')
+                ->color('primary')
+                ->visible(fn (): bool => (bool) config('app.supplier_portal_enabled', true))
+                ->schema([
+                    TextInput::make('name')
+                        ->label('Contact Name')
+                        ->required()
+                        ->maxLength(255),
+                    TextInput::make('email')
+                        ->label('Email')
+                        ->email()
+                        ->required()
+                        ->maxLength(255),
+                ])
+                ->action(function (array $data, \App\Models\Company $record): void {
+                    /** @var \App\Models\Team $team */
+                    $team = Filament::getTenant();
+
+                    /** @var \App\Models\User $invitedBy */
+                    $invitedBy = auth()->user();
+
+                    app(InviteSupplierPortalUser::class)->execute(
+                        team: $team,
+                        supplier: $record,
+                        email: $data['email'],
+                        name: $data['name'],
+                        invitedBy: $invitedBy,
+                    );
+
+                    Notification::make()
+                        ->title('Invitation sent')
+                        ->body('Supplier portal invitation email has been sent to '.$data['email'])
+                        ->success()
+                        ->send();
+                }),
             ActionGroup::make([
                 EditAction::make()->slideOver(),
                 DeleteAction::make(),
