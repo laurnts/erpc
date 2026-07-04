@@ -8,10 +8,9 @@
         <x-filament::section>
             <div class="flex items-center justify-between gap-4">
                 <div class="flex items-center gap-3">
-                    <img
+                    <x-filament::avatar
                         src="{{ \Filament\Facades\Filament::getUserAvatarUrl($owner) }}"
                         alt="{{ $owner->name }}"
-                        class="h-8 w-8 rounded-full"
                     />
                     <div class="flex flex-col">
                         <span class="text-sm font-medium text-gray-950 dark:text-white">
