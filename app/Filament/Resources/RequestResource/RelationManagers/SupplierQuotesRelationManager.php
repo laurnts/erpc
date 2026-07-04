@@ -17,6 +17,7 @@ use App\Models\SupplierQuoteItem;
 use App\Models\TaxCode;
 use App\Models\UnitOfMeasure;
 use App\Support\Media\DocumentPathGenerator;
+use App\Support\SafeCast;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -53,6 +54,9 @@ final class SupplierQuotesRelationManager extends RelationManager
 
     protected static string $relationship = 'supplierQuotes';
 
+    /**
+     * @var array<int|string, array<int, array<string, mixed>>>|null
+     */
     protected ?array $storedChildItemsData = null;
 
     protected static ?string $title = 'Supplier Quotes';
@@ -103,9 +107,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                         $isTaxable = true; // Default
 
                                         if ($supplierId !== null) {
-                                            /** @var Company|null $supplier */
-                                            $supplier = Company::query()->find($supplierId);
-                                            $isTaxable = $supplier?->is_taxable ?? true;
+                                            $supplier = Company::query()->find(SafeCast::toInt($supplierId));
+                                            $isTaxable = $supplier->is_taxable ?? true;
                                         }
 
                                         // Trigger recalculation for all line items when supplier changes
@@ -326,17 +329,17 @@ final class SupplierQuotesRelationManager extends RelationManager
                                             ->minValue(0)
                                             ->maxValue(100)
                                             ->suffix('%')
-                                            ->visible(fn (): bool => $this->getOwnerRecord()->hasJobProgress())
+                                            ->visible(fn (): bool => $request->hasJobProgress())
                                             ->live(),
                                     ]),
                             ])
                             ->defaultItems(1)
-                            ->itemLabel(function (array $state): ?string {
+                            ->itemLabel(function (array $state) use ($request): ?string {
                                 if (! isset($state['due_days'], $state['percentage'])) {
                                     return null;
                                 }
                                 $label = "{$state['due_days']} days - {$state['percentage']}%";
-                                if ($this->getOwnerRecord()->hasJobProgress() && isset($state['job_progress']) && $state['job_progress'] !== '' && $state['job_progress'] !== null) {
+                                if ($request->hasJobProgress() && isset($state['job_progress']) && $state['job_progress'] !== '') {
                                     $label .= " - {$state['job_progress']}%";
                                 }
 
@@ -369,7 +372,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                     if (! isset($data['request_item_id'])) {
                                         return $data;
                                     }
-                                    $requestItem = $request->items()->find($data['request_item_id']);
+                                    $requestItem = $request->items()->find(SafeCast::toInt($data['request_item_id']));
                                     if ($requestItem === null || ! $requestItem->isMainItem()) {
                                         return $data;
                                     }
@@ -395,7 +398,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                 'request_item_id' => $existingQuoteItem->request_item_id,
                                                 'description' => $existingQuoteItem->description,
                                                 'quantity' => (string) $existingQuoteItem->quantity,
-                                                'unit_of_measure_id' => $existingQuoteItem->unit_of_measure_id,
+                                                'unit_of_measure_id' => $existingQuoteItem->getAttribute('unit_of_measure_id'),
                                                 'unit_price' => (string) (int) (float) $existingQuoteItem->unit_price,
                                                 'tax_code_id' => $existingQuoteItem->tax_code_id,
                                                 'tax_rate' => (string) $existingQuoteItem->tax_rate,
@@ -412,8 +415,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                 'unit_of_measure_id' => $childRequestItem->unit_of_measure_id,
                                                 'unit_price' => '0',
                                                 'tax_code_id' => $taxCode?->id,
-                                                'tax_rate' => (string) ($taxCode?->rate ?? 0),
-                                                'is_tax_inclusive' => $taxCode?->is_inclusive_default ?? false,
+                                                'tax_rate' => (string) ($taxCode->rate ?? 0),
+                                                'is_tax_inclusive' => $taxCode->is_inclusive_default ?? false,
                                                 'line_subtotal' => '0',
                                                 'line_tax' => '0',
                                                 'line_total' => '0',
@@ -474,12 +477,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                 try {
                                     // Try to get from the form's owner record
                                     $relationManager = $this;
-                                    if (method_exists($relationManager, 'getMountedTableActionRecord')) {
-                                        $supplierQuote = $relationManager->getMountedTableActionRecord();
-                                    }
-                                    if ($supplierQuote === null && method_exists($relationManager, 'getRecord')) {
-                                        $supplierQuote = $relationManager->getRecord();
-                                    }
+                                    $supplierQuote = $relationManager->getMountedTableActionRecord();
 
                                     if (! ($supplierQuote instanceof SupplierQuote)) {
                                         return;
@@ -494,7 +492,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                         continue;
                                     }
 
-                                    $requestItem = $request->items()->find($item['request_item_id']);
+                                    $requestItem = $request->items()->find(SafeCast::toInt($item['request_item_id']));
                                     if ($requestItem === null || ! $requestItem->isMainItem()) {
                                         continue;
                                     }
@@ -517,7 +515,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                 'request_item_id' => $existingQuoteItem->request_item_id,
                                                 'description' => $existingQuoteItem->description,
                                                 'quantity' => (string) $existingQuoteItem->quantity,
-                                                'unit_of_measure_id' => $existingQuoteItem->unit_of_measure_id,
+                                                'unit_of_measure_id' => $existingQuoteItem->getAttribute('unit_of_measure_id'),
                                                 'unit_price' => (string) (int) (float) $existingQuoteItem->unit_price,
                                                 'tax_code_id' => $existingQuoteItem->tax_code_id,
                                                 'tax_rate' => (string) $existingQuoteItem->tax_rate,
@@ -535,8 +533,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                 'unit_of_measure_id' => $childRequestItem->unit_of_measure_id,
                                                 'unit_price' => '0',
                                                 'tax_code_id' => $taxCode?->id,
-                                                'tax_rate' => (string) ($taxCode?->rate ?? 0),
-                                                'is_tax_inclusive' => $taxCode?->is_inclusive_default ?? false,
+                                                'tax_rate' => (string) ($taxCode->rate ?? 0),
+                                                'is_tax_inclusive' => $taxCode->is_inclusive_default ?? false,
                                                 'line_subtotal' => '0',
                                                 'line_tax' => '0',
                                                 'line_total' => '0',
@@ -586,63 +584,12 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                         }
                                                     }
 
-                                                    // Services main items automatically add their child items as separate line items
-                                                    if ($requestItem->supportsItemHierarchy() && $requestItem->isMainItem() && $requestItem->children()->count() > 0) {
-                                                        // Get child items
-                                                        $childItems = $requestItem->children()->orderBy('sort_order')->get();
-
-                                                        // Get the form's livewire component to manipulate repeater state
-                                                        $livewire = $this->getLivewire();
-                                                        if (method_exists($livewire, 'form')) {
-                                                            $formState = $livewire->form->getState();
-                                                            $currentItems = $formState['items'] ?? [];
-
-                                                            // Find the index of the current item (the one we're editing)
-                                                            $currentItemIndex = null;
-                                                            foreach ($currentItems as $idx => $item) {
-                                                                if (isset($item['request_item_id']) && $item['request_item_id'] === $state) {
-                                                                    $currentItemIndex = $idx;
-                                                                    break;
-                                                                }
-                                                            }
-
-                                                            // If not found, it's the last item (being added)
-                                                            if ($currentItemIndex === null && ! empty($currentItems)) {
-                                                                $currentItemIndex = count($currentItems) - 1;
-                                                            }
-
-                                                            // Build new items array with child items inserted after main item
-                                                            if ($currentItemIndex !== null) {
-                                                                $newItems = [];
-                                                                foreach ($currentItems as $idx => $item) {
-                                                                    $newItems[] = $item;
-
-                                                                    // After inserting the main item, add its children
-                                                                    if ($idx === $currentItemIndex && $childItems->isNotEmpty()) {
-                                                                        foreach ($childItems as $childItem) {
-                                                                            $newItems[] = [
-                                                                                'request_item_id' => $childItem->id,
-                                                                                'article_id' => null,
-                                                                                'description' => $childItem->description,
-                                                                                'quantity' => $childItem->quantity,
-                                                                                'unit_of_measure_id' => $childItem->unit_of_measure_id,
-                                                                                'unit_price' => 0,
-                                                                                'tax_code_id' => $requestItem->article?->default_tax_code_id,
-                                                                                'tax_rate' => $requestItem->article?->defaultTaxCode?->rate ?? 0,
-                                                                                'is_tax_inclusive' => $requestItem->article?->defaultTaxCode?->is_inclusive_default ?? false,
-                                                                                'line_subtotal' => 0,
-                                                                                'line_tax' => 0,
-                                                                                'line_total' => 0,
-                                                                            ];
-                                                                        }
-                                                                    }
-                                                                }
-
-                                                                // Update the form state
-                                                                $livewire->form->fill(['items' => $newItems]);
-                                                            }
-                                                        }
-                                                    }
+                                                    // NOTE: services main items with children previously attempted to
+                                                    // auto-insert their child rows into the in-progress (unsaved) repeater
+                                                    // state here via a `$this->getLivewire()` call that does not exist on
+                                                    // RelationManager, so this branch always threw and never ran. Detail
+                                                    // items are still populated for existing rows via the "Detail Items"
+                                                    // nested repeater's own hydration below.
                                                 }
                                             }),
                                         Hidden::make('article_id'),
@@ -674,7 +621,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                 if ($state === null) {
                                                     $requestItemId = $get('request_item_id');
                                                     if ($requestItemId !== null) {
-                                                        $requestItem = $request->items()->with('unitOfMeasure')->find($requestItemId);
+                                                        $requestItem = $request->items()->with('unitOfMeasure')->find(SafeCast::toInt($requestItemId));
                                                         if ($requestItem !== null && $requestItem->unit_of_measure_id !== null) {
                                                             $set('unit_of_measure_id', $requestItem->unit_of_measure_id);
                                                         }
@@ -757,7 +704,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                 if ($supplierId === null) {
                                                     return false;
                                                 }
-                                                $supplier = Company::find($supplierId);
+                                                $supplier = Company::find(SafeCast::toInt($supplierId));
 
                                                 return $supplier !== null && $supplier->is_taxable;
                                             }),
@@ -875,7 +822,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                                 if ($supplierId === null) {
                                                                     return false;
                                                                 }
-                                                                $supplier = Company::find($supplierId);
+                                                                $supplier = Company::find(SafeCast::toInt($supplierId));
 
                                                                 return $supplier !== null && $supplier->is_taxable;
                                                             }),
@@ -918,7 +865,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                 }
 
                                                 // Fallback: load from request items and existing quote items
-                                                $requestItem = $request->items()->find($requestItemId);
+                                                $requestItem = $request->items()->find(SafeCast::toInt($requestItemId));
                                                 if ($requestItem === null || ! $requestItem->isMainItem()) {
                                                     return;
                                                 }
@@ -933,12 +880,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                 try {
                                                     // Try to get from form context
                                                     $relationManager = $this;
-                                                    if (method_exists($relationManager, 'getMountedTableActionRecord')) {
-                                                        $supplierQuote = $relationManager->getMountedTableActionRecord();
-                                                    }
-                                                    if ($supplierQuote === null && method_exists($relationManager, 'getRecord')) {
-                                                        $supplierQuote = $relationManager->getRecord();
-                                                    }
+                                                    $supplierQuote = $relationManager->getMountedTableActionRecord();
                                                 } catch (\Exception $e) {
                                                     // Can't get supplier quote, continue with defaults
                                                 }
@@ -960,7 +902,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                             'request_item_id' => $existingQuoteItem->request_item_id,
                                                             'description' => $existingQuoteItem->description,
                                                             'quantity' => (string) $existingQuoteItem->quantity,
-                                                            'unit_of_measure_id' => $existingQuoteItem->unit_of_measure_id,
+                                                            'unit_of_measure_id' => $existingQuoteItem->getAttribute('unit_of_measure_id'),
                                                             'unit_price' => (string) (int) (float) $existingQuoteItem->unit_price,
                                                             'tax_code_id' => $existingQuoteItem->tax_code_id,
                                                             'tax_rate' => (string) $existingQuoteItem->tax_rate,
@@ -978,8 +920,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                             'unit_of_measure_id' => $childRequestItem->unit_of_measure_id,
                                                             'unit_price' => '0',
                                                             'tax_code_id' => $taxCode?->id,
-                                                            'tax_rate' => (string) ($taxCode?->rate ?? 0),
-                                                            'is_tax_inclusive' => $taxCode?->is_inclusive_default ?? false,
+                                                            'tax_rate' => (string) ($taxCode->rate ?? 0),
+                                                            'is_tax_inclusive' => $taxCode->is_inclusive_default ?? false,
                                                             'line_subtotal' => '0',
                                                             'line_tax' => '0',
                                                             'line_total' => '0',
@@ -1002,7 +944,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                         if ($requestItemId === null) {
                                             return false;
                                         }
-                                        $requestItem = $request->items()->find($requestItemId);
+                                        $requestItem = $request->items()->find(SafeCast::toInt($requestItemId));
 
                                         return $requestItem !== null
                                             && $requestItem->isMainItem()
@@ -1024,7 +966,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                 // Check if this is a child item and indent it visually
                                 $requestItemId = $state['request_item_id'] ?? null;
                                 if ($requestItemId !== null) {
-                                    $requestItem = $request->items()->find($requestItemId);
+                                    $requestItem = $request->items()->find(SafeCast::toInt($requestItemId));
                                     if ($requestItem !== null && $requestItem->isChildItem()) {
                                         // Indent child items to show they're nested within main item
                                         return '  └─ '.$description;
@@ -1361,28 +1303,28 @@ final class SupplierQuotesRelationManager extends RelationManager
                                         ->where('request_item_id', $childRequestItemId)
                                         ->first();
 
-                                    $unitPrice = isset($childItemData['unit_price']) && $childItemData['unit_price'] !== '' && $childItemData['unit_price'] !== null
+                                    $unitPrice = isset($childItemData['unit_price']) && $childItemData['unit_price'] !== ''
                                         ? (float) $childItemData['unit_price']
                                         : ($childQuoteItem?->unit_price ? (float) $childQuoteItem->unit_price : 0);
-                                    $quantity = isset($childItemData['quantity']) && $childItemData['quantity'] !== '' && $childItemData['quantity'] !== null
+                                    $quantity = isset($childItemData['quantity']) && $childItemData['quantity'] !== ''
                                         ? (float) $childItemData['quantity']
                                         : ($childQuoteItem?->quantity ? (float) $childQuoteItem->quantity : 1);
-                                    $taxRate = isset($childItemData['tax_rate']) && $childItemData['tax_rate'] !== '' && $childItemData['tax_rate'] !== null
+                                    $taxRate = isset($childItemData['tax_rate']) && $childItemData['tax_rate'] !== ''
                                         ? (float) $childItemData['tax_rate']
                                         : ($childQuoteItem?->tax_rate ? (float) $childQuoteItem->tax_rate : 0);
-                                    $lineSubtotal = isset($childItemData['line_subtotal']) && $childItemData['line_subtotal'] !== '' && $childItemData['line_subtotal'] !== null
+                                    $lineSubtotal = isset($childItemData['line_subtotal']) && $childItemData['line_subtotal'] !== ''
                                         ? (float) $childItemData['line_subtotal']
                                         : ($childQuoteItem?->line_subtotal ? (float) $childQuoteItem->line_subtotal : 0);
-                                    $lineTax = isset($childItemData['line_tax']) && $childItemData['line_tax'] !== '' && $childItemData['line_tax'] !== null
+                                    $lineTax = isset($childItemData['line_tax']) && $childItemData['line_tax'] !== ''
                                         ? (float) $childItemData['line_tax']
                                         : ($childQuoteItem?->line_tax ? (float) $childQuoteItem->line_tax : 0);
-                                    $lineTotal = isset($childItemData['line_total']) && $childItemData['line_total'] !== '' && $childItemData['line_total'] !== null
+                                    $lineTotal = isset($childItemData['line_total']) && $childItemData['line_total'] !== ''
                                         ? (float) $childItemData['line_total']
                                         : ($childQuoteItem?->line_total ? (float) $childQuoteItem->line_total : 0);
 
                                     if ($childQuoteItem === null) {
                                         $taxCodeId = $childItemData['tax_code_id'] ?? $requestItem->article?->default_tax_code_id;
-                                        $taxCode = $taxCodeId ? TaxCode::find($taxCodeId) : ($requestItem->article?->defaultTaxCode);
+                                        $taxCode = $taxCodeId ? TaxCode::find(SafeCast::toInt($taxCodeId)) : ($requestItem->article?->defaultTaxCode);
                                         SupplierQuoteItem::create([
                                             'supplier_quote_id' => $record->id,
                                             'request_item_id' => $childRequestItemId,
@@ -1392,8 +1334,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                             'unit_of_measure_id' => $childItemData['unit_of_measure_id'] ?? null,
                                             'unit_price' => (string) $unitPrice,
                                             'tax_code_id' => $taxCodeId,
-                                            'tax_rate' => (string) ($taxRate > 0 ? $taxRate : ($taxCode?->rate ?? 0)),
-                                            'is_tax_inclusive' => $childItemData['is_tax_inclusive'] ?? $taxCode?->is_inclusive_default ?? false,
+                                            'tax_rate' => (string) ($taxRate > 0 ? $taxRate : ($taxCode->rate ?? 0)),
+                                            'is_tax_inclusive' => $childItemData['is_tax_inclusive'] ?? $taxCode->is_inclusive_default ?? false,
                                             'line_subtotal' => (string) $lineSubtotal,
                                             'line_tax' => (string) $lineTax,
                                             'line_total' => (string) $lineTotal,
@@ -1403,7 +1345,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                         $childQuoteItem->update([
                                             'description' => $childItemData['description'] ?? $childQuoteItem->description,
                                             'quantity' => (string) $quantity,
-                                            'unit_of_measure_id' => $childItemData['unit_of_measure_id'] ?? $childQuoteItem->unit_of_measure_id,
+                                            'unit_of_measure_id' => $childItemData['unit_of_measure_id'] ?? $childQuoteItem->getAttribute('unit_of_measure_id'),
                                             'unit_price' => (string) $unitPrice,
                                             'tax_code_id' => $childItemData['tax_code_id'] ?? $childQuoteItem->tax_code_id,
                                             'tax_rate' => (string) $taxRate,
@@ -1499,28 +1441,28 @@ final class SupplierQuotesRelationManager extends RelationManager
                                         ->where('request_item_id', $childRequestItemId)
                                         ->first();
 
-                                    $unitPrice = isset($childItemData['unit_price']) && $childItemData['unit_price'] !== '' && $childItemData['unit_price'] !== null
+                                    $unitPrice = isset($childItemData['unit_price']) && $childItemData['unit_price'] !== ''
                                         ? (float) $childItemData['unit_price']
                                         : ($childQuoteItem?->unit_price ? (float) $childQuoteItem->unit_price : 0);
-                                    $quantity = isset($childItemData['quantity']) && $childItemData['quantity'] !== '' && $childItemData['quantity'] !== null
+                                    $quantity = isset($childItemData['quantity']) && $childItemData['quantity'] !== ''
                                         ? (float) $childItemData['quantity']
                                         : ($childQuoteItem?->quantity ? (float) $childQuoteItem->quantity : 1);
-                                    $taxRate = isset($childItemData['tax_rate']) && $childItemData['tax_rate'] !== '' && $childItemData['tax_rate'] !== null
+                                    $taxRate = isset($childItemData['tax_rate']) && $childItemData['tax_rate'] !== ''
                                         ? (float) $childItemData['tax_rate']
                                         : ($childQuoteItem?->tax_rate ? (float) $childQuoteItem->tax_rate : 0);
-                                    $lineSubtotal = isset($childItemData['line_subtotal']) && $childItemData['line_subtotal'] !== '' && $childItemData['line_subtotal'] !== null
+                                    $lineSubtotal = isset($childItemData['line_subtotal']) && $childItemData['line_subtotal'] !== ''
                                         ? (float) $childItemData['line_subtotal']
                                         : ($childQuoteItem?->line_subtotal ? (float) $childQuoteItem->line_subtotal : 0);
-                                    $lineTax = isset($childItemData['line_tax']) && $childItemData['line_tax'] !== '' && $childItemData['line_tax'] !== null
+                                    $lineTax = isset($childItemData['line_tax']) && $childItemData['line_tax'] !== ''
                                         ? (float) $childItemData['line_tax']
                                         : ($childQuoteItem?->line_tax ? (float) $childQuoteItem->line_tax : 0);
-                                    $lineTotal = isset($childItemData['line_total']) && $childItemData['line_total'] !== '' && $childItemData['line_total'] !== null
+                                    $lineTotal = isset($childItemData['line_total']) && $childItemData['line_total'] !== ''
                                         ? (float) $childItemData['line_total']
                                         : ($childQuoteItem?->line_total ? (float) $childQuoteItem->line_total : 0);
 
                                     if ($childQuoteItem === null) {
                                         $taxCodeId = $childItemData['tax_code_id'] ?? $requestItem->article?->default_tax_code_id;
-                                        $taxCode = $taxCodeId ? TaxCode::find($taxCodeId) : ($requestItem->article?->defaultTaxCode);
+                                        $taxCode = $taxCodeId ? TaxCode::find(SafeCast::toInt($taxCodeId)) : ($requestItem->article?->defaultTaxCode);
                                         SupplierQuoteItem::create([
                                             'supplier_quote_id' => $record->id,
                                             'request_item_id' => $childRequestItemId,
@@ -1530,8 +1472,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                             'unit_of_measure_id' => $childItemData['unit_of_measure_id'] ?? null,
                                             'unit_price' => (string) $unitPrice,
                                             'tax_code_id' => $taxCodeId,
-                                            'tax_rate' => (string) ($taxRate > 0 ? $taxRate : ($taxCode?->rate ?? 0)),
-                                            'is_tax_inclusive' => $childItemData['is_tax_inclusive'] ?? $taxCode?->is_inclusive_default ?? false,
+                                            'tax_rate' => (string) ($taxRate > 0 ? $taxRate : ($taxCode->rate ?? 0)),
+                                            'is_tax_inclusive' => $childItemData['is_tax_inclusive'] ?? $taxCode->is_inclusive_default ?? false,
                                             'line_subtotal' => (string) $lineSubtotal,
                                             'line_tax' => (string) $lineTax,
                                             'line_total' => (string) $lineTotal,
@@ -1541,7 +1483,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                         $childQuoteItem->update([
                                             'description' => $childItemData['description'] ?? $childQuoteItem->description,
                                             'quantity' => (string) $quantity,
-                                            'unit_of_measure_id' => $childItemData['unit_of_measure_id'] ?? $childQuoteItem->unit_of_measure_id,
+                                            'unit_of_measure_id' => $childItemData['unit_of_measure_id'] ?? $childQuoteItem->getAttribute('unit_of_measure_id'),
                                             'unit_price' => (string) $unitPrice,
                                             'tax_code_id' => $childItemData['tax_code_id'] ?? $childQuoteItem->tax_code_id,
                                             'tax_rate' => (string) $taxRate,
@@ -1585,7 +1527,7 @@ final class SupplierQuotesRelationManager extends RelationManager
 
                                 foreach ($items as $item) {
                                     if (isset($item['request_item_id'])) {
-                                        $requestItem = $request->items()->with('children')->find($item['request_item_id']);
+                                        $requestItem = $request->items()->with('children')->find(SafeCast::toInt($item['request_item_id']));
                                         if ($requestItem !== null && $requestItem->isChildItem()) {
                                             continue;
                                         }
@@ -1604,7 +1546,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                         'request_item_id' => $existingQuoteItem->request_item_id,
                                                         'description' => $existingQuoteItem->description,
                                                         'quantity' => (string) $existingQuoteItem->quantity,
-                                                        'unit_of_measure_id' => $existingQuoteItem->unit_of_measure_id,
+                                                        'unit_of_measure_id' => $existingQuoteItem->getAttribute('unit_of_measure_id'),
                                                         'unit_price' => (string) $existingQuoteItem->unit_price,
                                                         'tax_code_id' => $existingQuoteItem->tax_code_id,
                                                         'tax_rate' => (string) $existingQuoteItem->tax_rate,
@@ -1622,8 +1564,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                         'unit_of_measure_id' => $childRequestItem->unit_of_measure_id,
                                                         'unit_price' => '0',
                                                         'tax_code_id' => $taxCode?->id,
-                                                        'tax_rate' => (string) ($taxCode?->rate ?? 0),
-                                                        'is_tax_inclusive' => $taxCode?->is_inclusive_default ?? false,
+                                                        'tax_rate' => (string) ($taxCode->rate ?? 0),
+                                                        'is_tax_inclusive' => $taxCode->is_inclusive_default ?? false,
                                                         'line_subtotal' => '0',
                                                         'line_tax' => '0',
                                                         'line_total' => '0',
@@ -1677,7 +1619,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                         })
                         ->modalSubmitAction(function (Action $action): Action|false {
                             $record = $this->getMountedAction()?->getRecord();
-                            if ($record === null) {
+                            if (! $record instanceof SupplierQuote) {
                                 return false;
                             }
                             // Show Upload button when no document yet, or when request has additional items (must re-upload)
@@ -1839,7 +1781,7 @@ final class SupplierQuotesRelationManager extends RelationManager
 
         if ($supplierId === null) {
             // When editing existing quote, check the record's supplier
-            $record = $this->getMountedTableActionRecord() ?? $this->getRecord();
+            $record = $this->getMountedTableActionRecord();
             if ($record instanceof SupplierQuote && $record->supplier_id !== null) {
                 $supplierId = $record->supplier_id;
             } else {
@@ -1847,10 +1789,9 @@ final class SupplierQuotesRelationManager extends RelationManager
             }
         }
 
-        /** @var Company|null $supplier */
-        $supplier = Company::query()->find($supplierId);
+        $supplier = Company::query()->find(SafeCast::toInt($supplierId));
 
-        return $supplier?->is_taxable ?? true;
+        return $supplier->is_taxable ?? true;
     }
 
     /**
@@ -1862,10 +1803,9 @@ final class SupplierQuotesRelationManager extends RelationManager
             return true; // Default to showing tax fields
         }
 
-        /** @var Company|null $supplier */
         $supplier = Company::query()->find($record->supplier_id);
 
-        return $supplier?->is_taxable ?? true;
+        return $supplier->is_taxable ?? true;
     }
 
     public static function getBadgeColor(Model $ownerRecord, string $pageClass): ?string
