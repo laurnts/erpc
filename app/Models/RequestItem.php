@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $description
  * @property ItemType $item_type
  * @property string $quantity
- * @property Unit $unit
+ * @property Unit|string $unit
  * @property string|null $notes
  * @property int $sort_order
  * @property bool $is_matched
@@ -27,6 +27,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $parent_id
  * @property int|null $article_id
  * @property int|null $supplier_id
+ * @property int|null $unit_of_measure_id
  * @property-read Request $request
  * @property-read RequestItem|null $parent
  * @property-read \Illuminate\Database\Eloquent\Collection<int, RequestItem> $children
