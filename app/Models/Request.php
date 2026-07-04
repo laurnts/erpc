@@ -763,6 +763,54 @@ final class Request extends Model implements HasCustomFields, HasMedia
     }
 
     /**
+     * Whether the goods channel is complete: every goods main item's quantity
+     * is fully covered by shipment quantities (shipment_items linked through
+     * supplier_order_items). Vacuously true when the request has no goods
+     * main items.
+     */
+    public function goodsChannelComplete(): bool
+    {
+        return ! DB::table('request_items')
+            ->leftJoin('supplier_order_items', 'supplier_order_items.request_item_id', '=', 'request_items.id')
+            ->leftJoin('shipment_items', 'shipment_items.supplier_order_item_id', '=', 'supplier_order_items.id')
+            ->where('request_items.request_id', $this->getKey())
+            ->where('request_items.item_type', ItemType::GOODS->value)
+            ->whereNull('request_items.parent_id')
+            ->groupBy('request_items.id', 'request_items.quantity')
+            ->havingRaw('coalesce(sum(shipment_items.quantity_shipped), 0) < request_items.quantity')
+            ->exists();
+    }
+
+    /**
+     * Whether the services channel is complete: every services main item is
+     * covered by at least one acceptance report. Child items follow their
+     * parent's coverage and are never checked individually. Vacuously true
+     * when the request has no services main items.
+     */
+    public function servicesChannelComplete(): bool
+    {
+        return ! $this->items()
+            ->whereNull('parent_id')
+            ->where('item_type', ItemType::SERVICE)
+            ->whereNotExists(function ($query): void {
+                $query->select(DB::raw('1'))
+                    ->from('acceptance_report_items')
+                    ->whereColumn('acceptance_report_items.request_item_id', 'request_items.id');
+            })
+            ->exists();
+    }
+
+    /**
+     * Whether the request is derived as fulfilled: both the goods and
+     * services channels are complete (a channel with no items is vacuously
+     * complete).
+     */
+    public function isFulfilled(): bool
+    {
+        return $this->goodsChannelComplete() && $this->servicesChannelComplete();
+    }
+
+    /**
      * Check if quotation evaluation can be created for this request (any goods item).
      */
     public function canCreateQuotationEvaluation(): bool
