@@ -52,11 +52,23 @@ final class ViewPeople extends ViewRecord
                     TextEntry::make('company.name')
                         ->label('Company')
                         ->color('primary')
-                        ->url(fn (People $record): ?string => $record->company
-                            ? ($record->company->is_buyer
-                                ? BuyerResource::getUrl('view', [$record->company])
-                                : SupplierResource::getUrl('view', [$record->company]))
-                            : null),
+                        ->url(function (People $record): ?string {
+                            $company = $record->company;
+
+                            if ($company === null) {
+                                return null;
+                            }
+
+                            if ($company->is_buyer) {
+                                return BuyerResource::getUrl('view', [$company]);
+                            }
+
+                            if ($company->is_supplier) {
+                                return SupplierResource::getUrl('view', [$company]);
+                            }
+
+                            return null;
+                        }),
                 ]),
                 CustomFields::infolist()->forSchema($schema)->build()->columnSpanFull(),
             ])->columnSpanFull(),

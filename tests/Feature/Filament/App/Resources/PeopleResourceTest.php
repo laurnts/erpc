@@ -25,6 +25,24 @@ it('can render the view page', function (): void {
         ->assertOk();
 });
 
+it('links the company to the matching role view and skips role-less companies', function (): void {
+    $team = $this->user->personalTeam();
+
+    $buyerCompany = App\Models\Company::factory()->buyer()->for($team)->create();
+    $buyerPerson = App\Models\People::factory()->for($team)->create(['company_id' => $buyerCompany->getKey()]);
+
+    livewire(App\Filament\Resources\PeopleResource\Pages\ViewPeople::class, ['record' => $buyerPerson->getKey()])
+        ->assertOk()
+        ->assertSee(App\Filament\Resources\BuyerResource::getUrl('view', [$buyerCompany]));
+
+    $rolelessCompany = App\Models\Company::factory()->for($team)->create(['is_buyer' => false, 'is_supplier' => false]);
+    $rolelessPerson = App\Models\People::factory()->for($team)->create(['company_id' => $rolelessCompany->getKey()]);
+
+    livewire(App\Filament\Resources\PeopleResource\Pages\ViewPeople::class, ['record' => $rolelessPerson->getKey()])
+        ->assertOk()
+        ->assertDontSee(App\Filament\Resources\SupplierResource::getUrl('view', [$rolelessCompany]));
+});
+
 it('can render `:dataset` column', function (string $column): void {
     livewire(App\Filament\Resources\PeopleResource\Pages\ListPeople::class)
         ->assertCanRenderTableColumn($column);

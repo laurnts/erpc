@@ -142,6 +142,7 @@ final class ArticlesRelationManager extends RelationManager
                         $action->getRecordSelect(),
                         ...$this->getPivotFormSchema(),
                     ])
+                    ->databaseTransaction()
                     ->mutateFormDataUsing(function (array $data): array {
                         if (($data['is_preferred'] ?? false) === true && isset($data['recordId'])) {
                             app(SetPreferredSupplier::class)->demoteOthers(
@@ -209,6 +210,7 @@ final class ArticlesRelationManager extends RelationManager
             ->recordActions([
                 ActionGroup::make([
                     EditAction::make()
+                        ->databaseTransaction()
                         ->mutateFormDataUsing(function (array $data, Article $record): array {
                             if (($data['is_preferred'] ?? false) === true) {
                                 app(SetPreferredSupplier::class)->demoteOthers(

@@ -21,6 +21,13 @@ use Filament\Schemas\Components\Utilities\Get;
 final readonly class CustomerRequestForm
 {
     /**
+     * Upload directory for portal request attachments. The FileUpload below
+     * and the AttachUploadedFiles call site must reference the same value —
+     * drift between them silently drops attachments.
+     */
+    public const string ATTACHMENTS_UPLOAD_DIRECTORY = 'requests/portal-attachments';
+
+    /**
      * @return array<int, \Filament\Schemas\Components\Component|\Filament\Forms\Components\Field>
      */
     public static function components(): array
@@ -121,7 +128,7 @@ final readonly class CustomerRequestForm
                             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                         ])
                         ->disk('local')
-                        ->directory('requests/portal-attachments')
+                        ->directory(self::ATTACHMENTS_UPLOAD_DIRECTORY)
                         ->visibility('private')
                         ->multiple()
                         ->maxFiles(10)

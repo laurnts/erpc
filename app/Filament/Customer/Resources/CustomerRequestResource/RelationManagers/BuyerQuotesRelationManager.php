@@ -103,7 +103,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                             return;
                         }
 
-                        app(AttachUploadedFiles::class)->execute($record, $data['buyer_po_files'] ?? [], 'buyer_po', 'buyer-quotes/po-files');
+                        app(AttachUploadedFiles::class)->execute($record, $data['buyer_po_files'] ?? [], 'buyer_po', BuyerQuote::PO_FILES_UPLOAD_DIRECTORY);
 
                         $record->refresh();
 
@@ -153,7 +153,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                         ])
                         ->disk('local')
-                        ->directory('buyer-quotes/po-files')
+                        ->directory(BuyerQuote::PO_FILES_UPLOAD_DIRECTORY)
                         ->visibility('private')
                         ->multiple()
                         ->maxFiles(10)

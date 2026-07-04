@@ -144,6 +144,7 @@ final class SuppliersRelationManager extends RelationManager
                         $action->getRecordSelect(),
                         ...$this->getPivotFormSchema(),
                     ])
+                    ->databaseTransaction()
                     ->mutateFormDataUsing(function (array $data): array {
                         if (($data['is_preferred'] ?? false) === true) {
                             app(SetPreferredSupplier::class)->demoteOthers((int) $this->getOwnerRecord()->getKey());
@@ -155,6 +156,7 @@ final class SuppliersRelationManager extends RelationManager
                     ->label('Create Supplier')
                     ->icon('heroicon-o-building-storefront')
                     ->size(Size::Small)
+                    ->databaseTransaction()
                     ->form([
                         ...CompanyForm::components(excludePeopleField: true),
                         ...$this->getPivotFormSchema(),
@@ -218,6 +220,7 @@ final class SuppliersRelationManager extends RelationManager
             ->recordActions([
                 ActionGroup::make([
                     EditAction::make()
+                        ->databaseTransaction()
                         ->mutateFormDataUsing(function (array $data, Company $record): array {
                             if (($data['is_preferred'] ?? false) === true) {
                                 app(SetPreferredSupplier::class)->demoteOthers(

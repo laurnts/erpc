@@ -78,6 +78,13 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
     use UsesCustomFields;
 
     /**
+     * Upload directory for buyer PO files. FileUpload components and their
+     * AttachUploadedFiles call sites must reference the same value — drift
+     * between them silently drops attachments.
+     */
+    public const string PO_FILES_UPLOAD_DIRECTORY = 'buyer-quotes/po-files';
+
+    /**
      * @var list<string>
      */
     protected $fillable = [
