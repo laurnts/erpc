@@ -38,12 +38,12 @@
                     ],
                     [
                         'title' => 'Company Management',
-                        'description' => 'Maintain detailed company profiles and link them to individual contacts, track opportunities, and manage tasks for seamless business operations.',
+                        'description' => 'Maintain detailed buyer and supplier profiles, link them to individual contacts, and manage tasks for seamless business operations.',
                         'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />'
                     ],
                     [
-                        'title' => 'Sales Opportunities',
-                        'description' => 'Visualize and manage your sales pipeline with custom stages, lifecycle tracking, and detailed outcome analysis to drive your sales process forward.',
+                        'title' => 'Request Pipeline',
+                        'description' => 'Track every deal from request through quotation to order with stage-based workflows, approvals, and detailed outcome analysis.',
                         'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />'
                     ],
                     [
@@ -64,7 +64,7 @@
                     ],
                     [
                         'title' => 'Import & Export',
-                        'description' => 'Easily migrate your data with CSV imports and exports. Transfer contacts, companies, and opportunities without losing any information.',
+                        'description' => 'Easily migrate your data with CSV imports and exports. Transfer contacts, buyers, and suppliers without losing any information.',
                         'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />'
                     ],
                 ];
