@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\SupplierQuote;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -15,8 +16,7 @@ final readonly class SupplierQuoteQuotationDownloadController
     {
         // Check both morph alias and full class name (Spatie stores morph alias when registered)
         $isValidModelType = $media->model_type === SupplierQuote::class
-            || $media->model_type === 'supplier_quote'
-            || $media->model_type === 'App\\Models\\SupplierQuote';
+            || $media->model_type === 'supplier_quote';
 
         if (! $isValidModelType || (int) $media->model_id !== (int) $supplierQuote->id) {
             abort(404);
@@ -28,7 +28,7 @@ final readonly class SupplierQuoteQuotationDownloadController
 
         $user = $request->user();
 
-        if ($user === null || ! $user->belongsToTeam($supplierQuote->team)) {
+        if (! $user instanceof User || ! $user->belongsToTeam($supplierQuote->team)) {
             abort(404);
         }
 

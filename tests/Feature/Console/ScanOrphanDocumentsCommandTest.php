@@ -137,3 +137,27 @@ it('does not treat the nested public disk root under local as orphaned content',
         ->doesntExpectOutputToContain('public/5/image.jpg')
         ->assertExitCode(0);
 });
+
+it('never reports or deletes Jetstream profile photos on the public disk', function () {
+    // Jetstream writes avatars via raw Storage on the public disk with no
+    // backing media row (see config/jetstream.php profile_photo_disk and
+    // App\Models\Concerns\HasProfilePhoto). Without a protected-roots skip,
+    // every avatar looks orphaned and --delete would destroy them.
+    Storage::disk('public')->put('profile-photos/avatar.jpg', 'avatar-bytes');
+
+    $this->artisan('documents:scan-orphans', ['--delete' => true])
+        ->doesntExpectOutputToContain('profile-photos/avatar.jpg')
+        ->assertExitCode(0);
+
+    expect(Storage::disk('public')->exists('profile-photos/avatar.jpg'))->toBeTrue();
+});
+
+it('still reports and deletes a genuine public-disk orphan outside protected roots', function () {
+    Storage::disk('public')->put('stray-uploads/leftover.jpg', 'leftover-bytes');
+
+    $this->artisan('documents:scan-orphans', ['--delete' => true])
+        ->expectsOutputToContain('stray-uploads/leftover.jpg')
+        ->assertExitCode(0);
+
+    expect(Storage::disk('public')->exists('stray-uploads/leftover.jpg'))->toBeFalse();
+});

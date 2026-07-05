@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\GoodsReceiveBatch;
 use App\Models\Request as RequestModel;
+use App\Models\User;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -18,8 +19,7 @@ final readonly class RequestGoodsReceiveDeleteController
         // Check both morph alias and full class name (Spatie stores it as morph alias
         // via Relation::enforceMorphMap, so model_type is 'request', not the FQCN)
         $isValidModelType = $media->model_type === RequestModel::class
-            || $media->model_type === 'request'
-            || $media->model_type === 'App\\Models\\Request';
+            || $media->model_type === 'request';
 
         if (! $isValidModelType || (int) $media->model_id !== (int) $request->id) {
             abort(404);
@@ -32,7 +32,7 @@ final readonly class RequestGoodsReceiveDeleteController
         // Check authorization - user must belong to the request's team
         $user = auth()->user();
 
-        if ($user === null || ! $user->belongsToTeam($request->team)) {
+        if (! $user instanceof User || ! $user->belongsToTeam($request->team)) {
             abort(404);
         }
 

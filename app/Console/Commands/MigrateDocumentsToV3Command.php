@@ -23,6 +23,10 @@ use Throwable;
  * Candidates are found by a live query (never a hardcoded id list), so the
  * command is safe to re-run: once a media row is stamped v3 it drops out of
  * the candidate set on the next run.
+ *
+ * A crash between the stamp commit and the old-directory delete leaves a
+ * stale source directory behind; such leftovers are surfaced by a subsequent
+ * `documents:scan-orphans` run.
  */
 final class MigrateDocumentsToV3Command extends Command
 {

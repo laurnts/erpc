@@ -147,7 +147,7 @@ final class AcceptanceReportResource extends Resource
                         ->dehydrated(false)
                         ->afterStateUpdated(function ($state, $record, $set): void {
                             // Process uploaded files immediately when they're uploaded
-                            if ($record && $record->exists && $state && is_array($state) && ! empty($state)) {
+                            if ($record && $record->exists && is_array($state) && $state !== []) {
                                 app(AttachUploadedFiles::class)->execute($record, $state, 'attachments', AcceptanceReport::ATTACHMENTS_UPLOAD_DIRECTORY);
 
                                 // Refresh the record to load new media

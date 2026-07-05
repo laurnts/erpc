@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\BuyerQuote;
+use App\Models\User;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -18,8 +19,7 @@ final readonly class BuyerQuotePoDeleteController
         // Verify ownership
         // Check both morph alias and full class name (Spatie stores it as morph alias)
         $isValidModelType = $media->model_type === BuyerQuote::class
-            || $media->model_type === 'buyer_quote'
-            || $media->model_type === 'App\\Models\\BuyerQuote';
+            || $media->model_type === 'buyer_quote';
 
         if (! $isValidModelType || (int) $media->model_id !== (int) $buyerQuote->id) {
             abort(404);
@@ -32,7 +32,7 @@ final readonly class BuyerQuotePoDeleteController
         // Check authorization - user must belong to the buyer quote's team
         $user = $request->user();
 
-        if ($user === null || ! $user->belongsToTeam($buyerQuote->team)) {
+        if (! $user instanceof User || ! $user->belongsToTeam($buyerQuote->team)) {
             abort(404);
         }
 

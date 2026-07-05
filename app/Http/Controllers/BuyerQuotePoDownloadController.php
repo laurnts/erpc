@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\BuyerQuote;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -16,8 +17,7 @@ final readonly class BuyerQuotePoDownloadController
         // Verify the media belongs to this buyer quote
         // Check both morph alias and full class name (Spatie stores it as morph alias)
         $isValidModelType = $media->model_type === BuyerQuote::class ||
-                           $media->model_type === 'buyer_quote' ||
-                           $media->model_type === 'App\\Models\\BuyerQuote';
+                           $media->model_type === 'buyer_quote';
 
         if (! $isValidModelType || (int) $media->model_id !== (int) $buyerQuote->id) {
             abort(404);
@@ -31,7 +31,7 @@ final readonly class BuyerQuotePoDownloadController
         // Check authorization - user must belong to the buyer quote's team
         $user = $request->user();
 
-        if ($user === null || ! $user->belongsToTeam($buyerQuote->team)) {
+        if (! $user instanceof User || ! $user->belongsToTeam($buyerQuote->team)) {
             abort(404);
         }
 

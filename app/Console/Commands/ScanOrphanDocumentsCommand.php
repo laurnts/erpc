@@ -28,6 +28,20 @@ final class ScanOrphanDocumentsCommand extends Command
     /** @var list<string> */
     private const SKIPPED_SEGMENTS = ['uploads-tmp', 'livewire-tmp'];
 
+    /**
+     * Disk subtrees that hold non-media files this command must never touch,
+     * regardless of media references. E.g. Jetstream profile photos are
+     * written via raw Storage on the `public` disk (see `profile_photo_disk`
+     * in config/jetstream.php and App\Models\Concerns\HasProfilePhoto) with
+     * no backing media row, so without this skip every avatar would be
+     * reported (and, with --delete, destroyed) as an orphan.
+     *
+     * @var array<string, list<string>> disk name => protected root segments
+     */
+    private const PROTECTED_ROOTS = [
+        'public' => ['profile-photos'],
+    ];
+
     protected $signature = 'documents:scan-orphans {--delete : Delete orphaned files instead of only reporting them}';
 
     protected $description = 'Scan document disks for files no longer referenced by any media row';
@@ -124,8 +138,9 @@ final class ScanOrphanDocumentsCommand extends Command
 
     /**
      * Files that are never orphan candidates, regardless of media references:
-     * transient upload staging directories, and (on the local disk) the
-     * `public/` subtree, which is a real nested directory on disk (the
+     * transient upload staging directories, per-disk protected roots holding
+     * known non-media files (see PROTECTED_ROOTS), and (on the local disk)
+     * the `public/` subtree, which is a real nested directory on disk (the
      * `public` disk's root lives inside the `local` disk's root) already
      * covered by the separate `public` disk scan.
      */
@@ -140,6 +155,15 @@ final class ScanOrphanDocumentsCommand extends Command
         }
 
         foreach (self::SKIPPED_SEGMENTS as $segment) {
+            if ($relativePath === $segment
+                || str_starts_with($relativePath, $segment.'/')
+                || str_contains($relativePath, '/'.$segment.'/')
+            ) {
+                return true;
+            }
+        }
+
+        foreach (self::PROTECTED_ROOTS[$diskName] ?? [] as $segment) {
             if ($relativePath === $segment
                 || str_starts_with($relativePath, $segment.'/')
                 || str_contains($relativePath, '/'.$segment.'/')

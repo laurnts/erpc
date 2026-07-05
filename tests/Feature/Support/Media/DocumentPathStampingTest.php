@@ -7,6 +7,7 @@ use App\Models\Request;
 use App\Models\SupplierQuote;
 use App\Support\Media\DocumentPathGenerator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 function makeUploadFixture(string $directory, string $name): string
 {
@@ -106,6 +107,31 @@ it('returns an empty array when every path is a traversal attempt', function () 
 
     expect($attached)->toBe([])
         ->and($quote->refresh()->getMedia('quotation'))->toHaveCount(0);
+});
+
+it('does not log a v2-fallback warning when every path is rejected', function () {
+    Log::spy();
+
+    $request = Request::factory()->create();
+    $quote = SupplierQuote::factory()->create([
+        'team_id' => $request->team_id,
+        'request_id' => $request->getKey(),
+    ]);
+
+    // Force what would be a fallback-triggering broken anchoring chain, to
+    // prove the warning is skipped specifically because path stamping never
+    // runs for a call where nothing gets attached -- not because this
+    // record happens to resolve cleanly.
+    $quote->setRelation('request', null);
+
+    $attached = (new AttachUploadedFiles)->execute($quote, [
+        '../../.env',
+        'doc-stamp-fixtures/../../../.env',
+    ], 'quotation', 'doc-stamp-fixtures');
+
+    expect($attached)->toBe([]);
+
+    Log::shouldNotHaveReceived('warning');
 });
 
 it('keeps the stamped path stable and query-free after the parent is renumbered', function () {

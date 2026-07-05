@@ -139,6 +139,10 @@ final class AppServiceProvider extends ServiceProvider
     {
         Model::unguard();
         //        Model::shouldBeStrict(! $this->app->isProduction()); // TODO: Uncomment this line to enable strict mode in production
+        // CAUTION: enabling preventLazyLoading (part of shouldBeStrict) would break
+        // App\Support\Media\DocumentPathResolver's never-throw contract, since it
+        // lazy-loads the `request` relation. Add a loadMissing/rescue guard there
+        // before turning this on.
 
         Relation::enforceMorphMap([
             // Core CRM entities

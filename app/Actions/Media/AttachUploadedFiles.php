@@ -23,6 +23,11 @@ final readonly class AttachUploadedFiles
      * in tampered payloads, so each path must resolve inside the upload
      * directory the corresponding FileUpload component writes to.
      *
+     * The path stamps are resolved lazily, on (or before) the first
+     * successfully validated file: resolution may log a v2-fallback warning,
+     * and a call where every path is rejected must not attach anything and
+     * must not log that warning either.
+     *
      * Caller-supplied $customProperties are merged into each media's custom
      * properties, but the path stamps always win: callers can never override
      * path_prefix / path_version.
@@ -42,12 +47,8 @@ final readonly class AttachUploadedFiles
             return [];
         }
 
-        $properties = [
-            ...$customProperties,
-            ...$this->pathStampsFor($record, $collection),
-        ];
-
         $attached = [];
+        $stamps = null;
 
         foreach ($files as $file) {
             if (! is_string($file)) {
@@ -60,8 +61,13 @@ final readonly class AttachUploadedFiles
                 continue;
             }
 
+            $stamps ??= $this->pathStampsFor($record, $collection);
+
             $attached[] = $record->addMedia($realPath)
-                ->withCustomProperties($properties)
+                ->withCustomProperties([
+                    ...$customProperties,
+                    ...$stamps,
+                ])
                 ->toMediaCollection($collection);
         }
 
