@@ -61,7 +61,9 @@ final class UsePanelSession
 
     private static function requestTargetsPanel(Request $request, string $panelPath): bool
     {
-        if (str_starts_with($request->path(), $panelPath)) {
+        $path = $request->path();
+
+        if ($path === $panelPath || str_starts_with($path, $panelPath.'/')) {
             return true;
         }
 
@@ -91,9 +93,9 @@ final class UsePanelSession
             return false;
         }
 
-        $path = parse_url($referer, PHP_URL_PATH) ?? '';
+        $path = parse_url($referer, PHP_URL_PATH);
 
-        return self::pathContainsPanelSegment($path, $panelPath);
+        return is_string($path) && self::pathContainsPanelSegment($path, $panelPath);
     }
 
     private static function livewireSnapshotContainsPanelPath(Request $request, string $panelPath): bool
