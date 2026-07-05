@@ -401,6 +401,11 @@ final class BuyerOrder extends Model implements HasCustomFields
             $buyer->credit_used = max(0, $currentCreditUsed - $orderTotal);
             $buyer->save();
 
+            // When restoreCredit() runs from BuyerOrderObserver::updating() (a direct
+            // status change on a CONFIRMED order), this saveQuietly() is a re-entrant
+            // write of the same instance mid-update; events are suppressed so it cannot
+            // recurse, and it commits within the buyer transaction. cancel()/
+            // progressStatus() instead call restoreCredit() after their own save().
             $this->credit_released = $this->total;
             $this->saveQuietly();
 

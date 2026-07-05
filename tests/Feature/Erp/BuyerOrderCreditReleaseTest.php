@@ -142,3 +142,22 @@ it('restores only the unreleased remainder when cancelling after a partial payme
         ->and((float) $this->buyer->credit_used)->toBe(0.00)
         ->and($order->refresh()->status)->toBe(OrderStatus::CANCELLED);
 });
+
+it('conserves credit when a confirmed order status is changed directly after a partial payment', function (): void {
+    $order = creditReleaseOrder($this);
+    $order->confirm(); // reserves 400 → available 600, credit_used 400
+
+    $invoice = creditReleaseInvoice($this, $order, '150.0000');
+    $order->reconcileReleasedCreditFor($invoice); // releases 150 → available 750, credit_used 250, credit_released 150
+
+    // Direct status change on a CONFIRMED order fires BuyerOrderObserver::updating() → restoreCredit()
+    $order->update(['status' => OrderStatus::APPROVED]);
+
+    $this->buyer->refresh();
+    $order->refresh();
+
+    expect($order->status)->toBe(OrderStatus::APPROVED) // the outer status write must survive the re-entrant saveQuietly
+        ->and((float) $this->buyer->available_credit)->toBe(1000.00) // 750 + remaining 250 restored
+        ->and((float) $this->buyer->credit_used)->toBe(0.00)
+        ->and((float) $order->credit_released)->toBe(400.00);
+});
