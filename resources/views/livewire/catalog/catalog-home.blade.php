@@ -38,7 +38,7 @@
                 @endif
             </div>
         @else
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
                 @foreach ($articles as $article)
                     <div wire:key="article-{{ $article->id }}"
                          class="flex flex-col rounded-xl border border-gray-100 dark:border-gray-900 bg-white dark:bg-gray-950 overflow-hidden hover:shadow-md transition-shadow">
