@@ -33,6 +33,7 @@ use Relaticle\CustomFields\Models\Contracts\HasCustomFields;
  * @property string $subtotal
  * @property string $tax_total
  * @property string $total
+ * @property string $credit_released
  * @property int $payment_terms_days
  * @property string|null $payment_terms_text
  * @property string|null $notes
@@ -80,6 +81,7 @@ final class BuyerOrder extends Model implements HasCustomFields
         'subtotal',
         'tax_total',
         'total',
+        'credit_released',
         'payment_terms_days',
         'payment_terms_text',
         'notes',
@@ -96,6 +98,7 @@ final class BuyerOrder extends Model implements HasCustomFields
         'subtotal' => '0.00',
         'tax_total' => '0.00',
         'total' => '0.00',
+        'credit_released' => '0.00',
         'payment_terms_days' => 30,
     ];
 
@@ -109,6 +112,7 @@ final class BuyerOrder extends Model implements HasCustomFields
             'subtotal' => 'decimal:2',
             'tax_total' => 'decimal:2',
             'total' => 'decimal:2',
+            'credit_released' => 'decimal:2',
             'payment_terms_days' => 'integer',
             'ordered_at' => 'datetime',
             'confirmed_at' => 'datetime',
