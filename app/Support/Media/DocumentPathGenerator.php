@@ -25,7 +25,7 @@ final readonly class DocumentPathGenerator implements PathGenerator
     /**
      * Map of model_type + collection_name to folder name (relative to disk root).
      *
-     * @var array<string, array<string, string>>
+     * @return array<class-string, array<string, string>>
      */
     private static function folderMap(): array
     {
@@ -86,6 +86,30 @@ final readonly class DocumentPathGenerator implements PathGenerator
 
     public const PATH_VERSION_V2 = 2;
 
+    public const PATH_VERSION_V3 = 3;
+
+    /** Custom property holding the fully-resolved v3 path prefix stamped at attach time. */
+    public const PATH_PREFIX_PROPERTY = 'path_prefix';
+
+    /**
+     * Resolve the stamped v3 prefix for the media, or null when the media is not a
+     * complete v3 upload. This never queries the database: it reads custom properties only.
+     */
+    private static function v3Prefix(Media $media): ?string
+    {
+        $version = $media->getCustomProperty(self::PATH_VERSION_PROPERTY);
+        if ($version !== self::PATH_VERSION_V3 && $version !== (string) self::PATH_VERSION_V3) {
+            return null;
+        }
+
+        $prefix = $media->getCustomProperty(self::PATH_PREFIX_PROPERTY);
+        if (! is_string($prefix) || $prefix === '') {
+            return null;
+        }
+
+        return $prefix;
+    }
+
     /**
      * Use dedicated path when: (a) media on 'local' and model was always public (new uploads get local),
      * or (b) media has path_version so we know it was stored with the new structure.
@@ -114,6 +138,10 @@ final readonly class DocumentPathGenerator implements PathGenerator
 
     public function getPath(Media $media): string
     {
+        $v3Prefix = self::v3Prefix($media);
+        if ($v3Prefix !== null) {
+            return $v3Prefix.'/'.$media->getKey().'/';
+        }
         if (! self::useDedicatedPath($media)) {
             return $media->getKey().'/';
         }
@@ -127,6 +155,10 @@ final readonly class DocumentPathGenerator implements PathGenerator
 
     public function getPathForConversions(Media $media): string
     {
+        $v3Prefix = self::v3Prefix($media);
+        if ($v3Prefix !== null) {
+            return $v3Prefix.'/'.$media->getKey().'/conversions/';
+        }
         if (! self::useDedicatedPath($media)) {
             return $media->getKey().'/conversions/';
         }
@@ -140,6 +172,10 @@ final readonly class DocumentPathGenerator implements PathGenerator
 
     public function getPathForResponsiveImages(Media $media): string
     {
+        $v3Prefix = self::v3Prefix($media);
+        if ($v3Prefix !== null) {
+            return $v3Prefix.'/'.$media->getKey().'/responsive-images/';
+        }
         if (! self::useDedicatedPath($media)) {
             return $media->getKey().'/responsive-images/';
         }
