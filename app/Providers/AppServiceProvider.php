@@ -18,6 +18,7 @@ use App\Support\PanelDomain;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Support\Assets\Css;
+use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
@@ -228,6 +229,7 @@ final class AppServiceProvider extends ServiceProvider
         FilamentAsset::register([
             Css::make('qe-disabled-tabs', resource_path('css/qe-disabled-tabs.css')),
             Css::make('equal-height-grid', resource_path('css/equal-height-grid.css')),
+            Js::make('table-checkbox-hit-area', resource_path('js/table-checkbox-hit-area.js')),
         ], 'app');
 
         FilamentView::registerRenderHook(
