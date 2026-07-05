@@ -11,7 +11,7 @@ use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
-final readonly class CustomerPortalContext
+final readonly class CustomerPortalContext implements PortalContext
 {
     private PortalContextCore $core;
 

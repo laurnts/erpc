@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Actions\CustomerPortal\InvitePortalUser;
+use App\Actions\Portal\InvitePortalUser;
 use App\Enums\PortalType;
 use App\Enums\RequestStage;
 use App\Enums\RequestSubmissionMethod;
@@ -247,7 +247,8 @@ describe('Portal Invitation Security', function (): void {
 
         expect(fn () => app(InvitePortalUser::class)->execute(
             team: $this->team,
-            buyer: $this->buyer,
+            company: $this->buyer,
+            portal: PortalType::Customer,
             email: $this->portalUser->email, // already has a User record
             name: 'Portal Contact',
             invitedBy: $this->admin,
@@ -264,7 +265,8 @@ describe('Portal Invitation Security', function (): void {
         try {
             app(InvitePortalUser::class)->execute(
                 team: $this->team,
-                buyer: $this->buyer,
+                company: $this->buyer,
+                portal: PortalType::Customer,
                 email: $this->portalUser->email,
                 name: 'Portal Contact',
                 invitedBy: $this->admin,
@@ -287,7 +289,8 @@ describe('Portal Invitation', function (): void {
 
         $invitation = app(InvitePortalUser::class)->execute(
             team: $this->team,
-            buyer: $this->buyer,
+            company: $this->buyer,
+            portal: PortalType::Customer,
             email: 'new.portal@buyer.test',
             name: 'Portal Contact',
             invitedBy: $this->admin,
@@ -306,7 +309,8 @@ describe('Portal Invitation', function (): void {
 
         expect(fn () => app(InvitePortalUser::class)->execute(
             team: $this->team,
-            buyer: $supplierOnly,
+            company: $supplierOnly,
+            portal: PortalType::Customer,
             email: 'contact@supplier.test',
             name: 'Supplier Contact',
             invitedBy: $this->admin,
@@ -701,7 +705,7 @@ describe('Portal-Typed Membership', function (): void {
         ]);
 
         expect($supplierContact->canAccessPanel(Filament::getPanel('customer')))->toBeFalse()
-            ->and($supplierContact->hasActiveBuyerPortalAccess())->toBeFalse();
+            ->and($supplierContact->hasActiveCustomerPortalAccess())->toBeFalse();
     });
 
     it('denies customer panel access when the membership company is supplier-only', function (): void {
@@ -717,7 +721,7 @@ describe('Portal-Typed Membership', function (): void {
         ]);
 
         expect($contact->canAccessPanel(Filament::getPanel('customer')))->toBeFalse()
-            ->and($contact->hasActiveBuyerPortalAccess())->toBeFalse();
+            ->and($contact->hasActiveCustomerPortalAccess())->toBeFalse();
     });
 
     it('grants customer capability only for the customer-typed membership at a dual-role company', function (): void {
@@ -732,7 +736,7 @@ describe('Portal-Typed Membership', function (): void {
             'is_active' => true,
         ]);
 
-        expect($contact->hasActiveBuyerPortalAccess())->toBeTrue()
+        expect($contact->hasActiveCustomerPortalAccess())->toBeTrue()
             ->and($contact->activeCustomerPortalCompanyIds())->toBe([$dualRole->getKey()]);
     });
 

@@ -92,3 +92,19 @@ test('customer portal page renders: :dataset', function (string $page): void {
 
     livewire($page)->assertOk();
 })->with(portalSmokeResourcePages('Customer'));
+
+test('both portals render branding through the shared portal shell', function (): void {
+    actAsPortalMember($this, PortalType::Customer);
+    $customerLogo = Filament::getPanel('customer')->getBrandLogo();
+
+    expect($customerLogo)->toBeInstanceOf(\Illuminate\View\View::class)
+        ->and($customerLogo->name())->toBe('filament.portal.brand-logo');
+
+    auth('customer')->logout();
+
+    actAsPortalMember($this, PortalType::Supplier);
+    $supplierLogo = Filament::getPanel('supplier')->getBrandLogo();
+
+    expect($supplierLogo)->toBeInstanceOf(\Illuminate\View\View::class)
+        ->and($supplierLogo->name())->toBe('filament.portal.brand-logo');
+});

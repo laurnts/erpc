@@ -1,9 +1,9 @@
 <x-mail::message>
-# Buyer Portal Invitation
+# {{ $portalName }} Portal Invitation
 
-You have been invited to access the buyer portal for **{{ $companyName }}**.
+You have been invited to access the {{ strtolower($portalName) }} portal for **{{ $companyName }}**.
 
-Click the button below to create your account and start submitting goods and services requests on your own.
+{{ $portalPitch }}
 
 <x-mail::button :url="$acceptUrl">
 Accept Invitation

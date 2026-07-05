@@ -33,7 +33,7 @@ final readonly class RequestPolicy
     public function viewAny(User $user): bool
     {
         if ($this->isCustomerPanel()) {
-            return $user->hasActiveBuyerPortalAccess();
+            return $user->hasActiveCustomerPortalAccess();
         }
 
         return $user->hasVerifiedEmail()
@@ -58,7 +58,7 @@ final readonly class RequestPolicy
     public function create(User $user): bool
     {
         if ($this->isCustomerPanel()) {
-            return $user->hasActiveBuyerPortalAccess();
+            return $user->hasActiveCustomerPortalAccess();
         }
 
         if ($this->isAdmin($user)) {

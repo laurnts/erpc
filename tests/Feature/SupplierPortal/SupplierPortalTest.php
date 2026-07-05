@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Actions\SupplierPortal\InviteSupplierPortalUser;
+use App\Actions\Portal\InvitePortalUser;
 use App\Enums\PortalType;
 use App\Filament\Supplier\Pages\AcceptPortalInvitation;
 use App\Filament\Supplier\Pages\SupplierDashboard;
@@ -10,7 +10,7 @@ use App\Filament\Supplier\Resources\SupplierArticleResource;
 use App\Filament\Supplier\Resources\SupplierArticleResource\Pages\EditSupplierArticle;
 use App\Filament\Supplier\Resources\SupplierArticleResource\Pages\ListSupplierArticles;
 use App\Filament\Supplier\Widgets\SupplierStalePricesWidget;
-use App\Mail\SupplierPortalUserInvitationMail;
+use App\Mail\PortalUserInvitationMail;
 use App\Models\Article;
 use App\Models\Company;
 use App\Models\CompanyPortalUser;
@@ -177,9 +177,10 @@ describe('Supplier Portal Invitation', function (): void {
         Filament::setTenant($this->team);
         Filament::setCurrentPanel('app');
 
-        $invitation = app(InviteSupplierPortalUser::class)->execute(
+        $invitation = app(InvitePortalUser::class)->execute(
             team: $this->team,
-            supplier: $this->supplier,
+            company: $this->supplier,
+            portal: PortalType::Supplier,
             email: 'new.portal@supplier.test',
             name: 'Supplier Contact',
             invitedBy: $this->admin,
@@ -190,8 +191,8 @@ describe('Supplier Portal Invitation', function (): void {
             ->and($invitation->portal)->toBe(PortalType::Supplier);
 
         Mail::assertSent(
-            SupplierPortalUserInvitationMail::class,
-            fn (SupplierPortalUserInvitationMail $mail): bool => str_contains($mail->acceptUrl, '/supplier/invitation/'),
+            PortalUserInvitationMail::class,
+            fn (PortalUserInvitationMail $mail): bool => str_contains($mail->acceptUrl, '/supplier/invitation/'),
         );
     });
 
@@ -200,9 +201,10 @@ describe('Supplier Portal Invitation', function (): void {
 
         $buyerOnly = Company::factory()->buyer()->for($this->team)->create();
 
-        expect(fn () => app(InviteSupplierPortalUser::class)->execute(
+        expect(fn () => app(InvitePortalUser::class)->execute(
             team: $this->team,
-            supplier: $buyerOnly,
+            company: $buyerOnly,
+            portal: PortalType::Supplier,
             email: 'contact@buyer.test',
             name: 'Buyer Contact',
             invitedBy: $this->admin,
@@ -214,9 +216,10 @@ describe('Supplier Portal Invitation', function (): void {
     it('rejects invitation when email belongs to an existing user', function (): void {
         Mail::fake();
 
-        expect(fn () => app(InviteSupplierPortalUser::class)->execute(
+        expect(fn () => app(InvitePortalUser::class)->execute(
             team: $this->team,
-            supplier: $this->supplier,
+            company: $this->supplier,
+            portal: PortalType::Supplier,
             email: $this->portalUser->email,
             name: 'Supplier Contact',
             invitedBy: $this->admin,
@@ -225,6 +228,23 @@ describe('Supplier Portal Invitation', function (): void {
         Mail::assertNothingSent();
 
         expect(PortalInvitation::query()->where('email', $this->portalUser->email)->exists())->toBeFalse();
+    });
+
+    it('does not resolve customer-typed invitation tokens on the supplier accept page', function (): void {
+        $buyerOnly = Company::factory()->buyer()->for($this->team)->create();
+
+        $invitation = PortalInvitation::query()->create([
+            'team_id' => $this->team->getKey(),
+            'company_id' => $buyerOnly->getKey(),
+            'email' => 'customer.invite@buyer.test',
+            'name' => 'Customer Invitee',
+            'portal' => PortalType::Customer,
+            'invited_by' => $this->admin->getKey(),
+            'token' => PortalInvitation::generateToken(),
+        ]);
+
+        expect(fn () => livewire(\App\Filament\Supplier\Pages\AcceptPortalInvitation::class, ['token' => $invitation->token]))
+            ->toThrow(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
     });
 
     it('accepts invitation, creating a verified user with a supplier-typed membership', function (): void {

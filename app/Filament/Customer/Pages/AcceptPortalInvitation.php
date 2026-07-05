@@ -5,24 +5,19 @@ declare(strict_types=1);
 namespace App\Filament\Customer\Pages;
 
 use App\Enums\PortalType;
-use App\Models\CompanyPortalUser;
 use App\Models\PortalInvitation;
-use App\Models\User;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Notifications\Notification;
-use Filament\Pages\Concerns\CanUseDatabaseTransactions;
 use Filament\Pages\Page;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 
 final class AcceptPortalInvitation extends Page implements HasForms
 {
-    use CanUseDatabaseTransactions;
     use InteractsWithForms;
 
     protected static string $layout = 'filament-panels::components.layout.simple';
@@ -124,35 +119,11 @@ final class AcceptPortalInvitation extends Page implements HasForms
 
         $data = $this->form->getState();
 
-        $this->wrapInDatabaseTransaction(function () use ($data): void {
-            $user = User::query()->where('email', $this->invitation->email)->first();
-
-            if ($user === null) {
-                $user = User::query()->create([
-                    'name' => $data['name'],
-                    'email' => $this->invitation->email,
-                    'password' => Hash::make($data['password']),
-                    'email_verified_at' => now(),
-                ]);
-            }
-            // If a user with this email already exists (e.g. race condition), portal access
-            // is granted below without modifying their existing credentials.
-
-            CompanyPortalUser::query()->updateOrCreate(
-                [
-                    'company_id' => $this->invitation->company_id,
-                    'user_id' => $user->getKey(),
-                    'portal' => $this->invitation->portal,
-                ],
-                [
-                    'team_id' => $this->invitation->team_id,
-                    'invited_by' => $this->invitation->invited_by,
-                    'is_active' => true,
-                ],
-            );
-
-            $this->invitation->markAccepted();
-        });
+        app(\App\Actions\Portal\AcceptPortalInvitation::class)->execute(
+            $this->invitation,
+            (string) $data['name'],
+            (string) $data['password'],
+        );
 
         Notification::make()
             ->title('Account created successfully')

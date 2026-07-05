@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\BuyerResource\Pages;
 
+use App\Actions\Portal\InvitePortalUser;
+use App\Enums\PortalType;
 use App\Filament\Resources\BuyerResource;
-use App\Actions\CustomerPortal\InvitePortalUser;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -44,7 +45,8 @@ final class ViewBuyer extends ViewRecord
 
                     app(InvitePortalUser::class)->execute(
                         team: $team,
-                        buyer: $record,
+                        company: $record,
+                        portal: PortalType::Customer,
                         email: $data['email'],
                         name: $data['name'],
                         invitedBy: auth()->user(),
@@ -61,13 +63,13 @@ final class ViewBuyer extends ViewRecord
                     ->slideOver()
                     ->mutateFormDataUsing(function (array $data): array {
                         // Store requested_credit_limit for afterSave processing
-                        $this->pendingRequestedLimit = isset($data['requested_credit_limit']) && $data['requested_credit_limit'] !== null 
-                            ? (string) $data['requested_credit_limit'] 
+                        $this->pendingRequestedLimit = isset($data['requested_credit_limit']) && $data['requested_credit_limit'] !== null
+                            ? (string) $data['requested_credit_limit']
                             : null;
-                        
+
                         // Remove it from data so it doesn't get saved directly
                         unset($data['requested_credit_limit']);
-                        
+
                         return $data;
                     })
                     ->after(function (\App\Models\Company $record, array $data): void {
@@ -93,13 +95,14 @@ final class ViewBuyer extends ViewRecord
     {
         /** @var \App\Models\Team $team */
         $team = Filament::getTenant();
-        
+
         if ($team === null) {
             Notification::make()
                 ->title('Error')
                 ->body('Unable to determine team context.')
                 ->danger()
                 ->send();
+
             return;
         }
 

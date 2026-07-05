@@ -17,7 +17,7 @@ final class InitializeCustomerPortalContext
 
     public function handle(Request $request, Closure $next): Response
     {
-        if (auth()->guard('customer')->check() && auth()->guard('customer')->user()?->hasActiveBuyerPortalAccess()) {
+        if (auth()->guard('customer')->check() && auth()->guard('customer')->user()?->hasActiveCustomerPortalAccess()) {
             try {
                 $this->portalContext->companyId();
             } catch (\RuntimeException) {

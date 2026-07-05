@@ -32,7 +32,7 @@ final readonly class SupplierQuotePolicy
      */
     private function ownsAsSupplier(User $user, SupplierQuote $supplierQuote): bool
     {
-        return in_array($supplierQuote->supplier_id, $user->activeSupplierPortalCompanyIds(), true);
+        return $this->userOwnsSupplierCompany($user, $supplierQuote->supplier_id);
     }
 
     public function viewAny(User $user): bool

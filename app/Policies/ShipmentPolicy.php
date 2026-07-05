@@ -38,7 +38,7 @@ final readonly class ShipmentPolicy
     public function viewAny(User $user): bool
     {
         if ($this->isCustomerPanel()) {
-            return $user->hasActiveBuyerPortalAccess();
+            return $user->hasActiveCustomerPortalAccess();
         }
 
         if ($this->isAdmin($user)) {

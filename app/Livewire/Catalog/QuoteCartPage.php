@@ -100,7 +100,7 @@ final class QuoteCartPage extends Component
             return;
         }
 
-        if (! $user->hasActiveBuyerPortalAccess()) {
+        if (! $user->hasActiveCustomerPortalAccess()) {
             $guard->logout();
             $this->addError('email', 'No active customer portal access found for this account.');
 
@@ -159,7 +159,7 @@ final class QuoteCartPage extends Component
             'articles' => $articles,
             'availableIds' => $availableIds,
             'baseCurrency' => $resolver->team()?->getBaseCurrency(),
-            'isSignedIn' => $customerUser instanceof User && $customerUser->hasActiveBuyerPortalAccess(),
+            'isSignedIn' => $customerUser instanceof User && $customerUser->hasActiveCustomerPortalAccess(),
             'customerName' => $customerUser?->name,
         ])->title('Quote Cart — '.config('app.name'));
     }

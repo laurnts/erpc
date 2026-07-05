@@ -6,6 +6,7 @@ namespace App\Policies;
 
 use App\Models\SupplierArticle;
 use App\Models\User;
+use App\Policies\Concerns\ResolvesPanelContext;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
 /**
@@ -17,6 +18,7 @@ use Illuminate\Auth\Access\HandlesAuthorization;
 final readonly class SupplierArticlePolicy
 {
     use HandlesAuthorization;
+    use ResolvesPanelContext;
 
     public function viewAny(User $user): bool
     {
@@ -25,12 +27,12 @@ final readonly class SupplierArticlePolicy
 
     public function view(User $user, SupplierArticle $supplierArticle): bool
     {
-        return $this->ownsRow($user, $supplierArticle);
+        return $this->userOwnsSupplierCompany($user, $supplierArticle->supplier_id);
     }
 
     public function update(User $user, SupplierArticle $supplierArticle): bool
     {
-        return $this->ownsRow($user, $supplierArticle);
+        return $this->userOwnsSupplierCompany($user, $supplierArticle->supplier_id);
     }
 
     public function create(User $user): bool
@@ -66,10 +68,5 @@ final readonly class SupplierArticlePolicy
     public function restoreAny(User $user): bool
     {
         return false;
-    }
-
-    private function ownsRow(User $user, SupplierArticle $supplierArticle): bool
-    {
-        return in_array($supplierArticle->supplier_id, $user->activeSupplierPortalCompanyIds(), true);
     }
 }

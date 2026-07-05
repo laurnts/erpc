@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SupplierResource\Pages;
 
-use App\Actions\SupplierPortal\InviteSupplierPortalUser;
+use App\Actions\Portal\InvitePortalUser;
 use App\Enums\DeliveryType;
+use App\Enums\PortalType;
 use App\Filament\Resources\SupplierResource;
 use App\Filament\Resources\SupplierResource\RelationManagers\ArticlesRelationManager;
 use Filament\Actions\Action;
@@ -54,9 +55,10 @@ final class ViewSupplier extends ViewRecord
                     /** @var \App\Models\User $invitedBy */
                     $invitedBy = auth()->user();
 
-                    app(InviteSupplierPortalUser::class)->execute(
+                    app(InvitePortalUser::class)->execute(
                         team: $team,
-                        supplier: $record,
+                        company: $record,
+                        portal: PortalType::Supplier,
                         email: $data['email'],
                         name: $data['name'],
                         invitedBy: $invitedBy,

@@ -37,4 +37,10 @@ trait ResolvesPanelContext
         return $buyerCompanyId !== null
             && in_array($buyerCompanyId, $user->activeCustomerPortalCompanyIds(), true);
     }
+
+    private function userOwnsSupplierCompany(User $user, ?int $supplierCompanyId): bool
+    {
+        return $supplierCompanyId !== null
+            && in_array($supplierCompanyId, $user->activeSupplierPortalCompanyIds(), true);
+    }
 }

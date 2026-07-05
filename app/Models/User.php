@@ -144,7 +144,7 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
         return $this->hasMany(CompanyPortalUser::class);
     }
 
-    public function hasActiveBuyerPortalAccess(): bool
+    public function hasActiveCustomerPortalAccess(): bool
     {
         return $this->activeCustomerPortalMembershipsQuery()->exists();
     }
@@ -228,7 +228,7 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
 
         return match ($panel->getId()) {
             'app' => $this->belongsToAnyInternalTeam(),
-            'customer' => $this->hasActiveBuyerPortalAccess(),
+            'customer' => $this->hasActiveCustomerPortalAccess(),
             'supplier' => $this->hasActiveSupplierPortalAccess(),
             default => false,
         };

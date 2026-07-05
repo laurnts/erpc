@@ -34,7 +34,7 @@ final readonly class BuyerQuotePolicy
     public function viewAny(User $user): bool
     {
         if ($this->isCustomerPanel()) {
-            return $user->hasActiveBuyerPortalAccess();
+            return $user->hasActiveCustomerPortalAccess();
         }
 
         return $user->hasVerifiedEmail() && $user->currentTeam !== null;
