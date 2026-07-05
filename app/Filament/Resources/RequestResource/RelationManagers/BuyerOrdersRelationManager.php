@@ -270,14 +270,24 @@ final class BuyerOrdersRelationManager extends RelationManager
                 TextColumn::make('status')
                     ->badge()
                     ->sortable(),
-                TextColumn::make('buyerInvoices.status')
+                TextColumn::make('invoice_status')
                     ->label('Invoice')
                     ->badge()
-                    ->placeholder('Not issued'),
-                TextColumn::make('buyerInvoices.due_at')
+                    ->placeholder('Not issued')
+                    ->getStateUsing(fn (BuyerOrder $record): ?InvoiceStatus => $record->buyerInvoices
+                        ->filter(fn (BuyerInvoice $invoice): bool => $invoice->type === InvoiceType::STANDARD
+                            && $invoice->status !== InvoiceStatus::CANCELLED)
+                        ->sortByDesc('id')
+                        ->first()?->status),
+                TextColumn::make('invoice_due')
                     ->label('Due')
                     ->date()
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->getStateUsing(fn (BuyerOrder $record): ?\Illuminate\Support\Carbon => $record->buyerInvoices
+                        ->filter(fn (BuyerInvoice $invoice): bool => $invoice->type === InvoiceType::STANDARD
+                            && $invoice->status !== InvoiceStatus::CANCELLED)
+                        ->sortByDesc('id')
+                        ->first()?->due_at),
                 TextColumn::make('subtotal')
                     ->label('Subtotal')
                     ->formatStateUsing(fn (BuyerOrder $record): string => $record->buyerQuote?->currency?->formatNumber((float) $record->subtotal) ?? number_format((float) $record->subtotal, 2))
