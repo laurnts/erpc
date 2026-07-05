@@ -10,6 +10,8 @@ use App\Enums\RequestStage;
 use App\Filament\Actions\DownloadPdfAction;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Mail\Erp\BuyerOrderToBuyerMail;
+use App\Mail\Erp\InvoiceToBuyerMail;
+use App\Models\BuyerInvoice;
 use App\Models\BuyerOrder;
 use App\Models\BuyerQuote;
 use App\Models\Request;
@@ -503,6 +505,82 @@ final class BuyerOrdersRelationManager extends RelationManager
                                 Notification::make()
                                     ->title('Failed to resend email')
                                     ->body("The email could not be sent to {$buyerEmail}. Error: ".$e->getMessage())
+                                    ->danger()
+                                    ->send();
+                            }
+                        }),
+                    Action::make('issueInvoice')
+                        ->label('Issue Invoice')
+                        ->icon('heroicon-o-document-text')
+                        ->color('primary')
+                        ->visible(fn (?BuyerOrder $record): bool => $record !== null
+                            && $record->status === OrderStatus::CONFIRMED
+                            && ! BuyerInvoice::query()
+                                ->where('buyer_order_id', $record->getKey())
+                                ->where('type', \App\Enums\InvoiceType::STANDARD)
+                                ->whereNot('status', \App\Enums\InvoiceStatus::CANCELLED)
+                                ->exists())
+                        ->requiresConfirmation()
+                        ->modalHeading('Issue invoice to buyer?')
+                        ->modalDescription(function (BuyerOrder $record): string {
+                            $buyerEmail = $record->buyer->email ?? null;
+                            $description = 'This will create an invoice from the order and email it to the buyer.';
+
+                            if (empty($buyerEmail)) {
+                                $description .= "\n\n⚠️ **Warning:** The buyer has no email address configured. The invoice will be created, but no email will be sent.";
+                            } else {
+                                $description .= "\n\n📧 Invoice will be sent to: {$buyerEmail}";
+                            }
+
+                            return $description;
+                        })
+                        ->action(function (BuyerOrder $record): void {
+                            try {
+                                $invoice = BuyerInvoice::issueFromOrder($record);
+                            } catch (\InvalidArgumentException $e) {
+                                Notification::make()
+                                    ->title('Could not issue invoice')
+                                    ->body($e->getMessage())
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            $buyerEmail = $record->buyer->email ?? null;
+
+                            if (empty($buyerEmail)) {
+                                Notification::make()
+                                    ->title('Invoice issued')
+                                    ->body('Invoice has been created, but no email was sent because the buyer has no email address.')
+                                    ->warning()
+                                    ->send();
+
+                                return;
+                            }
+
+                            try {
+                                app(EmailTemplateService::class)->sendWithTeamSettings(
+                                    $record->team,
+                                    new InvoiceToBuyerMail($invoice),
+                                    $buyerEmail,
+                                );
+
+                                Notification::make()
+                                    ->title('Invoice issued')
+                                    ->body("Invoice has been issued and sent to {$buyerEmail}.")
+                                    ->success()
+                                    ->send();
+                            } catch (\Exception $e) {
+                                Log::error('Failed to send buyer invoice email', [
+                                    'invoice_id' => $invoice->id,
+                                    'buyer_email' => $buyerEmail,
+                                    'error' => $e->getMessage(),
+                                ]);
+
+                                Notification::make()
+                                    ->title('Invoice issued (email failed)')
+                                    ->body("Invoice was created, but the email to {$buyerEmail} could not be sent. Error: ".$e->getMessage())
                                     ->danger()
                                     ->send();
                             }
