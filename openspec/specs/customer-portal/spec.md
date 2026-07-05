@@ -24,19 +24,24 @@ The system SHALL provide a dedicated Filament panel for buyer (customer) self-se
 ---
 
 ### Requirement: Customer Portal User Access
-The system SHALL link authenticated users to buyer companies via portal access records, scoped to a trading team and typed per portal, so that customer-portal capability requires an explicit customer-portal membership and cannot be derived from company role flags alone.
+The system SHALL link authenticated users to buyer companies via portal access records, scoped to a trading team and typed per portal, so that customer-portal capability requires an explicit customer-portal membership and cannot be derived from company role flags alone. Invitation issuance and acceptance run through the shared portal invitation flow (one invite action, one invitation mail, one acceptance transaction), parameterized by portal type.
 
 #### Scenario: Admin invites portal user
 - **WHEN** an admin invites a contact email from a buyer company record
 - **THEN** an invitation email is sent with a signed acceptance URL
 - **AND** the invitation is scoped to that buyer company and team
 - **AND** the invitation records `portal = customer`
+- **AND** the invitation is refused with a validation error if the company does not have `is_buyer = true`
 
 #### Scenario: Accept portal invitation
 - **WHEN** the invitee accepts the invitation and sets a password
 - **THEN** a `User` account is created or linked
 - **AND** a `company_portal_users` record is created with `is_active = true` and `portal` copied from the invitation
 - **AND** the user can log in to the customer panel
+
+#### Scenario: Invitation tokens resolve only within their own portal
+- **WHEN** a `portal = supplier` invitation token is opened on the customer panel's acceptance URL
+- **THEN** the page responds 404 and the invitation cannot be accepted there
 
 #### Scenario: Deactivate portal access
 - **WHEN** an admin deactivates a user's portal access for a buyer company
@@ -148,7 +153,7 @@ The system SHALL surface portal-submitted requests in the internal admin dashboa
 ---
 
 ### Requirement: Customer Portal Branding
-The system SHALL apply the trading team's branding to the customer portal when configured.
+The system SHALL apply the trading team's branding to the customer portal when configured, rendered through the shared portal shell so both portals present branding identically.
 
 #### Scenario: Team logo on portal
 - **WHEN** a team has a custom logo configured in team settings
@@ -158,6 +163,11 @@ The system SHALL apply the trading team's branding to the customer portal when c
 #### Scenario: Team favicon on portal
 - **WHEN** a team has a custom favicon configured
 - **THEN** the customer portal uses that favicon
+
+#### Scenario: Branding is rendered by the shared portal shell
+- **WHEN** the customer panel renders its brand name, logo, or favicon
+- **THEN** the values are resolved by the shared portal shell from the active portal context's company and team
+- **AND** the logo view is the portal-shared Blade view, not a panel-specific copy
 
 ### Requirement: Buyer Self-Registration with Approval
 The system SHALL allow visitors to apply for customer portal access via a public registration form, and SHALL require internal approval before the applicant can sign in or submit anything. Applications SHALL NOT create User, Company, or portal-access records until approved.
