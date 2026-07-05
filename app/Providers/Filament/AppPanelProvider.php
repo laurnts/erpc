@@ -9,7 +9,7 @@ use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\CreateTeam;
 use App\Filament\Pages\EditProfile;
 use App\Filament\Pages\EditTeam;
-use App\Filament\Resources\BuyerResource;
+use App\Filament\Resources\RequestResource;
 use App\Http\Middleware\ApplyTenantScopes;
 use App\Http\Middleware\AuthenticatePanelUser;
 use App\Listeners\SwitchTeam;
@@ -76,7 +76,7 @@ final class AppPanelProvider extends PanelProvider
             ->default()
             ->id('app')
             ->domain(PanelDomain::appHost())
-            ->homeUrl(fn (): string => BuyerResource::getUrl())
+            ->homeUrl(fn (): string => RequestResource::getUrl())
             ->brandName('Relaticle')
             ->login(Login::class)
             ->authGuard('web')
@@ -96,7 +96,6 @@ final class AppPanelProvider extends PanelProvider
 
                 return asset('favicon.svg');
             })
-            ->viteTheme('resources/css/app.css')
             ->colors([
                 'primary' => [
                     50 => 'oklch(0.969 0.016 293.756)',

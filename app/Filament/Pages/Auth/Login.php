@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages\Auth;
 
-use App\Filament\Resources\BuyerResource;
+use App\Filament\Resources\RequestResource;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Support\Enums\Size;
@@ -18,7 +18,7 @@ final class Login extends \Filament\Auth\Pages\Login
 
             if ($user?->canAccessPanel(Filament::getPanel('app'))) {
                 if ($user->currentTeam !== null) {
-                    $this->redirect(BuyerResource::getUrl('index', ['tenant' => $user->currentTeam]));
+                    $this->redirect(RequestResource::getUrl('index', ['tenant' => $user->currentTeam]));
 
                     return;
                 }
