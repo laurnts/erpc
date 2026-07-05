@@ -831,6 +831,10 @@ final class Request extends Model implements HasCustomFields, HasMedia
     public function goodsChannelComplete(): bool
     {
         return ! DB::table('request_items')
+            // Explicit grouped select: exists() otherwise compiles `select *`,
+            // which Postgres rejects for the ungrouped joined columns (42803).
+            // The sqlite test driver tolerates it, so tests alone can't catch this.
+            ->select('request_items.id')
             ->leftJoin('supplier_order_items', 'supplier_order_items.request_item_id', '=', 'request_items.id')
             ->leftJoin('supplier_orders', 'supplier_orders.id', '=', 'supplier_order_items.supplier_order_id')
             ->leftJoin('shipment_items', 'shipment_items.supplier_order_item_id', '=', 'supplier_order_items.id')
