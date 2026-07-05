@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Actions\Media\AttachUploadedFiles;
 use App\Models\GoodsReceiveBatch;
 use App\Models\PaymentDocumentApproval;
 use App\Models\ProfitAndLoss;
@@ -12,8 +13,9 @@ use App\Models\Request;
 use App\Models\SupplierOrder;
 use App\Models\SupplierQuote;
 use App\Models\User;
-use App\Support\Media\DocumentPathGenerator;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Throwable;
@@ -21,6 +23,8 @@ use Throwable;
 final class SeedRequestDocumentsCommand extends Command
 {
     private const DEFAULT_USER_NAME = 'Jun Sin';
+
+    private const STAGING_DIRECTORY = 'uploads-tmp/seed-documents';
 
     private const GATES = ['goods-receive', 'completion-report', 'documents', 'quotation'];
 
@@ -215,22 +219,25 @@ final class SeedRequestDocumentsCommand extends Command
      */
     private function seedMedia(HasMedia $model, string $collection, string $name, array $customProperties): Media
     {
-        $path = tempnam(sys_get_temp_dir(), 'seed-doc');
-        if ($path === false) {
-            throw new \RuntimeException('Unable to create temporary placeholder file.');
-        }
-        $pdfPath = $path.'.pdf';
-        rename($path, $pdfPath);
-        file_put_contents($pdfPath, $this->placeholderPdfContents($name));
+        $fileName = 'placeholder-'.str_replace('_', '-', $collection).'.pdf';
+        $relativePath = self::STAGING_DIRECTORY.'/'.Str::uuid().'/'.$fileName;
+        Storage::disk('local')->put($relativePath, $this->placeholderPdfContents($name));
 
-        return $model->addMedia($pdfPath)
-            ->usingName($name)
-            ->usingFileName('placeholder-'.str_replace('_', '-', $collection).'.pdf')
-            ->withCustomProperties([
-                DocumentPathGenerator::PATH_VERSION_PROPERTY => DocumentPathGenerator::PATH_VERSION_V2,
-                ...$customProperties,
-            ])
-            ->toMediaCollection($collection);
+        $attached = app(AttachUploadedFiles::class)->execute(
+            $model,
+            [$relativePath],
+            $collection,
+            self::STAGING_DIRECTORY,
+            $customProperties,
+        );
+
+        $media = $attached[0] ?? null;
+        if (! $media instanceof Media) {
+            throw new \RuntimeException('Failed to attach placeholder document.');
+        }
+        $media->update(['name' => $name]);
+
+        return $media;
     }
 
     private function approveMedia(Media $media, int $teamId, User $user): void

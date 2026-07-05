@@ -7,6 +7,7 @@ namespace App\Actions\Media;
 use App\Support\Media\DocumentPathGenerator;
 use App\Support\Media\DocumentPathResolver;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -41,7 +42,8 @@ final readonly class AttachUploadedFiles
             return [];
         }
 
-        $baseDir = realpath(storage_path('app/'.trim($directory, '/')));
+        $root = rtrim(Storage::disk('local')->path(''), DIRECTORY_SEPARATOR);
+        $baseDir = realpath($root.DIRECTORY_SEPARATOR.trim($directory, '/'));
 
         if ($baseDir === false) {
             return [];
@@ -55,7 +57,7 @@ final readonly class AttachUploadedFiles
                 continue;
             }
 
-            $realPath = realpath(storage_path('app/'.ltrim($file, '/')));
+            $realPath = realpath($root.DIRECTORY_SEPARATOR.ltrim($file, '/'));
 
             if ($realPath === false || ! str_starts_with($realPath, $baseDir.DIRECTORY_SEPARATOR)) {
                 continue;
