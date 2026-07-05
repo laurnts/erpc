@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\RequestResource\RelationManagers;
 
+use App\Actions\Erp\SendSupplierOrderToSupplier;
 use App\Enums\BuyerQuoteStatus;
 use App\Enums\OrderStatus;
 use App\Enums\RequestStage;
+use App\Enums\SupplierOrderSendOutcome;
 use App\Enums\SupplierQuoteStatus;
 use App\Filament\Actions\ApproveSupplierOrderAction;
 use App\Filament\Actions\DownloadPdfAction;
@@ -994,6 +996,60 @@ final class SupplierOrdersRelationManager extends RelationManager
                         ->where('request_id', $this->getOwnerRecord()->getKey())
                         ->where('status', BuyerQuoteStatus::ACCEPTED)
                         ->exists()),
+                Action::make('sendAllToSuppliers')
+                    ->label('Send Purchase Orders to Suppliers')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('primary')
+                    ->size(Size::Small)
+                    ->authorize(fn (): bool => $this->sendableSupplierOrders()->contains(
+                        fn (SupplierOrder $order): bool => auth()->user()?->can('send', $order) === true,
+                    ))
+                    ->visible(fn (): bool => $this->sendableSupplierOrders()->isNotEmpty())
+                    ->requiresConfirmation()
+                    ->modalHeading('Send all approved purchase orders?')
+                    ->modalDescription(function (): string {
+                        $orders = $this->sendableSupplierOrders();
+                        $withoutEmail = $orders->filter(fn (SupplierOrder $order): bool => empty($order->supplier->email))->count();
+
+                        $description = "This will mark {$orders->count()} approved purchase order(s) as sent and email each one to its supplier.";
+
+                        if ($withoutEmail > 0) {
+                            $description .= "\n\n⚠️ **Warning:** {$withoutEmail} order(s) have a supplier without an email address. They will be marked as sent, but no email will be sent for them.";
+                        }
+
+                        return $description;
+                    })
+                    ->action(function (): void {
+                        $orders = $this->sendableSupplierOrders()
+                            ->filter(fn (SupplierOrder $order): bool => auth()->user()?->can('send', $order) === true);
+
+                        $sender = app(SendSupplierOrderToSupplier::class);
+                        $sent = 0;
+                        $markedWithoutEmail = 0;
+                        $failed = 0;
+
+                        foreach ($orders as $order) {
+                            match ($sender->execute($order)) {
+                                SupplierOrderSendOutcome::Sent => $sent++,
+                                SupplierOrderSendOutcome::MarkedWithoutEmail => $markedWithoutEmail++,
+                                SupplierOrderSendOutcome::EmailFailed => $failed++,
+                            };
+                        }
+
+                        $body = "{$sent} purchase order(s) emailed to suppliers.";
+                        if ($markedWithoutEmail > 0) {
+                            $body .= " {$markedWithoutEmail} marked as sent without email (no supplier address).";
+                        }
+                        if ($failed > 0) {
+                            $body .= " {$failed} marked as sent but the email failed to send.";
+                        }
+
+                        Notification::make()
+                            ->title('Purchase orders sent')
+                            ->body($body)
+                            ->color($failed > 0 ? 'warning' : 'success')
+                            ->send();
+                    }),
             ])
             ->recordActions([
                 ActionGroup::make([
@@ -1024,7 +1080,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                         ->label('PDF')
                         ->visible(fn (?SupplierOrder $record): bool => $record !== null && $record->status === OrderStatus::APPROVED),
                     Action::make('send')
-                        ->label('Send Purchase Order to Supplier')
+                        ->label('Send Purchase Order')
                         ->icon('heroicon-o-paper-airplane')
                         ->color('primary')
                         ->authorize(fn (?SupplierOrder $record): bool => $record !== null && auth()->user()?->can('send', $record) === true)
@@ -1045,52 +1101,28 @@ final class SupplierOrdersRelationManager extends RelationManager
                             return $description;
                         })
                         ->action(function (SupplierOrder $record): void {
-                            // Mark as sent first
-                            $record->markAsSent();
-
-                            // Send email to supplier
                             $supplierEmail = $record->supplier->email ?? null;
                             $supplierName = $record->supplier->name ?? 'Supplier';
 
-                            if (empty($supplierEmail)) {
-                                Notification::make()
-                                    ->title('Order marked as sent')
-                                    ->body("Order has been marked as sent, but no email was sent because the supplier ({$supplierName}) does not have an email address configured.")
-                                    ->warning()
-                                    ->send();
+                            $outcome = app(SendSupplierOrderToSupplier::class)->execute($record);
 
-                                return;
-                            }
-
-                            try {
-                                $emailService = app(EmailTemplateService::class);
-                                $settings = $record->team->getErpSettings();
-                                $emailService->sendWithTeamSettings(
-                                    $record->team,
-                                    new PurchaseOrderToSupplierMail($record),
-                                    $supplierEmail,
-                                    $settings->email_template_supplier_order
-                                );
-
-                                Notification::make()
+                            match ($outcome) {
+                                SupplierOrderSendOutcome::Sent => Notification::make()
                                     ->title('Order sent')
                                     ->body("Purchase order has been sent successfully to {$supplierEmail}.")
                                     ->success()
-                                    ->send();
-                            } catch (\Exception $e) {
-                                Log::error('Failed to send purchase order email', [
-                                    'order_id' => $record->id,
-                                    'supplier_email' => $supplierEmail,
-                                    'error' => $e->getMessage(),
-                                    'trace' => $e->getTraceAsString(),
-                                ]);
-
-                                Notification::make()
+                                    ->send(),
+                                SupplierOrderSendOutcome::MarkedWithoutEmail => Notification::make()
+                                    ->title('Order marked as sent')
+                                    ->body("Order has been marked as sent, but no email was sent because the supplier ({$supplierName}) does not have an email address configured.")
+                                    ->warning()
+                                    ->send(),
+                                SupplierOrderSendOutcome::EmailFailed => Notification::make()
                                     ->title('Failed to send email')
-                                    ->body("Order has been marked as sent, but the email could not be sent to {$supplierEmail}. Error: ".$e->getMessage())
+                                    ->body("Order has been marked as sent, but the email could not be sent to {$supplierEmail}.")
                                     ->danger()
-                                    ->send();
-                            }
+                                    ->send(),
+                            };
                         }),
                     Action::make('resend')
                         ->label('Resend')
@@ -1277,6 +1309,23 @@ final class SupplierOrdersRelationManager extends RelationManager
             ->exists();
 
         return $hasConfirmed ? 'success' : null;
+    }
+
+    /**
+     * Approved supplier orders for this request that are ready to be sent to
+     * their suppliers (not yet sent, not cancelled).
+     *
+     * @return \Illuminate\Support\Collection<int, SupplierOrder>
+     */
+    private function sendableSupplierOrders(): \Illuminate\Support\Collection
+    {
+        /** @var Request $request */
+        $request = $this->getOwnerRecord();
+
+        return $request->supplierOrders()
+            ->where('status', OrderStatus::APPROVED)
+            ->with('supplier')
+            ->get();
     }
 
     /**

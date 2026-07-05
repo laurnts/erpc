@@ -137,6 +137,51 @@ describe('send action', function (): void {
     ]);
 });
 
+describe('bulk send action', function (): void {
+    it('is visible when at least one approved order exists', function (): void {
+        supplierOrderInStatus($this, OrderStatus::APPROVED);
+
+        mountSupplierOrdersRelationManager($this)
+            ->assertOk()
+            ->assertActionVisible(TestAction::make('sendAllToSuppliers')->table());
+    });
+
+    it('is hidden when no approved orders exist', function (): void {
+        supplierOrderInStatus($this, OrderStatus::CONFIRMED);
+        supplierOrderInStatus($this, OrderStatus::SENT, ['ordered_at' => now()]);
+
+        mountSupplierOrdersRelationManager($this)
+            ->assertOk()
+            ->assertActionHidden(TestAction::make('sendAllToSuppliers')->table());
+    });
+
+    it('sends every approved order and leaves other statuses untouched', function (): void {
+        Mail::fake();
+        $secondSupplier = Company::factory()->supplier()->for($this->team)->create([
+            'email' => 'second@example.com',
+        ]);
+
+        $approvedA = supplierOrderInStatus($this, OrderStatus::APPROVED);
+        $approvedB = SupplierOrder::factory()
+            ->for($this->team)
+            ->recycle($this->request)
+            ->recycle($this->currency)
+            ->withStatus(OrderStatus::APPROVED)
+            ->create(['supplier_id' => $secondSupplier->getKey()]);
+        $draft = supplierOrderInStatus($this, OrderStatus::DRAFT);
+
+        mountSupplierOrdersRelationManager($this)
+            ->callAction(TestAction::make('sendAllToSuppliers')->table())
+            ->assertNotified();
+
+        expect($approvedA->refresh()->status)->toBe(OrderStatus::SENT)
+            ->and($approvedB->refresh()->status)->toBe(OrderStatus::SENT)
+            ->and($draft->refresh()->status)->toBe(OrderStatus::DRAFT);
+
+        Mail::assertSent(PurchaseOrderToSupplierMail::class, 2);
+    });
+});
+
 describe('resend action', function (): void {
     it('resends the purchase order email without changing the order status', function (): void {
         Mail::fake();
