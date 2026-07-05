@@ -42,7 +42,7 @@
                 @foreach ($articles as $article)
                     <div wire:key="article-{{ $article->id }}"
                          class="flex flex-col rounded-xl border border-gray-100 dark:border-gray-900 bg-white dark:bg-gray-950 overflow-hidden hover:shadow-md transition-shadow">
-                        <div class="block aspect-square bg-gray-50 dark:bg-gray-900">
+                        <div class="relative block aspect-square bg-gray-50 dark:bg-gray-900">
                             @if ($article->getFirstMediaUrl('product_images', 'thumb') !== '')
                                 <img src="{{ $article->getFirstMediaUrl('product_images', 'thumb') }}"
                                      alt="{{ $article->name }}"
@@ -53,15 +53,16 @@
                                     <x-heroicon-o-photo class="h-16 w-16"/>
                                 </div>
                             @endif
+
+                            <div class="absolute top-2 right-2 drop-shadow-sm">
+                                @include('livewire.catalog.partials.availability-badge')
+                            </div>
                         </div>
 
                         <div class="flex flex-1 flex-col gap-2 p-4">
-                            <div class="flex items-start justify-between gap-2">
-                                <span class="font-medium text-black dark:text-white line-clamp-2">
-                                    {{ $article->name }}
-                                </span>
-                                @include('livewire.catalog.partials.availability-badge')
-                            </div>
+                            <span class="block w-full font-medium text-black dark:text-white line-clamp-2">
+                                {{ $article->name }}
+                            </span>
 
                             @if ($article->tags->isNotEmpty())
                                 <div class="flex flex-wrap gap-1">
