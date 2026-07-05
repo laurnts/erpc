@@ -14,14 +14,14 @@ use Illuminate\Console\Command;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Throwable;
 
-final class ApproveAcceptanceReportCommand extends Command
+final class ApproveCreditLimitAcceptanceCommand extends Command
 {
-    protected $signature = 'acceptance-report:approve
+    protected $signature = 'credit-limit-acceptance:approve
                             {source : The source identifier (e.g. "PNL 0014/EL-PNL/III/2026", "PO PO-2026-0007-B", or "0014/EL-PNL/III/2026")}
                             {approver : The name of the approver (e.g., Sabrina)}
                             {--team= : Team ID or name (required)}';
 
-    protected $description = 'Approve Acceptance Report document(s) by source (QE/PNL/PO) for testing — creates PaymentDocumentApproval and sets related record to Approved';
+    protected $description = 'Approve Credit Limit Acceptance document(s) by source (QE/PNL/PO) for testing — creates PaymentDocumentApproval and sets related record to Approved';
 
     public function handle(): int
     {
@@ -56,7 +56,7 @@ final class ApproveAcceptanceReportCommand extends Command
             $model = $this->resolveModel($number, $team->id);
             if ($model === null) {
                 $this->error("No QE, PNL, or PO found for source: {$source} (team: {$team->name})");
-                $this->line('Use the exact Source from Approval > Acceptance Reports (e.g. "PNL 0014/EL-PNL/III/2026" or "PO PO-2026-0007-B").');
+                $this->line('Use the exact Source from Approval > Credit Limit Acceptances (e.g. "PNL 0014/EL-PNL/III/2026" or "PO PO-2026-0007-B").');
 
                 return self::FAILURE;
             }
@@ -74,13 +74,13 @@ final class ApproveAcceptanceReportCommand extends Command
                     'media_id' => $media->id,
                     'user_id' => $approver->id,
                     'approved_at' => now(),
-                    'notes' => 'Approved via acceptance-report:approve (test)',
+                    'notes' => 'Approved via credit-limit-acceptance:approve (test)',
                 ]);
                 $model->approveViaDocumentAcceptance($approver);
                 $this->info("Approved document: {$media->file_name} (media id: {$media->id})");
             }
 
-            $this->info('Acceptance Report document(s) approved successfully.');
+            $this->info('Credit Limit Acceptance document(s) approved successfully.');
 
             return self::SUCCESS;
         } catch (Throwable $e) {

@@ -23,17 +23,17 @@ ERPC is designed for trading businesses that source products from multiple suppl
   - **Information Flow widget** - Step-by-step guide shown at the **bottom of the Request View page** (footer widget). Content is **per-tab**: when a tab is selected, the widget shows that step’s flow as a **bulleted list**. Steps 1–8: (1) Requested Items, (2) Supplier Quotes, (3) Buyer Quotes, (4) Purchases, (5) Goods Receive, (6) Invoices, (7) Inbound Shipments, (8) Completion Report. Implemented in `App\Filament\Widgets\RequestInformationFlowWidget` and view `resources/views/filament/widgets/request-information-flow-widget.blade.php`; registered via `ViewRequest::getFooterWidgets()`.
 - **Supplier Quoting** - Collect and compare quotes from multiple suppliers
 - **Quotation Evaluation** - Generate internal QE documents with item comparison, supplier info, and approval workflow
-  - **Document upload** - Upload supporting documents on the QE view page (action group: Edit, Download PDF, Upload Document). Documents appear in a Documents section and in the **Acceptance Report** for key account approval; once approved there, the QE status is set to Approved.
+  - **Document upload** - Upload supporting documents on the QE view page (action group: Edit, Download PDF, Upload Document). Documents appear in a Documents section and in **Credit Limit Acceptances** for key account approval; once approved there, the QE status is set to Approved.
 - **Buyer Quoting** - Generate consolidated quotes with margin analysis
   - **Payment terms and prepayment** - When the buyer has credit status, payment terms (installments) are validated so the total equals 100%. If **Prepayment type** is **Percentage** and a prepayment value is set, validation requires prepayment % + sum(payment term %) = 100%; if **Fixed Amount** or no prepayment, only the payment term percentages must sum to 100%. Validation runs on create and edit in `BuyerQuotesRelationManager` (`validatePaymentTermsTotal`). On edit, the Prepayment field is filled from `prepayment_percent` when type is Percentage (e.g. after copying from a single supplier quote on create), otherwise from `prepayment_amount`.
   - **Service items: +Tax sync** - For quotes with detail (child) items, the main item's **+ Tax** checkbox syncs to all child items: checking or unchecking the main item updates each child's + Tax and recalculates child line totals (`line_subtotal`, `line_tax`, `line_total`) so the child Line Total reflects tax when + Tax is checked. Implemented via main item `is_tax_inclusive` `afterStateUpdated`/`afterStateHydrated` and `syncChildItemLineTotals()` in `BuyerQuotesRelationManager`.
   - **Buyer PO Upload** - Upload and view buyer purchase order files via action button (available when quote status is Accepted)
   - **Expired quote handling** - When a buyer quote’s valid-until date has passed: (1) View Quote modal shows a clear “This quote has expired” alert; (2) a daily job (`CheckExpiredQuotesJob`, 08:30) finds quotes that expired the previous day and sends an email to the buyer and to each key account assigned to that buyer; key accounts also receive an in-app notification. Each quote is notified only once (tracked via `notification_metadata`).
 - **Profit & Loss** - Generate PNL documents with items by supplier, cost/sell/margin analysis, and approval workflow
-  - **Document upload** - Upload supporting documents on the PNL view page (action group: Edit, Download PDF, Upload Document). Documents appear in a Documents section and in the **Acceptance Report** for key account approval; once approved there, the PNL status is set to Approved.
+  - **Document upload** - Upload supporting documents on the PNL view page (action group: Edit, Download PDF, Upload Document). Documents appear in a Documents section and in **Credit Limit Acceptances** for key account approval; once approved there, the PNL status is set to Approved.
 - **Order Processing** - Manage buyer and supplier purchase orders
   - **Supplier Order Approval** - Dual-approval workflow requiring minimum 2 approvals from senior roles (Dept Head of Sales, Deputy Director, Director) before supplier orders can be sent
-  - **Document upload** - Upload supporting documents from the Supplier Order Approval list (row action: Upload Document) or from the order view page (action group: Edit, Download PDF, Upload Document). Documents appear in a Documents section on the view page and in the **Acceptance Report**; when a key account approves a document there, the supplier order status is set to Approved.
+  - **Document upload** - Upload supporting documents from the Supplier Order Approval list (row action: Upload Document) or from the order view page (action group: Edit, Download PDF, Upload Document). Documents appear in a Documents section on the view page and in **Credit Limit Acceptances**; when a key account approves a document there, the supplier order status is set to Approved.
 - **Invoicing** - Handle buyer and supplier invoices with payment tracking
 - **Shipment Tracking** - Monitor delivery status and logistics with Delivery Order (DO) PDF generation for inbound shipments
   - **PIC Contact** - On Create Shipment (Additional Info section): select a Person In Charge from the buyer’s People/Contacts, or add a new person via the + button (reuses the full Create Person form: name, phone, email, Companies). New persons are attached to the buyer and shown in the PIC list. Shipment stores `pic_contact_id`. The Delivery Order PDF (`resources/views/pdf/shipment-delivery-order.blade.php`) displays PIC name and phone under the delivery address; `PdfGenerationService::generateShipmentDeliveryOrderPdf()` eager-loads `picContact`.
@@ -41,12 +41,12 @@ ERPC is designed for trading businesses that source products from multiple suppl
 ### Document storage (uploads)
 - Uploaded documents (supplier quotes, buyer quotes, supplier orders, goods receive, completion reports, quotation evaluation, profit and loss) are stored in **dedicated folders per feature** under `storage/app/` (local disk).
 - Path structure: `storage/app/{folder}/{media_id}/uploaded_document_files/` where `{folder}` is one of: `supplierquote`, `buyerquote`, `supplierorder`, `goodreceive`, `completionreports`, `attachments`, `quotationevaluation`, `profitandloss`. Each file has a unique **media id** (from the `media` table).
-- **QE, PNL, and Supplier Order documents** - Each of these models has a `documents` media collection (Spatie Media Library). Documents uploaded on the QE/PNL/Supplier Order view pages (or from the Supplier Order Approval list row action) are attached to the record and listed in the **Acceptance Report** for approval.
+- **QE, PNL, and Supplier Order documents** - Each of these models has a `documents` media collection (Spatie Media Library). Documents uploaded on the QE/PNL/Supplier Order view pages (or from the Supplier Order Approval list row action) are attached to the record and listed in **Credit Limit Acceptances** for approval.
 - Implemented via **DocumentPathGenerator** (`app/Support/Media/DocumentPathGenerator.php`), registered in `config/media-library.php` for the relevant models. Morph map aliases (e.g. `supplier_quote`, `quotation_evaluation`, `profit_and_loss`) are registered in `AppServiceProvider` so polymorphic media resolve correctly.
 - **Backward compatible**: existing media on the `public` disk or without the `path_version` custom property keep the legacy path `{id}/`. New uploads use the dedicated path; supplier and buyer quote uploads set `path_version` so they use the new structure.
 
-### Acceptance Report
-- **Approval > Acceptance Report** lists documents that require approval:
+### Credit Limit Acceptances
+- **Approval > Credit Limit Acceptances** lists documents that require approval:
   - **Payment documents** - Request completion reports marked as payment documents (approved by Central Purchasing **Finance** approvers).
   - **QE / PNL / Supplier Order documents** - Documents uploaded on QE, PNL, or Supplier Order view/list; approved by **Key Account** (Central Purchasing Key Account role).
 - Table columns: Document Name, Source (e.g. `QE 008-DS/QE/II/2026`, `PNL …`, `PO PO-2026-0011`, or Payment Document), Request Number, Buyer, Payment Terms, Uploaded At, Status, Approved By, Approved At. Rows are not clickable; open document via row actions (View Document, Approve).
@@ -74,7 +74,7 @@ ERPC is designed for trading businesses that source products from multiple suppl
   - **Administrator** - Full access to all features
   - **Editor** - Read, create, and update permissions
   - **Central Purchasing** - Read, create, and update permissions with hierarchical sub-roles:
-    - Key Account (prepares QE/PNL documents; approves QE/PNL/Supplier Order uploaded documents via Acceptance Report)
+    - Key Account (prepares QE/PNL documents; approves QE/PNL/Supplier Order uploaded documents via Credit Limit Acceptances)
     - Dept. Head of Sales (approval workflow for QE, PNL, and Supplier Orders)
     - Deputy Director (approval workflow for QE, PNL, and Supplier Orders)
     - Director (final approval for QE, PNL, and Supplier Orders)
@@ -154,7 +154,7 @@ app/
 │   ├── Exports/        # Exporters (e.g., BuyerExporter), Jobs/ExportCompletion (refresh before notification)
 │   ├── Imports/        # Importers for master data (e.g., BuyerImporter)
 │   ├── Pages/         # Custom Filament pages (e.g., EmailSettings)
-│   ├── Resources/     # Filament resources (e.g., CreditLimitAcceptanceReportResource for Acceptance Report)
+│   ├── Resources/     # Filament resources (e.g., CreditLimitAcceptanceResource for Credit Limit Acceptances)
 │   └── Widgets/       # Filament widgets (e.g., RequestInformationFlowWidget for Request View)
 ├── Jobs/              # Background jobs (e.g. Erp/CheckExpiredQuotesJob, CheckExpiringQuotesJob)
 ├── Mail/              # Laravel Mailables

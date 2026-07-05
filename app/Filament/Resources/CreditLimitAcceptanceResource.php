@@ -5,19 +5,16 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Enums\CentralPurchasingRole;
-use App\Filament\Resources\CreditLimitAcceptanceReportResource\Pages\ListAcceptanceReports;
-use App\Filament\Resources\ProfitAndLossResource;
-use App\Filament\Resources\QuotationEvaluationResource;
-use App\Filament\Resources\RequestResource;
+use App\Filament\Resources\CreditLimitAcceptanceResource\Pages\ListCreditLimitAcceptances;
 use App\Filament\Resources\SupplierOrderApprovals\SupplierOrderApprovalResource;
 use App\Models\PaymentDocumentApproval;
 use App\Models\ProfitAndLoss;
 use App\Models\QuotationEvaluation;
 use App\Models\Request;
 use App\Models\SupplierOrder;
-use Filament\Facades\Filament;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
+use Filament\Facades\Filament;
 use Filament\Resources\Resource;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -26,7 +23,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
-final class CreditLimitAcceptanceReportResource extends Resource
+final class CreditLimitAcceptanceResource extends Resource
 {
     protected static ?string $model = Media::class;
 
@@ -38,11 +35,11 @@ final class CreditLimitAcceptanceReportResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Approval';
 
-    protected static ?string $navigationLabel = 'Acceptance Report';
+    protected static ?string $navigationLabel = 'Credit Limit Acceptances';
 
-    protected static ?string $pluralModelLabel = 'Acceptance Reports';
+    protected static ?string $pluralModelLabel = 'Credit Limit Acceptances';
 
-    protected static ?string $modelLabel = 'Acceptance Report';
+    protected static ?string $modelLabel = 'Credit Limit Acceptance';
 
     public static function table(Table $table): Table
     {
@@ -56,6 +53,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                         $hasApproval = PaymentDocumentApproval::where('media_id', $record->id)
                             ->where('team_id', Filament::getTenant()?->id)
                             ->exists();
+
                         return $hasApproval ? 'Approved' : 'Pending';
                     })
                     ->badge()
@@ -70,14 +68,15 @@ final class CreditLimitAcceptanceReportResource extends Resource
                     ->getStateUsing(function (Media $record): string {
                         $model = $record->model;
                         if ($model instanceof QuotationEvaluation) {
-                            return 'QE ' . $model->qe_number;
+                            return 'QE '.$model->qe_number;
                         }
                         if ($model instanceof ProfitAndLoss) {
-                            return 'PNL ' . $model->pnl_number;
+                            return 'PNL '.$model->pnl_number;
                         }
                         if ($model instanceof SupplierOrder) {
-                            return 'PO ' . $model->po_number;
+                            return 'PO '.$model->po_number;
                         }
+
                         return 'Payment Document';
                     })
                     ->url(function (Media $record): ?string {
@@ -91,6 +90,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                         if ($model instanceof SupplierOrder) {
                             return SupplierOrderApprovalResource::getUrl('view', ['record' => $model]);
                         }
+
                         return null;
                     })
                     ->badge()
@@ -98,6 +98,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                         if ($record->collection_name !== 'documents') {
                             return 'gray';
                         }
+
                         return match ($record->model_type) {
                             'quotation_evaluation' => 'info',
                             'profit_and_loss' => 'warning',
@@ -117,6 +118,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                         if ($model instanceof QuotationEvaluation || $model instanceof ProfitAndLoss || $model instanceof SupplierOrder) {
                             return $model->request?->request_number;
                         }
+
                         return null;
                     })
                     ->url(function (Media $record): ?string {
@@ -133,6 +135,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                         if ($model instanceof SupplierOrder) {
                             return SupplierOrderApprovalResource::getUrl('view', ['record' => $model]);
                         }
+
                         return null;
                     })
                     ->searchable()
@@ -147,6 +150,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                         if ($model instanceof QuotationEvaluation || $model instanceof ProfitAndLoss || $model instanceof SupplierOrder) {
                             return $model->request?->buyer?->name;
                         }
+
                         return null;
                     })
                     ->searchable()
@@ -164,8 +168,10 @@ final class CreditLimitAcceptanceReportResource extends Resource
                             if (count($parts) === 2) {
                                 return "{$parts[0]} days - {$parts[1]}%";
                             }
+
                             return $paymentTerms;
                         }
+
                         return '—';
                     })
                     ->sortable(false),
@@ -180,6 +186,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                             ->where('team_id', Filament::getTenant()?->id)
                             ->with('user')
                             ->first();
+
                         return $approval?->user?->name;
                     })
                     ->searchable()
@@ -190,6 +197,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                         $approval = PaymentDocumentApproval::where('media_id', $record->id)
                             ->where('team_id', Filament::getTenant()?->id)
                             ->first();
+
                         return $approval?->approved_at?->format('Y-m-d H:i:s');
                     })
                     ->dateTime()
@@ -203,6 +211,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                             return $query;
                         }
                         $buyerId = $data['value'];
+
                         return $query->where(function (Builder $q) use ($buyerId): void {
                             $q->whereHasMorph('model', Request::class, fn (Builder $m): Builder => $m->where('buyer_id', $buyerId))
                                 ->orWhereHasMorph('model', [QuotationEvaluation::class, ProfitAndLoss::class, SupplierOrder::class], fn (Builder $m): Builder => $m->whereHas('request', fn (Builder $r): Builder => $r->where('buyer_id', $buyerId)));
@@ -211,7 +220,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                     ->options(function (): array {
                         /** @var \App\Models\Team|null $team */
                         $team = Filament::getTenant();
-                        
+
                         if ($team === null) {
                             return [];
                         }
@@ -237,7 +246,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                             $approvedMediaIds = PaymentDocumentApproval::where('team_id', $teamId)
                                 ->pluck('media_id')
                                 ->toArray();
-                            
+
                             if ($data['value'] === 'pending') {
                                 return $query->whereNotIn('id', $approvedMediaIds);
                             } elseif ($data['value'] === 'approved') {
@@ -260,7 +269,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
                         ->label('Approve')
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
-                        ->visible(fn (Media $record): bool => static::canApprove($record))
+                        ->visible(fn (Media $record): bool => self::canApprove($record))
                         ->requiresConfirmation()
                         ->form([
                             \Filament\Forms\Components\Textarea::make('notes')
@@ -302,7 +311,7 @@ final class CreditLimitAcceptanceReportResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListAcceptanceReports::route('/'),
+            'index' => ListCreditLimitAcceptances::route('/'),
         ];
     }
 

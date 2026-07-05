@@ -11,9 +11,10 @@ it('registers every approval command under the noun:approve pattern', function (
         ->toContain('goods-receive:approve')
         ->toContain('quotation-evaluation:approve')
         ->toContain('profit-and-loss:approve')
-        ->toContain('acceptance-report:approve')
+        ->toContain('credit-limit-acceptance:approve')
         ->toContain('member-invite:approve')
         ->not->toContain('qe-or-pnl:approve')
         ->not->toContain('approve:qe-or-pnl')
-        ->not->toContain('approve:acceptance-report');
+        ->not->toContain('acceptance-report:approve')
+        ->not->toContain('approve:credit-limit-acceptance');
 });

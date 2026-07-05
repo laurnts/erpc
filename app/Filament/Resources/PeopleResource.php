@@ -35,7 +35,7 @@ final class PeopleResource extends Resource
 {
     protected static ?string $model = People::class;
 
-    protected static ?string $modelLabel = 'person';
+    protected static ?string $modelLabel = 'Person';
 
     protected static ?string $recordTitleAttribute = 'name';
 

@@ -424,7 +424,7 @@ final class SupplierOrder extends Model implements HasMedia
     }
 
     /**
-     * Mark this supplier order as approved via document acceptance (key account approved the document in Acceptance Report).
+     * Mark this supplier order as approved via document acceptance (key account approved the document in Credit Limit Acceptances).
      */
     public function approveViaDocumentAcceptance(User $user): void
     {

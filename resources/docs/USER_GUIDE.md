@@ -118,7 +118,7 @@ The app is a **tenant-based** Central Purchasing panel. After login you choose a
 
 Approval sections are for **review and sign-off** by authorised users (e.g. Finance approvers). Access may be role-based.
 
-### 4.1 Credit Limit
+### 4.1 Credit Limit Requests
 
 **Purpose:** Review and approve **buyer credit limit** change requests (increase/decrease).
 
@@ -129,7 +129,7 @@ Approval sections are for **review and sign-off** by authorised users (e.g. Fina
 
 **Typical use:** Finance reviews requested credit limit changes and approves or rejects them.
 
-### 4.2 Acceptance Report
+### 4.2 Credit Limit Acceptances
 
 **Purpose:** Accept/reject **credit limit acceptance reports** (documents confirming acceptance of credit terms or similar).
 
@@ -234,7 +234,7 @@ Standalone finance views for **transactions and documents** (often linked to req
 
 **Typical use:** See all POs, confirmations, and link back to the request.
 
-### 5.5 Transactions
+### 5.5 Credit Limits
 
 **Purpose:** **Buyer credit limit transactions** (e.g. usage, adjustments, history).
 
@@ -385,9 +385,9 @@ Depending on the tenant and role, the dashboard may show widgets such as:
 3. **Items:** In the request view, add **Items** (article, quantity, etc.).
 4. **Supplier Quotes:** Add **Supplier Quotes**; compare and select.
 5. **Buyer Quote:** Prepare **Buyer Quote** from the request; send to buyer (email if configured).
-6. **Approvals:** Use **Approval** menus (Quotation Evaluation, Profit & Loss, Supplier Orders) as per your process.
+6. **Approvals:** Use **Approval** menus (Quotation Evaluations, Profit & Loss, Supplier Orders) as per your process.
 7. **Buyer confirmation:** When the buyer confirms, create **Buyer Order** from the request.
 8. **Supplier Order:** Create **Supplier Order(s)** from the request; submit for **Supplier Order Approval** if required.
 9. **Goods Receive:** Record **Goods Receive** and, if used, complete **Goods Receive** approval.
 10. **Shipments / Completion:** Update **Shipments** and **Completion Reports**; move request to **Completed** when done.
-11. **Credit:** For buyers, use **Credit Limit** and **Acceptance Report** under Approval, and **Transactions** under Finance to manage and monitor credit.
+11. **Credit:** For buyers, use **Credit Limit Requests** and **Credit Limit Acceptances** under Approval, and **Credit Limits** under Finance to manage and monitor credit.

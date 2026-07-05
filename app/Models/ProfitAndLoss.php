@@ -453,7 +453,7 @@ final class ProfitAndLoss extends Model implements HasMedia
     }
 
     /**
-     * Mark this PNL as approved via document acceptance (key account approved the document in Acceptance Report).
+     * Mark this PNL as approved via document acceptance (key account approved the document in Credit Limit Acceptances).
      */
     public function approveViaDocumentAcceptance(User $user): void
     {

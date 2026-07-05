@@ -21,7 +21,7 @@ It unifies what trading firms typically run in separate tools:
 | CRM in one system | CRM + trading workflow in one platform |
 | Spreadsheets for margin / PNL | Built-in PNL with approval workflow |
 | Email chains for QE & PO sign-off | Structured QE, PNL, and dual-approval supplier orders |
-| Shared drives for documents | Generate PDF → re-upload for official records + Acceptance Report |
+| Shared drives for documents | Generate PDF → re-upload for official records + Credit Limit Acceptances |
 | Manual quote / invoice follow-up | Scheduled reminders (quotes, supplier responses, overdue invoices) |
 | SAP too complex for daily CP work | **Bridge to SAP** — clean operational data, approvals, and documents first |
 
@@ -144,7 +144,7 @@ flowchart TB
     QE[Quotation Evaluation QE]
     PNL[Profit & Loss PNL]
     SO[Supplier Order]
-    AR[Acceptance Report]
+    AR[Credit Limit Acceptances]
     FIN[Finance Approvers]
 
     QE -->|Document upload| AR
@@ -191,7 +191,7 @@ flowchart LR
 | 9 | Billing | Buyer & supplier invoices, payment tracking |
 | 10 | Close | Completion report + finance approval |
 
-**Approval end-to-end:** QE · PNL · supplier PO (dual) · Acceptance Report (documents) · payment/completion (finance) — all on the same Request thread.
+**Approval end-to-end:** QE · PNL · supplier PO (dual) · Credit Limit Acceptances (documents) · payment/completion (finance) — all on the same Request thread.
 
 ### Information Flow Widget
 
@@ -218,7 +218,7 @@ On the Request View page, a footer widget shows **step-by-step guidance for the 
 ### For Central Purchasing
 
 - Prepare QE and PNL from live request data — not re-keying from spreadsheets
-- Upload supporting documents once; route through **Acceptance Report**
+- Upload supporting documents once; route through **Credit Limit Acceptances**
 - Key Account role owns document acceptance for QE, PNL, and supplier order paperwork
 - Supplier quote **auto-tender** when request moves to awaiting supplier response (multi-vendor per item)
 
@@ -255,13 +255,13 @@ The **Request View** is the daily workspace. Eight tabs mirror how CP actually w
 
 > *"I own the buyer relationship and need to sign off on what goes out."*
 
-Key Accounts approve QE, PNL, and supplier order documents via **Acceptance Report**. Buyer quote expiry notifications keep accounts proactive. **PIC contacts** on shipments flow to Delivery Order PDFs.
+Key Accounts approve QE, PNL, and supplier order documents via **Credit Limit Acceptances**. Buyer quote expiry notifications keep accounts proactive. **PIC contacts** on shipments flow to Delivery Order PDFs.
 
 ### Finance Controller
 
 > *"Credit limits and payment documents need a clear trail."*
 
-**Credit limit requests** use dual finance approval before limits change. **Payment documents** (completion reports) are approved separately in Acceptance Report. Invoice and payment tracking sit on the same request thread.
+**Credit limit requests** use dual finance approval before limits change. **Payment documents** (completion reports) are approved separately in Credit Limit Acceptances. Invoice and payment tracking sit on the same request thread.
 
 ### Sales / Commercial
 
@@ -360,7 +360,7 @@ Projects group related requests for **large or multi-phase deals**:
 - Auto-numbered QE document; links request + selected supplier quotes
 - Supplier comparison table (price, lead time, PKP flag, payment terms)
 - Approval personnel on document (Key Account, Dept Head, Deputy, Director)
-- Status: need approval → approved (via Acceptance Report or workflow)
+- Status: need approval → approved (via Credit Limit Acceptances or workflow)
 - PDF export; document upload
 - List under **Approval → Quotation Evaluations**; bulk export
 
@@ -387,7 +387,7 @@ Projects group related requests for **large or multi-phase deals**:
 - Line items grouped by supplier
 - Cost · sell · margin analysis
 - Same senior approval pattern as QE
-- Document upload, PDF export, Acceptance Report approval
+- Document upload, PDF export, Credit Limit Acceptances approval
 
 ### 5.8 Orders & Buyer Orders (UI tab: “Invoices”)
 
@@ -409,7 +409,7 @@ Projects group related requests for **large or multi-phase deals**:
 - PDF + email to supplier **only after** dual approval (`PurchaseOrderToSupplierMail`)
 - PDF approval block: Key Account (checked by) + 2 approvers + supplier signature line
 - Tax-aware line totals when supplier `is_taxable`
-- Document upload → **Acceptance Report** (Key Account)
+- Document upload → **Credit Limit Acceptances** (Key Account)
 - Dedicated **Approval → Supplier Orders** list for approvers
 
 ### 5.9 Goods Receive, Shipments & Completion
@@ -433,7 +433,7 @@ Projects group related requests for **large or multi-phase deals**:
 
 - Upload completion documents to request media collection
 - Mark as **payment document** with payment-term key (`due_days-percentage`)
-- Payment documents approved in **Acceptance Report** by **Finance** role
+- Payment documents approved in **Credit Limit Acceptances** by **Finance** role
 - Request View shows payment-term paid/not-paid matrix (invoices + approved payment docs)
 
 **Service acceptance reports** (`AcceptanceReport` model + `AcceptanceReportsRelationManager`)
@@ -450,7 +450,7 @@ Projects group related requests for **large or multi-phase deals**:
 | Buyer payments (`BuyerPayment`) | — | Model + observer (auto numbering) |
 | Supplier invoices (`SupplierInvoice`) | — | Model + policies |
 | Supplier payments (`SupplierPayment`) | — | Model + observer |
-| Credit limit transactions | **Finance → Transactions** (`BuyerCreditLimitOverviewResource`) | Per-buyer limit, used, available, pending requests |
+| Credit limit transactions | **Finance → Credit Limits** (`BuyerCreditLimitOverviewResource`) | Per-buyer limit, used, available, pending requests |
 
 **Practical invoicing today:** Buyer order tab (“Invoices”) + completion/payment documents + dashboard **Awaiting Payment** / **Monthly Revenue** widgets.
 
@@ -487,31 +487,31 @@ Official documents follow a **generate → sign → re-upload** pattern:
 
 | Document | Generate | Re-upload for records |
 |----------|----------|----------------------|
-| Quotation Evaluation | PDF download | Upload signed copy → Acceptance Report |
-| Profit & Loss | PDF download | Upload signed copy → Acceptance Report |
+| Quotation Evaluation | PDF download | Upload signed copy → Credit Limit Acceptances |
+| Profit & Loss | PDF download | Upload signed copy → Credit Limit Acceptances |
 | Supplier PO | PDF + email to supplier | Upload signed/ stamped copy |
 | Delivery Order | PDF from shipment | Stored with shipment record |
 | Buyer PO | — | Upload when buyer quote **Accepted** |
-| Completion / payment | — | Upload → finance approval in Acceptance Report |
+| Completion / payment | — | Upload → finance approval in Credit Limit Acceptances |
 
 Dedicated storage per document type (Spatie Media Library); legacy paths remain backward compatible.
 
-### 5.13 Acceptance Report & Approval Menus
+### 5.13 Credit Limit Acceptances & Approval Menus
 
 Two different “acceptance” concepts:
 
 | Menu | Model / source | Approver | Purpose |
 |------|----------------|----------|---------|
-| **Approval → Acceptance Report** | Media on QE, PNL, Supplier PO, payment docs | Key Account (QE/PNL/PO) · Finance (payment docs) | Document sign-off; sets entity **Approved** |
+| **Approval → Credit Limit Acceptances** | Media on QE, PNL, Supplier PO, payment docs | Key Account (QE/PNL/PO) · Finance (payment docs) | Document sign-off; sets entity **Approved** |
 | **Approval → Goods Receive** | `GoodsReceiveBatch` uploads | Per approval policy | GR document approval |
 | **Approval → Quotation Evaluations** | `QuotationEvaluation` | Senior CP roles + document flow | QE list, export, view |
 | **Approval → Profit & Loss** | `ProfitAndLoss` | Senior CP roles + document flow | PNL list, export, view |
 | **Approval → Supplier Orders** | `SupplierOrder` (confirmed) | Dept Head / Deputy / Director (×2) | Dual PO approval before send |
-| **Approval → Credit Limit** | `BuyerCreditLimitRequest` | Finance (×2) | Credit limit increase |
+| **Approval → Credit Limit Requests** | `BuyerCreditLimitRequest` | Finance (×2) | Credit limit increase |
 
-**Acceptance Report columns:** status, source (QE/PNL/PO number), request number, buyer, payment terms, uploaded/approved timestamps. Row actions: View Document, Approve.
+**Credit Limit Acceptances columns:** status, source (QE/PNL/PO number), request number, buyer, payment terms, uploaded/approved timestamps. Row actions: View Document, Approve.
 
-**QE / PNL senior workflow:** On status → Need Approval, email sent to eligible approvers (`QuotationEvaluationApprovalRequestMail`, `ProfitAndLossApprovalRequestMail`). Final document approval via Acceptance Report sets status **Approved**.
+**QE / PNL senior workflow:** On status → Need Approval, email sent to eligible approvers (`QuotationEvaluationApprovalRequestMail`, `ProfitAndLossApprovalRequestMail`). Final document approval via Credit Limit Acceptances sets status **Approved**.
 
 ### 5.14 Master Data
 
@@ -551,7 +551,7 @@ Two different “acceptance” concepts:
 - **Dual finance approval** (2 approvers) before active limit updates
 - Email to finance approvers on new request (`CreditLimitIncreaseRequestMail`)
 - Available credit reduced on confirmed buyer orders; restored on cancellation
-- **Finance → Transactions** overview per buyer (`BuyerCreditLimitOverviewResource`)
+- **Finance → Credit Limits** overview per buyer (`BuyerCreditLimitOverviewResource`)
 - Documented flow: `docs/credit-limit-request-flow.md`
 
 ### 5.17 Reminders & Alerts
@@ -682,9 +682,9 @@ Export uses `ExportCompletion` job for reliable download links when queued.
 | **Quotation Evaluation** | CP prepares; Senior acknowledges; KA approves doc | After supplier quotes, before buyer quote | Internal compare vendors before committing sell price | Create QE from request; PDF; upload signed copy |
 | **Profit & Loss** | CP prepares; Senior + KA | After buyer accepts, before PO | Confirm margin before spending | Generate PNL from request; approve document |
 | **Supplier Orders** (approval) | Senior (×2 different) | PO confirmed, before send | Prevent unauthorized large purchases | Open **Approval → Supplier Orders**; approve twice; then send PO |
-| **Acceptance Report** | KA (QE/PNL/PO docs); Fin (payment docs) | After document upload | Official sign-off audit trail | Open pending row → View Document → Approve |
+| **Credit Limit Acceptances** | KA (QE/PNL/PO docs); Fin (payment docs) | After document upload | Official sign-off audit trail | Open pending row → View Document → Approve |
 | **Goods Receive** | Approver per policy | After GR upload | Verify receipt paperwork before shipping | Review GR batch → approve |
-| **Credit Limit** | Fin (×2) | Buyer needs higher limit | Control AR exposure | Review request → approve; limit updates automatically |
+| **Credit Limit Requests** | Fin (×2) | Buyer needs higher limit | Control AR exposure | Review request → approve; limit updates automatically |
 
 ### 6.3 Master data (setup & maintenance)
 
@@ -704,7 +704,7 @@ Export uses `ExportCompletion` job for reliable download links when queued.
 | **Supplier Quotes** (list) | CP | Anytime | Monitor vendor responses | Track pending/expired quotes |
 | **Buyer Orders** (list) | CP, Fin | After order confirmed | Order register | View status, export |
 | **Supplier Orders** (list) | CP | After PO approved/sent | PO register | Track sent/delivered POs |
-| **Transactions** (credit) | Fin, KA | Ongoing | Monitor buyer credit usage | View limit, used, available per buyer |
+| **Credit Limits** | Fin, KA | Ongoing | Monitor buyer credit usage | View limit, used, available per buyer |
 
 ### 6.5 Workspace & CRM (relationships)
 
@@ -793,7 +793,7 @@ flowchart LR
 | **Cost model** | Licenses, implementation partners, ongoing BASIS/consulting | Application hosting + lean implementation |
 | **Trading workflow** | Built from SD/MM/FI + custom workflows | Native Request-centric flow + auto tender |
 | **QE / PNL as documents** | Usually custom forms / third-party or spreadsheets | First-class entities with PDF + approval |
-| **CP approval matrix** | Workflow in SAP Business Workflow / BTP — project-specific | Built-in: QE, PNL, dual PO, Acceptance Report |
+| **CP approval matrix** | Workflow in SAP Business Workflow / BTP — project-specific | Built-in: QE, PNL, dual PO, Credit Limit Acceptances |
 | **Margin analysis** | Often report-based or external | On-request PNL before order placement |
 | **CRM** | SAP Sales Cloud / separate CRM license | Included: people, opportunities, tasks, notes |
 | **Customization** | ABAP, Fiori, consulting-heavy | Laravel/Filament, faster iteration |
@@ -814,7 +814,7 @@ flowchart LR
 - **Request as single operational hub** — not spreading a deal across SAP transaction codes
 - **Trading-native approvals** — QE, PNL, supplier PO dual approval without a workflow project
 - **Quote-to-margin path** — supplier quotes → QE → buyer quote → PNL in one UI
-- **Document generate + re-upload** — Acceptance Report aligned to how CP teams actually work
+- **Document generate + re-upload** — Credit Limit Acceptances aligned to how CP teams actually work
 - **PKP / non-PKP + multi-currency** — tax-aware quotes and POs per supplier
 - **Service workflow** — jual jasa with child items and acceptance reports
 - **Reminders** — quotes, supplier follow-up, overdue invoices without SAP batch config
@@ -860,7 +860,7 @@ flowchart LR
 | Service requests (jual jasa) | Goods and services in one platform |
 | Project grouping | Purchases and spend rolled up per project |
 | Reminders (quote · supplier · invoice) | Proactive follow-up |
-| Acceptance Report | Central document approval for CP and finance |
+| Credit Limit Acceptances | Central document approval for CP and finance |
 | CRM + master data | Relationships and catalog beside transactions |
 | Multi-team · roles · email automation | Secure, branded operations |
 | Import/export | Data mobility and reduced manual entry |
@@ -871,40 +871,38 @@ flowchart LR
 
 ## 10. Verified Application Menu Map
 
-> Audited against `app/Filament/Resources/*` navigation groups, March 2026.
+> Audited against `app/Filament/Resources/*` navigation groups, July 2026.
 
 | Group | Menu item | Resource / page |
 |-------|-----------|-----------------|
 | **Workflow** | Requests | `RequestResource` |
 | **Workflow** | Projects | `ProjectResource` |
+| **Workflow** | Acceptance Reports | `AcceptanceReportResource` (service requests) |
 | **Master Data** | Buyers | `BuyerResource` |
 | **Master Data** | Suppliers | `SupplierResource` |
+| **Master Data** | People | `PeopleResource` |
 | **Master Data** | Articles | `ArticleResource` |
-| **Master Data** | Tags | `TagResource` |
+| **Master Data** | Categories | `TagResource` |
+| **Approval** | Registrations | `PortalRegistrationRequestResource` |
+| **Approval** | Credit Limit Requests | `BuyerCreditLimitRequestResource` |
+| **Approval** | Credit Limit Acceptances | `CreditLimitAcceptanceResource` |
+| **Approval** | Goods Receive | `GoodsReceiveApprovalResource` |
 | **Approval** | Quotation Evaluations | `QuotationEvaluationResource` |
 | **Approval** | Profit & Loss | `ProfitAndLossResource` |
 | **Approval** | Supplier Orders | `SupplierOrderApprovalResource` |
-| **Approval** | Acceptance Report | `CreditLimitAcceptanceReportResource` |
-| **Approval** | Goods Receive | `GoodsReceiveApprovalResource` |
-| **Approval** | Credit Limit | `BuyerCreditLimitRequestResource` |
 | **Finance** | Buyer Quotes | `BuyerQuoteResource` |
-| **Finance** | Supplier Quotes | `SupplierQuoteResource` |
 | **Finance** | Buyer Orders | `BuyerOrderResource` |
+| **Finance** | Supplier Quotes | `SupplierQuoteResource` |
 | **Finance** | Supplier Orders | `SupplierOrderResource` |
-| **Finance** | Transactions | `BuyerCreditLimitOverviewResource` (credit limits) |
-| **Workspace** | Companies | `CompanyResource` |
-| **Workspace** | People | `PeopleResource` |
-| **Workspace** | Opportunities | `OpportunityResource` + `OpportunitiesBoard` |
-| **Workspace** | Tasks | `TaskResource` + `TasksBoard` |
-| **Workspace** | Notes | `NoteResource` |
-| **Workspace** | Members | `MemberResource` |
+| **Finance** | Credit Limits | `BuyerCreditLimitOverviewResource` |
 | **Settings** | General | `Settings` page (ERP + prefixes) |
-| **Settings** | Email Templates | `EmailTemplateResource` |
-| **Settings** | Email Settings | `EmailSettings` page |
 | **Settings** | Currencies | `CurrencyResource` |
 | **Settings** | Exchange Rates | `ExchangeRateResource` |
 | **Settings** | Tax Codes | `TaxCodeResource` |
 | **Settings** | Unit of Measures | `UnitOfMeasureResource` |
+| **Settings** | Email Settings | `EmailSettings` page |
+| **Settings** | Email Templates | `EmailTemplateResource` |
+| *(ungrouped)* | Members | `MemberResource` |
 
 ---
 
@@ -915,7 +913,7 @@ Cross-check of marketing claims vs codebase (honest gaps for stakeholders).
 | Claim | Verified? | Notes |
 |-------|-----------|-------|
 | Auto tender on stage advance | ✅ | `RequestObserver` → `GenerateSupplierQuotesForRequest` |
-| QE / PNL PDF + upload + Acceptance Report | ✅ | Full flow with `PaymentDocumentApproval` |
+| QE / PNL PDF + upload + Credit Limit Acceptances | ✅ | Full flow with `PaymentDocumentApproval` |
 | Dual supplier PO approval | ✅ | `SupplierOrder::approve()` + approval resource |
 | PKP / non-PKP | ✅ | `Company.is_taxable` on suppliers |
 | Multi-currency | ✅ | Currencies, exchange rates, locked on orders |
@@ -965,7 +963,7 @@ Expanded outline — one feature area per slide; use **§5** (what it does), **�
 | 24 | Perpajakan PKP / non-PKP | §5.10 |
 | 25 | Multi-currency | §5.10 · §6.6 |
 | 26 | Documentation generate + re-upload | §5.12 |
-| 27 | Acceptance Report hub | §5.13 · §6.2 |
+| 27 | Credit Limit Acceptances hub | §5.13 · §6.2 |
 | 28 | Credit limit approval | §5.16 · §6.2 |
 | 29 | Finance / credit transactions | §5.9b · §6.4 |
 | 30 | Reminders & scheduled jobs | §5.17 · §6.6 |

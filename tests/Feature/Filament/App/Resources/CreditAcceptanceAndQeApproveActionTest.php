@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\CentralPurchasingRole;
 use App\Enums\QEStatus;
-use App\Filament\Resources\CreditLimitAcceptanceReportResource\Pages\ListAcceptanceReports;
+use App\Filament\Resources\CreditLimitAcceptanceResource\Pages\ListCreditLimitAcceptances;
 use App\Filament\Resources\QuotationEvaluationResource\Pages\ViewQuotationEvaluation;
 use App\Models\Membership;
 use App\Models\PaymentDocumentApproval;
@@ -61,7 +61,7 @@ function acceptanceQeEvaluation(Tests\TestCase $test, array $attributes = []): Q
 }
 
 /**
- * Attach a media record to the given model so it appears in the Acceptance Report table.
+ * Attach a media record to the given model so it appears in the Credit Limit Acceptances table.
  *
  * @param  array<string, mixed>  $customProperties
  */
@@ -92,7 +92,7 @@ describe('CreditLimitAcceptanceReport approve action', function (): void {
         $qe = acceptanceQeEvaluation($this);
         $media = acceptanceReportMedia($qe, 'documents');
 
-        livewire(ListAcceptanceReports::class)
+        livewire(ListCreditLimitAcceptances::class)
             ->assertOk()
             ->assertCanSeeTableRecords([$media])
             ->callAction(TestAction::make('approve')->table($media), data: ['notes' => 'Docs verified'])
@@ -121,7 +121,7 @@ describe('CreditLimitAcceptanceReport approve action', function (): void {
             'payment_terms' => '30-100',
         ]);
 
-        livewire(ListAcceptanceReports::class)
+        livewire(ListCreditLimitAcceptances::class)
             ->assertOk()
             ->assertCanSeeTableRecords([$media])
             ->callAction(TestAction::make('approve')->table($media), data: ['notes' => null])
@@ -139,7 +139,7 @@ describe('CreditLimitAcceptanceReport approve action', function (): void {
         $qe = acceptanceQeEvaluation($this);
         $media = acceptanceReportMedia($qe, 'documents');
 
-        livewire(ListAcceptanceReports::class)
+        livewire(ListCreditLimitAcceptances::class)
             ->assertOk()
             ->assertCanSeeTableRecords([$media])
             ->assertActionHidden(TestAction::make('approve')->table($media));
@@ -153,7 +153,7 @@ describe('CreditLimitAcceptanceReport approve action', function (): void {
         $qeMedia = acceptanceReportMedia($qe, 'documents');
         $paymentMedia = acceptanceReportMedia($qe->request, 'completion_reports', ['is_payment_document' => true]);
 
-        livewire(ListAcceptanceReports::class)
+        livewire(ListCreditLimitAcceptances::class)
             ->assertOk()
             ->assertCanSeeTableRecords([$qeMedia, $paymentMedia])
             ->assertActionVisible(TestAction::make('approve')->table($paymentMedia))
@@ -166,7 +166,7 @@ describe('CreditLimitAcceptanceReport approve action', function (): void {
         $qeMedia = acceptanceReportMedia($qe, 'documents');
         $paymentMedia = acceptanceReportMedia($qe->request, 'completion_reports', ['is_payment_document' => true]);
 
-        livewire(ListAcceptanceReports::class)
+        livewire(ListCreditLimitAcceptances::class)
             ->assertOk()
             ->assertActionVisible(TestAction::make('approve')->table($qeMedia))
             ->assertActionHidden(TestAction::make('approve')->table($paymentMedia));
@@ -177,7 +177,7 @@ describe('CreditLimitAcceptanceReport approve action', function (): void {
         $request = Request::factory()->for($this->team)->create(['creator_id' => $this->user->getKey()]);
         $media = acceptanceReportMedia($request, 'completion_reports', ['is_payment_document' => true]);
 
-        livewire(ListAcceptanceReports::class)
+        livewire(ListCreditLimitAcceptances::class)
             ->assertOk()
             ->assertActionHidden(TestAction::make('approve')->table($media));
     });
@@ -195,7 +195,7 @@ describe('CreditLimitAcceptanceReport approve action', function (): void {
             'approved_at' => now(),
         ]);
 
-        livewire(ListAcceptanceReports::class)
+        livewire(ListCreditLimitAcceptances::class)
             ->assertOk()
             ->assertActionHidden(TestAction::make('approve')->table($media));
 

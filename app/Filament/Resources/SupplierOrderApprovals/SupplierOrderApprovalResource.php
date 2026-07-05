@@ -36,7 +36,7 @@ final class SupplierOrderApprovalResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document-check';
 
-    protected static ?int $navigationSort = 24;
+    protected static ?int $navigationSort = 25;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Approval';
 
