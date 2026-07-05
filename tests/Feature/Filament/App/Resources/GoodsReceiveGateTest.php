@@ -9,6 +9,7 @@ use App\Enums\RequestStage;
 use App\Filament\Resources\RequestResource;
 use App\Filament\Resources\RequestResource\Pages\ViewRequest;
 use App\Filament\Resources\RequestResource\RelationManagers\GoodsReceiveRelationManager;
+use App\Filament\Resources\RequestResource\RelationManagers\SupplierOrdersRelationManager;
 use App\Models\BuyerQuote;
 use App\Models\Company;
 use App\Models\Currency;
@@ -146,6 +147,32 @@ describe('stage advance via tab click', function (): void {
             ->set('activeRelationManager', 'goodsReceive');
 
         expect($this->request->refresh()->stage)->toBe(RequestStage::GOODS_RECEIVE);
+    });
+});
+
+describe('stage tab completion badges', function (): void {
+    it('marks Supplier Orders and Goods Receive complete once the request reaches Invoices', function (): void {
+        // Reaching Invoices (AWAITING_BUYER_CONFIRMATION) means both preceding
+        // tabs have been passed, even though their enum order is higher.
+        goodsReceiveGateOrder($this, OrderStatus::SENT);
+        $this->request->update(['stage' => RequestStage::AWAITING_BUYER_CONFIRMATION]);
+        $record = $this->request->refresh();
+
+        $supplierOrdersTab = SupplierOrdersRelationManager::getTabComponent($record, ViewRequest::class);
+        $goodsReceiveTab = GoodsReceiveRelationManager::getTabComponent($record, ViewRequest::class);
+
+        expect($supplierOrdersTab->getBadge())->toBe('✓')
+            ->and($goodsReceiveTab->getBadge())->toBe('✓');
+    });
+
+    it('does not mark Supplier Orders complete while the request is still preparing the supplier order', function (): void {
+        goodsReceiveGateOrder($this, OrderStatus::SENT);
+        $this->request->update(['stage' => RequestStage::PREPARING_SUPPLIER_ORDER]);
+        $record = $this->request->refresh();
+
+        $supplierOrdersTab = SupplierOrdersRelationManager::getTabComponent($record, ViewRequest::class);
+
+        expect($supplierOrdersTab->getBadge())->toBe('●');
     });
 });
 

@@ -51,7 +51,6 @@ use Filament\Support\Enums\Size;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 
 final class SupplierOrdersRelationManager extends RelationManager
@@ -1254,16 +1253,6 @@ final class SupplierOrdersRelationManager extends RelationManager
         $set('line_total', round($lineTotal, 4));
     }
 
-    public static function getBadge(Model $ownerRecord, string $pageClass): ?string
-    {
-        /** @var Request $ownerRecord */
-        $hasConfirmed = $ownerRecord->supplierOrders()
-            ->whereNotIn('status', [OrderStatus::DRAFT, OrderStatus::CANCELLED])
-            ->exists();
-
-        return $hasConfirmed ? '✓' : null;
-    }
-
     /**
      * Check if the supplier selected in the form is taxable.
      */
@@ -1299,16 +1288,6 @@ final class SupplierOrdersRelationManager extends RelationManager
         $supplier = Company::query()->find($record->supplier_id);
 
         return $supplier->is_taxable ?? true;
-    }
-
-    public static function getBadgeColor(Model $ownerRecord, string $pageClass): ?string
-    {
-        /** @var Request $ownerRecord */
-        $hasConfirmed = $ownerRecord->supplierOrders()
-            ->whereNotIn('status', [OrderStatus::DRAFT, OrderStatus::CANCELLED])
-            ->exists();
-
-        return $hasConfirmed ? 'success' : null;
     }
 
     /**

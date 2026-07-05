@@ -34,7 +34,6 @@ use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\HtmlString;
 
@@ -631,25 +630,5 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->visible(fn (): bool => false), // Disable bulk delete for orders
                 ]),
             ]);
-    }
-
-    public static function getBadge(Model $ownerRecord, string $pageClass): ?string
-    {
-        /** @var Request $ownerRecord */
-        $hasConfirmed = $ownerRecord->buyerOrders()
-            ->whereNotIn('status', [OrderStatus::DRAFT, OrderStatus::CANCELLED])
-            ->exists();
-
-        return $hasConfirmed ? '✓' : null;
-    }
-
-    public static function getBadgeColor(Model $ownerRecord, string $pageClass): ?string
-    {
-        /** @var Request $ownerRecord */
-        $hasConfirmed = $ownerRecord->buyerOrders()
-            ->whereNotIn('status', [OrderStatus::DRAFT, OrderStatus::CANCELLED])
-            ->exists();
-
-        return $hasConfirmed ? 'success' : null;
     }
 }

@@ -2822,26 +2822,6 @@ final class BuyerQuotesRelationManager extends RelationManager
         $set('margin_percent', round($marginPercent, 4));
     }
 
-    public static function getBadge(Model $ownerRecord, string $pageClass): ?string
-    {
-        /** @var Request $ownerRecord */
-        $hasAccepted = $ownerRecord->buyerQuotes()
-            ->where('status', BuyerQuoteStatus::ACCEPTED)
-            ->exists();
-
-        return $hasAccepted ? '✓' : null;
-    }
-
-    public static function getBadgeColor(Model $ownerRecord, string $pageClass): ?string
-    {
-        /** @var Request $ownerRecord */
-        $hasAccepted = $ownerRecord->buyerQuotes()
-            ->where('status', BuyerQuoteStatus::ACCEPTED)
-            ->exists();
-
-        return $hasAccepted ? 'success' : null;
-    }
-
     /**
      * Memoized ids of the owner request's services items (per Livewire render).
      *

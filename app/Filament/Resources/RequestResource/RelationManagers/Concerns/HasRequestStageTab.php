@@ -143,11 +143,12 @@ trait HasRequestStageTab
         $isCurrentStage = $currentStage === $stage;
         // Invoices (AWAITING_BUYER_CONFIRMATION) appears after Supplier Orders/Goods Receive in the tab bar,
         // so only show check when we have actually passed Invoices (e.g. on Shipments or later)
-        // Goods Receive appears before Invoices in the tab bar but has higher enum order (6 > 4),
-        // so show check when we have moved to Invoices or any later stage (Shipments+)
+        // Supplier Orders (order 5) and Goods Receive (order 6) both appear before Invoices in the tab bar
+        // but have a higher enum order than Invoices (4), so show their check once we reach Invoices or any
+        // later stage (Shipments+) — reaching Invoices means both have necessarily been passed.
         $isCompleted = $stage === RequestStage::AWAITING_BUYER_CONFIRMATION
             ? $currentStage->getOrder() >= RequestStage::AWAITING_SHIPMENT->getOrder()
-            : ($stage === RequestStage::GOODS_RECEIVE
+            : (in_array($stage, [RequestStage::PREPARING_SUPPLIER_ORDER, RequestStage::GOODS_RECEIVE], true)
                 ? $currentStage === RequestStage::AWAITING_BUYER_CONFIRMATION || $currentStage->getOrder() > $stage->getOrder()
                 : $currentStage->getOrder() > $stage->getOrder());
 
