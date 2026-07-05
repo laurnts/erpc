@@ -69,6 +69,22 @@ it('allows a same-team user to delete the buyer quote PO', function (): void {
     expect($buyerQuote->fresh()->getMedia('buyer_po'))->toHaveCount(0);
 });
 
+it('returns a JSON success payload when deleting the buyer quote PO via AJAX', function (): void {
+    $owner = User::factory()->withPersonalTeam()->create();
+    $buyerQuote = BuyerQuote::factory()->for($owner->personalTeam())->create();
+    $media = $buyerQuote->addMedia(UploadedFile::fake()->createWithContent('po.pdf', '%PDF-1.4'.str_repeat('0', 200)))
+        ->toMediaCollection('buyer_po');
+
+    $response = $this->actingAs($owner)
+        ->deleteJson(route('buyer-quotes.po.delete', [$buyerQuote, $media]));
+
+    $response->assertOk()->assertJson([
+        'success' => true,
+        'message' => 'File deleted successfully',
+    ]);
+    expect($buyerQuote->fresh()->getMedia('buyer_po'))->toHaveCount(0);
+});
+
 it('rejects a cross-team user deleting the buyer quote PO with 404', function (): void {
     $owner = User::factory()->withPersonalTeam()->create();
     $buyerQuote = BuyerQuote::factory()->for($owner->personalTeam())->create();
@@ -149,6 +165,22 @@ it('allows a same-team user to delete the supplier quote quotation', function ()
     expect($supplierQuote->fresh()->getMedia('quotation'))->toHaveCount(0);
 });
 
+it('returns a JSON success payload when deleting the supplier quote quotation via AJAX', function (): void {
+    $owner = User::factory()->withPersonalTeam()->create();
+    $supplierQuote = SupplierQuote::factory()->for($owner->personalTeam())->create();
+    $media = $supplierQuote->addMedia(UploadedFile::fake()->createWithContent('quotation.pdf', '%PDF-1.4'.str_repeat('0', 200)))
+        ->toMediaCollection('quotation');
+
+    $response = $this->actingAs($owner)
+        ->deleteJson(route('supplier-quotes.quotation.delete', [$supplierQuote, $media]));
+
+    $response->assertOk()->assertJson([
+        'success' => true,
+        'message' => 'File deleted successfully',
+    ]);
+    expect($supplierQuote->fresh()->getMedia('quotation'))->toHaveCount(0);
+});
+
 it('rejects a cross-team user deleting the supplier quote quotation with 404', function (): void {
     $owner = User::factory()->withPersonalTeam()->create();
     $supplierQuote = SupplierQuote::factory()->for($owner->personalTeam())->create();
@@ -187,6 +219,22 @@ it('allows a same-team user to delete a goods receive document', function (): vo
         ->delete(route('requests.goods-receive.delete', [$requestModel, $media]));
 
     $response->assertRedirect();
+    expect($requestModel->fresh()->getMedia('goods_receive'))->toHaveCount(0);
+});
+
+it('returns a JSON success payload when deleting a goods receive document via AJAX', function (): void {
+    $owner = User::factory()->withPersonalTeam()->create();
+    $requestModel = Request::factory()->for($owner->personalTeam())->create();
+    $media = $requestModel->addMedia(UploadedFile::fake()->createWithContent('receipt.pdf', '%PDF-1.4'.str_repeat('0', 200)))
+        ->toMediaCollection('goods_receive');
+
+    $response = $this->actingAs($owner)
+        ->deleteJson(route('requests.goods-receive.delete', [$requestModel, $media]));
+
+    $response->assertOk()->assertJson([
+        'success' => true,
+        'message' => 'File deleted successfully',
+    ]);
     expect($requestModel->fresh()->getMedia('goods_receive'))->toHaveCount(0);
 });
 
