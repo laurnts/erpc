@@ -46,7 +46,6 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
-use Illuminate\Database\Eloquent\Model;
 use Spatie\MediaLibrary\MediaCollections\Exceptions\FileUnacceptableForCollection;
 
 final class SupplierQuotesRelationManager extends RelationManager
@@ -1782,16 +1781,6 @@ final class SupplierQuotesRelationManager extends RelationManager
         $set('line_total', round($lineTotal, 4));
     }
 
-    public static function getBadge(Model $ownerRecord, string $pageClass): ?string
-    {
-        /** @var Request $ownerRecord */
-        $hasSelected = $ownerRecord->supplierQuotes()
-            ->where('status', SupplierQuoteStatus::SELECTED)
-            ->exists();
-
-        return $hasSelected ? '✓' : null;
-    }
-
     /**
      * Check if the supplier selected in the form is taxable.
      */
@@ -1827,15 +1816,5 @@ final class SupplierQuotesRelationManager extends RelationManager
         $supplier = Company::query()->find($record->supplier_id);
 
         return $supplier->is_taxable ?? true;
-    }
-
-    public static function getBadgeColor(Model $ownerRecord, string $pageClass): ?string
-    {
-        /** @var Request $ownerRecord */
-        $hasSelected = $ownerRecord->supplierQuotes()
-            ->where('status', SupplierQuoteStatus::SELECTED)
-            ->exists();
-
-        return $hasSelected ? 'success' : null;
     }
 }

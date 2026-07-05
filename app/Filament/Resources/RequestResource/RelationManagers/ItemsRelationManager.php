@@ -34,7 +34,6 @@ use Filament\Support\Enums\Size;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -1092,22 +1091,6 @@ final class ItemsRelationManager extends RelationManager
             ->toolbarActions([
                 DeleteBulkAction::make()->visible($canEdit),
             ]);
-    }
-
-    public static function getBadge(Model $ownerRecord, string $pageClass): ?string
-    {
-        /** @var Request $ownerRecord */
-        if ($ownerRecord->items()->doesntExist()) {
-            return null;
-        }
-
-        return $ownerRecord->all_items_matched ? '✓' : null;
-    }
-
-    public static function getBadgeColor(Model $ownerRecord, string $pageClass): ?string
-    {
-        /** @var Request $ownerRecord */
-        return $ownerRecord->all_items_matched ? 'success' : null;
     }
 
     /**
