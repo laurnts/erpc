@@ -61,8 +61,7 @@ final class SuppliersRelationManager extends RelationManager
                     ->helperText('Leave empty when availability is unknown'),
                 TextInput::make('last_quoted_price')
                     ->label('Last Quoted Price')
-                    ->numeric()
-                    ->prefix('$'),
+                    ->numeric(),
                 Select::make('last_quoted_currency_id')
                     ->label('Currency')
                     ->options(fn () => Currency::query()->where('is_active', true)->pluck('code', 'id')->all())
@@ -107,7 +106,9 @@ final class SuppliersRelationManager extends RelationManager
                     ->sortable(),
                 TextColumn::make('supplier_price')
                     ->label('Supplier Price')
-                    ->numeric(decimalPlaces: 2)
+                    ->money(fn ($record): string => Currency::find($record->supplier_price_currency_id)?->code
+                        ?? Filament::getTenant()?->getBaseCurrencyCode()
+                        ?? 'USD')
                     ->placeholder('—')
                     ->sortable(),
                 TextColumn::make('available_quantity')
@@ -117,7 +118,9 @@ final class SuppliersRelationManager extends RelationManager
                     ->sortable(),
                 TextColumn::make('last_quoted_price')
                     ->label('Last Price')
-                    ->money(fn ($record): string => Currency::find($record->last_quoted_currency_id)->code ?? 'USD')
+                    ->money(fn ($record): string => Currency::find($record->last_quoted_currency_id)?->code
+                        ?? Filament::getTenant()?->getBaseCurrencyCode()
+                        ?? 'USD')
                     ->sortable(),
                 TextColumn::make('lead_time_days')
                     ->label('Lead Time')
