@@ -96,6 +96,13 @@ final class Request extends Model implements HasCustomFields, HasMedia
     public const string COMPLETION_REPORTS_UPLOAD_DIRECTORY = 'uploads-tmp/completion-reports';
 
     /**
+     * Upload directory for proof-of-request documents. The FileUpload
+     * component and its addMedia call site must reference the same
+     * value — drift between them silently drops attachments.
+     */
+    public const string PROOF_UPLOAD_DIRECTORY = 'uploads-tmp/request-proof';
+
+    /**
      * @var list<string>
      */
     protected $fillable = [
@@ -194,6 +201,23 @@ final class Request extends Model implements HasCustomFields, HasMedia
     {
         return $this->isPortalSubmission()
             && $this->stage === RequestStage::DRAFT;
+    }
+
+    /**
+     * Whether the request carries proof of what the buyer asked for. Buyer
+     * MANUAL and CATALOG entries are self-proving: the structured line items
+     * they captured are the proof. Every other origin — buyer DOCUMENT
+     * uploads and staff-entered requests — proves itself through the
+     * `attachments` media collection, where both buyer-uploaded source
+     * documents and staff proof uploads land.
+     */
+    public function hasProofOfRequest(): bool
+    {
+        if (in_array($this->submission_method, [RequestSubmissionMethod::MANUAL, RequestSubmissionMethod::CATALOG], true)) {
+            return true;
+        }
+
+        return $this->getMedia('attachments')->isNotEmpty();
     }
 
     /**

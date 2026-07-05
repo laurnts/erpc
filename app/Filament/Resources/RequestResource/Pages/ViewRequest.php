@@ -8,6 +8,7 @@ use App\Enums\InvoiceStatus;
 use App\Enums\PrepaymentType;
 use App\Enums\QEStatus;
 use App\Enums\RequestStage;
+use App\Enums\RequestSubmissionMethod;
 use App\Filament\Resources\BuyerResource;
 use App\Filament\Resources\ProfitAndLossResource;
 use App\Filament\Resources\ProjectResource;
@@ -218,34 +219,14 @@ final class ViewRequest extends ViewRecord
                         ->weight('bold')
                         ->size('md')
                         ->columnSpan(3),
+                    TextEntry::make('stage')
+                        ->label('Status')
+                        ->badge()
+                        ->formatStateUsing(fn (RequestStage $state): string => $state->getLabelWithStep())
+                        ->color(fn (RequestStage $state): string => $state->getColor())
+                        ->icon(fn (RequestStage $state): string => $state->getIcon()),
                     TextEntry::make('priority')
                         ->badge(),
-                    TextEntry::make('item_type_summary')
-                        ->label('Item types')
-                        ->badge()
-                        ->color(fn (string $state): string => match ($state) {
-                            'Goods' => 'primary',
-                            'Services' => 'success',
-                            'Mixed' => 'warning',
-                            default => 'gray',
-                        }),
-                    TextEntry::make('fulfillment_status')
-                        ->label('Fulfillment')
-                        ->state(fn (Request $record): string => $record->fulfillmentStatusLabel())
-                        ->badge()
-                        ->color(fn (Request $record): string => $record->isFulfilled() ? 'success' : 'warning'),
-                    TextEntry::make('goods_fulfillment_status')
-                        ->label('Goods')
-                        ->state(fn (Request $record): string => $record->goodsChannelComplete() ? 'Shipped' : 'Pending')
-                        ->badge()
-                        ->color(fn (Request $record): string => $record->goodsChannelComplete() ? 'success' : 'warning')
-                        ->visible(fn (Request $record): bool => $record->hasGoodsItems()),
-                    TextEntry::make('services_fulfillment_status')
-                        ->label('Services')
-                        ->state(fn (Request $record): string => $record->servicesChannelComplete() ? 'Accepted' : 'Pending')
-                        ->badge()
-                        ->color(fn (Request $record): string => $record->servicesChannelComplete() ? 'success' : 'warning')
-                        ->visible(fn (Request $record): bool => $record->hasServiceItems()),
                     TextEntry::make('project.name')
                         ->label('Project')
                         ->icon('heroicon-o-folder')
@@ -264,17 +245,18 @@ final class ViewRequest extends ViewRecord
                         ->label('Last Updated')
                         ->since(),
                     TextEntry::make('submission_method')
-                        ->label('Portal Submission')
+                        ->label('Source')
                         ->badge()
-                        ->formatStateUsing(fn ($state) => $state?->getLabel() ?? '-')
-                        ->visible(fn (Request $record): bool => $record->isPortalSubmission()),
-                    TextEntry::make('submitted_at')
-                        ->label('Submitted At')
-                        ->dateTime()
-                        ->visible(fn (Request $record): bool => $record->isPortalSubmission()),
+                        ->state(fn (Request $record): string => match ($record->submission_method) {
+                            RequestSubmissionMethod::MANUAL => 'Buyer Manual Request',
+                            RequestSubmissionMethod::DOCUMENT => 'Buyer Document Upload',
+                            RequestSubmissionMethod::CATALOG => 'Buyer Catalog Order',
+                            default => 'Staff Entry',
+                        })
+                        ->color(fn (Request $record): string => $record->submission_method?->getColor() ?? 'gray'),
                     TextEntry::make('submittedBy.name')
                         ->label('Submitted By')
-                        ->columnSpan(2)
+                        ->placeholder('—')
                         ->visible(fn (Request $record): bool => $record->isPortalSubmission()),
                 ])
                 ->columns(4)
@@ -292,6 +274,20 @@ final class ViewRequest extends ViewRecord
                 ->collapsible()
                 ->collapsed()
                 ->visible(fn (Request $record): bool => $record->internal_notes !== null && $record->internal_notes !== '')
+                ->columnSpanFull(),
+
+            // Proof of Request (buyer uploads + staff proof documents)
+            Section::make('Proof of Request')
+                ->icon('heroicon-o-paper-clip')
+                ->schema([
+                    TextEntry::make('proof_of_request')
+                        ->label('')
+                        ->state(fn (Request $record): HtmlString => $this->getProofOfRequestList($record))
+                        ->columnSpanFull(),
+                ])
+                ->collapsible()
+                ->collapsed()
+                ->visible(fn (Request $record): bool => $record->getMedia('attachments')->isNotEmpty())
                 ->columnSpanFull(),
 
             // Financial Summary, Payment Terms & Shipment (three columns)
@@ -859,6 +855,34 @@ final class ViewRequest extends ViewRecord
     }
 
     /**
+     * Get the proof of request document list as HTML.
+     *
+     * Lists every media item in the request's `attachments` collection (both
+     * buyer-uploaded documents and staff proof uploads) as a private, team-scoped
+     * download link served by the `documents.download` route.
+     */
+    private function getProofOfRequestList(Request $record): HtmlString
+    {
+        $media = $record->getMedia('attachments');
+
+        if ($media->isEmpty()) {
+            return new HtmlString('<span class="text-gray-400">No proof of request</span>');
+        }
+
+        $rows = [];
+        foreach ($media as $item) {
+            $rows[] = sprintf(
+                '<li><a href="%s" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-primary-600 hover:text-primary-700 hover:underline">%s %s</a></li>',
+                htmlspecialchars(route('documents.download', $item)),
+                $this->getIconSvg('heroicon-o-paper-clip'),
+                htmlspecialchars($item->file_name)
+            );
+        }
+
+        return new HtmlString('<ul class="space-y-1 text-sm">'.implode('', $rows).'</ul>');
+    }
+
+    /**
      * Get Quotation Evaluation approval information.
      */
     private function getQuotationEvaluationApprovalInfo(Request $record): HtmlString
@@ -1022,6 +1046,7 @@ final class ViewRequest extends ViewRecord
             'heroicon-o-check-badge' => '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
             'heroicon-o-clock' => '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
             'heroicon-s-check-circle' => '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>',
+            'heroicon-o-paper-clip' => '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>',
         ];
 
         return $icons[$heroiconName] ?? '';

@@ -182,63 +182,28 @@ describe('Shipment section', function (): void {
     });
 });
 
-describe('Fulfillment status section', function (): void {
-    it('shows the goods channel as pending and hides the services badge on a goods-only request', function (): void {
-        $record = viewTestRequest($this);
-        $supplier = Company::factory()->supplier()->for($this->team)->create();
+describe('Request status header', function (): void {
+    it('shows the current workflow stage as the Status badge', function (): void {
+        $record = viewTestRequest($this)->fresh();
+        $record->update(['stage' => RequestStage::PREPARING_SUPPLIER_ORDER]);
 
-        $goodsItem = RequestItem::factory()->recycle($record)->create([
-            'item_type' => ItemType::GOODS,
-            'quantity' => 10,
-        ]);
-
-        $order = SupplierOrder::factory()->for($this->team)->create([
-            'request_id' => $record->getKey(),
-            'supplier_id' => $supplier->getKey(),
-        ]);
-        $orderItem = SupplierOrderItem::factory()->recycle($order)->create([
-            'request_item_id' => $goodsItem->getKey(),
-            'quantity' => 10,
-        ]);
-        $shipment = Shipment::factory()->for($this->team)->create([
-            'request_id' => $record->getKey(),
-            'supplier_order_id' => $order->getKey(),
-        ]);
-        ShipmentItem::factory()->recycle($shipment)->forSupplierOrderItem($orderItem)->withQuantityShipped(6)->create();
-
-        livewire(ViewRequest::class, ['record' => $record->refresh()->getKey()])
+        livewire(ViewRequest::class, ['record' => $record->getKey()])
             ->assertOk()
-            ->assertSee('Goods pending')
-            ->assertDontSee('Services');
+            ->assertSee('Status')
+            ->assertSee(RequestStage::PREPARING_SUPPLIER_ORDER->getLabelWithStep());
     });
 
-    it('shows the overall status as Fulfilled once the only channel present is complete', function (): void {
+    it('no longer renders the per-channel fulfillment and item-type badges in the header', function (): void {
         $record = viewTestRequest($this);
-        $supplier = Company::factory()->supplier()->for($this->team)->create();
-
-        $goodsItem = RequestItem::factory()->recycle($record)->create([
+        RequestItem::factory()->recycle($record)->create([
             'item_type' => ItemType::GOODS,
-            'quantity' => 5,
+            'quantity' => 10,
         ]);
-
-        $order = SupplierOrder::factory()->for($this->team)->create([
-            'request_id' => $record->getKey(),
-            'supplier_id' => $supplier->getKey(),
-        ]);
-        $orderItem = SupplierOrderItem::factory()->recycle($order)->create([
-            'request_item_id' => $goodsItem->getKey(),
-            'quantity' => 5,
-        ]);
-        $shipment = Shipment::factory()->for($this->team)->create([
-            'request_id' => $record->getKey(),
-            'supplier_order_id' => $order->getKey(),
-            'status' => ShipmentStatus::DELIVERED,
-        ]);
-        ShipmentItem::factory()->recycle($shipment)->forSupplierOrderItem($orderItem)->withQuantityShipped(5)->create();
 
         livewire(ViewRequest::class, ['record' => $record->refresh()->getKey()])
             ->assertOk()
-            ->assertSee('Fulfilled');
+            ->assertDontSee('Goods pending')
+            ->assertDontSee('Item types');
     });
 });
 
@@ -288,6 +253,28 @@ describe('Completed stage fulfillment gate on the edit action', function (): voi
             ->assertHasNoErrors();
 
         expect($record->refresh()->stage)->toBe(RequestStage::COMPLETED);
+    });
+});
+
+describe('Proof of Request section', function (): void {
+    it('renders the proof of request section with a download link when the request has an attachment', function (): void {
+        $record = viewTestRequest($this);
+        $record->addMediaFromString('dummy')
+            ->usingFileName('buyer-rfq.pdf')
+            ->toMediaCollection('attachments');
+
+        livewire(ViewRequest::class, ['record' => $record->getKey()])
+            ->assertOk()
+            ->assertSee('Proof of Request')
+            ->assertSee('buyer-rfq.pdf');
+    });
+
+    it('hides the proof of request section when there are no attachments', function (): void {
+        $record = viewTestRequest($this);
+
+        livewire(ViewRequest::class, ['record' => $record->getKey()])
+            ->assertOk()
+            ->assertDontSee('Proof of Request');
     });
 });
 

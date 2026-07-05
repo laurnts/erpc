@@ -25,6 +25,7 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -186,6 +187,34 @@ final class RequestResource extends Resource
 
                     return $project->id;
                 });
+        }
+
+        // Staff-created requests must carry proof of the buyer's actual request
+        // (email/letter/RFQ/PO). Only shown on create; the edit form is untouched.
+        if ($isCreate) {
+            $fields[] = Section::make('Proof of Request')
+                ->schema([
+                    FileUpload::make('proof_files')
+                        ->label('Proof of Request')
+                        ->helperText("Buyer's email, letter, RFQ, or PO. PDF, Excel, Word, or images (max 10MB per file).")
+                        ->acceptedFileTypes([
+                            'application/pdf',
+                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            'application/vnd.ms-excel',
+                            'image/png',
+                            'image/jpeg',
+                            'image/jpg',
+                            'application/msword',
+                            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                        ])
+                        ->disk('local')
+                        ->directory(Request::PROOF_UPLOAD_DIRECTORY)
+                        ->visibility('private')
+                        ->multiple()
+                        ->maxFiles(10)
+                        ->maxSize(10240)
+                        ->required(),
+                ]);
         }
 
         return $fields;
