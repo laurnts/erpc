@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\InvoiceStatus;
 use App\Enums\OrderStatus;
+use App\Enums\PaymentMethod;
 use App\Enums\PNLStatus;
 use App\Enums\QEStatus;
 use App\Filament\Resources\RequestResource\Pages\ViewRequest;
@@ -12,6 +13,7 @@ use App\Mail\Erp\InvoiceToBuyerMail;
 use App\Models\BuyerInvoice;
 use App\Models\BuyerOrder;
 use App\Models\BuyerOrderItem;
+use App\Models\BuyerPayment;
 use App\Models\BuyerQuote;
 use App\Models\Company;
 use App\Models\Currency;
@@ -137,4 +139,39 @@ it('hides issueInvoice once an invoice already exists', function (): void {
     invoiceActionRelationManager($this)
         ->assertOk()
         ->assertActionHidden(TestAction::make('issueInvoice')->table($order->refresh()));
+});
+
+it('records a payment against the invoice and releases credit', function (): void {
+    // Build the order in DRAFT and confirm() it, so credit is genuinely
+    // reserved (a debit history row is written and hasReservedCredit() is true).
+    $order = invoiceActionOrder($this, OrderStatus::DRAFT);
+    $order->confirm(); // DRAFT -> CONFIRMED, reserves 110 (available 10000 -> 9890)
+    $invoice = BuyerInvoice::issueFromOrder($order->refresh());
+
+    $this->buyer->refresh();
+    expect((float) $this->buyer->available_credit)->toBe(9890.00);
+
+    invoiceActionRelationManager($this)
+        ->assertOk()
+        ->assertActionVisible(TestAction::make('recordPayment')->table($order->refresh()))
+        ->callAction(TestAction::make('recordPayment')->table($order->refresh()), [
+            'amount' => '110.00',
+            'payment_method' => PaymentMethod::BANK_TRANSFER->value,
+            'payment_date' => now()->toDateString(),
+        ])
+        ->assertNotified('Payment recorded');
+
+    $this->buyer->refresh();
+
+    expect(BuyerPayment::query()->where('buyer_invoice_id', $invoice->getKey())->count())->toBe(1)
+        ->and($invoice->refresh()->status)->toBe(InvoiceStatus::PAID)
+        ->and((float) $this->buyer->available_credit)->toBe(10000.00);
+});
+
+it('hides recordPayment when the order has no invoice', function (): void {
+    $order = invoiceActionOrder($this, OrderStatus::CONFIRMED);
+
+    invoiceActionRelationManager($this)
+        ->assertOk()
+        ->assertActionHidden(TestAction::make('recordPayment')->table($order));
 });

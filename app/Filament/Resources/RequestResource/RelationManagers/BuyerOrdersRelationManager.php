@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Filament\Resources\RequestResource\RelationManagers;
 
 use App\Enums\BuyerQuoteStatus;
+use App\Enums\InvoiceStatus;
+use App\Enums\InvoiceType;
 use App\Enums\OrderStatus;
+use App\Enums\PaymentMethod;
 use App\Enums\RequestStage;
 use App\Filament\Actions\DownloadPdfAction;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
@@ -13,6 +16,7 @@ use App\Mail\Erp\BuyerOrderToBuyerMail;
 use App\Mail\Erp\InvoiceToBuyerMail;
 use App\Models\BuyerInvoice;
 use App\Models\BuyerOrder;
+use App\Models\BuyerPayment;
 use App\Models\BuyerQuote;
 use App\Models\Request;
 use App\Services\Email\EmailTemplateService;
@@ -21,8 +25,10 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -227,6 +233,16 @@ final class BuyerOrdersRelationManager extends RelationManager
         return $schema
             ->columns(1)
             ->components($this->getFormSchema());
+    }
+
+    private function activeInvoiceFor(BuyerOrder $order): ?BuyerInvoice
+    {
+        return BuyerInvoice::query()
+            ->where('buyer_order_id', $order->getKey())
+            ->where('type', InvoiceType::STANDARD)
+            ->whereNot('status', InvoiceStatus::CANCELLED)
+            ->latest('id')
+            ->first();
     }
 
     public function table(Table $table): Table
@@ -517,8 +533,8 @@ final class BuyerOrdersRelationManager extends RelationManager
                             && $record->status === OrderStatus::CONFIRMED
                             && ! BuyerInvoice::query()
                                 ->where('buyer_order_id', $record->getKey())
-                                ->where('type', \App\Enums\InvoiceType::STANDARD)
-                                ->whereNot('status', \App\Enums\InvoiceStatus::CANCELLED)
+                                ->where('type', InvoiceType::STANDARD)
+                                ->whereNot('status', InvoiceStatus::CANCELLED)
                                 ->exists())
                         ->requiresConfirmation()
                         ->modalHeading('Issue invoice to buyer?')
@@ -584,6 +600,65 @@ final class BuyerOrdersRelationManager extends RelationManager
                                     ->danger()
                                     ->send();
                             }
+                        }),
+                    Action::make('recordPayment')
+                        ->label('Record Payment')
+                        ->icon('heroicon-o-banknotes')
+                        ->color('success')
+                        ->visible(function (?BuyerOrder $record): bool {
+                            if ($record === null) {
+                                return false;
+                            }
+                            $invoice = $this->activeInvoiceFor($record);
+
+                            return $invoice !== null && $invoice->status->canRecordPayment();
+                        })
+                        ->form(fn (BuyerOrder $record): array => [
+                            TextInput::make('amount')
+                                ->label('Amount')
+                                ->numeric()
+                                ->required()
+                                ->default(fn (): string => (string) ($this->activeInvoiceFor($record)?->amount_outstanding ?? 0)),
+                            Select::make('payment_method')
+                                ->label('Payment Method')
+                                ->options(PaymentMethod::class)
+                                ->default(PaymentMethod::BANK_TRANSFER->value)
+                                ->required(),
+                            DatePicker::make('payment_date')
+                                ->label('Payment Date')
+                                ->default(now())
+                                ->required(),
+                            TextInput::make('reference_number')
+                                ->label('Reference')
+                                ->maxLength(255),
+                        ])
+                        ->action(function (BuyerOrder $record, array $data): void {
+                            $invoice = $this->activeInvoiceFor($record);
+
+                            if ($invoice === null || ! $invoice->status->canRecordPayment()) {
+                                Notification::make()
+                                    ->title('Cannot record payment')
+                                    ->body('There is no open invoice to record a payment against.')
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            BuyerPayment::create([
+                                'team_id' => $invoice->team_id,
+                                'buyer_invoice_id' => $invoice->getKey(),
+                                'payment_method' => $data['payment_method'],
+                                'amount' => $data['amount'],
+                                'payment_date' => $data['payment_date'],
+                                'reference_number' => $data['reference_number'] ?? null,
+                            ]);
+
+                            Notification::make()
+                                ->title('Payment recorded')
+                                ->body('The payment has been recorded and the invoice updated.')
+                                ->success()
+                                ->send();
                         }),
                     Action::make('confirm')
                         ->label('Confirm')
