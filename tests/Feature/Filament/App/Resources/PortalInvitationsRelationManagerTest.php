@@ -35,37 +35,41 @@ function buyerInvitation(object $testCase, array $attributes = []): PortalInvita
     ], $attributes));
 }
 
-it('lists pending invitations for the buyer', function (): void {
-    $pending = buyerInvitation($this);
-
-    livewire(PortalInvitationsRelationManager::class, [
-        'ownerRecord' => $this->buyer,
-        'pageClass' => ViewBuyer::class,
-    ])
-        ->assertCanSeeTableRecords([$pending])
-        ->assertSee('pending@buyer.test');
-});
-
-it('marks accepted invitations and allows revoking only pending ones', function (): void {
+it('lists only pending invitations: accepted ones live in Portal Users, not here', function (): void {
     $pending = buyerInvitation($this);
     $accepted = buyerInvitation($this, [
         'email' => 'done@buyer.test',
         'accepted_at' => now(),
     ]);
 
-    $component = livewire(PortalInvitationsRelationManager::class, [
+    livewire(PortalInvitationsRelationManager::class, [
         'ownerRecord' => $this->buyer,
         'pageClass' => ViewBuyer::class,
-    ]);
+    ])
+        ->assertCanSeeTableRecords([$pending])
+        ->assertCanNotSeeTableRecords([$accepted]);
+});
 
-    $component
-        ->assertCanSeeTableRecords([$pending, $accepted])
-        ->assertTableActionVisible('revoke', $pending)
-        ->assertTableActionHidden('revoke', $accepted)
-        ->callTableAction('revoke', $pending);
+it('revokes a pending invitation', function (): void {
+    $pending = buyerInvitation($this);
 
-    expect(PortalInvitation::query()->find($pending->getKey()))->toBeNull()
-        ->and(PortalInvitation::query()->find($accepted->getKey()))->not->toBeNull();
+    livewire(PortalInvitationsRelationManager::class, [
+        'ownerRecord' => $this->buyer,
+        'pageClass' => ViewBuyer::class,
+    ])->callTableAction('revoke', $pending);
+
+    expect(PortalInvitation::query()->find($pending->getKey()))->toBeNull();
+});
+
+it('hides the tab entirely when nothing is pending and badges the pending count otherwise', function (): void {
+    buyerInvitation($this, ['accepted_at' => now()]);
+
+    expect(PortalInvitationsRelationManager::canViewForRecord($this->buyer, ViewBuyer::class))->toBeFalse();
+
+    buyerInvitation($this, ['email' => 'second@buyer.test']);
+
+    expect(PortalInvitationsRelationManager::canViewForRecord($this->buyer, ViewBuyer::class))->toBeTrue()
+        ->and(PortalInvitationsRelationManager::getBadge($this->buyer, ViewBuyer::class))->toBe('1');
 });
 
 it('does not list supplier-typed invitations on the buyer view', function (): void {
