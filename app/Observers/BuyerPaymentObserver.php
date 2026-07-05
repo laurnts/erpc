@@ -46,8 +46,7 @@ final readonly class BuyerPaymentObserver
      */
     public function created(BuyerPayment $buyerPayment): void
     {
-        // Update the invoice payment status
-        $buyerPayment->buyerInvoice->updatePaymentStatus();
+        $this->reconcile($buyerPayment);
     }
 
     /**
@@ -55,8 +54,7 @@ final readonly class BuyerPaymentObserver
      */
     public function updated(BuyerPayment $buyerPayment): void
     {
-        // Update the invoice payment status
-        $buyerPayment->buyerInvoice->updatePaymentStatus();
+        $this->reconcile($buyerPayment);
     }
 
     /**
@@ -64,8 +62,7 @@ final readonly class BuyerPaymentObserver
      */
     public function deleted(BuyerPayment $buyerPayment): void
     {
-        // Update the invoice payment status
-        $buyerPayment->buyerInvoice->updatePaymentStatus();
+        $this->reconcile($buyerPayment);
     }
 
     /**
@@ -73,7 +70,20 @@ final readonly class BuyerPaymentObserver
      */
     public function restored(BuyerPayment $buyerPayment): void
     {
-        // Update the invoice payment status
-        $buyerPayment->buyerInvoice->updatePaymentStatus();
+        $this->reconcile($buyerPayment);
+    }
+
+    /**
+     * Update the invoice payment status, then reconcile the order's released credit.
+     */
+    private function reconcile(BuyerPayment $buyerPayment): void
+    {
+        $invoice = $buyerPayment->buyerInvoice;
+        $invoice->updatePaymentStatus();
+
+        $order = $invoice->buyerOrder;
+        if ($order !== null) {
+            $order->reconcileReleasedCreditFor($invoice);
+        }
     }
 }
