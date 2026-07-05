@@ -31,8 +31,10 @@ final readonly class InvitePortalUser
         $this->assertCompanyHoldsPortalRole($company, $portal);
 
         if (User::query()->where('email', $email)->exists()) {
+            $portalLabel = $portal === PortalType::Supplier ? 'supplier portal' : 'customer portal';
+
             throw ValidationException::withMessages([
-                'email' => ['A user with this email address already has an account. Only new users can be invited to the portal.'],
+                'email' => ["A user with this email address already has an account. Only new users can be invited to the {$portalLabel}."],
             ]);
         }
 

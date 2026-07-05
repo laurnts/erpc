@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Customer\Pages;
 
+use App\Actions\Portal\AcceptPortalInvitation as AcceptPortalInvitationAction;
 use App\Enums\PortalType;
 use App\Models\PortalInvitation;
 use Filament\Forms\Components\TextInput;
@@ -119,7 +120,7 @@ final class AcceptPortalInvitation extends Page implements HasForms
 
         $data = $this->form->getState();
 
-        app(\App\Actions\Portal\AcceptPortalInvitation::class)->execute(
+        app(AcceptPortalInvitationAction::class)->execute(
             $this->invitation,
             (string) $data['name'],
             (string) $data['password'],

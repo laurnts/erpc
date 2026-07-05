@@ -30,8 +30,6 @@ use Throwable;
  * stack, theme, branding resolved from the portal context, and the
  * switch-company user menu. Call after panel-specific configuration; panel
  * middleware registered before this runs ahead of the shared stack.
- *
- * @phpstan-type TDashboard class-string<\Filament\Pages\Page>
  */
 final readonly class PortalPanelConfigurator
 {
