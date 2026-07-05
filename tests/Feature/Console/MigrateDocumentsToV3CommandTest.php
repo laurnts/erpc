@@ -94,6 +94,64 @@ it('is idempotent: a second run finds nothing left to migrate', function () {
         ->and(Storage::disk('local')->exists($pathAfterFirstRun))->toBeTrue();
 });
 
+it('leaves the original tree and stamp intact when a mid-copy failure occurs, then migrates fully on rerun', function () {
+    $request = Request::factory()->create([
+        'request_number' => 'REQ-2026-9005',
+        'created_at' => '2026-01-14 09:00:00',
+    ]);
+    $quote = SupplierQuote::factory()->create([
+        'team_id' => $request->team_id,
+        'request_id' => $request->getKey(),
+        'quote_number' => 'SQ-2026-9005',
+    ]);
+
+    $media = $quote->addMedia(makeMigrateFixtureSource('quote.pdf'))
+        ->withCustomProperties([DocumentPathGenerator::PATH_VERSION_PROPERTY => DocumentPathGenerator::PATH_VERSION_V2])
+        ->toMediaCollection('quotation');
+
+    $oldRelativePath = $media->getPathRelativeToRoot();
+    $oldDir = rtrim(dirname($oldRelativePath), '/');
+    Storage::disk('local')->put($oldDir.'/conversions/thumb.jpg', 'thumb-contents');
+
+    // Sabotage the copy of the main file (copied AFTER conversions/, which
+    // sorts first in allFiles()): a directory squatting on its exact target
+    // path makes that one copy fail while the conversions copy has already
+    // landed — a genuine mid-copy partial failure.
+    $expectedPrefix = 'documents/team-'.$request->team_id.'/2026/REQ-2026-9005/supplier-quotes/SQ-2026-9005';
+    $newDir = $expectedPrefix.'/'.$media->getKey();
+    Storage::disk('local')->makeDirectory($newDir.'/quote.pdf');
+
+    $this->artisan('documents:migrate-v3')
+        ->expectsOutputToContain('SKIP')
+        ->expectsOutputToContain('Migrated 0 media item(s), skipped 1.')
+        ->assertExitCode(0);
+
+    $media->refresh();
+
+    // Copy-first guarantee: DB stamp still v2, the ENTIRE old tree untouched —
+    // even though one file (the conversion) did get copied before the failure.
+    expect($media->getCustomProperty(DocumentPathGenerator::PATH_VERSION_PROPERTY))->toBe(DocumentPathGenerator::PATH_VERSION_V2)
+        ->and($media->getCustomProperty(DocumentPathGenerator::PATH_PREFIX_PROPERTY))->toBeNull()
+        ->and(Storage::disk('local')->exists($oldRelativePath))->toBeTrue()
+        ->and(Storage::disk('local')->exists($oldDir.'/conversions/thumb.jpg'))->toBeTrue()
+        ->and(Storage::disk('local')->exists($newDir.'/conversions/thumb.jpg'))->toBeTrue();
+
+    // Clear the sabotage; a clean rerun must migrate fully, overwriting the
+    // stray copy left behind by the failed attempt.
+    Storage::disk('local')->deleteDirectory($newDir.'/quote.pdf');
+
+    $this->artisan('documents:migrate-v3')
+        ->expectsOutputToContain('Migrated 1 media item(s), skipped 0.')
+        ->assertExitCode(0);
+
+    $media->refresh();
+
+    expect($media->getCustomProperty(DocumentPathGenerator::PATH_VERSION_PROPERTY))->toBe(DocumentPathGenerator::PATH_VERSION_V3)
+        ->and(Storage::disk('local')->exists($newDir.'/quote.pdf'))->toBeTrue()
+        ->and(Storage::disk('local')->exists($newDir.'/conversions/thumb.jpg'))->toBeTrue()
+        ->and(Storage::disk('local')->exists($oldDir))->toBeFalse();
+});
+
 it('skips media whose v3 path cannot be resolved and leaves it untouched', function () {
     $request = Request::factory()->create([
         'request_number' => 'REQ-2026-9003',

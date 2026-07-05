@@ -84,40 +84,57 @@ final class MigrateDocumentsToV3Command extends Command
     }
 
     /**
-     * Stamp the media with its resolved v3 prefix and move its directory on
-     * disk, in a single transaction. The old path is captured BEFORE stamping
-     * (stamping changes what the generator resolves), and the whole thing is
-     * wrapped in a DB transaction so a filesystem move failure rolls back the
-     * stamp: DB and disk never disagree about where a file lives.
+     * Stamp the media with its resolved v3 prefix and relocate its directory
+     * on disk using a copy-first strategy: copy every file to the new
+     * directory and verify it, then commit the stamp in a transaction, and
+     * only then delete the old directory. A failure at any point before the
+     * delete leaves the original tree fully intact and the media unstamped,
+     * so DB and disk never disagree about where a live file is; stray copies
+     * left in the target by an interrupted run are overwritten on rerun.
+     *
+     * The old path is captured BEFORE stamping (stamping changes what the
+     * generator resolves).
      *
      * @return array{0: string, 1: string} old directory, new directory
      */
     private function migrateOne(Media $media, Filesystem $disk, string $prefix): array
     {
-        return DB::transaction(function () use ($media, $disk, $prefix): array {
-            $generator = PathGeneratorFactory::create($media);
-            $oldDir = rtrim($generator->getPath($media), '/');
+        $generator = PathGeneratorFactory::create($media);
+        $oldDir = rtrim($generator->getPath($media), '/');
+        $originalProperties = $media->custom_properties;
 
-            $media->setCustomProperty(DocumentPathGenerator::PATH_VERSION_PROPERTY, DocumentPathGenerator::PATH_VERSION_V3);
-            $media->setCustomProperty(DocumentPathGenerator::PATH_PREFIX_PROPERTY, $prefix);
-            $media->save();
+        $media->setCustomProperty(DocumentPathGenerator::PATH_VERSION_PROPERTY, DocumentPathGenerator::PATH_VERSION_V3);
+        $media->setCustomProperty(DocumentPathGenerator::PATH_PREFIX_PROPERTY, $prefix);
 
-            $newDir = rtrim($generator->getPath($media), '/');
+        $newDir = rtrim($generator->getPath($media), '/');
 
+        try {
             if ($oldDir !== $newDir) {
-                $this->moveDirectory($disk, $oldDir, $newDir);
+                $this->copyDirectory($disk, $oldDir, $newDir);
             }
 
-            return [$oldDir, $newDir];
-        });
+            DB::transaction(fn () => $media->save());
+        } catch (Throwable $e) {
+            $media->custom_properties = $originalProperties;
+
+            throw $e;
+        }
+
+        if ($oldDir !== $newDir && ! $disk->deleteDirectory($oldDir)) {
+            $this->warn("media #{$media->getKey()}: migrated, but could not remove old directory {$oldDir}");
+        }
+
+        return [$oldDir, $newDir];
     }
 
     /**
-     * Move every file under $oldDir (including nested conversions/ and
+     * Copy every file under $oldDir (including nested conversions/ and
      * responsive-images/ subdirectories) to the equivalent path under $newDir,
-     * then prune the now-empty old directory tree.
+     * verifying each copy. Never mutates $oldDir; a pre-existing file at a
+     * target path (a stray from an interrupted earlier run) is replaced by
+     * the fresh copy.
      */
-    private function moveDirectory(Filesystem $disk, string $oldDir, string $newDir): void
+    private function copyDirectory(Filesystem $disk, string $oldDir, string $newDir): void
     {
         if (! $disk->exists($oldDir)) {
             return;
@@ -127,11 +144,16 @@ final class MigrateDocumentsToV3Command extends Command
             $relative = ltrim(substr($oldFile, strlen($oldDir)), '/');
             $newFile = $newDir.'/'.$relative;
 
-            if (! $disk->move($oldFile, $newFile)) {
-                throw new RuntimeException("failed to move {$oldFile} to {$newFile}");
+            if ($disk->exists($newFile)) {
+                $disk->delete($newFile);
+            }
+
+            if (! $disk->copy($oldFile, $newFile)
+                || ! $disk->exists($newFile)
+                || $disk->size($newFile) !== $disk->size($oldFile)
+            ) {
+                throw new RuntimeException("failed to copy {$oldFile} to {$newFile}");
             }
         }
-
-        $disk->deleteDirectory($oldDir);
     }
 }
