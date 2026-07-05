@@ -84,7 +84,7 @@
                                            step="any"
                                            placeholder="1"
                                            wire:model="quantities.{{ $article->id }}"
-                                           class="w-20 rounded-md border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100"
+                                           class="w-12 rounded-md border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-1.5 py-1.5 text-center text-sm text-gray-900 dark:text-gray-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                            aria-label="Quantity for {{ $article->name }}">
                                     <button type="button"
                                             wire:click="addToCart({{ $article->id }})"
