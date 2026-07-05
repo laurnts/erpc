@@ -27,7 +27,7 @@ use Spatie\MediaLibrary\HasMedia;
  * but is fully defensive: a broken chain yields null (never an exception), letting the
  * caller fall back to the v2 path.
  */
-final class DocumentPathResolver
+final readonly class DocumentPathResolver
 {
     /**
      * Map of model class => collection => path descriptor. Strict superset of
