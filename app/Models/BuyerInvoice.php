@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Data\TeamErpSettings;
 use App\Enums\InvoiceStatus;
 use App\Enums\InvoiceType;
+use App\Enums\OrderStatus;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use App\Observers\BuyerInvoiceObserver;
@@ -520,5 +521,55 @@ final class BuyerInvoice extends Model implements HasMedia
         }
 
         return sprintf('%s-%s-%04d', $prefix, $year, $nextNumber);
+    }
+
+    /**
+     * Issue a sent invoice from a confirmed buyer order.
+     */
+    public static function issueFromOrder(BuyerOrder $order): self
+    {
+        if ($order->status !== OrderStatus::CONFIRMED) {
+            throw new \InvalidArgumentException('Only confirmed orders can be invoiced.');
+        }
+
+        $existing = self::query()
+            ->where('buyer_order_id', $order->getKey())
+            ->where('type', InvoiceType::STANDARD)
+            ->whereNot('status', InvoiceStatus::CANCELLED)
+            ->exists();
+
+        if ($existing) {
+            throw new \InvalidArgumentException('This order already has an active invoice.');
+        }
+
+        $currencyId = $order->buyerQuote?->currency_id
+            ?? $order->team?->getBaseCurrency()?->getKey();
+
+        if ($currencyId === null) {
+            throw new \InvalidArgumentException('No currency could be resolved for this invoice.');
+        }
+
+        $invoice = new self;
+        $invoice->team_id = $order->team_id;
+        /** @var int|null $creatorId */
+        $creatorId = auth()->id();
+        $invoice->creator_id = $creatorId;
+        $invoice->request_id = $order->request_id;
+        $invoice->buyer_order_id = $order->getKey();
+        $invoice->type = InvoiceType::STANDARD;
+        $invoice->status = InvoiceStatus::DRAFT;
+        $invoice->currency_id = $currencyId;
+        $invoice->net_days = $order->payment_terms_days;
+        $invoice->save();
+
+        $order->loadMissing('items');
+        foreach ($order->items as $orderItem) {
+            BuyerInvoiceItem::createFromOrderItem($invoice, $orderItem);
+        }
+
+        $invoice->recalculateTotals();
+        $invoice->markAsSent();
+
+        return $invoice->refresh();
     }
 }
