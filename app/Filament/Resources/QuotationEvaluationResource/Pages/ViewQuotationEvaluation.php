@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\QuotationEvaluationResource\Pages;
 
+use App\Actions\Media\AttachUploadedFiles;
 use App\Actions\SupplierPortal\AnnounceRfqOutcomes;
 use App\Enums\CentralPurchasingRole;
 use App\Enums\QEStatus;
@@ -160,7 +161,8 @@ final class ViewQuotationEvaluation extends ViewRecord
                             ->label('Document')
                             ->required()
                             ->disk('local')
-                            ->directory('documents-temp')
+                            ->directory(QuotationEvaluation::DOCUMENTS_UPLOAD_DIRECTORY)
+                            ->visibility('private')
                             ->acceptedFileTypes([
                                 'application/pdf',
                                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -184,17 +186,19 @@ final class ViewQuotationEvaluation extends ViewRecord
                             $file = $file[0] ?? null;
                         }
                         if ($file && is_string($file)) {
-                            $path = storage_path('app/'.ltrim($file, '/'));
-                            if (file_exists($path)) {
-                                $record->addMedia($path)
-                                    ->usingName($data['name'] ?? basename($path))
-                                    ->toMediaCollection('documents');
-                                Notification::make()
-                                    ->title('Document uploaded')
-                                    ->success()
-                                    ->send();
-                                $this->refresh();
+                            app(AttachUploadedFiles::class)->execute($record, [$file], 'documents', QuotationEvaluation::DOCUMENTS_UPLOAD_DIRECTORY);
+                            $record->refresh();
+
+                            $name = $data['name'] ?? null;
+                            if (is_string($name) && $name !== '') {
+                                $record->getMedia('documents')->last()?->update(['name' => $name]);
                             }
+
+                            Notification::make()
+                                ->title('Document uploaded')
+                                ->success()
+                                ->send();
+                            $this->refresh();
                         }
                     }),
                 DeleteAction::make(),

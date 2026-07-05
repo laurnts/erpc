@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\ProfitAndLossResource\Pages;
 
+use App\Actions\Media\AttachUploadedFiles;
 use App\Enums\CentralPurchasingRole;
 use App\Filament\Resources\MemberResource;
 use App\Filament\Resources\ProfitAndLossResource;
@@ -31,10 +32,10 @@ final class ViewProfitAndLoss extends ViewRecord
     /** @var class-string<ProfitAndLossResource> */
     protected static string $resource = ProfitAndLossResource::class;
 
-    public function mount(int | string $record): void
+    public function mount(int|string $record): void
     {
         parent::mount($record);
-        
+
         // Ensure relationships are loaded
         $this->record->load(['preparedBy', 'deptHeadSales', 'deputyDirector', 'approvedBy']);
     }
@@ -43,7 +44,7 @@ final class ViewProfitAndLoss extends ViewRecord
     {
         // Ensure relationships are loaded before infolist renders
         $this->record->loadMissing(['preparedBy', 'deptHeadSales', 'deputyDirector', 'approvedBy']);
-        
+
         return $data;
     }
 
@@ -117,7 +118,8 @@ final class ViewProfitAndLoss extends ViewRecord
                             ->label('Document')
                             ->required()
                             ->disk('local')
-                            ->directory('documents-temp')
+                            ->directory(ProfitAndLoss::DOCUMENTS_UPLOAD_DIRECTORY)
+                            ->visibility('private')
                             ->acceptedFileTypes([
                                 'application/pdf',
                                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -141,17 +143,19 @@ final class ViewProfitAndLoss extends ViewRecord
                             $file = $file[0] ?? null;
                         }
                         if ($file && is_string($file)) {
-                            $path = storage_path('app/'.ltrim($file, '/'));
-                            if (file_exists($path)) {
-                                $record->addMedia($path)
-                                    ->usingName($data['name'] ?? basename($path))
-                                    ->toMediaCollection('documents');
-                                Notification::make()
-                                    ->title('Document uploaded')
-                                    ->success()
-                                    ->send();
-                                $this->refresh();
+                            app(AttachUploadedFiles::class)->execute($record, [$file], 'documents', ProfitAndLoss::DOCUMENTS_UPLOAD_DIRECTORY);
+                            $record->refresh();
+
+                            $name = $data['name'] ?? null;
+                            if (is_string($name) && $name !== '') {
+                                $record->getMedia('documents')->last()?->update(['name' => $name]);
                             }
+
+                            Notification::make()
+                                ->title('Document uploaded')
+                                ->success()
+                                ->send();
+                            $this->refresh();
                         }
                     }),
                 DeleteAction::make(),
@@ -217,14 +221,14 @@ final class ViewProfitAndLoss extends ViewRecord
                                 if (! $record->preparedBy) {
                                     return null;
                                 }
-                                
+
                                 // Verify user has correct role
                                 $membership = Membership::where('team_id', $record->team_id)
                                     ->where('user_id', $record->prepared_by_id)
                                     ->where('role', 'central_purchasing')
                                     ->where('central_purchasing_role', CentralPurchasingRole::KEY_ACCOUNT->value)
                                     ->first();
-                                
+
                                 return $membership ? $record->preparedBy->name : null;
                             })
                             ->placeholder('—')
@@ -235,6 +239,7 @@ final class ViewProfitAndLoss extends ViewRecord
                                 $membership = Membership::where('team_id', $record->team_id)
                                     ->where('user_id', $record->prepared_by_id)
                                     ->first();
+
                                 return $membership ? MemberResource::getUrl('view', ['record' => $membership]) : null;
                             })
                             ->color('primary'),
@@ -245,29 +250,30 @@ final class ViewProfitAndLoss extends ViewRecord
                                 if (! $record->deptHeadSales) {
                                     return null;
                                 }
-                                
+
                                 // Verify user has correct role
                                 $membership = Membership::where('team_id', $record->team_id)
                                     ->where('user_id', $record->dept_head_sales_id)
                                     ->where('role', 'central_purchasing')
                                     ->where('central_purchasing_role', CentralPurchasingRole::DEPT_HEAD_SALES->value)
                                     ->first();
-                                
+
                                 return $membership ? $record->deptHeadSales->name : null;
                             })
                             ->formatStateUsing(function (?string $state, ?\App\Models\ProfitAndLoss $record): HtmlString|string|null {
                                 if ($state === null || $record === null) {
                                     return $state;
                                 }
-                                
+
                                 if ($record->hasDeptHeadSalesApproved()) {
                                     $approvedDate = $record->dept_head_sales_approved_at?->format('M j, Y');
+
                                     return new HtmlString(
-                                        $state . ' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span><br/>' .
-                                        ($approvedDate ? ' <span style="font-size: 0.75rem; color: #6b7280;">(' . $approvedDate . ')</span>' : '')
+                                        $state.' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span><br/>'.
+                                        ($approvedDate ? ' <span style="font-size: 0.75rem; color: #6b7280;">('.$approvedDate.')</span>' : '')
                                     );
                                 }
-                                
+
                                 return $state;
                             })
                             ->placeholder('—')
@@ -278,6 +284,7 @@ final class ViewProfitAndLoss extends ViewRecord
                                 $membership = Membership::where('team_id', $record->team_id)
                                     ->where('user_id', $record->dept_head_sales_id)
                                     ->first();
+
                                 return $membership ? MemberResource::getUrl('view', ['record' => $membership]) : null;
                             })
                             ->color('primary'),
@@ -288,29 +295,30 @@ final class ViewProfitAndLoss extends ViewRecord
                                 if (! $record->deputyDirector) {
                                     return null;
                                 }
-                                
+
                                 // Verify user has correct role
                                 $membership = Membership::where('team_id', $record->team_id)
                                     ->where('user_id', $record->deputy_director_id)
                                     ->where('role', 'central_purchasing')
                                     ->where('central_purchasing_role', CentralPurchasingRole::DEPUTY_DIRECTOR->value)
                                     ->first();
-                                
+
                                 return $membership ? $record->deputyDirector->name : null;
                             })
                             ->formatStateUsing(function (?string $state, ?\App\Models\ProfitAndLoss $record): HtmlString|string|null {
                                 if ($state === null || $record === null) {
                                     return $state;
                                 }
-                                
+
                                 if ($record->hasDeputyDirectorApproved()) {
                                     $approvedDate = $record->deputy_director_approved_at?->format('M j, Y');
+
                                     return new HtmlString(
-                                        $state . ' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span><br/>' .
-                                        ($approvedDate ? ' <span style="font-size: 0.75rem; color: #6b7280;">(' . $approvedDate . ')</span>' : '')
+                                        $state.' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span><br/>'.
+                                        ($approvedDate ? ' <span style="font-size: 0.75rem; color: #6b7280;">('.$approvedDate.')</span>' : '')
                                     );
                                 }
-                                
+
                                 return $state;
                             })
                             ->placeholder('—')
@@ -321,6 +329,7 @@ final class ViewProfitAndLoss extends ViewRecord
                                 $membership = Membership::where('team_id', $record->team_id)
                                     ->where('user_id', $record->deputy_director_id)
                                     ->first();
+
                                 return $membership ? MemberResource::getUrl('view', ['record' => $membership]) : null;
                             })
                             ->color('primary'),
@@ -331,29 +340,30 @@ final class ViewProfitAndLoss extends ViewRecord
                                 if (! $record->approvedBy) {
                                     return null;
                                 }
-                                
+
                                 // Verify user has correct role
                                 $membership = Membership::where('team_id', $record->team_id)
                                     ->where('user_id', $record->approved_by_id)
                                     ->where('role', 'central_purchasing')
                                     ->where('central_purchasing_role', CentralPurchasingRole::DIRECTOR->value)
                                     ->first();
-                                
+
                                 return $membership ? $record->approvedBy->name : null;
                             })
                             ->formatStateUsing(function (?string $state, ?\App\Models\ProfitAndLoss $record): HtmlString|string|null {
                                 if ($state === null || $record === null) {
                                     return $state;
                                 }
-                                
+
                                 if ($record->hasDirectorApproved()) {
                                     $approvedDate = $record->director_approved_at?->format('M j, Y');
+
                                     return new HtmlString(
-                                        $state . ' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span><br/>' .
-                                        ($approvedDate ? ' <span style="font-size: 0.75rem; color: #6b7280;">(' . $approvedDate . ')</span>' : '')
+                                        $state.' <span style="display: inline-block; padding: 2px 8px; background-color: #10b981; color: white; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; margin-left: 4px;">approved</span><br/>'.
+                                        ($approvedDate ? ' <span style="font-size: 0.75rem; color: #6b7280;">('.$approvedDate.')</span>' : '')
                                     );
                                 }
-                                
+
                                 return $state;
                             })
                             ->placeholder('—')
@@ -364,6 +374,7 @@ final class ViewProfitAndLoss extends ViewRecord
                                 $membership = Membership::where('team_id', $record->team_id)
                                     ->where('user_id', $record->approved_by_id)
                                     ->first();
+
                                 return $membership ? MemberResource::getUrl('view', ['record' => $membership]) : null;
                             })
                             ->color('primary'),

@@ -17,13 +17,12 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ViewField;
-use Filament\Schemas\Components\Section;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Components\Section;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
-use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class GoodsReceiveRelationManager extends RelationManager
 {
@@ -128,6 +127,7 @@ final class GoodsReceiveRelationManager extends RelationManager
                             ->options(function (): array {
                                 /** @var Request $request */
                                 $request = $this->getOwnerRecord();
+
                                 return $request->supplierOrders()
                                     ->with('supplier')
                                     ->orderBy('po_number')
@@ -156,7 +156,7 @@ final class GoodsReceiveRelationManager extends RelationManager
                                 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                             ])
                             ->disk('local')
-                            ->directory('goods-receive')
+                            ->directory(Request::GOODS_RECEIVE_UPLOAD_DIRECTORY)
                             ->visibility('private')
                             ->downloadable()
                             ->openable()
@@ -211,7 +211,7 @@ final class GoodsReceiveRelationManager extends RelationManager
                                 ->body('No document was uploaded. Please select at least one file.')
                                 ->danger()
                                 ->send();
-                            throw new \Filament\Support\Exceptions\Halt();
+                            throw new \Filament\Support\Exceptions\Halt;
                         }
 
                         $batch = GoodsReceiveBatch::create([

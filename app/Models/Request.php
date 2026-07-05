@@ -82,6 +82,20 @@ final class Request extends Model implements HasCustomFields, HasMedia
     use UsesCustomFields;
 
     /**
+     * Upload directory for goods receive documents. The FileUpload
+     * component and its addMedia call site must reference the same
+     * value — drift between them silently drops attachments.
+     */
+    public const string GOODS_RECEIVE_UPLOAD_DIRECTORY = 'uploads-tmp/goods-receive';
+
+    /**
+     * Upload directory for completion report documents. The FileUpload
+     * component and its addMedia call site must reference the same
+     * value — drift between them silently drops attachments.
+     */
+    public const string COMPLETION_REPORTS_UPLOAD_DIRECTORY = 'uploads-tmp/completion-reports';
+
+    /**
      * @var list<string>
      */
     protected $fillable = [

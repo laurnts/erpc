@@ -86,7 +86,7 @@ final readonly class SupplierRfqSubmissionForm
                             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                         ])
                         ->disk('local')
-                        ->directory('supplier-quotes/quotation')
+                        ->directory(SupplierQuote::QUOTATION_UPLOAD_DIRECTORY)
                         ->visibility('private')
                         ->maxSize(10240),
                 ]),

@@ -82,7 +82,7 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
      * AttachUploadedFiles call sites must reference the same value — drift
      * between them silently drops attachments.
      */
-    public const string PO_FILES_UPLOAD_DIRECTORY = 'buyer-quotes/po-files';
+    public const string PO_FILES_UPLOAD_DIRECTORY = 'uploads-tmp/buyer-po';
 
     /**
      * @var list<string>

@@ -62,6 +62,13 @@ final class ProfitAndLoss extends Model implements HasMedia
     use InteractsWithMedia;
 
     /**
+     * Upload directory for profit and loss documents. The FileUpload
+     * component and its AttachUploadedFiles call site must reference the
+     * same value — drift between them silently drops attachments.
+     */
+    public const string DOCUMENTS_UPLOAD_DIRECTORY = 'uploads-tmp/profit-and-loss';
+
+    /**
      * @var list<string>
      */
     protected $fillable = [

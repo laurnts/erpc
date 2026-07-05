@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\RequestResource\RelationManagers;
 
+use App\Actions\Media\AttachUploadedFiles;
 use App\Enums\BuyerQuoteCreationMode;
 use App\Enums\BuyerQuoteStatus;
 use App\Enums\CentralPurchasingRole;
@@ -27,7 +28,6 @@ use App\Models\User;
 use App\Services\Erp\Financial\LineCalculator;
 use App\Services\Erp\Financial\MarginConvention;
 use App\Services\TeamMemberService;
-use App\Support\Media\DocumentPathGenerator;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -1066,32 +1066,10 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->afterStateUpdated(function ($state, $record, $set) {
                             // Process uploaded files immediately when they're uploaded
                             if ($record && $record->exists && $state && is_array($state)) {
-                                foreach ($state as $file) {
-                                    if (is_string($file)) {
-                                        // Filament stores files relative to storage/app, so the path is already correct
-                                        $filePath = storage_path('app/'.ltrim($file, '/'));
+                                app(AttachUploadedFiles::class)->execute($record, $state, 'buyer_po', BuyerQuote::PO_FILES_UPLOAD_DIRECTORY);
 
-                                        if (file_exists($filePath)) {
-                                            try {
-                                                $media = $record->addMedia($filePath)
-                                                    ->withCustomProperties([DocumentPathGenerator::PATH_VERSION_PROPERTY => DocumentPathGenerator::PATH_VERSION_V2])
-                                                    ->toMediaCollection('buyer_po');
-
-                                                // Refresh the record to load new media
-                                                $record->refresh();
-                                            } catch (\Exception $e) {
-                                                // Log error for debugging
-                                                \Illuminate\Support\Facades\Log::error('Failed to add Buyer PO media: '.$e->getMessage(), [
-                                                    'file' => $file,
-                                                    'filePath' => $filePath,
-                                                    'exists' => file_exists($filePath),
-                                                ]);
-                                            }
-                                        } else {
-                                            \Illuminate\Support\Facades\Log::warning('Buyer PO file not found: '.$filePath);
-                                        }
-                                    }
-                                }
+                                // Refresh the record to load new media
+                                $record->refresh();
                             }
                         }),
                     ViewField::make('buyer_po_list')

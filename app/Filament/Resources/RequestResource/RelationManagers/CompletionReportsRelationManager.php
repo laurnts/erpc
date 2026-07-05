@@ -75,6 +75,7 @@ final class CompletionReportsRelationManager extends RelationManager
                             ->where('media_id', $record->id)
                             ->where('team_id', $request->team_id)
                             ->exists();
+
                         return $approved ? 'Approved' : 'Pending';
                     })
                     ->badge()
@@ -117,7 +118,7 @@ final class CompletionReportsRelationManager extends RelationManager
                                 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // docx
                             ])
                             ->disk('local')
-                            ->directory('completion-reports')
+                            ->directory(Request::COMPLETION_REPORTS_UPLOAD_DIRECTORY)
                             ->visibility('private')
                             ->downloadable()
                             ->openable()
@@ -184,9 +185,9 @@ final class CompletionReportsRelationManager extends RelationManager
                                             ->toMediaCollection('completion_reports');
 
                                         // Store payment document flag and payment terms in custom properties
-                                        if (!empty($data['is_payment_document'])) {
+                                        if (! empty($data['is_payment_document'])) {
                                             $media->setCustomProperty('is_payment_document', true);
-                                            if (!empty($data['payment_terms'])) {
+                                            if (! empty($data['payment_terms'])) {
                                                 $media->setCustomProperty('payment_terms', $data['payment_terms']);
                                             }
                                             $media->save();
@@ -208,9 +209,9 @@ final class CompletionReportsRelationManager extends RelationManager
                                     ->toMediaCollection('completion_reports');
 
                                 // Store payment document flag and payment terms in custom properties
-                                if (!empty($data['is_payment_document'])) {
+                                if (! empty($data['is_payment_document'])) {
                                     $createdMedia->setCustomProperty('is_payment_document', true);
-                                    if (!empty($data['payment_terms'])) {
+                                    if (! empty($data['payment_terms'])) {
                                         $createdMedia->setCustomProperty('payment_terms', $data['payment_terms']);
                                     }
                                     $createdMedia->save();
@@ -225,8 +226,8 @@ final class CompletionReportsRelationManager extends RelationManager
                                 ->body('No document was uploaded. Please select a file to upload.')
                                 ->danger()
                                 ->send();
-                            
-                            throw new \Filament\Support\Exceptions\Halt();
+
+                            throw new \Filament\Support\Exceptions\Halt;
                         }
 
                         return $createdMedia;

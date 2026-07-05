@@ -25,7 +25,7 @@ final readonly class CustomerRequestForm
      * and the AttachUploadedFiles call site must reference the same value —
      * drift between them silently drops attachments.
      */
-    public const string ATTACHMENTS_UPLOAD_DIRECTORY = 'requests/portal-attachments';
+    public const string ATTACHMENTS_UPLOAD_DIRECTORY = 'uploads-tmp/request-attachments';
 
     /**
      * @return array<int, \Filament\Schemas\Components\Component|\Filament\Forms\Components\Field>

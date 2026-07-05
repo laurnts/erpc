@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Actions\Media\AttachUploadedFiles;
 use App\Filament\Resources\AcceptanceReportResource\Pages\CreateAcceptanceReport;
 use App\Filament\Resources\AcceptanceReportResource\Pages\ListAcceptanceReports;
 use App\Filament\Resources\AcceptanceReportResource\Pages\ViewAcceptanceReport;
@@ -135,7 +136,7 @@ final class AcceptanceReportResource extends Resource
                             'image/gif',
                         ])
                         ->disk('local')
-                        ->directory('acceptance-reports/attachments')
+                        ->directory(AcceptanceReport::ATTACHMENTS_UPLOAD_DIRECTORY)
                         ->visibility('private')
                         ->downloadable()
                         ->openable()
@@ -147,28 +148,10 @@ final class AcceptanceReportResource extends Resource
                         ->afterStateUpdated(function ($state, $record, $set): void {
                             // Process uploaded files immediately when they're uploaded
                             if ($record && $record->exists && $state && is_array($state) && ! empty($state)) {
-                                foreach ($state as $file) {
-                                    if (is_string($file)) {
-                                        // Filament stores files relative to storage/app
-                                        $filePath = storage_path('app/'.ltrim($file, '/'));
+                                app(AttachUploadedFiles::class)->execute($record, $state, 'attachments', AcceptanceReport::ATTACHMENTS_UPLOAD_DIRECTORY);
 
-                                        if (file_exists($filePath)) {
-                                            try {
-                                                $record->addMedia($filePath)
-                                                    ->toMediaCollection('attachments');
-
-                                                // Refresh the record to load new media
-                                                $record->refresh();
-                                            } catch (\Exception $e) {
-                                                \Illuminate\Support\Facades\Log::error('Failed to add acceptance report media: '.$e->getMessage(), [
-                                                    'file' => $file,
-                                                    'filePath' => $filePath,
-                                                    'acceptance_report_id' => $record->id,
-                                                ]);
-                                            }
-                                        }
-                                    }
-                                }
+                                // Refresh the record to load new media
+                                $record->refresh();
                             }
                         })
                         ->columnSpanFull(),

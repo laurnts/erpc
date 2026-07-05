@@ -80,6 +80,13 @@ final class SupplierQuote extends Model implements HasMedia
     use SoftDeletes;
 
     /**
+     * Upload directory for supplier quotation files. FileUpload components
+     * and their AttachUploadedFiles call sites must reference the same
+     * value — drift between them silently drops attachments.
+     */
+    public const string QUOTATION_UPLOAD_DIRECTORY = 'uploads-tmp/supplier-quotes';
+
+    /**
      * @var list<string>
      */
     protected $fillable = [

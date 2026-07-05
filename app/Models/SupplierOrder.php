@@ -74,6 +74,13 @@ final class SupplierOrder extends Model implements HasMedia
     use SoftDeletes;
 
     /**
+     * Upload directory for supplier order documents. The FileUpload
+     * component and its AttachUploadedFiles call site must reference the
+     * same value — drift between them silently drops attachments.
+     */
+    public const string DOCUMENTS_UPLOAD_DIRECTORY = 'uploads-tmp/supplier-orders';
+
+    /**
      * @var list<string>
      */
     protected $fillable = [

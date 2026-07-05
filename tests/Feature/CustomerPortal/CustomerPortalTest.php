@@ -8,6 +8,7 @@ use App\Enums\RequestStage;
 use App\Enums\RequestSubmissionMethod;
 use App\Filament\Customer\Pages\Auth\CustomerLogin;
 use App\Filament\Customer\Pages\CustomerDashboard;
+use App\Filament\Customer\Resources\CustomerRequestResource\Schemas\CustomerRequestForm;
 use App\Filament\Pages\Auth\Login as AppLogin;
 use App\Filament\Resources\BuyerResource;
 use App\Http\Middleware\UsePanelSession;
@@ -21,6 +22,7 @@ use App\Models\Team;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
 use App\Services\Portal\CustomerPortalContext;
+use App\Support\Media\DocumentPathGenerator;
 use App\Support\PanelDomain;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Mail;
@@ -487,7 +489,7 @@ describe('Customer Request Submission', function (): void {
 
 describe('Customer Portal Phase 2', function (): void {
     it('creates document-based portal request with attachments', function (): void {
-        $pdfPath = 'requests/portal-attachments/test-rfq.pdf';
+        $pdfPath = CustomerRequestForm::ATTACHMENTS_UPLOAD_DIRECTORY.'/test-rfq.pdf';
         $absolutePath = storage_path('app/'.$pdfPath);
 
         if (! is_dir(dirname($absolutePath))) {
@@ -516,6 +518,11 @@ describe('Customer Portal Phase 2', function (): void {
             ->and($request->submission_method)->toBe(RequestSubmissionMethod::DOCUMENT)
             ->and($request->items)->toHaveCount(0)
             ->and($request->getMedia('attachments'))->toHaveCount(1);
+
+        $media = $request->getFirstMedia('attachments');
+
+        expect($media->getCustomProperty(DocumentPathGenerator::PATH_VERSION_PROPERTY))->toBe(DocumentPathGenerator::PATH_VERSION_V3)
+            ->and($media->getCustomProperty(DocumentPathGenerator::PATH_PREFIX_PROPERTY))->toStartWith('documents/team-'.$request->team_id.'/');
     });
 
     it('allows customer to accept a sent buyer quote', function (): void {
@@ -855,7 +862,7 @@ it('rejects path traversal in uploaded file attachment and accepts files inside 
         'buyer_id' => $this->buyer->getKey(),
     ]);
 
-    $uploadDir = storage_path('app/requests/portal-attachments');
+    $uploadDir = storage_path('app/'.CustomerRequestForm::ATTACHMENTS_UPLOAD_DIRECTORY);
     \Illuminate\Support\Facades\File::ensureDirectoryExists($uploadDir);
     $legit = $uploadDir.'/legit-'.uniqid().'.pdf';
     file_put_contents($legit, '%PDF-1.4 test');
@@ -864,11 +871,11 @@ it('rejects path traversal in uploaded file attachment and accepts files inside 
         $request,
         [
             '../../.env',
-            'requests/portal-attachments/../../../.env',
-            'requests/portal-attachments/'.basename($legit),
+            CustomerRequestForm::ATTACHMENTS_UPLOAD_DIRECTORY.'/../../../.env',
+            CustomerRequestForm::ATTACHMENTS_UPLOAD_DIRECTORY.'/'.basename($legit),
         ],
         'attachments',
-        'requests/portal-attachments',
+        CustomerRequestForm::ATTACHMENTS_UPLOAD_DIRECTORY,
     );
 
     $media = $request->getMedia('attachments');

@@ -217,6 +217,27 @@ describe('Submitting a quote', function (): void {
         Notification::assertSentTo($this->admin, SupplierQuoteSubmittedNotification::class);
     });
 
+    it('stamps the submitted quotation document with a v3 document path', function (): void {
+        Notification::fake();
+
+        livewire(ViewSupplierRfq::class, ['record' => $this->quote->getKey()])
+            ->callAction('submit', data: [
+                'item_prices' => [$this->quoteItem->getKey() => '100'],
+                'currency_id' => $this->eur->getKey(),
+                'quotation_file' => [\Illuminate\Http\UploadedFile::fake()->createWithContent(
+                    'quotation.pdf',
+                    "%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [] /Count 0 >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n",
+                )],
+            ])
+            ->assertHasNoActionErrors();
+
+        $media = $this->quote->refresh()->getFirstMedia('quotation');
+
+        expect($media)->not->toBeNull()
+            ->and($media->getCustomProperty(\App\Support\Media\DocumentPathGenerator::PATH_VERSION_PROPERTY))->toBe(\App\Support\Media\DocumentPathGenerator::PATH_VERSION_V3)
+            ->and($media->getCustomProperty(\App\Support\Media\DocumentPathGenerator::PATH_PREFIX_PROPERTY))->toStartWith('documents/team-'.$this->team->getKey().'/');
+    });
+
     it('ignores a tampered client-supplied exchange rate', function (): void {
         Notification::fake();
 

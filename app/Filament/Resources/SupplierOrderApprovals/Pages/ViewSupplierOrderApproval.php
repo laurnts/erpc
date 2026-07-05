@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SupplierOrderApprovals\Pages;
 
+use App\Actions\Media\AttachUploadedFiles;
 use App\Enums\OrderStatus;
 use App\Filament\Resources\RequestResource;
 use App\Filament\Resources\SupplierOrderApprovals\Schemas\SupplierOrderApprovalInfolist;
@@ -98,7 +99,8 @@ final class ViewSupplierOrderApproval extends ViewRecord
                             ->label('Document')
                             ->required()
                             ->disk('local')
-                            ->directory('documents-temp')
+                            ->directory(SupplierOrder::DOCUMENTS_UPLOAD_DIRECTORY)
+                            ->visibility('private')
                             ->acceptedFileTypes([
                                 'application/pdf',
                                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -122,17 +124,19 @@ final class ViewSupplierOrderApproval extends ViewRecord
                             $file = $file[0] ?? null;
                         }
                         if ($file && is_string($file)) {
-                            $path = storage_path('app/'.ltrim($file, '/'));
-                            if (file_exists($path)) {
-                                $record->addMedia($path)
-                                    ->usingName($data['name'] ?? basename($path))
-                                    ->toMediaCollection('documents');
-                                Notification::make()
-                                    ->title('Document uploaded')
-                                    ->success()
-                                    ->send();
-                                $this->refresh();
+                            app(AttachUploadedFiles::class)->execute($record, [$file], 'documents', SupplierOrder::DOCUMENTS_UPLOAD_DIRECTORY);
+                            $record->refresh();
+
+                            $name = $data['name'] ?? null;
+                            if (is_string($name) && $name !== '') {
+                                $record->getMedia('documents')->last()?->update(['name' => $name]);
                             }
+
+                            Notification::make()
+                                ->title('Document uploaded')
+                                ->success()
+                                ->send();
+                            $this->refresh();
                         }
                     }),
             ]),

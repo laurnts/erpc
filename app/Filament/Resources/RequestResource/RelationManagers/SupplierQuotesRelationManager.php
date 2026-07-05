@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\RequestResource\RelationManagers;
 
+use App\Actions\Media\AttachUploadedFiles;
 use App\Enums\PrepaymentType;
 use App\Enums\RequestStage;
 use App\Enums\SupplierQuoteStatus;
@@ -16,7 +17,6 @@ use App\Models\SupplierQuote;
 use App\Models\SupplierQuoteItem;
 use App\Models\TaxCode;
 use App\Models\UnitOfMeasure;
-use App\Support\Media\DocumentPathGenerator;
 use App\Support\SafeCast;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -47,6 +47,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\MediaLibrary\MediaCollections\Exceptions\FileUnacceptableForCollection;
 
 final class SupplierQuotesRelationManager extends RelationManager
 {
@@ -1636,7 +1637,7 @@ final class SupplierQuotesRelationManager extends RelationManager
 
                             return false;
                         })
-                        ->modalSubmitActionLabel('Upload')
+                        ->modalSubmitActionLabel('Save')
                         ->modalCancelActionLabel('Close')
                         ->action(function (SupplierQuote $record, array $data): void {
                             $record->load('media');
@@ -1650,15 +1651,21 @@ final class SupplierQuotesRelationManager extends RelationManager
                             $files = $data['quotation_file'] ?? null;
                             $paths = is_array($files) ? $files : ($files !== null ? [$files] : []);
                             $added = 0;
+                            $rejected = 0;
                             foreach ($paths as $file) {
-                                if (is_string($file)) {
-                                    $filePath = storage_path('app/'.ltrim($file, '/'));
-                                    if (file_exists($filePath)) {
-                                        $record->addMedia($filePath)
-                                            ->withCustomProperties([DocumentPathGenerator::PATH_VERSION_PROPERTY => DocumentPathGenerator::PATH_VERSION_V2])
-                                            ->toMediaCollection('quotation');
-                                        $added++;
-                                    }
+                                if (! is_string($file)) {
+                                    continue;
+                                }
+                                $before = $record->media()->where('collection_name', 'quotation')->count();
+                                try {
+                                    app(AttachUploadedFiles::class)->execute($record, [$file], 'quotation', SupplierQuote::QUOTATION_UPLOAD_DIRECTORY);
+                                } catch (FileUnacceptableForCollection) {
+                                    $rejected++;
+
+                                    continue;
+                                }
+                                if ($record->media()->where('collection_name', 'quotation')->count() > $before) {
+                                    $added++;
                                 }
                             }
                             if ($added > 0) {
@@ -1666,6 +1673,19 @@ final class SupplierQuotesRelationManager extends RelationManager
                                     ->title('Quotation uploaded')
                                     ->body('Quotation document has been uploaded. You can now input supplier prices.')
                                     ->success()
+                                    ->send();
+                            }
+                            if ($rejected > 0) {
+                                Notification::make()
+                                    ->title('File rejected')
+                                    ->body('The file content is not an accepted document type (PDF, Excel, Word, PNG, JPEG). Nothing was attached.')
+                                    ->danger()
+                                    ->send();
+                            } elseif ($added === 0) {
+                                Notification::make()
+                                    ->title('Upload failed')
+                                    ->body('No document was attached. Re-select the file and click Save.')
+                                    ->danger()
                                     ->send();
                             }
                         }),
@@ -1690,7 +1710,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                 ->schema([
                     FileUpload::make('quotation_file')
                         ->label('Quotation document')
-                        ->helperText('Upload the supplier quotation document (PDF, Excel, Word, Images), then click Upload.')
+                        ->helperText('Upload the supplier quotation document (PDF, Excel, Word, Images), then click Save.')
                         ->acceptedFileTypes([
                             'application/pdf',
                             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -1702,7 +1722,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                         ])
                         ->disk('local')
-                        ->directory('supplier-quotes/quotation')
+                        ->directory(SupplierQuote::QUOTATION_UPLOAD_DIRECTORY)
                         ->visibility('private')
                         ->downloadable()
                         ->openable()

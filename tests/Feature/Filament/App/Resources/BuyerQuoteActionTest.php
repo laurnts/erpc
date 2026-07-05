@@ -15,8 +15,10 @@ use App\Models\Request;
 use App\Models\SupplierQuote;
 use App\Models\Team;
 use App\Models\User;
+use App\Support\Media\DocumentPathGenerator;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Features\SupportTesting\Testable;
@@ -243,6 +245,28 @@ describe('resend record action', function (): void {
         'expired' => BuyerQuoteStatus::EXPIRED,
         'superseded' => BuyerQuoteStatus::SUPERSEDED,
     ]);
+});
+
+describe('uploadPo action', function (): void {
+    it('attaches the uploaded PO file with a v3-stamped document path', function (): void {
+        $quote = buyerQuoteActionQuote($this, BuyerQuoteStatus::SENT);
+
+        buyerQuoteActionRelationManager($this)
+            ->assertOk()
+            ->callAction(TestAction::make('uploadPo')->table($quote), [
+                'buyer_po_files' => [UploadedFile::fake()->createWithContent(
+                    'po.pdf',
+                    "%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [] /Count 0 >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n",
+                )],
+            ])
+            ->assertHasNoActionErrors();
+
+        $media = $quote->refresh()->getFirstMedia('buyer_po');
+
+        expect($media)->not->toBeNull()
+            ->and($media->getCustomProperty(DocumentPathGenerator::PATH_VERSION_PROPERTY))->toBe(DocumentPathGenerator::PATH_VERSION_V3)
+            ->and($media->getCustomProperty(DocumentPathGenerator::PATH_PREFIX_PROPERTY))->toStartWith('documents/team-'.$this->team->getKey().'/');
+    });
 });
 
 describe('permission gating', function (): void {

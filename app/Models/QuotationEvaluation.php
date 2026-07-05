@@ -57,6 +57,13 @@ final class QuotationEvaluation extends Model implements HasMedia
     use InteractsWithMedia;
 
     /**
+     * Upload directory for quotation evaluation documents. The FileUpload
+     * component and its AttachUploadedFiles call site must reference the
+     * same value — drift between them silently drops attachments.
+     */
+    public const string DOCUMENTS_UPLOAD_DIRECTORY = 'uploads-tmp/quotation-evaluations';
+
+    /**
      * @var list<string>
      */
     protected $fillable = [

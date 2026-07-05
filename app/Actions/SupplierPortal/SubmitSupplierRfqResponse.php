@@ -65,7 +65,7 @@ final readonly class SubmitSupplierRfqResponse
                 : ($quotationFiles !== null ? [$quotationFiles] : []);
 
             if ($files !== []) {
-                $this->attachUploadedFiles->execute($quote, $files, 'quotation', 'supplier-quotes/quotation');
+                $this->attachUploadedFiles->execute($quote, $files, 'quotation', SupplierQuote::QUOTATION_UPLOAD_DIRECTORY);
             }
         });
 

@@ -45,6 +45,13 @@ final class AcceptanceReport extends Model implements HasMedia
     use SoftDeletes;
 
     /**
+     * Upload directory for acceptance report attachments. The FileUpload
+     * component and its AttachUploadedFiles call site must reference the
+     * same value — drift between them silently drops attachments.
+     */
+    public const string ATTACHMENTS_UPLOAD_DIRECTORY = 'uploads-tmp/acceptance-reports';
+
+    /**
      * @var list<string>
      */
     protected $fillable = [
