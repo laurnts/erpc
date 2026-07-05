@@ -58,12 +58,12 @@ final class CatalogHome extends Component
     {
         $teamId = app(CatalogTeamResolver::class)->teamId() ?? 0;
 
-        $isInCatalog = Article::query()
+        $article = Article::query()
             ->inPublicCatalog($teamId)
             ->whereKey($articleId)
-            ->exists();
+            ->first(['articles.id', 'articles.name']);
 
-        if (! $isInCatalog) {
+        if ($article === null) {
             $this->addError('quantities.'.$articleId, 'This article is no longer available.');
 
             return;
@@ -82,6 +82,7 @@ final class CatalogHome extends Component
         unset($this->quantities[$articleId]);
         $this->resetErrorBag('quantities.'.$articleId);
         $this->dispatch('catalog-cart-updated');
+        $this->dispatch('catalog-cart-added', name: $article->name);
     }
 
     public function render(): View

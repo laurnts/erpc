@@ -87,8 +87,11 @@
                                            aria-label="Quantity for {{ $article->name }}">
                                     <button type="button"
                                             wire:click="addToCart({{ $article->id }})"
-                                            class="flex-1 rounded-md bg-primary hover:bg-primary-600 px-3 py-1.5 text-sm font-medium text-white transition">
-                                        Add to quote
+                                            wire:loading.attr="disabled"
+                                            wire:target="addToCart({{ $article->id }})"
+                                            class="flex-1 rounded-md bg-primary hover:bg-primary-600 px-3 py-1.5 text-sm font-medium text-white transition disabled:opacity-60">
+                                        <span wire:loading.remove wire:target="addToCart({{ $article->id }})">Add to quote</span>
+                                        <span wire:loading wire:target="addToCart({{ $article->id }})">Adding…</span>
                                     </button>
                                 </div>
                                 @error('quantities.'.$article->id)

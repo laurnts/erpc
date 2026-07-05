@@ -77,6 +77,17 @@
     </div>
 </footer>
 
+{{-- Toast confirming add-to-quote; listens for the Livewire browser event --}}
+<div x-data="{ show: false, message: '' }"
+     x-on:catalog-cart-added.window="message = ($event.detail.name ?? 'Article') + ' added to your quote cart'; show = true; clearTimeout($el._toastTimer); $el._toastTimer = setTimeout(() => show = false, 2500)"
+     x-show="show"
+     x-cloak
+     x-transition.opacity.duration.200ms
+     class="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-lg bg-gray-900 dark:bg-gray-100 px-4 py-3 text-sm font-medium text-white dark:text-gray-900 shadow-lg">
+    <x-heroicon-o-check-circle class="h-5 w-5 text-green-400 dark:text-green-600"/>
+    <span x-text="message"></span>
+</div>
+
 @livewireScripts
 </body>
 </html>
