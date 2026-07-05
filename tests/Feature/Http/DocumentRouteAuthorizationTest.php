@@ -54,6 +54,35 @@ it('redirects an unauthenticated request to download the buyer quote PO', functi
     $response->assertRedirect(route('login'));
 });
 
+it('serves an allowlisted buyer quote PO PDF inline with its stored mime type', function (): void {
+    $owner = User::factory()->withPersonalTeam()->create();
+    $buyerQuote = BuyerQuote::factory()->for($owner->personalTeam())->create();
+    $media = $buyerQuote->addMedia(UploadedFile::fake()->createWithContent('po.pdf', '%PDF-1.4'.str_repeat('0', 200)))
+        ->toMediaCollection('buyer_po');
+
+    $response = $this->actingAs($owner)
+        ->get(route('buyer-quotes.po.download', [$buyerQuote, $media]));
+
+    $response->assertOk()
+        ->assertHeader('Content-Type', 'application/pdf');
+    expect($response->headers->get('Content-Disposition'))->toStartWith('inline;');
+});
+
+it('serves a non-allowlisted buyer quote PO SVG as an attachment with a generic content type', function (): void {
+    $owner = User::factory()->withPersonalTeam()->create();
+    $buyerQuote = BuyerQuote::factory()->for($owner->personalTeam())->create();
+    $media = $buyerQuote->addMedia(UploadedFile::fake()->createWithContent('evil.svg', '%PDF-1.4'.str_repeat('0', 200)))
+        ->toMediaCollection('buyer_po');
+    $media->update(['mime_type' => 'image/svg+xml']);
+
+    $response = $this->actingAs($owner)
+        ->get(route('buyer-quotes.po.download', [$buyerQuote, $media]));
+
+    $response->assertOk()
+        ->assertHeader('Content-Type', 'application/octet-stream');
+    expect($response->headers->get('Content-Disposition'))->toStartWith('attachment;');
+});
+
 // --- Buyer Quote PO delete ---
 
 it('allows a same-team user to delete the buyer quote PO', function (): void {
@@ -148,6 +177,35 @@ it('redirects an unauthenticated request to download the supplier quote quotatio
     $response = $this->get(route('supplier-quotes.quotation.download', [$supplierQuote, $media]));
 
     $response->assertRedirect(route('login'));
+});
+
+it('serves an allowlisted supplier quote quotation PDF inline with its stored mime type', function (): void {
+    $owner = User::factory()->withPersonalTeam()->create();
+    $supplierQuote = SupplierQuote::factory()->for($owner->personalTeam())->create();
+    $media = $supplierQuote->addMedia(UploadedFile::fake()->createWithContent('quotation.pdf', '%PDF-1.4'.str_repeat('0', 200)))
+        ->toMediaCollection('quotation');
+
+    $response = $this->actingAs($owner)
+        ->get(route('supplier-quotes.quotation.download', [$supplierQuote, $media]));
+
+    $response->assertOk()
+        ->assertHeader('Content-Type', 'application/pdf');
+    expect($response->headers->get('Content-Disposition'))->toStartWith('inline;');
+});
+
+it('serves a non-allowlisted supplier quote quotation SVG as an attachment with a generic content type', function (): void {
+    $owner = User::factory()->withPersonalTeam()->create();
+    $supplierQuote = SupplierQuote::factory()->for($owner->personalTeam())->create();
+    $media = $supplierQuote->addMedia(UploadedFile::fake()->createWithContent('evil.svg', '%PDF-1.4'.str_repeat('0', 200)))
+        ->toMediaCollection('quotation');
+    $media->update(['mime_type' => 'image/svg+xml']);
+
+    $response = $this->actingAs($owner)
+        ->get(route('supplier-quotes.quotation.download', [$supplierQuote, $media]));
+
+    $response->assertOk()
+        ->assertHeader('Content-Type', 'application/octet-stream');
+    expect($response->headers->get('Content-Disposition'))->toStartWith('attachment;');
 });
 
 // --- Supplier Quote quotation delete ---

@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\SupplierQuote;
 use App\Models\User;
+use App\Support\Media\DocumentResponse;
 use Illuminate\Http\Request;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -38,11 +39,6 @@ final readonly class SupplierQuoteQuotationDownloadController
             abort(404);
         }
 
-        $contentType = $media->mime_type ?? 'application/octet-stream';
-
-        return response()->file($filePath, [
-            'Content-Type' => $contentType,
-            'Content-Disposition' => 'inline; filename="'.$media->file_name.'"',
-        ]);
+        return DocumentResponse::make($media, $filePath);
     }
 }

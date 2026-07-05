@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BuyerQuote;
 use App\Models\User;
+use App\Support\Media\DocumentResponse;
 use Illuminate\Http\Request;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -42,13 +43,7 @@ final readonly class BuyerQuotePoDownloadController
             abort(404);
         }
 
-        // Determine content type
-        $contentType = $media->mime_type ?? 'application/octet-stream';
-
-        // Return file response (opens in browser instead of downloading)
-        return response()->file($filePath, [
-            'Content-Type' => $contentType,
-            'Content-Disposition' => 'inline; filename="'.$media->file_name.'"',
-        ]);
+        // Serve inline only for render-safe mime types; force download otherwise
+        return DocumentResponse::make($media, $filePath);
     }
 }
