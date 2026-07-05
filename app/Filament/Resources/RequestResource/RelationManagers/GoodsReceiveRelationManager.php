@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\RequestResource\RelationManagers;
 
+use App\Actions\Media\AttachUploadedFiles;
 use App\Enums\RequestStage;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Models\GoodsReceiveBatch;
@@ -176,33 +177,28 @@ final class GoodsReceiveRelationManager extends RelationManager
                         $request = $this->getOwnerRecord();
                         $userId = Auth::id();
                         $supplierOrderId = (int) $data['supplier_order_id'];
+
+                        $files = $data['document'] ?? null;
+                        $files = is_array($files) ? $files : ($files !== null ? [$files] : []);
+
+                        $attached = app(AttachUploadedFiles::class)->execute(
+                            $request,
+                            $files,
+                            'goods_receive',
+                            Request::GOODS_RECEIVE_UPLOAD_DIRECTORY,
+                            [
+                                'uploaded_by' => $userId,
+                                'supplier_order_id' => $supplierOrderId,
+                            ],
+                        );
+
                         $mediaIds = [];
-
-                        $addFiles = function (array|string $files) use ($request, $userId, $supplierOrderId, $data, &$mediaIds): void {
-                            $list = is_array($files) ? $files : [$files];
-                            foreach ($list as $file) {
-                                if (! is_string($file)) {
-                                    continue;
-                                }
-                                $filePath = storage_path('app/'.ltrim($file, '/'));
-                                if (! file_exists($filePath)) {
-                                    continue;
-                                }
-                                $name = $data['name'] ?? basename($filePath);
-                                $media = $request->addMedia($filePath)
-                                    ->usingName($name)
-                                    ->toMediaCollection('goods_receive');
-                                $media->setCustomProperty('uploaded_by', $userId);
-                                $media->setCustomProperty('supplier_order_id', $supplierOrderId);
-                                $media->save();
-                                $mediaIds[] = $media->id;
-                            }
-                        };
-
-                        if (isset($data['document']) && is_array($data['document']) && ! empty($data['document'])) {
-                            $addFiles($data['document']);
-                        } elseif (isset($data['document']) && is_string($data['document'])) {
-                            $addFiles($data['document']);
+                        $name = $data['name'] ?? null;
+                        foreach ($attached as $media) {
+                            // Preserve the pre-convergence naming: custom name when given,
+                            // otherwise the file's basename (extension included).
+                            $media->update(['name' => is_string($name) && $name !== '' ? $name : $media->file_name]);
+                            $mediaIds[] = $media->id;
                         }
 
                         if ($mediaIds === []) {

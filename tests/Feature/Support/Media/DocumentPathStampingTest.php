@@ -56,6 +56,58 @@ it('stamps a v3 prefix and resolves the media path under it', function () {
     $quote->clearMediaCollection('quotation');
 });
 
+it('returns the created media and merges caller custom properties without letting them override the path stamps', function () {
+    $request = Request::factory()->create([
+        'request_number' => 'REQ-2026-0700',
+        'created_at' => '2026-05-01 09:00:00',
+    ]);
+    $quote = SupplierQuote::factory()->create([
+        'team_id' => $request->team_id,
+        'request_id' => $request->getKey(),
+        'quote_number' => 'SQ-2026-0700',
+    ]);
+
+    $file = makeUploadFixture('doc-stamp-fixtures', 'quote3.pdf');
+
+    $attached = (new AttachUploadedFiles)->execute($quote, [$file], 'quotation', 'doc-stamp-fixtures', [
+        'uploaded_by' => 42,
+        'supplier_order_id' => 7,
+        DocumentPathGenerator::PATH_VERSION_PROPERTY => 1,
+        DocumentPathGenerator::PATH_PREFIX_PROPERTY => 'evil/override',
+    ]);
+
+    expect($attached)->toHaveCount(1)
+        ->and($attached[0])->toBeInstanceOf(\Spatie\MediaLibrary\MediaCollections\Models\Media::class);
+
+    $media = $attached[0];
+    $expectedPrefix = 'documents/team-'.$request->team_id.'/2026/REQ-2026-0700/supplier-quotes/SQ-2026-0700';
+
+    expect($media->getCustomProperty('uploaded_by'))->toBe(42)
+        ->and($media->getCustomProperty('supplier_order_id'))->toBe(7)
+        ->and($media->getCustomProperty(DocumentPathGenerator::PATH_VERSION_PROPERTY))->toBe(DocumentPathGenerator::PATH_VERSION_V3)
+        ->and($media->getCustomProperty(DocumentPathGenerator::PATH_PREFIX_PROPERTY))->toBe($expectedPrefix);
+
+    $quote->clearMediaCollection('quotation');
+});
+
+it('returns an empty array when every path is a traversal attempt', function () {
+    $request = Request::factory()->create();
+    $quote = SupplierQuote::factory()->create([
+        'team_id' => $request->team_id,
+        'request_id' => $request->getKey(),
+    ]);
+
+    makeUploadFixture('doc-stamp-fixtures', 'decoy.pdf');
+
+    $attached = (new AttachUploadedFiles)->execute($quote, [
+        '../../.env',
+        'doc-stamp-fixtures/../../../.env',
+    ], 'quotation', 'doc-stamp-fixtures');
+
+    expect($attached)->toBe([])
+        ->and($quote->refresh()->getMedia('quotation'))->toHaveCount(0);
+});
+
 it('keeps the stamped path stable and query-free after the parent is renumbered', function () {
     $request = Request::factory()->create([
         'request_number' => 'REQ-2026-0600',

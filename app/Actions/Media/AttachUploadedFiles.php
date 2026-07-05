@@ -8,6 +8,7 @@ use App\Support\Media\DocumentPathGenerator;
 use App\Support\Media\DocumentPathResolver;
 use Illuminate\Support\Facades\Log;
 use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final readonly class AttachUploadedFiles
 {
@@ -21,20 +22,32 @@ final readonly class AttachUploadedFiles
      * File paths arrive from Livewire form state and are attacker-controllable
      * in tampered payloads, so each path must resolve inside the upload
      * directory the corresponding FileUpload component writes to.
+     *
+     * Caller-supplied $customProperties are merged into each media's custom
+     * properties, but the path stamps always win: callers can never override
+     * path_prefix / path_version.
+     *
+     * @param  array<string, mixed>  $customProperties
+     * @return list<Media> the created media, ordered, one per successfully attached file
      */
-    public function execute(HasMedia $record, mixed $files, string $collection, string $directory): void
+    public function execute(HasMedia $record, mixed $files, string $collection, string $directory, array $customProperties = []): array
     {
         if (! is_array($files)) {
-            return;
+            return [];
         }
 
         $baseDir = realpath(storage_path('app/'.trim($directory, '/')));
 
         if ($baseDir === false) {
-            return;
+            return [];
         }
 
-        $customProperties = $this->customPropertiesFor($record, $collection);
+        $properties = [
+            ...$customProperties,
+            ...$this->pathStampsFor($record, $collection),
+        ];
+
+        $attached = [];
 
         foreach ($files as $file) {
             if (! is_string($file)) {
@@ -47,19 +60,21 @@ final readonly class AttachUploadedFiles
                 continue;
             }
 
-            $record->addMedia($realPath)
-                ->withCustomProperties($customProperties)
+            $attached[] = $record->addMedia($realPath)
+                ->withCustomProperties($properties)
                 ->toMediaCollection($collection);
         }
+
+        return $attached;
     }
 
     /**
-     * Resolve the custom properties to stamp: v3 prefix when the chain resolves,
-     * otherwise a v2 fallback (logged).
+     * Resolve the path stamps: v3 prefix when the chain resolves, otherwise a
+     * v2 fallback (logged).
      *
      * @return array<string, mixed>
      */
-    private function customPropertiesFor(HasMedia $record, string $collection): array
+    private function pathStampsFor(HasMedia $record, string $collection): array
     {
         $prefix = DocumentPathResolver::prefixFor($record, $collection);
 

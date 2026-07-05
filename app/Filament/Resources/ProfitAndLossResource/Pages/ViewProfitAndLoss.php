@@ -143,12 +143,12 @@ final class ViewProfitAndLoss extends ViewRecord
                             $file = $file[0] ?? null;
                         }
                         if ($file && is_string($file)) {
-                            app(AttachUploadedFiles::class)->execute($record, [$file], 'documents', ProfitAndLoss::DOCUMENTS_UPLOAD_DIRECTORY);
+                            $attached = app(AttachUploadedFiles::class)->execute($record, [$file], 'documents', ProfitAndLoss::DOCUMENTS_UPLOAD_DIRECTORY);
                             $record->refresh();
 
                             $name = $data['name'] ?? null;
                             if (is_string($name) && $name !== '') {
-                                $record->getMedia('documents')->last()?->update(['name' => $name]);
+                                ($attached[0] ?? null)?->update(['name' => $name]);
                             }
 
                             Notification::make()

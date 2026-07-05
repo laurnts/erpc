@@ -1656,16 +1656,10 @@ final class SupplierQuotesRelationManager extends RelationManager
                                 if (! is_string($file)) {
                                     continue;
                                 }
-                                $before = $record->media()->where('collection_name', 'quotation')->count();
                                 try {
-                                    app(AttachUploadedFiles::class)->execute($record, [$file], 'quotation', SupplierQuote::QUOTATION_UPLOAD_DIRECTORY);
+                                    $added += count(app(AttachUploadedFiles::class)->execute($record, [$file], 'quotation', SupplierQuote::QUOTATION_UPLOAD_DIRECTORY));
                                 } catch (FileUnacceptableForCollection) {
                                     $rejected++;
-
-                                    continue;
-                                }
-                                if ($record->media()->where('collection_name', 'quotation')->count() > $before) {
-                                    $added++;
                                 }
                             }
                             if ($added > 0) {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\RequestResource\RelationManagers;
 
+use App\Actions\Media\AttachUploadedFiles;
 use App\Enums\OrderStatus;
 use App\Enums\RequestStage;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
@@ -172,52 +173,34 @@ final class CompletionReportsRelationManager extends RelationManager
                     ->using(function (array $data): Media {
                         /** @var Request $request */
                         $request = $this->getOwnerRecord();
-                        $createdMedia = null;
 
-                        if (isset($data['document']) && is_array($data['document']) && ! empty($data['document'])) {
-                            foreach ($data['document'] as $file) {
-                                if (is_string($file)) {
-                                    $filePath = storage_path('app/'.ltrim($file, '/'));
+                        $files = $data['document'] ?? null;
+                        $files = is_array($files) ? $files : ($files !== null ? [$files] : []);
 
-                                    if (file_exists($filePath)) {
-                                        $media = $request->addMedia($filePath)
-                                            ->usingName($data['name'] ?? basename($filePath))
-                                            ->toMediaCollection('completion_reports');
-
-                                        // Store payment document flag and payment terms in custom properties
-                                        if (! empty($data['is_payment_document'])) {
-                                            $media->setCustomProperty('is_payment_document', true);
-                                            if (! empty($data['payment_terms'])) {
-                                                $media->setCustomProperty('payment_terms', $data['payment_terms']);
-                                            }
-                                            $media->save();
-                                        }
-
-                                        // Store the first created media for return value
-                                        if ($createdMedia === null) {
-                                            $createdMedia = $media;
-                                        }
-                                    }
-                                }
-                            }
-                        } elseif (isset($data['document']) && is_string($data['document'])) {
-                            $filePath = storage_path('app/'.ltrim($data['document'], '/'));
-
-                            if (file_exists($filePath)) {
-                                $createdMedia = $request->addMedia($filePath)
-                                    ->usingName($data['name'] ?? basename($filePath))
-                                    ->toMediaCollection('completion_reports');
-
-                                // Store payment document flag and payment terms in custom properties
-                                if (! empty($data['is_payment_document'])) {
-                                    $createdMedia->setCustomProperty('is_payment_document', true);
-                                    if (! empty($data['payment_terms'])) {
-                                        $createdMedia->setCustomProperty('payment_terms', $data['payment_terms']);
-                                    }
-                                    $createdMedia->save();
-                                }
+                        $customProperties = [];
+                        if (! empty($data['is_payment_document'])) {
+                            $customProperties['is_payment_document'] = true;
+                            if (! empty($data['payment_terms'])) {
+                                $customProperties['payment_terms'] = $data['payment_terms'];
                             }
                         }
+
+                        $attached = app(AttachUploadedFiles::class)->execute(
+                            $request,
+                            $files,
+                            'completion_reports',
+                            Request::COMPLETION_REPORTS_UPLOAD_DIRECTORY,
+                            $customProperties,
+                        );
+
+                        $name = $data['name'] ?? null;
+                        foreach ($attached as $media) {
+                            // Preserve the pre-convergence naming: custom name when given,
+                            // otherwise the file's basename (extension included).
+                            $media->update(['name' => is_string($name) && $name !== '' ? $name : $media->file_name]);
+                        }
+
+                        $createdMedia = $attached[0] ?? null;
 
                         // If no media was created, throw an error to prevent form from closing silently
                         if ($createdMedia === null) {
