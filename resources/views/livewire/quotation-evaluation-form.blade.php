@@ -40,7 +40,7 @@
                         </label>
                         <x-filament::input.wrapper>
                             <x-filament::input.select wire:model="deptHeadSalesId">
-                                <option value="">Select key account...</option>
+                                <option value="">Select dept head of sales...</option>
                                 @foreach($this->getDeptHeadSalesOptions() as $id => $name)
                                     <option value="{{ $id }}">{{ $name }}</option>
                                 @endforeach
@@ -57,7 +57,7 @@
                         </label>
                         <x-filament::input.wrapper>
                             <x-filament::input.select wire:model="deputyDirectorId">
-                                <option value="">Select key account...</option>
+                                <option value="">Select deputy director...</option>
                                 @foreach($this->getDeputyDirectorOptions() as $id => $name)
                                     <option value="{{ $id }}">{{ $name }}</option>
                                 @endforeach
@@ -74,7 +74,7 @@
                         </label>
                         <x-filament::input.wrapper>
                             <x-filament::input.select wire:model="approvedById">
-                                <option value="">Select key account...</option>
+                                <option value="">Select director...</option>
                                 @foreach($this->getApprovedByOptions() as $id => $name)
                                     <option value="{{ $id }}">{{ $name }}</option>
                                 @endforeach
