@@ -115,10 +115,14 @@ final class RequestInformationFlowWidget extends Widget
     {
         return <<<'MARKDOWN'
 **Step 1: Requested Items**
+
+Add the buyer's requested items and send them out for supplier quotes.
+
 - Add the items requested by the buyer to this request.
-- Match each item to an article (all items must be matched before requesting supplier quotes).
-- Use **Send to all suppliers** or **Send to supplier** to request quotes from suppliers.
-- Once sent, the next stage is Supplier Quotes.
+- Match each item to an article (required before requesting supplier quotes).
+- Use **Send to all suppliers** or **Send to supplier** to request quotes.
+
+**Next:** once sent, continue to Supplier Quotes.
 MARKDOWN;
     }
 
@@ -129,11 +133,15 @@ MARKDOWN;
     {
         return <<<'MARKDOWN'
 **Step 2: Supplier Quotes**
+
+Collect supplier prices and select the best option per item.
+
 - Enter or upload supplier prices for the requested items.
 - Review and compare quotes; select the best option(s) per item.
-- Create a Quotation Evaluation (QE) when required; it must be approved before moving to Buyer Quotes.
+- Create a Quotation Evaluation (QE) when required; it must be approved before Buyer Quotes.
 - Use **Send to buyer** to send the selected quotes to the buyer.
-- Once sent, proceed to Buyer Quotes.
+
+**Next:** once sent, continue to Buyer Quotes.
 MARKDOWN;
     }
 
@@ -144,12 +152,16 @@ MARKDOWN;
     {
         return <<<'MARKDOWN'
 **Step 3: Buyer Quotes**
-- Create the buyer quote from items selected in the supplier quote(s).
-- Set selling prices, margins, and tax; verify order details and terms.
+
+Build the buyer quote, set pricing, and get it accepted.
+
+- Create the buyer quote from the selected supplier-quote items.
+- Set selling prices, margins, and tax; verify details and terms.
 - Create a Profit & Loss (P&L) document; it must be approved before Invoices and later stages.
-- **Send** the buyer quote to the buyer.
-- When the buyer sends a PO, **upload the PO** to the buyer quote so its status becomes **Accepted**.
-- After at least one quote is Accepted, you can continue to Invoices and Supplier Orders.
+- Use **Send** to send the quote to the buyer.
+- When the buyer sends a PO, use **Upload PO** so the status becomes **Accepted**.
+
+**Next:** after at least one quote is Accepted, continue to Supplier Orders.
 MARKDOWN;
     }
 
@@ -160,11 +172,16 @@ MARKDOWN;
     {
         return <<<'MARKDOWN'
 **Step 6: Invoices (Buyer Orders)**
+
+Invoice the buyer from the accepted quote(s).
+
+- Available once P&L is approved and at least one buyer quote is Accepted.
 - Buyer orders are created from accepted buyer quote(s) and act as the invoice to the buyer.
-- Create or open the buyer order; review items, pricing, and terms.
-- **Confirm** the buyer order (this can create or link to supplier orders).
-- **Send** the order to the buyer when ready.
-- P&L must be approved to access this tab; at least one buyer quote must be Accepted.
+- Open the buyer order and review items, pricing, and terms.
+- Use **Confirm** to confirm the order (this can create or link to supplier orders).
+- Use **Send** to send the order to the buyer when ready.
+
+**Next:** once sent, invoicing is complete; shipments proceed once Goods Receive is approved.
 MARKDOWN;
     }
 
@@ -175,12 +192,14 @@ MARKDOWN;
     {
         return <<<'MARKDOWN'
 **Step 4: Supplier Orders**
-This step has three stages: create the orders, get them approved, then send them to the suppliers.
-1. **Create** purchase orders to suppliers from accepted buyer quote(s); there may be multiple POs (one per supplier). Verify quantities, prices, and terms, then **Confirm** each order to request approval.
-2. **Approve**: each order needs 2 approvals (Dept Head of Sales, Deputy Director, or Director) — via the Approve action here or the Approval menu.
-3. **Send PO to Supplier**: email each approved PO to its supplier.
 
-Goods Receive unlocks only after every order is approved **and sent**.
+Create purchase orders to suppliers, get them approved, and send them.
+
+- Create purchase orders from accepted buyer quote(s) — there may be one PO per supplier. Verify quantities, prices, and terms, then **Confirm** each order to request approval.
+- Get each order approved: 2 approvals required (Dept Head of Sales, Deputy Director, or Director), via the **Approve** action or the Approval menu.
+- Use **Send PO to Supplier** to email each approved PO to its supplier.
+
+**Next:** Goods Receive unlocks once every order is approved and sent.
 MARKDOWN;
     }
 
@@ -191,9 +210,14 @@ MARKDOWN;
     {
         return <<<'MARKDOWN'
 **Step 5: Goods Receive**
-- Upload goods receive documents (e.g. delivery notes, packing lists); multiple files are supported.
-- All documents must be **approved** (via Approval > Goods Receive) before you can open Inbound Shipments.
-- This tab is only available after all supplier orders are approved and sent to the suppliers.
+
+Receive the delivered goods and approve the paperwork.
+
+- Available only after all supplier orders are approved and sent.
+- Upload goods receive documents (delivery notes, packing lists, etc.); multiple files are supported.
+- All documents must be **approved** via Approval > Goods Receive.
+
+**Next:** approved documents unlock Inbound Shipments.
 MARKDOWN;
     }
 
@@ -204,11 +228,16 @@ MARKDOWN;
     {
         return <<<'MARKDOWN'
 **Step 7: Inbound Shipments**
+
+Ship the goods to the buyer and track delivery.
+
+- Requires approved Goods Receive documents.
 - Create one or more shipments and enter details (quantities, dates, etc.) before submitting.
-- Submit the shipment; you can have multiple shipments per request depending on agreements.
+- Submit the shipment; a request can have multiple shipments depending on agreements.
 - When the shipment is **In Transit**, send the delivery order email to the buyer.
 - Mark the shipment as **Delivered** when it reaches the buyer.
-- Goods Receive documents must be approved before you can use this tab.
+
+**Next:** once shipments are delivered, continue to Completion Report.
 MARKDOWN;
     }
 
@@ -219,9 +248,14 @@ MARKDOWN;
     {
         return <<<'MARKDOWN'
 **Step 8: Completion Report**
-- Upload completion report documentation after shipments are delivered.
-- Include delivery confirmations, inspection reports, certificates, or other project completion documents as needed.
+
+Document project completion after delivery.
+
+- Available after shipments are delivered.
+- Upload completion report documentation (delivery confirmations, inspection reports, certificates, or other completion documents).
 - Documents are stored securely and can be downloaded or viewed at any time.
+
+**Next:** the request is complete once the report is filed.
 MARKDOWN;
     }
 }
