@@ -965,8 +965,9 @@ final class ViewRequest extends ViewRecord
             return new HtmlString('<span class="text-gray-400">No supplier order</span>');
         }
 
-        $rows = [];
         $supplierOrdersUrl = RequestResource::getUrl('view', ['record' => $record]).'?activeRelationManager=supplierOrders';
+
+        $cards = [];
 
         foreach ($supplierOrders as $order) {
             // Calculate approval count (0, 1, or 2)
@@ -980,26 +981,35 @@ final class ViewRequest extends ViewRecord
 
             $totalApprovers = 2; // Supplier orders always require 2 approvers
             $bothApproved = $order->approver_1_id !== null && $order->approver_2_id !== null;
-            $statusColor = $bothApproved ? 'success' : ($approvalCount > 0 ? 'warning' : 'gray');
-            $statusLabel = $bothApproved ? 'Approved' : 'Pending';
+
+            // Match the Quotation Evaluation / Profit and Loss card styling:
+            // green + check badge when approved, orange + clock while pending.
+            if ($bothApproved) {
+                $style = 'background-color: rgb(220 252 231); color: rgb(22 101 52); border-color: rgb(187 247 208);'; // green
+                $statusIcon = 'heroicon-o-check-badge';
+                $statusLabel = 'Approved';
+            } else {
+                $style = 'background-color: rgb(255 237 213); color: rgb(154 52 18); border-color: rgb(253 186 116);'; // orange
+                $statusIcon = 'heroicon-o-clock';
+                $statusLabel = 'Pending';
+            }
+
+            $iconSvg = $this->getIconSvg($statusIcon);
             $poNumber = htmlspecialchars($order->po_number ?? 'N/A');
 
-            $rows[] = sprintf(
-                '<tr><td class="pr-4 font-medium"><a href="%s" class="text-primary-600 hover:text-primary-700 hover:underline">%s</a></td><td class="pr-4 text-sm text-gray-600">Approval: %d/%d</td><td><span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-%s-100 text-%s-800">%s</span></td></tr>',
+            $cards[] = sprintf(
+                '<div class="space-y-1"><div class="font-medium"><a href="%s" class="text-primary-600 hover:text-primary-700 hover:underline">%s</a></div><div class="flex items-center gap-2"><span class="text-sm text-gray-600">Approval: %d/%d</span><span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border" style="%s">%s %s</span></div></div>',
                 htmlspecialchars($supplierOrdersUrl),
                 $poNumber,
                 $approvalCount,
                 $totalApprovers,
-                $statusColor,
-                $statusColor,
+                $style,
+                $iconSvg,
                 htmlspecialchars($statusLabel)
             );
         }
 
-        $html = '<table class="text-sm w-full">
-        <tbody>'.implode('', $rows).'</tbody></table>';
-
-        return new HtmlString($html);
+        return new HtmlString('<div class="space-y-3">'.implode('', $cards).'</div>');
     }
 
     /**
