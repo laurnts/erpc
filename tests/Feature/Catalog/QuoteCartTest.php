@@ -6,7 +6,6 @@ use App\Data\TeamErpSettings;
 use App\Enums\PortalType;
 use App\Enums\RequestStage;
 use App\Enums\RequestSubmissionMethod;
-use App\Livewire\Catalog\ArticleDetail;
 use App\Livewire\Catalog\CatalogHome;
 use App\Livewire\Catalog\QuoteCartPage;
 use App\Models\Article;
@@ -63,12 +62,12 @@ describe('Cart lifecycle', function (): void {
         expect(app(QuoteCart::class)->items())->toBe([$this->article->getKey() => 3.0]);
     });
 
-    it('adds from the product detail page and accumulates quantities', function (): void {
-        livewire(ArticleDetail::class, ['article' => $this->article])
-            ->set('quantity', 2)
-            ->call('addToCart')
-            ->set('quantity', 3)
-            ->call('addToCart');
+    it('accumulates quantities when the same article is added again', function (): void {
+        livewire(CatalogHome::class)
+            ->set('quantities.'.$this->article->getKey(), 2)
+            ->call('addToCart', $this->article->getKey())
+            ->set('quantities.'.$this->article->getKey(), 3)
+            ->call('addToCart', $this->article->getKey());
 
         expect(app(QuoteCart::class)->items())->toBe([$this->article->getKey() => 5.0]);
     });

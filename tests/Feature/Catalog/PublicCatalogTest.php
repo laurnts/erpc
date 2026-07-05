@@ -70,20 +70,10 @@ describe('Grid scoping', function (): void {
             ->assertDontSee('Foreign Team Product');
     });
 
-    it('returns 404 on the detail page for unpublished, inactive, foreign, and missing articles', function (): void {
-        $unpublished = makeCatalogArticle($this->team, ['show_in_product_grid' => false]);
-        $inactive = makeCatalogArticle($this->team, ['is_active' => false]);
-        $otherOwner = User::factory()->withPersonalTeam()->create();
-        $foreign = makeCatalogArticle($otherOwner->personalTeam());
+    it('serves no article detail route', function (): void {
         $published = makeCatalogArticle($this->team, ['name' => 'Published Detail Product']);
 
-        $this->get('/articles/'.$unpublished->getKey())->assertNotFound();
-        $this->get('/articles/'.$inactive->getKey())->assertNotFound();
-        $this->get('/articles/'.$foreign->getKey())->assertNotFound();
-        $this->get('/articles/999999')->assertNotFound();
-        $this->get('/articles/'.$published->getKey())
-            ->assertOk()
-            ->assertSee('Published Detail Product');
+        $this->get('/articles/'.$published->getKey())->assertNotFound();
     });
 });
 
@@ -167,10 +157,9 @@ describe('Price display', function (): void {
     });
 
     it('shows Price on request when list_price is null', function (): void {
-        $article = makeCatalogArticle($this->team, ['name' => 'Unpriced Product', 'list_price' => null]);
+        makeCatalogArticle($this->team, ['name' => 'Unpriced Product', 'list_price' => null]);
 
         livewire(CatalogHome::class)->assertSee('Price on request');
-        $this->get('/articles/'.$article->getKey())->assertSee('Price on request');
     });
 });
 
@@ -185,7 +174,6 @@ describe('Availability badge', function (): void {
         ]);
 
         livewire(CatalogHome::class)->assertSee('In stock');
-        $this->get('/articles/'.$article->getKey())->assertSee('In stock');
     });
 
     it('shows Out of stock when quantities are recorded but none positive', function (): void {
@@ -263,15 +251,6 @@ describe('Confidentiality', function (): void {
         $this->get('/')
             ->assertOk()
             ->assertSee('Public Facing Product')
-            ->assertDontSee('Very Secret Supplier')
-            ->assertDontSee('ARTSECRETCODE')
-            ->assertDontSee('4242.4242')
-            ->assertDontSee('4,242.42')
-            ->assertDontSee('3333.33')
-            ->assertDontSee('3,333.33');
-
-        $this->get('/articles/'.$article->getKey())
-            ->assertOk()
             ->assertDontSee('Very Secret Supplier')
             ->assertDontSee('ARTSECRETCODE')
             ->assertDontSee('4242.4242')

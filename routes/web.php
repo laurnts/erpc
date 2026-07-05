@@ -10,7 +10,6 @@ use App\Http\Controllers\PrivacyPolicyController;
 use App\Http\Controllers\SupplierQuoteQuotationDownloadController;
 use App\Http\Controllers\TermsOfServiceController;
 use App\Http\Controllers\UserGuideDownloadController;
-use App\Livewire\Catalog\ArticleDetail;
 use App\Livewire\Catalog\CatalogHome;
 use App\Livewire\Catalog\QuoteCartPage;
 use App\Livewire\Catalog\RegistrationPage;
@@ -59,7 +58,6 @@ Route::middleware('guest')->group(function () {
 // is the kill switch that restores the static marketing page.
 if (config('catalog.enabled', true)) {
     Route::get('/', CatalogHome::class)->name('catalog.home');
-    Route::get('/articles/{article}', ArticleDetail::class)->name('catalog.article');
     Route::get('/quote-cart', QuoteCartPage::class)->name('catalog.cart');
     Route::get('/registration', RegistrationPage::class)->name('catalog.register');
 } else {

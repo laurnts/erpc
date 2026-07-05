@@ -13,7 +13,7 @@ The system SHALL serve a public, unauthenticated product catalog at `/`, replaci
 
 #### Scenario: Unpublished articles are invisible
 - **WHEN** an article has `show_in_product_grid = false` or `is_active = false`
-- **THEN** it does not appear in the grid, in search results, in category counts, or via its detail URL (404)
+- **THEN** it does not appear in the grid, in search results, or in category counts
 
 #### Scenario: Catalog team resolution
 - **WHEN** the public catalog resolves its team
@@ -42,19 +42,12 @@ The system SHALL provide a prominent search bar beneath the category menu that f
 - **WHEN** no grid-visible article matches
 - **THEN** an empty state with a clear-search affordance is shown
 
-### Requirement: Product Detail Page
-The system SHALL provide a public product detail page for each grid-visible article with an image gallery and full public information.
-
-#### Scenario: View product detail
-- **WHEN** a visitor opens a product card
-- **THEN** a detail page shows the image gallery (all `product_images` in order), name, description, category tags, unit, public attributes, price display, availability badge, and the quantity + add-to-quote control
-
 ### Requirement: Public Price Display
 The system SHALL display an article's `list_price` in the team default currency when set, and "Price on request" when not set, and SHALL never expose supplier costs or margins publicly.
 
 #### Scenario: Price set
 - **WHEN** an article has a `list_price`
-- **THEN** the grid card and detail page show it formatted with the team default currency
+- **THEN** the grid card shows it formatted with the team default currency
 
 #### Scenario: Price not set
 - **WHEN** `list_price` is null
