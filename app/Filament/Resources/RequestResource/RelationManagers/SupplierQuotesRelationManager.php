@@ -1190,7 +1190,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                         'request' => $this->getOwnerRecord(),
                     ]))
                     ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Close')
+                    ->modalCancelAction(false)
                     ->visible(function (): bool {
                         /** @var Request $request */
                         $request = $this->getOwnerRecord();

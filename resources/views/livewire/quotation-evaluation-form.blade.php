@@ -1,7 +1,10 @@
 <div>
     {{-- QE Creation Form --}}
     <div class="space-y-6">
-        <form wire:submit="save">
+        {{-- A real <form> here would nest inside the Filament action modal's <form>,
+             which is invalid HTML and makes the browser hoist the modal footer out
+             of the modal window. Buttons below submit via wire:click instead. --}}
+        <div>
             {{-- QE Information Section (from Filament form) --}}
             {{ $this->form }}
 
@@ -85,7 +88,7 @@
                 <x-filament::button
                     type="button"
                     color="gray"
-                    x-on:click="$dispatch('close-modal', { id: 'create-qe-modal' })"
+                    x-on:click="$dispatch('close-modal', { id: $el.closest('.fi-modal').id })"
                 >
                     Cancel
                 </x-filament::button>
@@ -100,7 +103,7 @@
                     <span wire:loading wire:target="save">Saving...</span>
                 </x-filament::button>
             </div>
-        </form>
+        </div>
 
         <x-filament-actions::modals />
     </div>

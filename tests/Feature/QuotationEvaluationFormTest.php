@@ -43,6 +43,12 @@ test('the inline key-account creation actions no longer exist on the component',
         ->and(method_exists($component->instance(), 'openKeyAccountForm'))->toBeFalse();
 });
 
+test('the QE form does not nest a form element inside the Filament modal form', function (): void {
+    $html = livewire(QuotationEvaluationForm::class, ['request' => $this->request])->html();
+
+    expect($html)->not->toContain('<form');
+});
+
 test('the QE form still saves a quotation evaluation', function (): void {
     livewire(QuotationEvaluationForm::class, ['request' => $this->request])
         ->call('save')

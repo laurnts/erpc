@@ -48,7 +48,7 @@
 >
     @if($this->hasQuotes)
         {{-- Header with Quick Actions --}}
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center justify-between gap-4 py-2">
             <div class="flex items-center gap-4 text-sm">
                 @if($this->selectedSuppliersCount > 0)
                     <div>
