@@ -374,7 +374,7 @@ final class BuyerOrder extends Model implements HasCustomFields
             return;
         }
 
-        $orderTotal = (float) $this->total;
+        $orderTotal = max(0, (float) $this->total - (float) $this->credit_released);
 
         // Use transaction to ensure atomicity
         \Illuminate\Support\Facades\DB::transaction(function () use ($orderTotal, $buyer): void {
@@ -389,6 +389,9 @@ final class BuyerOrder extends Model implements HasCustomFields
             $buyer->available_credit = $currentAvailableCredit + $orderTotal;
             $buyer->credit_used = max(0, $currentCreditUsed - $orderTotal);
             $buyer->save();
+
+            $this->credit_released = $this->total;
+            $this->saveQuietly();
 
             // Create credit usage history record only if credit_status is enabled
             if ($buyer->credit_status) {
@@ -409,6 +412,90 @@ final class BuyerOrder extends Model implements HasCustomFields
                     'created_by_id' => auth()->id(),
                 ]);
             }
+        });
+    }
+
+    /**
+     * Whether this order actually reserved buyer credit at confirmation
+     * (a debit credit-history row exists for it).
+     */
+    public function hasReservedCredit(): bool
+    {
+        return BuyerCreditUsageHistory::query()
+            ->where('related_type', self::class)
+            ->where('related_id', $this->getKey())
+            ->where('transaction_type', 'debit')
+            ->exists();
+    }
+
+    /**
+     * Reconcile released credit so credit_released == min(invoice.amount_paid, total).
+     * Releases credit when payments arrive; re-reserves if a payment is reversed.
+     */
+    public function reconcileReleasedCreditFor(BuyerInvoice $invoice): void
+    {
+        if (! $this->hasReservedCredit()) {
+            return;
+        }
+
+        $buyer = $this->buyer;
+        if ($buyer === null) {
+            return;
+        }
+
+        $orderTotal = (float) $this->total;
+        $paid = max(0.0, (float) $invoice->amount_paid);
+        $target = min($paid, $orderTotal);
+        $current = (float) $this->credit_released;
+        $delta = round($target - $current, 2);
+
+        if (abs($delta) < 0.005) {
+            return;
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($buyer, $delta, $target): void {
+            $buyer->lockForUpdate();
+            $buyer->refresh();
+
+            $availableBefore = (float) $buyer->available_credit;
+            $usedBefore = (float) $buyer->credit_used;
+
+            if ($delta > 0) {
+                // Release credit back to the buyer.
+                $buyer->available_credit = $availableBefore + $delta;
+                $buyer->credit_used = max(0, $usedBefore - $delta);
+                $transactionType = 'credit';
+                $description = "Order {$this->order_number} payment received - credit released";
+            } else {
+                // Payment reversed: re-reserve credit.
+                $reReserve = abs($delta);
+                $buyer->available_credit = max(0, $availableBefore - $reReserve);
+                $buyer->credit_used = $usedBefore + $reReserve;
+                $transactionType = 'debit';
+                $description = "Order {$this->order_number} payment reversed - credit re-reserved";
+            }
+
+            $buyer->save();
+
+            $this->credit_released = (string) $target;
+            $this->saveQuietly();
+
+            BuyerCreditUsageHistory::create([
+                'team_id' => $buyer->team_id,
+                'buyer_id' => $buyer->id,
+                'transaction_type' => $transactionType,
+                'amount' => abs($delta),
+                'max_credit_limit_before' => 0,
+                'max_credit_limit_after' => 0,
+                'available_credit_before' => $availableBefore,
+                'available_credit_after' => $buyer->available_credit,
+                'credit_used_before' => $usedBefore,
+                'credit_used_after' => $buyer->credit_used,
+                'related_type' => self::class,
+                'related_id' => $this->id,
+                'description' => $description,
+                'created_by_id' => auth()->id(),
+            ]);
         });
     }
 
