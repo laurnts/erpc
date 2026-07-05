@@ -253,6 +253,7 @@ final class BuyerOrdersRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('order_number')
             ->defaultSort('created_at', 'desc')
+            ->modifyQueryUsing(fn (\Illuminate\Database\Eloquent\Builder $query) => $query->with('buyerInvoices'))
             ->columns([
                 TextColumn::make('order_number')
                     ->label('Order #')
@@ -269,6 +270,14 @@ final class BuyerOrdersRelationManager extends RelationManager
                 TextColumn::make('status')
                     ->badge()
                     ->sortable(),
+                TextColumn::make('buyerInvoices.status')
+                    ->label('Invoice')
+                    ->badge()
+                    ->placeholder('Not issued'),
+                TextColumn::make('buyerInvoices.due_at')
+                    ->label('Due')
+                    ->date()
+                    ->placeholder('—'),
                 TextColumn::make('subtotal')
                     ->label('Subtotal')
                     ->formatStateUsing(fn (BuyerOrder $record): string => $record->buyerQuote?->currency?->formatNumber((float) $record->subtotal) ?? number_format((float) $record->subtotal, 2))

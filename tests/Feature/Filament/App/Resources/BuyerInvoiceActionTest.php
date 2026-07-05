@@ -175,3 +175,18 @@ it('hides recordPayment when the order has no invoice', function (): void {
         ->assertOk()
         ->assertActionHidden(TestAction::make('recordPayment')->table($order));
 });
+
+it('shows the invoice status once issued', function (): void {
+    $order = invoiceActionOrder($this, OrderStatus::CONFIRMED);
+    BuyerInvoice::issueFromOrder($order);
+
+    // A second, un-issued order proves the new "Invoice" column is actually
+    // rendering the relation state rather than "Sent" leaking in from an
+    // unrelated element (e.g. the order's own status badge).
+    invoiceActionOrder($this, OrderStatus::CONFIRMED);
+
+    invoiceActionRelationManager($this)
+        ->assertOk()
+        ->assertSee('Sent')
+        ->assertSee('Not issued');
+});

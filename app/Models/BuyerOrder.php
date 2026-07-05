@@ -49,6 +49,7 @@ use Relaticle\CustomFields\Models\Contracts\HasCustomFields;
  * @property-read Request|null $request
  * @property-read Company|null $buyer
  * @property-read BuyerQuote|null $buyerQuote
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, BuyerInvoice> $buyerInvoices
  */
 #[ObservedBy(BuyerOrderObserver::class)]
 final class BuyerOrder extends Model implements HasCustomFields
@@ -157,6 +158,16 @@ final class BuyerOrder extends Model implements HasCustomFields
     public function items(): HasMany
     {
         return $this->hasMany(BuyerOrderItem::class)->orderBy('sort_order');
+    }
+
+    /**
+     * Invoices issued from this order.
+     *
+     * @return HasMany<BuyerInvoice, $this>
+     */
+    public function buyerInvoices(): HasMany
+    {
+        return $this->hasMany(BuyerInvoice::class);
     }
 
     /**
