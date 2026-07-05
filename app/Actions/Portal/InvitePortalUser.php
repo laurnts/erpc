@@ -7,16 +7,20 @@ namespace App\Actions\Portal;
 use App\Enums\PortalType;
 use App\Mail\PortalUserInvitationMail;
 use App\Models\Company;
+use App\Models\CompanyPortalUser;
 use App\Models\PortalInvitation;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 /**
  * Issues a portal invitation for either portal. The portal type drives the
  * company-role guard, the stale-invitation cleanup scope, the acceptance URL,
- * and the invitation mail copy.
+ * and the invitation mail copy. Alongside the invitation (the token carrier),
+ * an Invited-state membership row is created so the person is visible in the
+ * Portal Users list from the moment of invitation.
  */
 final readonly class InvitePortalUser
 {
@@ -38,22 +42,41 @@ final readonly class InvitePortalUser
             ]);
         }
 
-        PortalInvitation::query()
-            ->where('company_id', $company->getKey())
-            ->where('email', $email)
-            ->where('portal', $portal)
-            ->whereNull('accepted_at')
-            ->delete();
+        $invitation = DB::transaction(function () use ($team, $company, $portal, $email, $name, $invitedBy): PortalInvitation {
+            PortalInvitation::query()
+                ->where('company_id', $company->getKey())
+                ->where('email', $email)
+                ->where('portal', $portal)
+                ->whereNull('accepted_at')
+                ->delete();
 
-        $invitation = PortalInvitation::query()->create([
-            'team_id' => $team->getKey(),
-            'company_id' => $company->getKey(),
-            'email' => $email,
-            'name' => $name,
-            'portal' => $portal,
-            'invited_by' => $invitedBy->getKey(),
-            'token' => PortalInvitation::generateToken(),
-        ]);
+            $invitation = PortalInvitation::query()->create([
+                'team_id' => $team->getKey(),
+                'company_id' => $company->getKey(),
+                'email' => $email,
+                'name' => $name,
+                'portal' => $portal,
+                'invited_by' => $invitedBy->getKey(),
+                'token' => PortalInvitation::generateToken(),
+            ]);
+
+            CompanyPortalUser::query()->updateOrCreate(
+                [
+                    'company_id' => $company->getKey(),
+                    'portal' => $portal,
+                    'user_id' => null,
+                    'invited_email' => $email,
+                ],
+                [
+                    'team_id' => $team->getKey(),
+                    'invited_by' => $invitedBy->getKey(),
+                    'is_active' => false,
+                    'invited_name' => $name,
+                ],
+            );
+
+            return $invitation;
+        });
 
         $invitation->load('company');
 

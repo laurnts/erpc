@@ -10,7 +10,6 @@ use App\Filament\Forms\CompanyForm;
 use App\Filament\Resources\BuyerResource\Pages\CreateBuyer;
 use App\Filament\Resources\BuyerResource\Pages\ListBuyers;
 use App\Filament\Resources\BuyerResource\Pages\ViewBuyer;
-use App\Filament\Resources\BuyerResource\RelationManagers\PortalInvitationsRelationManager;
 use App\Filament\Resources\BuyerResource\RelationManagers\PortalUsersRelationManager;
 use App\Models\Company;
 use App\Models\Currency;
@@ -377,7 +376,6 @@ final class BuyerResource extends Resource
     {
         return [
             PortalUsersRelationManager::class,
-            PortalInvitationsRelationManager::class,
         ];
     }
 

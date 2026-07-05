@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\PortalMembershipState;
 use App\Enums\PortalType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,10 +13,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $id
  * @property int $team_id
  * @property int $company_id
- * @property int $user_id
+ * @property int|null $user_id
  * @property PortalType $portal
  * @property int|null $invited_by
  * @property bool $is_active
+ * @property string|null $invited_name
+ * @property string|null $invited_email
  */
 final class CompanyPortalUser extends Model
 {
@@ -29,6 +32,8 @@ final class CompanyPortalUser extends Model
         'portal',
         'invited_by',
         'is_active',
+        'invited_name',
+        'invited_email',
     ];
 
     /**
@@ -40,6 +45,19 @@ final class CompanyPortalUser extends Model
             'portal' => PortalType::class,
             'is_active' => 'boolean',
         ];
+    }
+
+    /**
+     * Derived lifecycle state: never stored, so it cannot drift from the
+     * columns access checks actually read.
+     */
+    public function state(): PortalMembershipState
+    {
+        if ($this->user_id === null) {
+            return PortalMembershipState::Invited;
+        }
+
+        return $this->is_active ? PortalMembershipState::Active : PortalMembershipState::Deactivated;
     }
 
     /**

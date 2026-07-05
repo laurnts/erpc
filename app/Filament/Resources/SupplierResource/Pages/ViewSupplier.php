@@ -169,6 +169,7 @@ final class ViewSupplier extends ViewRecord
     {
         return [
             ArticlesRelationManager::class,
+            \App\Filament\Resources\BuyerResource\RelationManagers\PortalUsersRelationManager::class,
         ];
     }
 }

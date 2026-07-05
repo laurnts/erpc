@@ -34,18 +34,34 @@ final readonly class AcceptPortalInvitation
             // If a user with this email already exists (e.g. race condition), portal access
             // is granted below without modifying their existing credentials.
 
-            CompanyPortalUser::query()->updateOrCreate(
-                [
-                    'company_id' => $invitation->company_id,
+            $invitedRow = CompanyPortalUser::query()
+                ->where('company_id', $invitation->company_id)
+                ->where('portal', $invitation->portal)
+                ->whereNull('user_id')
+                ->where('invited_email', $invitation->email)
+                ->first();
+
+            if ($invitedRow !== null) {
+                $invitedRow->update([
                     'user_id' => $user->getKey(),
-                    'portal' => $invitation->portal,
-                ],
-                [
-                    'team_id' => $invitation->team_id,
-                    'invited_by' => $invitation->invited_by,
                     'is_active' => true,
-                ],
-            );
+                ]);
+            } else {
+                // Invitations issued before the Invited state existed have no
+                // membership row yet — create it on acceptance as before.
+                CompanyPortalUser::query()->updateOrCreate(
+                    [
+                        'company_id' => $invitation->company_id,
+                        'user_id' => $user->getKey(),
+                        'portal' => $invitation->portal,
+                    ],
+                    [
+                        'team_id' => $invitation->team_id,
+                        'invited_by' => $invitation->invited_by,
+                        'is_active' => true,
+                    ],
+                );
+            }
 
             $invitation->markAccepted();
 

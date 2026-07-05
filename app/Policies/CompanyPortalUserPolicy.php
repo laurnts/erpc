@@ -32,9 +32,15 @@ final readonly class CompanyPortalUserPolicy
         return $user->belongsToTeam($portalUser->team);
     }
 
+    /**
+     * Deleting a membership is revoking an invitation — only Invited-state
+     * rows (no linked user) qualify; Active/Deactivated rows are toggled via
+     * update instead so the person's history is kept.
+     */
     public function delete(User $user, CompanyPortalUser $portalUser): bool
     {
-        return $user->belongsToTeam($portalUser->team);
+        return $user->belongsToTeam($portalUser->team)
+            && $portalUser->user_id === null;
     }
 
     public function deleteAny(User $user): bool
