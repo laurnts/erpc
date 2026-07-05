@@ -101,6 +101,7 @@ return [
         \App\Models\Request::class => \App\Support\Media\DocumentPathGenerator::class,
         \App\Models\QuotationEvaluation::class => \App\Support\Media\DocumentPathGenerator::class,
         \App\Models\ProfitAndLoss::class => \App\Support\Media\DocumentPathGenerator::class,
+        \App\Models\AcceptanceReport::class => \App\Support\Media\DocumentPathGenerator::class,
     ],
 
     /*

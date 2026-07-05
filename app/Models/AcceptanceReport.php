@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\HasCreator;
+use App\Models\Concerns\HasTeam;
 use Database\Factories\AcceptanceReportFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Spatie\MediaLibrary\HasMedia;
@@ -20,6 +20,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * Acceptance Report for Service requests (replaces inbound shipments).
  *
  * @property int $id
+ * @property int $team_id
  * @property int $request_id
  * @property string $report_number
  * @property Carbon $reported_at
@@ -35,7 +36,11 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 final class AcceptanceReport extends Model implements HasMedia
 {
     use HasCreator;
+
+    /** @use HasFactory<AcceptanceReportFactory> */
     use HasFactory;
+
+    use HasTeam;
     use InteractsWithMedia;
     use SoftDeletes;
 
@@ -44,6 +49,7 @@ final class AcceptanceReport extends Model implements HasMedia
      */
     protected $fillable = [
         'request_id',
+        'team_id',
         'report_number',
         'reported_at',
         'notes',
@@ -56,12 +62,15 @@ final class AcceptanceReport extends Model implements HasMedia
     {
         parent::boot();
 
-        static::creating(function (AcceptanceReport $report): void {
+        self::creating(function (AcceptanceReport $report): void {
             if ($report->reported_at === null) {
                 $report->reported_at = now();
             }
+            if ($report->team_id === null) {
+                $report->team_id = $report->request->team_id;
+            }
             if (empty($report->report_number)) {
-                $report->report_number = self::generateReportNumber($report->request_id);
+                $report->report_number = self::generateReportNumber((int) $report->team_id);
             }
         });
     }
@@ -82,6 +91,7 @@ final class AcceptanceReport extends Model implements HasMedia
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('attachments')
+            ->useDisk('local')
             ->acceptsMimeTypes([
                 'application/pdf',
                 'application/msword',
@@ -93,26 +103,29 @@ final class AcceptanceReport extends Model implements HasMedia
     }
 
     /**
-     * Generate a unique report number for the given request.
-     * Format: AR-{year}-{increment}
+     * Generate a unique report number for the given team, scoped to the current year.
+     * Format: AR-{year}-{increment}. Uses the highest existing sequence number for the
+     * team+year (not the last-inserted row), so gaps or non-sequential historical
+     * numbers never get reused or skipped incorrectly.
      */
-    public static function generateReportNumber(int $requestId): string
+    public static function generateReportNumber(int $teamId): string
     {
         $year = now()->year;
-        $request = Request::findOrFail($requestId);
+        $pattern = sprintf('AR-%d-%%', $year);
 
-        $lastReport = self::where('request_id', $requestId)
-            ->whereYear('created_at', $year)
-            ->orderByDesc('id')
-            ->first();
+        $existingNumbers = self::withTrashed()
+            ->where('team_id', $teamId)
+            ->where('report_number', 'like', $pattern)
+            ->pluck('report_number');
 
-        $increment = 1;
-        if ($lastReport !== null) {
-            preg_match('/AR-\d+-(\d+)$/', (string) $lastReport->report_number, $matches);
-            $increment = ((int) ($matches[1] ?? 0)) + 1;
+        $maxSequence = 0;
+        foreach ($existingNumbers as $reportNumber) {
+            if (preg_match('/^AR-'.$year.'-(\d+)$/', (string) $reportNumber, $matches) === 1) {
+                $maxSequence = max($maxSequence, (int) $matches[1]);
+            }
         }
 
-        return sprintf('AR-%d-%04d', $year, $increment);
+        return sprintf('AR-%d-%04d', $year, $maxSequence + 1);
     }
 
     /**
