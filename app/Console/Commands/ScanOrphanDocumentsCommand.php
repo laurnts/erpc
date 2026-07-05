@@ -39,7 +39,7 @@ final class ScanOrphanDocumentsCommand extends Command
      * @var array<string, list<string>> disk name => protected root segments
      */
     private const PROTECTED_ROOTS = [
-        'public' => ['profile-photos'],
+        'public' => ['profile-photos', 'filament_exports'],
     ];
 
     protected $signature = 'documents:scan-orphans {--delete : Delete orphaned files instead of only reporting them}';
@@ -192,7 +192,7 @@ final class ScanOrphanDocumentsCommand extends Command
         }
 
         foreach (array_keys($touchedDirs) as $dir) {
-            $this->pruneEmptyAncestors($disk, $dir);
+            $this->pruneEmptyAncestors($disk, (string) $dir);
         }
 
         return $deleted;

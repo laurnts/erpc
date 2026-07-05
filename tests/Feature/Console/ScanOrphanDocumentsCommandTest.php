@@ -161,3 +161,30 @@ it('still reports and deletes a genuine public-disk orphan outside protected roo
 
     expect(Storage::disk('public')->exists('stray-uploads/leftover.jpg'))->toBeFalse();
 });
+
+it('never reports or deletes Filament export files on the public disk', function () {
+    // Filament ExportAction persists files under filament_exports/{id} on its
+    // default disk (public here) with no media row backing them.
+    Storage::disk('public')->put('filament_exports/7/export.csv', 'csv-bytes');
+
+    $this->artisan('documents:scan-orphans', ['--delete' => true])
+        ->doesntExpectOutputToContain('filament_exports/7/export.csv')
+        ->assertExitCode(0);
+
+    expect(Storage::disk('public')->exists('filament_exports/7/export.csv'))->toBeTrue();
+});
+
+it('deletes orphans in top-level numeric directories and prunes them', function () {
+    // Regression: dirname('1/favicon.svg') = '1' becomes an int array key in
+    // PHP, which crashed pruneEmptyAncestors()'s string type hint mid-delete.
+    Storage::disk('public')->put('1/favicon.svg', '<svg></svg>');
+    Storage::disk('public')->put('2/logo.svg', '<svg></svg>');
+
+    $this->artisan('documents:scan-orphans', ['--delete' => true])
+        ->expectsOutputToContain('1/favicon.svg')
+        ->assertExitCode(0);
+
+    expect(Storage::disk('public')->exists('1/favicon.svg'))->toBeFalse()
+        ->and(Storage::disk('public')->exists('2/logo.svg'))->toBeFalse()
+        ->and(Storage::disk('public')->exists('1'))->toBeFalse();
+});
