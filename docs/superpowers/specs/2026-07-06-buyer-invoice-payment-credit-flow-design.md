@@ -195,7 +195,11 @@ denormalized field; confirm during planning.
 - Cancel after a partial payment restores only the remainder (no double-restore).
 - `credit_status = false` buyer: invoice + payment succeed, no credit rows written.
 - Overdue: unpaid past `due_at` → OVERDUE and appears in the awaiting/overdue widgets.
-- Concurrency: two simultaneous payments don't over-release (lock test).
+
+Note: true DB-level concurrency safety is **not** in v1. The credit mutations copy the
+existing `confirm()`/`restoreCredit()` locking pattern, whose `$buyer->lockForUpdate()` on a
+loaded model is a no-op. Real `SELECT ... FOR UPDATE` hardening across all three methods is a
+separate follow-up; do not assert concurrency safety until then.
 
 ## Open question to confirm at review
 

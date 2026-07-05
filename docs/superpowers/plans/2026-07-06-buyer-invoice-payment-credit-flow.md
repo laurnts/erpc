@@ -879,6 +879,7 @@ Action::make('issueInvoice')
         && $record->status === OrderStatus::CONFIRMED
         && ! BuyerInvoice::query()
             ->where('buyer_order_id', $record->getKey())
+            ->where('type', \App\Enums\InvoiceType::STANDARD)
             ->whereNot('status', \App\Enums\InvoiceStatus::CANCELLED)
             ->exists())
     ->requiresConfirmation()
@@ -1044,6 +1045,7 @@ private function activeInvoiceFor(BuyerOrder $order): ?BuyerInvoice
 {
     return BuyerInvoice::query()
         ->where('buyer_order_id', $order->getKey())
+        ->where('type', \App\Enums\InvoiceType::STANDARD)
         ->whereNot('status', \App\Enums\InvoiceStatus::CANCELLED)
         ->latest('id')
         ->first();
@@ -1254,4 +1256,5 @@ Report results and ask whether to run `php artisan test --compact` in full.
 - **Existing `restoreCredit()` inflation bug is out of scope.** `restoreCredit()` already mutates `available_credit` even when `credit_status` is off; this plan preserves that behaviour (now bounded by `credit_released`) and does not fix the pre-existing issue.
 - **No new email template type.** The invoice email uses `InvoiceToBuyerMail` via `sendWithTeamSettings()` with no template config (default mailer, no CC/BCC). A `TYPE_BUYER_INVOICE` template is a future enhancement.
 - **Multi-milestone termin** (separate due dates per installment) remains out of scope; partial payments against a single `due_at` cover the installment case.
+- **Row locking is not truly concurrent.** `reconcileReleasedCreditFor()` copies the existing `confirm()`/`restoreCredit()` pattern (`$buyer->lockForUpdate(); $buyer->refresh();`), but `lockForUpdate()` on a loaded model instance is a no-op — it does not lock the row. This matches existing code and is safe for single-request flows; a genuine `SELECT ... FOR UPDATE` (re-query `Company::whereKey(...)->lockForUpdate()->first()`) across `confirm`/`restoreCredit`/`reconcile` is a separate hardening task, not covered here. Do **not** claim concurrency safety until that lands.
 ```
