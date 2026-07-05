@@ -25,7 +25,7 @@
                 </div>
                 <div class="flex items-center space-x-2">
                     <a
-                        href="{{ $media->getUrl() }}"
+                        href="{{ route('documents.download', $media) }}"
                         target="_blank"
                         rel="noopener noreferrer"
                         class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"

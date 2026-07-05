@@ -230,13 +230,13 @@ final class CompletionReportsRelationManager extends RelationManager
                         ->label('Download')
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('info')
-                        ->url(fn ($record): string => $record->getUrl())
+                        ->url(fn (Media $record): string => route('documents.download', $record))
                         ->openUrlInNewTab(),
                     Action::make('view')
                         ->label('View')
                         ->icon('heroicon-o-eye')
                         ->color('info')
-                        ->url(fn ($record): string => $record->getUrl())
+                        ->url(fn (Media $record): string => route('documents.download', $record))
                         ->openUrlInNewTab(),
                     DeleteAction::make()
                         ->label('Delete')

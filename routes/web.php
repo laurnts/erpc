@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\CallbackController;
 use App\Http\Controllers\Auth\RedirectController;
 use App\Http\Controllers\BuyerQuotePoDeleteController;
 use App\Http\Controllers\BuyerQuotePoDownloadController;
+use App\Http\Controllers\DocumentDownloadController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PrivacyPolicyController;
 use App\Http\Controllers\RequestGoodsReceiveDeleteController;
@@ -102,4 +103,8 @@ Route::middleware(['web', 'auth'])->group(function () {
     // Goods receive document delete (single media from a batch)
     Route::delete('/requests/{request}/goods-receive/{media}', RequestGoodsReceiveDeleteController::class)
         ->name('requests.goods-receive.delete');
+
+    // Generic authorized document download, team-scoped via the media's owning model
+    Route::get('/documents/{media}', DocumentDownloadController::class)
+        ->name('documents.download');
 });

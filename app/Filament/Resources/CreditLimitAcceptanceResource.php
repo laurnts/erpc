@@ -263,7 +263,7 @@ final class CreditLimitAcceptanceResource extends Resource
                         ->label('View Document')
                         ->icon('heroicon-o-eye')
                         ->color('info')
-                        ->url(fn (Media $record): string => $record->getUrl())
+                        ->url(fn (Media $record): string => route('documents.download', $record))
                         ->openUrlInNewTab(),
                     Action::make('approve')
                         ->label('Approve')
