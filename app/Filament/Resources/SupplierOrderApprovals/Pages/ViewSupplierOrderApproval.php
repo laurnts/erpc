@@ -127,9 +127,12 @@ final class ViewSupplierOrderApproval extends ViewRecord
                             $attached = app(AttachUploadedFiles::class)->execute($record, [$file], 'documents', SupplierOrder::DOCUMENTS_UPLOAD_DIRECTORY);
                             $record->refresh();
 
-                            $name = $data['name'] ?? null;
-                            if (is_string($name) && $name !== '') {
-                                ($attached[0] ?? null)?->update(['name' => $name]);
+                            $media = $attached[0] ?? null;
+                            if ($media !== null) {
+                                $name = $data['name'] ?? null;
+                                // Preserve the pre-convergence naming: custom name when given,
+                                // otherwise the file's basename (extension included).
+                                $media->update(['name' => is_string($name) && $name !== '' ? $name : $media->file_name]);
                             }
 
                             Notification::make()

@@ -84,6 +84,25 @@ it('stamps a v3 path for a profit and loss document', function (): void {
         ->and($media->getCustomProperty(DocumentPathGenerator::PATH_PREFIX_PROPERTY))->toStartWith('documents/team-'.$this->team->getKey().'/');
 });
 
+it('keeps the file extension in the display name when no custom name is supplied', function (): void {
+    $qe = QuotationEvaluation::factory()->forRequest($this->request)->create(['creator_id' => $this->user->getKey()]);
+
+    livewire(ViewQuotationEvaluation::class, ['record' => $qe->getKey()])
+        ->assertOk()
+        ->callAction('uploadDocument', data: [
+            'document' => [documentsTempPdf('unnamed-doc.pdf')],
+        ])
+        ->assertHasNoActionErrors();
+
+    $media = $qe->refresh()->getFirstMedia('documents');
+
+    // Pre-convergence behavior: name defaults to the staged file's basename,
+    // extension included (Spatie's default would strip it).
+    expect($media)->not->toBeNull()
+        ->and($media->name)->toBe($media->file_name)
+        ->and($media->name)->toEndWith('.pdf');
+});
+
 it('stamps a v3 path for a supplier order document uploaded from the view page', function (): void {
     $order = SupplierOrder::factory()->recycle($this->team)->for($this->request)->create(['status' => OrderStatus::APPROVED]);
 
