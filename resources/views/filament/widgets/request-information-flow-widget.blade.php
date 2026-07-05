@@ -6,7 +6,7 @@
             'supplier quotes' => \Illuminate\Support\Str::markdown($this->getSupplierQuotesInformationFlow()),
             'buyer quotes' => \Illuminate\Support\Str::markdown($this->getBuyerQuotesInformationFlow()),
             'invoices' => \Illuminate\Support\Str::markdown($this->getBuyerOrdersInformationFlow()),
-            'purchases' => \Illuminate\Support\Str::markdown($this->getSupplierOrdersInformationFlow()),
+            'supplier orders' => \Illuminate\Support\Str::markdown($this->getSupplierOrdersInformationFlow()),
             'goods receive' => \Illuminate\Support\Str::markdown($this->getGoodsReceiveInformationFlow()),
             'inbound shipments' => \Illuminate\Support\Str::markdown($this->getShipmentsInformationFlow()),
             'completion report' => \Illuminate\Support\Str::markdown($this->getCompletionReportsInformationFlow()),

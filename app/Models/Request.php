@@ -269,6 +269,26 @@ final class Request extends Model implements HasCustomFields, HasMedia
     }
 
     /**
+     * Goods receive requires at least one active purchase order and none of
+     * them still in the ordering pipeline (draft, awaiting approval, or
+     * approved but not yet sent to the supplier).
+     */
+    public function isReadyForGoodsReceive(): bool
+    {
+        $hasActiveOrder = $this->supplierOrders()
+            ->whereNot('status', OrderStatus::CANCELLED)
+            ->exists();
+
+        if (! $hasActiveOrder) {
+            return false;
+        }
+
+        return ! $this->supplierOrders()
+            ->whereIn('status', [OrderStatus::DRAFT, OrderStatus::CONFIRMED, OrderStatus::APPROVED])
+            ->exists();
+    }
+
+    /**
      * Goods receive document batches (each batch can contain multiple uploaded files).
      *
      * @return HasMany<GoodsReceiveBatch, $this>

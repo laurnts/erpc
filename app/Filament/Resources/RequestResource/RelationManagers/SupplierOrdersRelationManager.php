@@ -8,6 +8,7 @@ use App\Enums\BuyerQuoteStatus;
 use App\Enums\OrderStatus;
 use App\Enums\RequestStage;
 use App\Enums\SupplierQuoteStatus;
+use App\Filament\Actions\ApproveSupplierOrderAction;
 use App\Filament\Actions\DownloadPdfAction;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Mail\Erp\PurchaseOrderToSupplierMail;
@@ -68,7 +69,7 @@ final class SupplierOrdersRelationManager extends RelationManager
 
     protected static function getBaseTabTitle(): string
     {
-        return 'Purchases';
+        return 'Supplier Orders';
     }
 
     public function form(Schema $schema): Schema
@@ -166,7 +167,9 @@ final class SupplierOrdersRelationManager extends RelationManager
                                     })
                                     ->helperText('Select a quote to copy values'),
                                 Select::make('status')
-                                    ->options(OrderStatus::class)
+                                    ->options(collect(OrderStatus::cases())
+                                        ->mapWithKeys(fn (OrderStatus $status): array => [$status->value => $status->getSupplierOrderLabel()])
+                                        ->all())
                                     ->default(OrderStatus::DRAFT)
                                     ->required()
                                     ->selectablePlaceholder(false),
@@ -663,7 +666,35 @@ final class SupplierOrdersRelationManager extends RelationManager
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('status')
                     ->badge()
+                    ->formatStateUsing(fn (OrderStatus $state): string => $state->getSupplierOrderLabel())
                     ->sortable(),
+                TextColumn::make('approvals')
+                    ->label('Approvals')
+                    ->badge()
+                    ->state(function (SupplierOrder $record): ?string {
+                        if (! in_array($record->status, [OrderStatus::CONFIRMED, OrderStatus::APPROVED], true)) {
+                            return null;
+                        }
+
+                        $recorded = ($record->approver_1_id !== null ? 1 : 0)
+                            + ($record->approver_2_id !== null ? 1 : 0);
+
+                        return $recorded.'/2';
+                    })
+                    ->color(fn (?string $state): string => $state === '2/2' ? 'success' : 'warning')
+                    ->tooltip(function (SupplierOrder $record): string {
+                        $names = array_filter([
+                            $record->approver1?->name,
+                            $record->approver2?->name,
+                        ]);
+
+                        if ($names === []) {
+                            return 'No approvals recorded yet';
+                        }
+
+                        return 'Approved by: '.implode(', ', $names);
+                    })
+                    ->placeholder('—'),
                 TextColumn::make('currency.code')
                     ->label('Currency')
                     ->sortable(),
@@ -702,7 +733,9 @@ final class SupplierOrdersRelationManager extends RelationManager
             ])
             ->filters([
                 SelectFilter::make('status')
-                    ->options(OrderStatus::class),
+                    ->options(collect(OrderStatus::cases())
+                        ->mapWithKeys(fn (OrderStatus $status): array => [$status->value => $status->getSupplierOrderLabel()])
+                        ->all()),
                 SelectFilter::make('supplier')
                     ->relationship('supplier', 'name'),
                 SelectFilter::make('currency_id')
@@ -983,6 +1016,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                 ->success()
                                 ->send();
                         }),
+                    ApproveSupplierOrderAction::make(),
                     DownloadPdfAction::make('downloadPdfSent')
                         ->label('PDF')
                         ->visible(fn (SupplierOrder $record): bool => $record->status === OrderStatus::SENT),
@@ -990,7 +1024,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                         ->label('PDF')
                         ->visible(fn (?SupplierOrder $record): bool => $record !== null && $record->status === OrderStatus::APPROVED),
                     Action::make('send')
-                        ->label('Send')
+                        ->label('Send Purchase Order to Supplier')
                         ->icon('heroicon-o-paper-airplane')
                         ->color('primary')
                         ->authorize(fn (?SupplierOrder $record): bool => $record !== null && auth()->user()?->can('send', $record) === true)

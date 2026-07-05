@@ -7,6 +7,7 @@ namespace App\Filament\Resources\SupplierOrderApprovals;
 use App\Actions\Media\AttachUploadedFiles;
 use App\Enums\CentralPurchasingRole;
 use App\Enums\OrderStatus;
+use App\Filament\Actions\ApproveSupplierOrderAction;
 use App\Filament\Resources\SupplierOrderApprovals\Pages\ListSupplierOrderApprovals;
 use App\Filament\Resources\SupplierOrderApprovals\Pages\ViewSupplierOrderApproval;
 use App\Models\SupplierOrder;
@@ -174,96 +175,7 @@ final class SupplierOrderApprovalResource extends Resource
                                     ->send();
                             }
                         }),
-                    Action::make('approve')
-                        ->label('Approve')
-                        ->icon('heroicon-o-check-badge')
-                        ->color('success')
-                        ->visible(function (?SupplierOrder $record): bool {
-                            if ($record === null) {
-                                return false;
-                            }
-
-                            // Must be in confirmed status
-                            if ($record->status !== OrderStatus::CONFIRMED) {
-                                return false;
-                            }
-
-                            // User must be authenticated
-                            $user = auth()->user();
-                            if ($user === null) {
-                                return false;
-                            }
-
-                            // Check if user can approve
-                            if (! $record->canBeApprovedBy($user)) {
-                                return false;
-                            }
-
-                            // Check if user already approved
-                            if ($record->approver_1_id === $user->id || $record->approver_2_id === $user->id) {
-                                return false;
-                            }
-
-                            return true;
-                        })
-                        ->requiresConfirmation()
-                        ->modalHeading('Approve this supplier order?')
-                        ->modalDescription(function (SupplierOrder $record): string {
-                            $approverCount = 0;
-                            if ($record->approver_1_id !== null) {
-                                $approverCount++;
-                            }
-                            if ($record->approver_2_id !== null) {
-                                $approverCount++;
-                            }
-
-                            $remaining = 2 - $approverCount;
-                            $description = 'This order requires approval from at least 2 approvers. ';
-
-                            if ($approverCount === 0) {
-                                $description .= 'You will be the first approver. One more approval is needed.';
-                            } elseif ($approverCount === 1) {
-                                $description .= 'One approval has been received. Your approval will complete the approval process and the order will be ready to send.';
-                            }
-
-                            return $description;
-                        })
-                        ->action(function (SupplierOrder $record): void {
-                            /** @var \App\Models\User $user */
-                            $user = auth()->user();
-
-                            try {
-                                $record->approve($user);
-
-                                $approverCount = 0;
-                                if ($record->approver_1_id !== null) {
-                                    $approverCount++;
-                                }
-                                if ($record->approver_2_id !== null) {
-                                    $approverCount++;
-                                }
-
-                                if ($approverCount === 2) {
-                                    Notification::make()
-                                        ->title('Order approved')
-                                        ->body('Order has been fully approved and is now ready to send to supplier.')
-                                        ->success()
-                                        ->send();
-                                } else {
-                                    Notification::make()
-                                        ->title('Approval recorded')
-                                        ->body('Your approval has been recorded. One more approval is needed.')
-                                        ->success()
-                                        ->send();
-                                }
-                            } catch (\InvalidArgumentException $e) {
-                                Notification::make()
-                                    ->title('Cannot approve')
-                                    ->body($e->getMessage())
-                                    ->danger()
-                                    ->send();
-                            }
-                        }),
+                    ApproveSupplierOrderAction::make(),
                 ]),
             ])
             ->toolbarActions([

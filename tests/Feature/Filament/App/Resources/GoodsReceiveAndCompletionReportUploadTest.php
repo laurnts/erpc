@@ -84,7 +84,7 @@ beforeEach(function (): void {
     $this->supplierOrder = SupplierOrder::factory()
         ->recycle($this->team)
         ->forRequest($this->request)
-        ->create(['supplier_id' => $this->supplier->getKey(), 'status' => OrderStatus::APPROVED]);
+        ->create(['supplier_id' => $this->supplier->getKey(), 'status' => OrderStatus::SENT]);
 
     $this->user->assignRole('admin');
     $this->team->users()->attach($this->user, ['role' => 'admin']);

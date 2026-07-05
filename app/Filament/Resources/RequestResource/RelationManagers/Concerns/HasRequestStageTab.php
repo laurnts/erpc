@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Filament\Resources\RequestResource\RelationManagers\Concerns;
 
 use App\Enums\BuyerQuoteStatus;
-use App\Enums\OrderStatus;
 use App\Enums\PNLStatus;
 use App\Enums\QEStatus;
 use App\Enums\RequestStage;
@@ -38,7 +37,7 @@ trait HasRequestStageTab
     public function mount(): void
     {
         parent::mount();
-        
+
         /** @var Request $request */
         $request = $this->getOwnerRecord();
         $stage = static::getAssociatedStage();
@@ -46,43 +45,45 @@ trait HasRequestStageTab
         // Check if QE is approved for tabs after Supplier Quotes (or has obtained+selected quote)
         // Supplier Quotes is AWAITING_SUPPLIER_RESPONSE, so require approval for tabs from PREPARING_BUYER_QUOTE onwards
         $requiresQEApproval = $stage->getOrder() > RequestStage::AWAITING_SUPPLIER_RESPONSE->getOrder();
-        
+
         if ($requiresQEApproval) {
             $latestQE = $request->quotationEvaluations()->latest()->first();
             $isQEApproved = $latestQE !== null && $latestQE->status === QEStatus::APPROVED;
             $hasObtainedSelected = $request->hasObtainedSelectedSupplierQuote();
-            
+
             if (! $isQEApproved && ! $hasObtainedSelected) {
                 Notification::make()
                     ->title('Access Restricted')
                     ->body('Quotation Evaluation must be approved before accessing this section.')
                     ->warning()
                     ->send();
-                
+
                 // Redirect back to Supplier Quotes tab
                 $this->redirect(RequestResource::getUrl('view', ['record' => $request->id, 'activeRelationManager' => 'supplierQuotes']));
+
                 return;
             }
         }
 
         // Check if PNL is approved for tabs from Buyer Orders to Completion Report
         // Buyer Orders is AWAITING_BUYER_CONFIRMATION (order 4), Completion Report is DELIVERED (order 8)
-        $requiresPNLApproval = $stage->getOrder() >= RequestStage::AWAITING_BUYER_CONFIRMATION->getOrder() 
+        $requiresPNLApproval = $stage->getOrder() >= RequestStage::AWAITING_BUYER_CONFIRMATION->getOrder()
             && $stage->getOrder() <= RequestStage::DELIVERED->getOrder();
-        
+
         if ($requiresPNLApproval) {
             $latestPNL = $request->profitAndLosses()->latest()->first();
             $isPNLApproved = $latestPNL !== null && $latestPNL->status === PNLStatus::APPROVED;
-            
+
             if (! $isPNLApproved) {
                 Notification::make()
                     ->title('Access Restricted')
                     ->body('Profit & Loss must be approved before accessing this section.')
                     ->warning()
                     ->send();
-                
+
                 // Redirect back to Buyer Quotes tab
                 $this->redirect(RequestResource::getUrl('view', ['record' => $request->id, 'activeRelationManager' => 'buyerQuotes']));
+
                 return;
             }
         }
@@ -96,10 +97,11 @@ trait HasRequestStageTab
             if (! $hasAcceptedQuote) {
                 Notification::make()
                     ->title('Access Restricted')
-                    ->body('Send the buyer quote, then upload the buyer\'s PO so the quote status is Accepted. You can then continue to Purchase and later stages.')
+                    ->body('Send the buyer quote, then upload the buyer\'s PO so the quote status is Accepted. You can then continue to Supplier Orders and later stages.')
                     ->warning()
                     ->send();
                 $this->redirect(RequestResource::getUrl('view', ['record' => $request->id, 'activeRelationManager' => 'buyerQuotes']));
+
                 return;
             }
             if ($hasSentQuote) {
@@ -109,31 +111,23 @@ trait HasRequestStageTab
                     ->warning()
                     ->send();
                 $this->redirect(RequestResource::getUrl('view', ['record' => $request->id, 'activeRelationManager' => 'buyerQuotes']));
+
                 return;
             }
         }
 
-        // Check if all supplier orders are approved for Goods Receive tab
-        if ($stage === RequestStage::GOODS_RECEIVE && static::hasUnapprovedSupplierOrders($request)) {
+        // Goods Receive requires every supplier order to be created, approved, and sent
+        if ($stage === RequestStage::GOODS_RECEIVE && ! $request->isReadyForGoodsReceive()) {
             Notification::make()
                 ->title('Access Restricted')
-                ->body('All Supplier Orders must be approved before accessing Goods Receive.')
+                ->body('Complete the Supplier Orders steps first: create the order, get it approved, and send it to the supplier.')
                 ->warning()
                 ->send();
 
             $this->redirect(RequestResource::getUrl('view', ['record' => $request->id, 'activeRelationManager' => 'supplierOrders']));
+
             return;
         }
-    }
-
-    /**
-     * Check if the request has any supplier orders that are not yet approved (status not APPROVED or SENT).
-     */
-    private static function hasUnapprovedSupplierOrders(Request $request): bool
-    {
-        return $request->supplierOrders()
-            ->whereNotIn('status', [OrderStatus::APPROVED, OrderStatus::SENT, OrderStatus::CANCELLED])
-            ->exists();
     }
 
     /**
@@ -147,7 +141,7 @@ trait HasRequestStageTab
 
         // Determine tab state
         $isCurrentStage = $currentStage === $stage;
-        // Invoices (AWAITING_BUYER_CONFIRMATION) appears after Purchases/Goods Receive in the tab bar,
+        // Invoices (AWAITING_BUYER_CONFIRMATION) appears after Supplier Orders/Goods Receive in the tab bar,
         // so only show check when we have actually passed Invoices (e.g. on Shipments or later)
         // Goods Receive appears before Invoices in the tab bar but has higher enum order (6 > 4),
         // so show check when we have moved to Invoices or any later stage (Shipments+)
@@ -162,7 +156,7 @@ trait HasRequestStageTab
         $requiresQEApproval = $stage->getOrder() > RequestStage::AWAITING_SUPPLIER_RESPONSE->getOrder();
         $isQEApproved = false;
         $hasObtainedSelected = false;
-        
+
         if ($requiresQEApproval) {
             $latestQE = $ownerRecord->quotationEvaluations()->latest()->first();
             $isQEApproved = $latestQE !== null && $latestQE->status === QEStatus::APPROVED;
@@ -171,10 +165,10 @@ trait HasRequestStageTab
 
         // Check if PNL is approved for tabs from Buyer Orders to Completion Report
         // Buyer Orders is AWAITING_BUYER_CONFIRMATION (order 4), Completion Report is DELIVERED (order 8)
-        $requiresPNLApproval = $stage->getOrder() >= RequestStage::AWAITING_BUYER_CONFIRMATION->getOrder() 
+        $requiresPNLApproval = $stage->getOrder() >= RequestStage::AWAITING_BUYER_CONFIRMATION->getOrder()
             && $stage->getOrder() <= RequestStage::DELIVERED->getOrder();
         $isPNLApproved = false;
-        
+
         if ($requiresPNLApproval) {
             $latestPNL = $ownerRecord->profitAndLosses()->latest()->first();
             $isPNLApproved = $latestPNL !== null && $latestPNL->status === PNLStatus::APPROVED;
@@ -223,11 +217,11 @@ trait HasRequestStageTab
                 ->extraAttributes([
                     'class' => 'qe-disabled-tab',
                 ]);
-        } elseif ($stage === RequestStage::GOODS_RECEIVE && static::hasUnapprovedSupplierOrders($ownerRecord)) {
-            // Disable Goods Receive tab until all supplier orders are approved
+        } elseif ($stage === RequestStage::GOODS_RECEIVE && ! $ownerRecord->isReadyForGoodsReceive()) {
+            // Disable Goods Receive tab until every supplier order is created, approved, and sent
             $tab->disabled()
                 ->badgeColor('gray')
-                ->badgeTooltip('All Supplier Orders must be approved first')
+                ->badgeTooltip('Supplier orders must be created, approved, and sent to the supplier first')
                 ->extraAttributes([
                     'class' => 'qe-disabled-tab',
                 ]);

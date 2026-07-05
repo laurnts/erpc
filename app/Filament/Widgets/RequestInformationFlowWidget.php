@@ -12,7 +12,7 @@ final class RequestInformationFlowWidget extends Widget
 {
     protected string $view = 'filament.widgets.request-information-flow-widget';
 
-    protected int | string | array $columnSpan = 'full';
+    protected int|string|array $columnSpan = 'full';
 
     // Make widget poll for updates to detect tab changes
     protected ?string $pollingInterval = null;
@@ -39,10 +39,10 @@ final class RequestInformationFlowWidget extends Widget
     {
         // Get the active relation manager from the URL or Livewire state
         $activeRelationManager = null;
-        
+
         // Method 1: Try to get from URL query parameter (most reliable)
         $activeRelationManager = request()->query('activeRelationManager');
-        
+
         // Method 2: Try to get from Livewire's current component
         if ($activeRelationManager === null) {
             try {
@@ -54,14 +54,14 @@ final class RequestInformationFlowWidget extends Widget
                 // Continue
             }
         }
-        
+
         // Method 3: Try to get from JavaScript/Alpine.js state via DOM
         // We'll use JavaScript to pass it, but for now try URL parsing
         if ($activeRelationManager === null) {
             // Check if there's a tab with aria-selected="true"
             // This will be handled by JavaScript
         }
-        
+
         if ($activeRelationManager === null) {
             return '';
         }
@@ -149,7 +149,7 @@ MARKDOWN;
 - Create a Profit & Loss (P&L) document; it must be approved before Invoices and later stages.
 - **Send** the buyer quote to the buyer.
 - When the buyer sends a PO, **upload the PO** to the buyer quote so its status becomes **Accepted**.
-- After at least one quote is Accepted, you can continue to Invoices and Purchases.
+- After at least one quote is Accepted, you can continue to Invoices and Supplier Orders.
 MARKDOWN;
     }
 
@@ -162,24 +162,25 @@ MARKDOWN;
 **Step 6: Invoices (Buyer Orders)**
 - Buyer orders are created from accepted buyer quote(s) and act as the invoice to the buyer.
 - Create or open the buyer order; review items, pricing, and terms.
-- **Confirm** the buyer order (this can create or link to supplier orders / purchases).
+- **Confirm** the buyer order (this can create or link to supplier orders).
 - **Send** the order to the buyer when ready.
 - P&L must be approved to access this tab; at least one buyer quote must be Accepted.
 MARKDOWN;
     }
 
     /**
-     * Get information flow text for Purchases (Supplier Orders) tab.
+     * Get information flow text for Supplier Orders tab.
      */
     public function getSupplierOrdersInformationFlow(): string
     {
         return <<<'MARKDOWN'
-**Step 4: Purchases (Supplier Orders)**
-- Create purchase orders to suppliers from accepted buyer quote(s); there may be multiple POs (one per supplier).
-- Add or edit supplier orders; verify quantities, prices, and terms.
-- **Confirm** each order so it can be sent for approval.
-- Ensure all supplier orders are **approved** (via Approval) before you can access Goods Receive.
-- **Send** the PO to the supplier when approved.
+**Step 4: Supplier Orders**
+This step has three stages: create the orders, get them approved, then send them to the suppliers.
+1. **Create** purchase orders to suppliers from accepted buyer quote(s); there may be multiple POs (one per supplier). Verify quantities, prices, and terms, then **Confirm** each order to request approval.
+2. **Approve**: each order needs 2 approvals (Dept Head of Sales, Deputy Director, or Director) — via the Approve action here or the Approval menu.
+3. **Send PO to Supplier**: email each approved PO to its supplier.
+
+Goods Receive unlocks only after every order is approved **and sent**.
 MARKDOWN;
     }
 
@@ -192,7 +193,7 @@ MARKDOWN;
 **Step 5: Goods Receive**
 - Upload goods receive documents (e.g. delivery notes, packing lists); multiple files are supported.
 - All documents must be **approved** (via Approval > Goods Receive) before you can open Inbound Shipments.
-- This tab is only available after all supplier orders (Purchases) are approved.
+- This tab is only available after all supplier orders are approved and sent to the suppliers.
 MARKDOWN;
     }
 

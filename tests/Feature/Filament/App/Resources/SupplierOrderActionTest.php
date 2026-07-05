@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\CentralPurchasingRole;
 use App\Enums\OrderStatus;
 use App\Enums\PNLStatus;
 use App\Enums\QEStatus;
@@ -212,6 +213,120 @@ describe('cancel action', function (): void {
     ]);
 });
 
+/**
+ * Attach a user to the team with a Central Purchasing approval role.
+ */
+function grantPurchaseApprovalRole(
+    Tests\TestCase $test,
+    User $user,
+    CentralPurchasingRole $role = CentralPurchasingRole::DIRECTOR,
+): void {
+    $test->team->users()->attach($user, [
+        'role' => 'central_purchasing',
+        'central_purchasing_role' => $role->value,
+    ]);
+
+    $user->unsetRelation('teams');
+}
+
+describe('approve action', function (): void {
+    it('lets an eligible approver record the first approval from the supplier orders table', function (): void {
+        grantPurchaseApprovalRole($this, $this->user);
+        $order = supplierOrderInStatus($this, OrderStatus::CONFIRMED);
+
+        mountSupplierOrdersRelationManager($this)
+            ->assertOk()
+            ->assertActionVisible(TestAction::make('approve')->table($order))
+            ->callAction(TestAction::make('approve')->table($order))
+            ->assertNotified('Approval recorded');
+
+        $order->refresh();
+
+        expect($order->approver_1_id)->toBe($this->user->getKey())
+            ->and($order->status)->toBe(OrderStatus::CONFIRMED)
+            ->and($order->approved_at)->toBeNull();
+    });
+
+    it('marks the order approved on the second approval', function (): void {
+        $firstApprover = User::factory()->create();
+        grantPurchaseApprovalRole($this, $firstApprover, CentralPurchasingRole::DEPUTY_DIRECTOR);
+        grantPurchaseApprovalRole($this, $this->user);
+
+        $order = supplierOrderInStatus($this, OrderStatus::CONFIRMED, [
+            'approver_1_id' => $firstApprover->getKey(),
+        ]);
+
+        mountSupplierOrdersRelationManager($this)
+            ->callAction(TestAction::make('approve')->table($order))
+            ->assertNotified('Order approved');
+
+        $order->refresh();
+
+        expect($order->approver_2_id)->toBe($this->user->getKey())
+            ->and($order->status)->toBe(OrderStatus::APPROVED)
+            ->and($order->approved_at)->not->toBeNull();
+    });
+
+    it('hides approve from a team member without an approval role', function (): void {
+        $order = supplierOrderInStatus($this, OrderStatus::CONFIRMED);
+
+        $member = User::factory()->create();
+        $this->team->users()->attach($member, ['role' => 'editor']);
+
+        $this->actingAs($member);
+        Filament::setTenant($this->team);
+
+        mountSupplierOrdersRelationManager($this)
+            ->assertOk()
+            ->assertActionHidden(TestAction::make('approve')->table($order));
+    });
+
+    it('hides approve once the user has already approved', function (): void {
+        grantPurchaseApprovalRole($this, $this->user);
+        $order = supplierOrderInStatus($this, OrderStatus::CONFIRMED, [
+            'approver_1_id' => $this->user->getKey(),
+        ]);
+
+        mountSupplierOrdersRelationManager($this)
+            ->assertOk()
+            ->assertActionHidden(TestAction::make('approve')->table($order));
+    });
+
+    it('hides approve on a draft order', function (): void {
+        grantPurchaseApprovalRole($this, $this->user);
+        $order = supplierOrderInStatus($this, OrderStatus::DRAFT);
+
+        mountSupplierOrdersRelationManager($this)
+            ->assertOk()
+            ->assertActionHidden(TestAction::make('approve')->table($order));
+    });
+});
+
+describe('approvals column', function (): void {
+    it('shows approval progress for a confirmed order', function (): void {
+        $firstApprover = User::factory()->create();
+        grantPurchaseApprovalRole($this, $firstApprover, CentralPurchasingRole::DEPUTY_DIRECTOR);
+
+        supplierOrderInStatus($this, OrderStatus::CONFIRMED, [
+            'approver_1_id' => $firstApprover->getKey(),
+        ]);
+
+        mountSupplierOrdersRelationManager($this)
+            ->assertOk()
+            ->assertSee('1/2');
+    });
+});
+
+describe('status display', function (): void {
+    it('shows a confirmed order as Awaiting Approval in the supplier orders table', function (): void {
+        supplierOrderInStatus($this, OrderStatus::CONFIRMED);
+
+        mountSupplierOrdersRelationManager($this)
+            ->assertOk()
+            ->assertSee('Awaiting Approval');
+    });
+});
+
 describe('permission gating', function (): void {
     /**
      * KNOWN BUG (pins correct behavior, currently failing): the send, resend, and cancel
@@ -233,5 +348,13 @@ describe('permission gating', function (): void {
             ->assertOk()
             ->assertActionHidden(TestAction::make('send')->table($sendableOrder))
             ->assertActionHidden(TestAction::make('cancel')->table($sendableOrder));
+    });
+});
+
+describe('tab label', function (): void {
+    it('labels the request page tab Supplier Orders', function (): void {
+        $tab = SupplierOrdersRelationManager::getTabComponent($this->request, ViewRequest::class);
+
+        expect($tab->getLabel())->toBe('Supplier Orders');
     });
 });

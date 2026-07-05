@@ -70,6 +70,20 @@ enum OrderStatus: string implements HasColor, HasIcon, HasLabel
     }
 
     /**
+     * Label for supplier orders, where CONFIRMED means internal
+     * confirmation pending two approvals — not supplier acknowledgement.
+     * Buyer orders keep getLabel(), where Confirmed is the buyer's action.
+     */
+    public function getSupplierOrderLabel(): string
+    {
+        if ($this === self::CONFIRMED) {
+            return 'Awaiting Approval';
+        }
+
+        return $this->getLabel();
+    }
+
+    /**
      * Check if order can be edited (only drafts).
      */
     public function canEdit(): bool

@@ -33,7 +33,6 @@ use Filament\Actions\RestoreAction;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
-use Filament\Schemas\Components\Flex;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -124,7 +123,7 @@ final class ViewRequest extends ViewRecord
         $currentStage = $record->stage;
 
         // Only advance forward, never backward.
-        // In the tab bar, Invoices (AWAITING_BUYER_CONFIRMATION) appears after Purchases and Goods Receive,
+        // In the tab bar, Invoices (AWAITING_BUYER_CONFIRMATION) appears after Supplier Orders and Goods Receive,
         // so allow advancing to Invoices when current stage is PREPARING_SUPPLIER_ORDER or GOODS_RECEIVE.
         $canAdvanceToTarget = $currentStage->isBefore($targetStage)
             || ($targetStage === RequestStage::AWAITING_BUYER_CONFIRMATION
@@ -135,6 +134,20 @@ final class ViewRequest extends ViewRecord
 
         // Check if we can transition (respects business rules)
         if (! $currentStage->canTransitionTo($targetStage)) {
+            return;
+        }
+
+        // Goods Receive requires every supplier order to be created, approved,
+        // and sent; the tab is disabled in that case, but the stage must not
+        // advance through any other path either (e.g. a stale or tampered
+        // Livewire update).
+        if ($targetStage === RequestStage::GOODS_RECEIVE && ! $record->isReadyForGoodsReceive()) {
+            Notification::make()
+                ->title('Cannot advance stage')
+                ->body('Complete the Supplier Orders steps first: create the order, get it approved, and send it to the supplier.')
+                ->warning()
+                ->send();
+
             return;
         }
 
@@ -193,82 +206,79 @@ final class ViewRequest extends ViewRecord
     {
         return $schema->schema([
             // Request Header Section
-            Flex::make([
-                Section::make()
-                    ->schema([
-                        TextEntry::make('request_number')
-                            ->label('')
-                            ->weight('bold')
-                            ->size('md')
-                            ->copyable(),
-                        TextEntry::make('title')
-                            ->label('')
-                            ->weight('bold')
-                            ->size('md'),
-                        TextEntry::make('item_type_summary')
-                            ->label('Item types')
-                            ->badge()
-                            ->color(fn (string $state): string => match ($state) {
-                                'Goods' => 'primary',
-                                'Services' => 'success',
-                                'Mixed' => 'warning',
-                                default => 'gray',
-                            }),
-                        TextEntry::make('fulfillment_status')
-                            ->label('Fulfillment')
-                            ->state(fn (Request $record): string => $record->fulfillmentStatusLabel())
-                            ->badge()
-                            ->color(fn (Request $record): string => $record->isFulfilled() ? 'success' : 'warning'),
-                        TextEntry::make('goods_fulfillment_status')
-                            ->label('Goods')
-                            ->state(fn (Request $record): string => $record->goodsChannelComplete() ? 'Shipped' : 'Pending')
-                            ->badge()
-                            ->color(fn (Request $record): string => $record->goodsChannelComplete() ? 'success' : 'warning')
-                            ->visible(fn (Request $record): bool => $record->hasGoodsItems()),
-                        TextEntry::make('services_fulfillment_status')
-                            ->label('Services')
-                            ->state(fn (Request $record): string => $record->servicesChannelComplete() ? 'Accepted' : 'Pending')
-                            ->badge()
-                            ->color(fn (Request $record): string => $record->servicesChannelComplete() ? 'success' : 'warning')
-                            ->visible(fn (Request $record): bool => $record->hasServiceItems()),
-                        TextEntry::make('project.name')
-                            ->label('Project')
-                            ->icon('heroicon-o-folder')
-                            ->color('primary')
-                            ->placeholder('-')
-                            ->url(fn (Request $record): ?string => $record->project ? ProjectResource::getUrl('index') : null),
-                    ])
-                    ->columns(3),
-                Section::make()
-                    ->schema([
-                        TextEntry::make('priority')
-                            ->badge(),
-                        TextEntry::make('created_at')
-                            ->label('Created')
-                            ->dateTime(),
-                        TextEntry::make('buyer.name')
-                            ->label('Buyer')
-                            ->icon('heroicon-o-user-group')
-                            ->color('primary')
-                            ->url(fn (Request $record): ?string => $record->buyer ? BuyerResource::getUrl('index') : null),
-                        TextEntry::make('updated_at')
-                            ->label('Last Updated')
-                            ->since(),
-                        TextEntry::make('submission_method')
-                            ->label('Portal Submission')
-                            ->badge()
-                            ->formatStateUsing(fn ($state) => $state?->getLabel() ?? '-')
-                            ->visible(fn (Request $record): bool => $record->isPortalSubmission()),
-                        TextEntry::make('submitted_at')
-                            ->label('Submitted At')
-                            ->dateTime()
-                            ->visible(fn (Request $record): bool => $record->isPortalSubmission()),
-                        TextEntry::make('submittedBy.name')
-                            ->label('Submitted By')
-                            ->visible(fn (Request $record): bool => $record->isPortalSubmission()),
-                    ])
-                    ->columns(2),
-            ])->columnSpan('full'),
+            Section::make()
+                ->schema([
+                    TextEntry::make('request_number')
+                        ->label('Request number')
+                        ->weight('bold')
+                        ->size('md')
+                        ->copyable(),
+                    TextEntry::make('title')
+                        ->label('Title')
+                        ->weight('bold')
+                        ->size('md')
+                        ->columnSpan(3),
+                    TextEntry::make('priority')
+                        ->badge(),
+                    TextEntry::make('item_type_summary')
+                        ->label('Item types')
+                        ->badge()
+                        ->color(fn (string $state): string => match ($state) {
+                            'Goods' => 'primary',
+                            'Services' => 'success',
+                            'Mixed' => 'warning',
+                            default => 'gray',
+                        }),
+                    TextEntry::make('fulfillment_status')
+                        ->label('Fulfillment')
+                        ->state(fn (Request $record): string => $record->fulfillmentStatusLabel())
+                        ->badge()
+                        ->color(fn (Request $record): string => $record->isFulfilled() ? 'success' : 'warning'),
+                    TextEntry::make('goods_fulfillment_status')
+                        ->label('Goods')
+                        ->state(fn (Request $record): string => $record->goodsChannelComplete() ? 'Shipped' : 'Pending')
+                        ->badge()
+                        ->color(fn (Request $record): string => $record->goodsChannelComplete() ? 'success' : 'warning')
+                        ->visible(fn (Request $record): bool => $record->hasGoodsItems()),
+                    TextEntry::make('services_fulfillment_status')
+                        ->label('Services')
+                        ->state(fn (Request $record): string => $record->servicesChannelComplete() ? 'Accepted' : 'Pending')
+                        ->badge()
+                        ->color(fn (Request $record): string => $record->servicesChannelComplete() ? 'success' : 'warning')
+                        ->visible(fn (Request $record): bool => $record->hasServiceItems()),
+                    TextEntry::make('project.name')
+                        ->label('Project')
+                        ->icon('heroicon-o-folder')
+                        ->color('primary')
+                        ->placeholder('-')
+                        ->url(fn (Request $record): ?string => $record->project ? ProjectResource::getUrl('index') : null),
+                    TextEntry::make('buyer.name')
+                        ->label('Buyer')
+                        ->icon('heroicon-o-user-group')
+                        ->color('primary')
+                        ->url(fn (Request $record): ?string => $record->buyer ? BuyerResource::getUrl('index') : null),
+                    TextEntry::make('created_at')
+                        ->label('Created')
+                        ->dateTime(),
+                    TextEntry::make('updated_at')
+                        ->label('Last Updated')
+                        ->since(),
+                    TextEntry::make('submission_method')
+                        ->label('Portal Submission')
+                        ->badge()
+                        ->formatStateUsing(fn ($state) => $state?->getLabel() ?? '-')
+                        ->visible(fn (Request $record): bool => $record->isPortalSubmission()),
+                    TextEntry::make('submitted_at')
+                        ->label('Submitted At')
+                        ->dateTime()
+                        ->visible(fn (Request $record): bool => $record->isPortalSubmission()),
+                    TextEntry::make('submittedBy.name')
+                        ->label('Submitted By')
+                        ->columnSpan(2)
+                        ->visible(fn (Request $record): bool => $record->isPortalSubmission()),
+                ])
+                ->columns(4)
+                ->columnSpanFull(),
             // Internal Notes
             Section::make('Internal Notes')
                 ->icon('heroicon-o-document-text')
@@ -404,6 +414,32 @@ final class ViewRequest extends ViewRecord
     public function mount(int|string $record): void
     {
         parent::mount($record);
+
+        // Filament binds the active tab to the ?relation=<index> query param.
+        // Redirects and shared links throughout the app use the readable
+        // ?activeRelationManager=<key> param instead (e.g. supplierOrders);
+        // translate it to the index so those URLs open the intended tab
+        // rather than silently falling back to the first tab.
+        if ($this->activeRelationManager === null) {
+            $index = self::relationManagerIndexForKey(request()->query('activeRelationManager'));
+
+            if ($index !== null) {
+                $this->activeRelationManager = $index;
+            }
+        }
+    }
+
+    /**
+     * Translate a relation manager key (e.g. "supplierOrders") into the tab
+     * index Filament uses, or null when the key is missing or unknown.
+     */
+    public static function relationManagerIndexForKey(mixed $key): ?string
+    {
+        if (is_string($key) && array_key_exists($key, self::RELATION_MANAGER_MAP)) {
+            return (string) self::RELATION_MANAGER_MAP[$key];
+        }
+
+        return null;
     }
 
     /**
