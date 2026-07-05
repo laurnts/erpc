@@ -183,6 +183,7 @@ describe('Submission', function (): void {
         $items = $request->items()->orderBy('sort_order')->get();
 
         expect($items)->toHaveCount(2)
+            ->and($items[0]->is_matched)->toBeTrue()
             ->and($items[0]->article_id)->toBe($this->article->getKey())
             ->and((float) $items[0]->quantity)->toBe(3.0)
             ->and($items[0]->description)->toBe('Cartable Product')

@@ -108,6 +108,7 @@ final readonly class SubmitQuoteCart
                     'item_type' => ItemType::GOODS,
                     'quantity' => $quantity,
                     'unit' => $article->unit,
+                    'is_matched' => true,
                     'sort_order' => $sortOrder++,
                 ]);
             }
