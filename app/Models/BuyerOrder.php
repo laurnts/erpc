@@ -434,6 +434,10 @@ final class BuyerOrder extends Model implements HasCustomFields
      */
     public function reconcileReleasedCreditFor(BuyerInvoice $invoice): void
     {
+        if ($this->status !== OrderStatus::CONFIRMED) {
+            return;
+        }
+
         if (! $this->hasReservedCredit()) {
             return;
         }

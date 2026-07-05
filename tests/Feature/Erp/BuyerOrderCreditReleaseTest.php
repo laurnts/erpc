@@ -109,6 +109,23 @@ it('does not release credit for an order that never reserved it', function (): v
         ->and((float) $order->credit_released)->toBe(0.00);
 });
 
+it('does not reconcile credit once the order is cancelled', function (): void {
+    $order = creditReleaseOrder($this);
+    $order->confirm(); // reserves 400 → available 600
+    $order->cancel(); // restores remainder → available 1000, credit_released = 400
+
+    $this->buyer->refresh();
+    expect((float) $this->buyer->available_credit)->toBe(1000.00);
+
+    // A late invoice showing no outstanding balance must NOT re-reserve credit.
+    $invoice = creditReleaseInvoice($this, $order, '0.0000');
+    $order->reconcileReleasedCreditFor($invoice);
+
+    $this->buyer->refresh();
+    expect((float) $this->buyer->available_credit)->toBe(1000.00)
+        ->and((float) $this->buyer->credit_used)->toBe(0.00);
+});
+
 it('restores only the unreleased remainder when cancelling after a partial payment', function (): void {
     $order = creditReleaseOrder($this);
     $order->confirm();
