@@ -26,8 +26,10 @@ final readonly class SupplierQuoteQuotationDownloadController
             abort(404);
         }
 
-        if (! auth()->check()) {
-            abort(403);
+        $user = $request->user();
+
+        if ($user === null || ! $user->belongsToTeam($supplierQuote->team)) {
+            abort(404);
         }
 
         $filePath = $media->getPath();

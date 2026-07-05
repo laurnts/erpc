@@ -15,11 +15,11 @@ final readonly class BuyerQuotePoDownloadController
     {
         // Verify the media belongs to this buyer quote
         // Check both morph alias and full class name (Spatie stores it as morph alias)
-        $isValidModelType = $media->model_type === BuyerQuote::class || 
+        $isValidModelType = $media->model_type === BuyerQuote::class ||
                            $media->model_type === 'buyer_quote' ||
                            $media->model_type === 'App\\Models\\BuyerQuote';
-        
-        if (!$isValidModelType || (int) $media->model_id !== (int) $buyerQuote->id) {
+
+        if (! $isValidModelType || (int) $media->model_id !== (int) $buyerQuote->id) {
             abort(404);
         }
 
@@ -28,16 +28,17 @@ final readonly class BuyerQuotePoDownloadController
             abort(404);
         }
 
-        // Check authorization - user must be authenticated and have access to the buyer quote
-        // You can add more specific authorization checks here if needed
-        if (!auth()->check()) {
-            abort(403);
+        // Check authorization - user must belong to the buyer quote's team
+        $user = $request->user();
+
+        if ($user === null || ! $user->belongsToTeam($buyerQuote->team)) {
+            abort(404);
         }
 
         // Get the file path
         $filePath = $media->getPath();
 
-        if (!file_exists($filePath)) {
+        if (! file_exists($filePath)) {
             abort(404);
         }
 
@@ -47,7 +48,7 @@ final readonly class BuyerQuotePoDownloadController
         // Return file response (opens in browser instead of downloading)
         return response()->file($filePath, [
             'Content-Type' => $contentType,
-            'Content-Disposition' => 'inline; filename="' . $media->file_name . '"',
+            'Content-Disposition' => 'inline; filename="'.$media->file_name.'"',
         ]);
     }
 }
