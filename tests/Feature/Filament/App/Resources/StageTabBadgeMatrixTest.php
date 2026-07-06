@@ -7,6 +7,7 @@ use App\Enums\PNLStatus;
 use App\Enums\QEStatus;
 use App\Enums\RequestStage;
 use App\Filament\Resources\RequestResource\Pages\ViewRequest;
+use App\Filament\Resources\RequestResource\RelationManagers\AcceptanceReportsRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerOrdersRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerQuotesRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\CompletionReportsRelationManager;
@@ -34,7 +35,10 @@ use Filament\Facades\Filament;
  *
  * Shipments is intentionally excluded: it uses its own data-based getBadge()
  * (delivered-shipment check) via parent::getTabComponent(), not the stage
- * logic these seven tabs share.
+ * logic these eight tabs share. The Fulfillment group tab IS covered here at
+ * position 6, via AcceptanceReportsRelationManager — the actual source
+ * ViewRequest::fulfillmentTab() delegates to, since it does not override
+ * getTabComponent() and therefore returns the shared trait stage badge.
  */
 beforeEach(function (): void {
     $this->user = User::factory()->withPersonalTeam()->create();
@@ -87,10 +91,12 @@ it('shows the correct completion badge on every stage-based tab for each workflo
         ['class' => GoodsReceiveRelationManager::class, 'stage' => RequestStage::GOODS_RECEIVE, 'pos' => 4],
         ['class' => BuyerOrdersRelationManager::class, 'stage' => RequestStage::AWAITING_BUYER_CONFIRMATION, 'pos' => 5],
         ['class' => CompletionReportsRelationManager::class, 'stage' => RequestStage::DELIVERED, 'pos' => 7],
+        ['class' => AcceptanceReportsRelationManager::class, 'stage' => RequestStage::AWAITING_SHIPMENT, 'pos' => 6],
     ];
 
     // Every linear stage mapped to the furthest tab-bar position it represents.
-    // Shipments sits at pos 6; shipped/delivered are past it; invoiced+ are past every tab.
+    // The Fulfillment tab (badge sourced from AcceptanceReports) sits at pos 6;
+    // shipped/delivered are past it; invoiced+ are past every tab.
     $currentPos = [
         'draft' => 0,
         'awaiting_supplier_response' => 1,
