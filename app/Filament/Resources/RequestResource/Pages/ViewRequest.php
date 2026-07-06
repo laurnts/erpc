@@ -14,6 +14,7 @@ use App\Filament\Resources\ProfitAndLossResource;
 use App\Filament\Resources\ProjectResource;
 use App\Filament\Resources\QuotationEvaluationResource;
 use App\Filament\Resources\RequestResource;
+use App\Filament\Resources\RequestResource\RelationManagers\AcceptanceReportsRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerOrdersRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\BuyerQuotesRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\CompletionReportsRelationManager;
@@ -34,8 +35,10 @@ use Filament\Actions\RestoreAction;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
+use Filament\Resources\RelationManagers\RelationGroup;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\HtmlString;
@@ -402,9 +405,27 @@ final class ViewRequest extends ViewRecord
             SupplierOrdersRelationManager::class,
             GoodsReceiveRelationManager::class,
             BuyerOrdersRelationManager::class,
-            ShipmentsRelationManager::class,
+            RelationGroup::make('Fulfillment', [
+                ShipmentsRelationManager::class,
+                AcceptanceReportsRelationManager::class,
+            ])->tab(fn (Request $record): Tab => $this->fulfillmentTab($record)),
             CompletionReportsRelationManager::class,
         ];
+    }
+
+    /**
+     * Build the Fulfillment group tab by reusing an existing channel manager's
+     * stage badge + gating. Prefer the goods manager when goods are present so
+     * its unapproved-Goods-Receive tab-disable is preserved; otherwise use the
+     * clean services tab. Relabelled to "Fulfillment".
+     */
+    private function fulfillmentTab(Request $record): Tab
+    {
+        $source = $record->requiresShipments()
+            ? ShipmentsRelationManager::class
+            : AcceptanceReportsRelationManager::class;
+
+        return $source::getTabComponent($record, self::class)->label('Fulfillment');
     }
 
     public function mount(int|string $record): void

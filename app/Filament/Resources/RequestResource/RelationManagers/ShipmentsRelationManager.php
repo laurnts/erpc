@@ -47,7 +47,7 @@ final class ShipmentsRelationManager extends RelationManager
 
     protected static string $relationship = 'supplierOrders';
 
-    protected static ?string $title = 'Inbound Shipments';
+    protected static ?string $title = 'Shipments';
 
     protected static string|\BackedEnum|null $icon = 'heroicon-o-truck';
 
@@ -58,7 +58,7 @@ final class ShipmentsRelationManager extends RelationManager
 
     protected static function getBaseTabTitle(): string
     {
-        return 'Inbound Shipments';
+        return 'Shipments';
     }
 
     public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
