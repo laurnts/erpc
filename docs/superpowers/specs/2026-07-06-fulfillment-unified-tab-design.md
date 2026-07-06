@@ -111,30 +111,43 @@ time a request reaches any fulfillment stage it necessarily has matched items.
 
 The group tab needs the same stage ✓/● badge and access-gating the other stage tabs carry.
 **Do not extract the badge logic out of `HasRequestStageTab`** (that trait is shared by 7
-tabs; rewiring it is churn for no gain). Instead, the group's `->tab()` closure **reuses an
-existing child's `getTabComponent()` output and relabels it**:
+tabs; rewiring it is churn for no gain). Instead, the group's `->tab()` closure **reuses the
+`getTabComponent()` of the child that does NOT override it** and relabels it:
 
 ```php
 private function fulfillmentTab(Request $record): Tab
 {
-    // Prefer the goods manager when goods are present: its getTabComponent()
-    // includes the unapproved-Goods-Receive tab-disable in addition to the shared
-    // stage badge. Services-only falls back to the clean acceptance-reports tab.
-    $source = $record->requiresShipments()
-        ? ShipmentsRelationManager::class
-        : AcceptanceReportsRelationManager::class;
-
-    return $source::getTabComponent($record, static::class)->label('Fulfillment');
+    // AcceptanceReportsRelationManager does NOT override getTabComponent(), so it
+    // returns the shared HasRequestStageTab stage badge (✓/●) plus the
+    // QE/PNL/accepted-quote access gating for AWAITING_SHIPMENT — exactly what the
+    // Fulfillment tab needs. ShipmentsRelationManager OVERRIDES getTabComponent() (its
+    // parent:: resolves to the Filament base class, not the trait) and renders a
+    // delivered-shipment DATA badge, so it must NOT be the source here.
+    return AcceptanceReportsRelationManager::getTabComponent($record, static::class)
+        ->label('Fulfillment');
 }
 ```
 
-This preserves, for free:
+This gives, for free:
 - the shared stage badge (✓ / ● / null) from `HasRequestStageTab::getTabComponent()`;
-- the QE / PNL / accepted-quote access-gating from the trait;
-- **the unapproved-Goods-Receive tab-disable** that lives only in
-  `ShipmentsRelationManager::getTabComponent()` — otherwise silently lost when the group
-  tab replaces the child's tab (reviewer-flagged). Using the Shipments source when goods
-  are present keeps it.
+- the QE / PNL / accepted-quote access-gating from the trait.
+
+**Correction (found during implementation via the badge-matrix test):** an earlier draft
+chose the Shipments source when goods were present, believing it added the
+unapproved-Goods-Receive tab-disable on top of the stage badge. In fact
+`ShipmentsRelationManager::getTabComponent()` shadows the trait entirely and yields the
+delivered-shipment data badge (null until a shipment is delivered), which broke the stage
+badge. Consequences of always using the AcceptanceReports source:
+- The **unapproved-Goods-Receive tab-disable is not shown on the Fulfillment tab.** The
+  hard gate still holds: `ShipmentsRelationManager::mount()` redirects to Goods Receive when
+  its docs are unapproved.
+- **Known interaction to resolve (flagged for review):** because the group renders children
+  stacked and the Shipments child's `mount()` redirect targets the whole page, opening
+  Fulfillment on a **mixed** request whose goods-receive docs are unapproved would bounce the
+  user to Goods Receive even though the services (Acceptance Reports) channel is ready. This
+  is still net-better than today (services fulfillment was entirely unreachable — bug A), but
+  the "redirect vs inline section notice" behavior is a follow-up decision, not silently
+  accepted.
 
 **Badge semantics (corrected).** The ✓ is **purely stage progression** — it appears once
 the request has advanced past `AWAITING_SHIPMENT`, exactly like the other seven tabs. It
