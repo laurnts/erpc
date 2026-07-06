@@ -10,7 +10,6 @@ use App\Enums\RequestStage;
 use App\Enums\ShipmentStatus;
 use App\Enums\ShipmentType;
 use App\Filament\Resources\PeopleResource;
-use App\Filament\Resources\RequestResource;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
 use App\Mail\Erp\ShipmentToBuyerMail;
 use App\Models\PaymentDocumentApproval;
@@ -65,23 +64,6 @@ final class ShipmentsRelationManager extends RelationManager
         /** @var Request $ownerRecord */
         // Only show inbound shipments when the request type ships physically
         return $ownerRecord->requiresShipments();
-    }
-
-    public function mount(): void
-    {
-        parent::mount();
-
-        /** @var Request $request */
-        $request = $this->getOwnerRecord();
-        if (self::hasUnapprovedGoodsReceiveDocuments($request)) {
-            Notification::make()
-                ->title('Access Restricted')
-                ->body('All Goods Receive documents must be approved before you can access Inbound Shipments.')
-                ->warning()
-                ->send();
-
-            $this->redirect(RequestResource::getUrl('view', ['record' => $request->id, 'activeRelationManager' => 'goodsReceive']));
-        }
     }
 
     /**
@@ -681,6 +663,10 @@ final class ShipmentsRelationManager extends RelationManager
 
     public function table(Table $table): Table
     {
+        /** @var Request $request */
+        $request = $this->getOwnerRecord();
+        $goodsReceivePending = self::hasUnapprovedGoodsReceiveDocuments($request);
+
         return $table
             ->recordTitleAttribute('po_number')
             ->defaultSort('created_at', 'desc')
@@ -728,6 +714,8 @@ final class ShipmentsRelationManager extends RelationManager
                         ->icon('heroicon-o-plus')
                         ->color('primary')
                         ->size(Size::Small)
+                        ->disabled($goodsReceivePending)
+                        ->tooltip($goodsReceivePending ? 'Approve all Goods Receive documents before creating shipments.' : null)
                         ->modalHeading(fn (SupplierOrder $record): string => "Create Shipment for {$record->supplier->name}")
                         ->modalWidth('4xl')
                         ->form(fn (SupplierOrder $record): array => $this->getShipmentFormSchema($record))
