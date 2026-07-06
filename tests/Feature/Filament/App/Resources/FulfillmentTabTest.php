@@ -103,3 +103,10 @@ it('provides fulfillment flow copy for the widget', function (): void {
 
     expect($widget->getFulfillmentInformationFlow())->toContain('Fulfillment');
 });
+
+it('round-trips the fulfillment stage key', function (): void {
+    $key = App\Enums\RequestStage::AWAITING_SHIPMENT->getRelationManagerKey();
+    expect($key)->toBe('fulfillment')
+        ->and(App\Enums\RequestStage::fromRelationManagerKey($key))
+        ->toBe(App\Enums\RequestStage::AWAITING_SHIPMENT);
+});

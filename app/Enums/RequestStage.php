@@ -140,7 +140,7 @@ enum RequestStage: string implements HasColor, HasIcon, HasLabel
             self::AWAITING_BUYER_CONFIRMATION => 'buyerOrders',
             self::PREPARING_SUPPLIER_ORDER => 'supplierOrders',
             self::GOODS_RECEIVE => 'goodsReceive',
-            self::AWAITING_SHIPMENT => 'shipments',
+            self::AWAITING_SHIPMENT => 'fulfillment',
             self::DELIVERED => 'completionReports',
             default => null,
         };

@@ -32,7 +32,6 @@ use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Enums\Size;
 use Filament\Tables\Columns\TextColumn;
@@ -83,23 +82,6 @@ final class ShipmentsRelationManager extends RelationManager
 
             $this->redirect(RequestResource::getUrl('view', ['record' => $request->id, 'activeRelationManager' => 'goodsReceive']));
         }
-    }
-
-    public static function getTabComponent(Model $ownerRecord, string $pageClass): Tab
-    {
-        $tab = parent::getTabComponent($ownerRecord, $pageClass);
-
-        /** @var Request $ownerRecord */
-        if (self::hasUnapprovedGoodsReceiveDocuments($ownerRecord)) {
-            $tab->disabled()
-                ->badgeColor('gray')
-                ->badgeTooltip('All Goods Receive documents must be approved first')
-                ->extraAttributes([
-                    'class' => 'goods-receive-disabled-tab',
-                ]);
-        }
-
-        return $tab;
     }
 
     /**
