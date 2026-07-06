@@ -414,18 +414,18 @@ final class ViewRequest extends ViewRecord
     }
 
     /**
-     * Build the Fulfillment group tab by reusing an existing channel manager's
-     * stage badge + gating. Prefer the goods manager when goods are present so
-     * its unapproved-Goods-Receive tab-disable is preserved; otherwise use the
-     * clean services tab. Relabelled to "Fulfillment".
+     * Build the Fulfillment group tab by reusing an existing relation manager's
+     * stage badge + gating.
      */
     private function fulfillmentTab(Request $record): Tab
     {
-        $source = $record->requiresShipments()
-            ? ShipmentsRelationManager::class
-            : AcceptanceReportsRelationManager::class;
-
-        return $source::getTabComponent($record, self::class)->label('Fulfillment');
+        // AcceptanceReportsRelationManager does NOT override getTabComponent(), so it
+        // returns the shared HasRequestStageTab stage badge (✓/●) plus the
+        // QE/PNL/accepted-quote access gating for AWAITING_SHIPMENT. ShipmentsRelationManager
+        // overrides getTabComponent() (its parent:: resolves to the Filament base class, not
+        // the trait) and renders a delivered-shipment DATA badge, so it must not be the source.
+        return AcceptanceReportsRelationManager::getTabComponent($record, self::class)
+            ->label('Fulfillment');
     }
 
     public function mount(int|string $record): void
