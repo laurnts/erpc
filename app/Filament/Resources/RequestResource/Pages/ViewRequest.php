@@ -60,7 +60,7 @@ final class ViewRequest extends ViewRecord
         'supplierOrders' => 3,
         'goodsReceive' => 4,
         'buyerOrders' => 5,
-        'shipments' => 6,
+        'fulfillment' => 6,
         'completionReports' => 7,
     ];
 

@@ -82,3 +82,18 @@ it('renders the view page with a Fulfillment tab', function (): void {
         ->assertOk()
         ->assertSee('Fulfillment');
 });
+
+it('maps the fulfillment key to index 6 both directions', function (): void {
+    expect(ViewRequest::relationManagerIndexForKey('fulfillment'))->toBe('6');
+
+    $page = app(ViewRequest::class);
+    $reflect = new ReflectionMethod($page, 'getRelationManagerKeyFromIndex');
+    $reflect->setAccessible(true);
+    expect($reflect->invoke($page, 6))->toBe('fulfillment');
+});
+
+it('auto-advances to the shipment stage for the fulfillment key', function (): void {
+    expect(App\Enums\RequestStage::fromRelationManagerKey('fulfillment'))
+        ->toBe(App\Enums\RequestStage::AWAITING_SHIPMENT);
+    expect(App\Enums\RequestStage::fromRelationManagerKey('shipments'))->toBeNull();
+});
