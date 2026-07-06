@@ -826,24 +826,4 @@ final class ShipmentsRelationManager extends RelationManager
             ->emptyStateDescription('Supplier orders will appear here once sent. Create shipments to track deliveries.')
             ->emptyStateIcon('heroicon-o-truck');
     }
-
-    public static function getBadge(Model $ownerRecord, string $pageClass): ?string
-    {
-        /** @var Request $ownerRecord */
-        $hasDelivered = $ownerRecord->shipments()
-            ->where('status', ShipmentStatus::DELIVERED)
-            ->exists();
-
-        return $hasDelivered ? '✓' : null;
-    }
-
-    public static function getBadgeColor(Model $ownerRecord, string $pageClass): ?string
-    {
-        /** @var Request $ownerRecord */
-        $hasDelivered = $ownerRecord->shipments()
-            ->where('status', ShipmentStatus::DELIVERED)
-            ->exists();
-
-        return $hasDelivered ? 'success' : null;
-    }
 }
