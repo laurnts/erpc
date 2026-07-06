@@ -68,25 +68,25 @@ goods tab only (leaves bugs A and B).
 
 ### 1. Group registration (`ViewRequest::getRelationManagers()`)
 
-Replace the standalone `ShipmentsRelationManager::class` entry (index 6) with a group,
-guarded so a no-items draft doesn't render an empty tab:
+Replace the standalone `ShipmentsRelationManager::class` entry (index 6) with a group:
 
 ```php
 use Filament\Resources\RelationManagers\RelationGroup;
 
-// ...inside the returned list, at the former Shipments position:
-...($record->hasGoodsItems() || $record->hasServiceItems()
-    ? [RelationGroup::make('Fulfillment', [
-        ShipmentsRelationManager::class,          // goods
-        AcceptanceReportsRelationManager::class,  // services
-    ])->tab(fn (Request $r): Tab => $this->fulfillmentTab($r))]
-    : []),
+// ...inside the returned list, at the former Shipments position (index 6):
+RelationGroup::make('Fulfillment', [
+    ShipmentsRelationManager::class,          // goods
+    AcceptanceReportsRelationManager::class,  // services
+])->tab(fn (Request $r): Tab => $this->fulfillmentTab($r)),
 ```
 
 Position is unchanged (between Buyer Orders and Completion Reports), so Completion Reports
-keeps index 7. Because the guard only drops the group for a request with **no items at
-all**, and the group's children self-filter by `canViewForRecord`, the empty-tab edge case
-(reviewer-flagged) cannot occur for any real fulfillment-stage request.
+keeps index 7. **No visibility guard is needed** (reviewer raised an empty-tab concern):
+the group is always registered, consistent with the other seven always-present stage tabs.
+For the only degenerate case — a request with **no items** (only possible at `DRAFT`) — the
+group has zero visible children and the tab is **stage-disabled** by the §4 badge closure
+(QE not yet approved at draft), so it is unreachable and never shows empty content. By the
+time a request reaches any fulfillment stage it necessarily has matched items.
 
 ### 2. Channel visibility (from existing `canViewForRecord`, no new logic)
 
@@ -220,10 +220,11 @@ auto-advances an eligible request to `AWAITING_SHIPMENT`. If indexing differs, a
   `getRelationManagerKeyFromIndex(6) === 'fulfillment'` →
   `fromRelationManagerKey('fulfillment') === AWAITING_SHIPMENT` → advances an eligible
   request (mirror existing `updatedActiveRelationManager` coverage).
-- **`RequestResourceViewTest`**: initial render asserts **"Fulfillment"** in the tab bar
-  (the old `assertSee('Shipments')` on load breaks — "Shipments" now renders only inside
-  the group).
 - **Portal untouched**: existing customer-portal tests remain green.
+
+Note: `RequestResourceViewTest:52`'s `assertSee('Shipments')` refers to the summary
+`Section::make('Shipments')` infolist (`ViewRequest.php:336`), **not** the tab, and is
+unaffected by this change (verified). No update needed there.
 
 ## Rollout / risk
 
