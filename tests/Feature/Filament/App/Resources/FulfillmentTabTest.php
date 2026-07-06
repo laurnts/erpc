@@ -97,3 +97,9 @@ it('auto-advances to the shipment stage for the fulfillment key', function (): v
         ->toBe(App\Enums\RequestStage::AWAITING_SHIPMENT);
     expect(App\Enums\RequestStage::fromRelationManagerKey('shipments'))->toBeNull();
 });
+
+it('provides fulfillment flow copy for the widget', function (): void {
+    $widget = new App\Filament\Widgets\RequestInformationFlowWidget;
+
+    expect($widget->getFulfillmentInformationFlow())->toContain('Fulfillment');
+});

@@ -8,7 +8,7 @@
             'invoices' => \Illuminate\Support\Str::markdown($this->getBuyerOrdersInformationFlow()),
             'supplier orders' => \Illuminate\Support\Str::markdown($this->getSupplierOrdersInformationFlow()),
             'goods receive' => \Illuminate\Support\Str::markdown($this->getGoodsReceiveInformationFlow()),
-            'inbound shipments' => \Illuminate\Support\Str::markdown($this->getShipmentsInformationFlow()),
+            'fulfillment' => \Illuminate\Support\Str::markdown($this->getFulfillmentInformationFlow()),
             'completion report' => \Illuminate\Support\Str::markdown($this->getCompletionReportsInformationFlow()),
         ];
     } catch (\Exception $e) {

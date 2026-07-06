@@ -76,7 +76,7 @@ final class RequestInformationFlowWidget extends Widget
             'supplierOrders' => $this->getSupplierOrdersInformationFlow(),
             'goodsReceive' => $this->getGoodsReceiveInformationFlow(),
             'buyerOrders' => $this->getBuyerOrdersInformationFlow(),
-            'shipments' => $this->getShipmentsInformationFlow(),
+            'fulfillment' => $this->getFulfillmentInformationFlow(),
             'completionReports' => $this->getCompletionReportsInformationFlow(),
             default => '',
         };
@@ -94,7 +94,7 @@ final class RequestInformationFlowWidget extends Widget
             'supplierOrders' => 3,
             'goodsReceive' => 4,
             'buyerOrders' => 5,
-            'shipments' => 6,
+            'fulfillment' => 6,
             'completionReports' => 7,
         ];
 
@@ -217,27 +217,24 @@ Receive the delivered goods and approve the paperwork.
 - Upload goods receive documents (delivery notes, packing lists, etc.); multiple files are supported.
 - All documents must be **approved** via Approval > Goods Receive.
 
-**Next:** approved documents unlock Inbound Shipments.
+**Next:** approved documents unlock Fulfillment (goods shipments).
 MARKDOWN;
     }
 
     /**
-     * Get information flow text for Inbound Shipments tab.
+     * Get information flow text for the Fulfillment tab.
      */
-    public function getShipmentsInformationFlow(): string
+    public function getFulfillmentInformationFlow(): string
     {
         return <<<'MARKDOWN'
-**Step 7: Inbound Shipments**
+**Step 7: Fulfillment**
 
-Ship the goods to the buyer and track delivery.
+Record fulfillment for each channel of this request:
 
-- Requires approved Goods Receive documents.
-- Create one or more shipments and enter details (quantities, dates, etc.) before submitting.
-- Submit the shipment; a request can have multiple shipments depending on agreements.
-- When the shipment is **In Transit**, send the delivery order email to the buyer.
-- Mark the shipment as **Delivered** when it reaches the buyer.
+- **Goods** — create inbound shipments and mark them delivered.
+- **Services** — file acceptance reports for completed service items.
 
-**Next:** once shipments are delivered, continue to Completion Report.
+For a mixed request, both channels appear here. Goods require approved Goods Receive documents first.
 MARKDOWN;
     }
 
