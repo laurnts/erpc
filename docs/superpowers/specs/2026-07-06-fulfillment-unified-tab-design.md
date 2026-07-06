@@ -1,180 +1,234 @@
 # Unified "Fulfillment" Tab — Design
 
 Date: 2026-07-06
-Status: Draft (pending user review)
+Status: Draft (revised after multi-agent spec review)
 
 ## Problem
 
-The Request detail page presents fulfillment as goods-only, and the services
-equivalent is unreachable.
+The Request detail page's fulfillment surface is goods-biased and has two real bugs.
 
 1. **The goods fulfillment tab is named "Inbound Shipments."** `ShipmentsRelationManager`
-   sets `$title = 'Inbound Shipments'` and is visible only when the request has goods
-   items (`canViewForRecord()` → `requiresShipments()` → `hasGoodsItems()`). The word
-   "shipment" is goods-only and directional, so it cannot honestly cover a services or
-   mixed deal.
+   sets `$title = 'Inbound Shipments'`. The word "shipment" is goods-only and directional,
+   so it cannot honestly cover a services or mixed deal.
 
-2. **The services fulfillment channel is dead-wired.** `AcceptanceReportsRelationManager`
-   exists (relationship `acceptanceReports`, stage `AWAITING_SHIPMENT`, visible when
-   `usesAcceptanceReports()` → `hasServiceItems()`), but it is only registered in
-   `RequestResource::getRelations()`. There is **no Edit page**, and `ViewRequest`
-   overrides `getRelationManagers()` with an explicit list that omits it. As a result a
-   **services-only request has no tab on the view page to record acceptance reports**, and
-   a mixed request shows only the goods side.
+2. **The services fulfillment channel is never rendered (bug A).**
+   `AcceptanceReportsRelationManager` exists (relationship `acceptanceReports`, stage
+   `AWAITING_SHIPMENT`, gated by `usesAcceptanceReports()` → `hasServiceItems()`), but it
+   is only registered in `RequestResource::getRelations()`. There is **no Edit page**, and
+   `ViewRequest` overrides `getRelationManagers()` with an explicit raw list that omits it.
+   So a services-only or mixed request has **no way to record acceptance reports** from the
+   request view.
 
-   Current view-page fulfillment tabs (`ViewRequest::getRelationManagers()`):
+3. **The goods tab shows even when there are no goods (bug B).** Filament's framework
+   `getRelationManagers()` (`vendor/.../HasRelationManagers.php:43-51`) filters managers by
+   `canViewForRecord`. **`ViewRequest` overrides that method with a raw list, bypassing the
+   filter.** Consequently `ShipmentsRelationManager::canViewForRecord()` (→
+   `requiresShipments()`) is never consulted, and the "Inbound Shipments" tab renders for
+   **every** request type — including services-only deals that have no goods.
 
-   | Request type | "Inbound Shipments" | "Acceptance Reports" |
+   Actual current view-page behavior:
+
+   | Request type | "Inbound Shipments" tab | "Acceptance Reports" tab |
    |---|---|---|
-   | Goods-only | shows | — |
-   | Services-only | — | **never rendered** |
-   | Mixed | shows | **never rendered** |
+   | Goods-only | shows (correct) | — |
+   | Services-only | **shows (wrong — bug B)** | **never (bug A)** |
+   | Mixed | shows | **never (bug A)** |
 
-3. **Mixed goods+service deals are core business** (not edge cases), so the fulfillment
-   surface must represent both channels under one coherent concept.
+4. **Mixed goods+service deals are core business**, so the fulfillment surface must
+   represent both channels under one coherent concept.
 
 ## Goal
 
 Replace the standalone goods-only "Inbound Shipments" tab with a single **"Fulfillment"**
-tab that hosts both fulfillment channels — goods (Shipments) and services
-(Acceptance Reports) — showing whichever channel(s) apply to the request. Fix the
-services gap as part of the same change.
-
-## Non-goals
-
-- No change to the `Shipment` / `AcceptanceReport` models, tables, create flows, or their
-  underlying data. They remain the precise per-channel records.
-- No merge of the two into a single table or a custom stacked component. The user chose
-  the clean, lean, idiomatic path.
-- No change to `GoodsReceive` (stage `GOODS_RECEIVE`) or `CompletionReports`
-  (stage `DELIVERED`) tabs. They are separate stages and out of scope.
-- No new "deliverables"/"fulfillment" data concept. "Fulfillment" is presentation-layer
-  vocabulary layered over the existing channels (see naming decision memory).
+tab that renders the applicable fulfillment channel(s) — goods (Shipments) and services
+(Acceptance Reports) — and, in doing so, fix bugs A and B.
 
 ## Approach
 
 Use Filament v5's native **`RelationGroup`** to group the two existing relation managers
-under one tab. This is the idiomatic construct for "several relation managers, one tab,"
-requires no custom Livewire, and reuses both managers untouched — their tables, create
-actions, and mount-time gating all keep working because each still renders in its own
-component context.
+under one tab. Verified against `vendor/filament` source during review:
 
-Two alternatives were considered and rejected:
+- **Rendering is stacked.** For a `RelationGroup`, Filament maps each viewable child into
+  the group tab's `->schema()` as a stacked Livewire component
+  (`HasRelationManagers.php:139-152`). So a **mixed** request shows the Shipments table and
+  the Acceptance Reports table **stacked, both visible at once** under one "Fulfillment"
+  tab. (This is the "both at once" layout originally preferred; the native construct
+  delivers it with no custom Livewire.)
+- **Per-channel visibility is honored.** `RelationGroup::getManagers()` filters children by
+  `canViewForRecord`, so goods-only shows only Shipments, services-only only Acceptance
+  Reports, mixed shows both — **fixing bug B** (the group finally respects
+  `requiresShipments()` / `usesAcceptanceReports()`).
+- **No model, table, or create-flow changes.** Both managers are reused untouched.
 
-- **Stacked custom wrapper (both tables visible at once).** Requires a bespoke
-  nested-Livewire component and reworking each manager's mount-time page-redirect gates
-  into inline section locks. Rejected as over-engineered for the value.
-- **Rename the goods tab only.** Leaves the services channel dead-wired and the
-  "Fulfillment" label goods-only. Rejected — defeats the goods+services+mixed goal.
+Rejected alternatives: a bespoke stacked wrapper (needs custom nested-Livewire +
+mount-gate rework — over-engineered, since `RelationGroup` already stacks) and renaming the
+goods tab only (leaves bugs A and B).
 
 ## Detailed design
 
-### 1. Group registration
+### 1. Group registration (`ViewRequest::getRelationManagers()`)
 
-In `ViewRequest::getRelationManagers()`, replace the standalone
-`ShipmentsRelationManager::class` entry (currently index 6) with a `RelationGroup`:
+Replace the standalone `ShipmentsRelationManager::class` entry (index 6) with a group,
+guarded so a no-items draft doesn't render an empty tab:
 
 ```php
 use Filament\Resources\RelationManagers\RelationGroup;
 
-RelationGroup::make('Fulfillment', [
-    ShipmentsRelationManager::class,          // goods    → requiresShipments()
-    AcceptanceReportsRelationManager::class,  // services → usesAcceptanceReports()
-])->tab(fn (Request $record): Tab => static::fulfillmentTabComponent($record))
+// ...inside the returned list, at the former Shipments position:
+...($record->hasGoodsItems() || $record->hasServiceItems()
+    ? [RelationGroup::make('Fulfillment', [
+        ShipmentsRelationManager::class,          // goods
+        AcceptanceReportsRelationManager::class,  // services
+    ])->tab(fn (Request $r): Tab => $this->fulfillmentTab($r))]
+    : []),
 ```
 
-Position is unchanged: the group sits where Shipments was (between Buyer Orders and
-Completion Reports), so the Completion Reports tab keeps its slot.
+Position is unchanged (between Buyer Orders and Completion Reports), so Completion Reports
+keeps index 7. Because the guard only drops the group for a request with **no items at
+all**, and the group's children self-filter by `canViewForRecord`, the empty-tab edge case
+(reviewer-flagged) cannot occur for any real fulfillment-stage request.
 
-### 2. Channel visibility (no new logic)
+### 2. Channel visibility (from existing `canViewForRecord`, no new logic)
 
-The two managers' existing `canViewForRecord()` gates route the sub-navigation for free:
-
-| Request type | Shipments sub-item | Acceptance Reports sub-item |
+| Request type | Shipments table | Acceptance Reports table |
 |---|---|---|
-| Goods-only | shows | hidden |
-| Services-only | hidden | **shows (fix)** |
-| Mixed | shows | **shows (fix)** |
+| Goods-only | renders | hidden |
+| Services-only | hidden (**fixes bug B**) | renders (**fixes bug A**) |
+| Mixed | renders | renders (stacked) |
 
-When only one channel applies, the group renders that single channel; when both apply
-(mixed), the group shows both as sub-navigation, one visible at a time.
-
-### 3. Tab title & sub-labels (copy)
+### 3. Titles & copy (lean cut)
 
 - Group tab title: **"Fulfillment"**.
-- Shipments sub-item: rename `getBaseTabTitle()` / `$title` from **"Inbound Shipments"** →
-  **"Shipments"** ("inbound" is redundant inside a Fulfillment group).
-- Acceptance Reports sub-item: **"Acceptance Reports"** (unchanged).
+- Shipments section heading: `$title` / `getBaseTabTitle()` **"Inbound Shipments" →
+  "Shipments"** (the "inbound" is redundant once it lives inside a Fulfillment group).
+- Acceptance Reports section heading: **"Acceptance Reports"** (unchanged).
+- **Deferred (not in this change):** internal notification / empty-state wording that
+  mentions "Inbound Shipments" (e.g. `ShipmentsRelationManager::mount()` notification,
+  `GoodsReceiveRelationManager` empty state). Left for a follow-up copy pass to keep this
+  diff structural.
 
-### 4. Tab badge (✓ / ● / disabled)
+### 4. Group tab badge — reuse, do NOT extract
 
-The group tab needs the same stage-completion badge the other stage tabs carry. Both
-child managers are anchored to `AWAITING_SHIPMENT`, so the group badge is that stage's
-badge.
+The group tab needs the same stage ✓/● badge and access-gating the other stage tabs carry.
+**Do not extract the badge logic out of `HasRequestStageTab`** (that trait is shared by 7
+tabs; rewiring it is churn for no gain). Instead, the group's `->tab()` closure **reuses an
+existing child's `getTabComponent()` output and relabels it**:
 
-- Extract the stage badge/gating computation currently inside
-  `HasRequestStageTab::getTabComponent()` into a reusable static helper keyed by a stage
-  (e.g. `RequestStageTab::for(RequestStage $stage, Request $record): Tab`). The trait
-  delegates to it (behavior-preserving); the group's `->tab()` closure calls it with
-  `AWAITING_SHIPMENT`.
-- Badge semantics for "Fulfillment": ✓ when the request has advanced past
-  `AWAITING_SHIPMENT`, ● when it is the current stage. Because stage advancement past
-  `AWAITING_SHIPMENT` is already gated on derived completion of **both** channels
-  (`goodsChannelComplete()` + `servicesChannelComplete()`), a stage-based ✓ on
-  "Fulfillment" correctly means "every applicable channel is complete." This is cleaner
-  and more testable than the previous shipments-specific data badge.
+```php
+private function fulfillmentTab(Request $record): Tab
+{
+    // Prefer the goods manager when goods are present: its getTabComponent()
+    // includes the unapproved-Goods-Receive tab-disable in addition to the shared
+    // stage badge. Services-only falls back to the clean acceptance-reports tab.
+    $source = $record->requiresShipments()
+        ? ShipmentsRelationManager::class
+        : AcceptanceReportsRelationManager::class;
 
-### 5. Deep-linking, stage auto-advance, and other integration points
+    return $source::getTabComponent($record, static::class)->label('Fulfillment');
+}
+```
 
-- **`ViewRequest::RELATION_MANAGER_MAP`** — replace the `'shipments' => 6` entry with a
-  `'fulfillment' => 6` key (Completion Reports stays 7). Preserve backward-compatible
-  deep-linking: an incoming `?activeRelationManager=shipments` (and `acceptanceReports`)
-  should still resolve to the Fulfillment group's index, so existing links/redirects keep
-  working.
-- **`RequestStage::fromRelationManagerKey()`** — map the group key `'fulfillment'` (and
-  the legacy `'shipments'`) to `AWAITING_SHIPMENT` for tab-switch auto-advance.
-- **`ShipmentsRelationManager::mount()`** redirect to `goodsReceive` and the
-  `HasRequestStageTab::mount()` gate redirects are unchanged — they still target valid
-  tabs and fire within the child manager context.
-- **`RequestInformationFlowWidget`** — update the "Step 7: Inbound Shipments" section
-  heading/body to "Fulfillment" and reference both channels; update the widget key lookup
-  (`'inbound shipments'`).
-- **Empty-state / helper copy** referencing "Inbound Shipments" (e.g.
-  `GoodsReceiveRelationManager` empty state, `ShipmentsRelationManager` notifications) →
-  "Shipments" for internal consistency.
+This preserves, for free:
+- the shared stage badge (✓ / ● / null) from `HasRequestStageTab::getTabComponent()`;
+- the QE / PNL / accepted-quote access-gating from the trait;
+- **the unapproved-Goods-Receive tab-disable** that lives only in
+  `ShipmentsRelationManager::getTabComponent()` — otherwise silently lost when the group
+  tab replaces the child's tab (reviewer-flagged). Using the Shipments source when goods
+  are present keeps it.
 
-### 6. Open technical risk to validate first
+**Badge semantics (corrected).** The ✓ is **purely stage progression** — it appears once
+the request has advanced past `AWAITING_SHIPMENT`, exactly like the other seven tabs. It
+does **not** assert that every channel's work is complete: the both-channels
+`isFulfilled()` gate is enforced only on the transition to `COMPLETED`
+(`Request.php:471,510`; `RequestObserver.php:91`), not past `AWAITING_SHIPMENT`. The prior
+draft's claim that a stage ✓ "means every channel is complete" was **false** and is
+removed. (A true "both channels done" indicator, if ever wanted, would derive from
+`isFulfilled()` / `fulfillmentStatusLabel()` — out of scope here.)
 
-Filament assigns each `getRelationManagers()` entry an integer index used by
-`activeRelationManager` / the `?relation=` param, and `ViewRequest` leans on that
-integer↔key mapping for deep-linking and stage auto-advance. `RelationGroup` may key its
-children differently. **The first implementation task is a spike** to confirm that:
-(a) the group renders one "Fulfillment" tab with correct sub-navigation, (b) the group is
-addressable by index for deep-linking, and (c) `updatedActiveRelationManager` still fires
-for the group so auto-advance works. If indexing differs, adjust `RELATION_MANAGER_MAP` /
-`relationManagerIndexForKey` accordingly.
+### 5. Deep-linking & stage auto-advance (single key, no aliases)
+
+- **`ViewRequest::RELATION_MANAGER_MAP`** — rename the `'shipments' => 6` entry to
+  `'fulfillment' => 6` (Completion Reports stays 7). **Do not add legacy `'shipments'` /
+  `'acceptanceReports'` aliases:** nothing in the app emits those query keys, the
+  acceptance-reports view URL never worked, and — critically — the two map consumers use
+  different semantics (`relationManagerIndexForKey()` reads map *values*;
+  `getRelationManagerKeyFromIndex()` uses *positional* `array_keys()`), so an extra key at
+  index 6 would shift `completionReports` off index 7 and corrupt the reverse lookup
+  (reviewer-flagged). One canonical key only.
+- **`RequestStage::fromRelationManagerKey()`** — add `'fulfillment' => AWAITING_SHIPMENT`
+  (needed so tab-switch auto-advance still targets the shipment stage). Remove the now-dead
+  `'shipments'` arm.
+- **`RequestInformationFlowWidget`** carries its **own duplicate** index map and a
+  `match()` arm keyed on `'shipments'` (`RequestInformationFlowWidget.php:79,97`). Rename
+  both to `'fulfillment'` in the same change (a second source of truth that otherwise goes
+  stale and renders an empty flow guide). Update the "Step 7: Inbound Shipments" heading to
+  "Fulfillment" and have the flow copy mention both channels. (Deduplicating the two maps
+  is a separate cleanup — not folded in here.)
+- Child `mount()` redirects (Shipments → `goodsReceive`; trait gates → other tabs) are
+  unchanged and still fire from within the stacked child components.
+
+### 6. Dead-code cleanup
+
+`ShipmentsRelationManager::getBadge()` / `getBadgeColor()` (the delivered-shipment data
+badge) are already dead — `getTabComponent()` is overridden by `HasRequestStageTab` and
+never calls them (review corrected the earlier belief that Shipments used a data badge).
+After the group change the manager is a stacked child, so they remain dead. Remove them to
+prevent a second, divergent badge source.
+
+### 7. Spike first (de-risk indexing)
+
+First implementation task is a small spike confirming, in the running app: (a) the group
+renders one "Fulfillment" tab with both child tables stacked for a mixed request; (b) the
+group tab is addressable at integer index 6 for `?activeRelationManager` deep-linking given
+the sequential-literal override; (c) `updatedActiveRelationManager(6)` fires and
+auto-advances an eligible request to `AWAITING_SHIPMENT`. If indexing differs, adjust
+`RELATION_MANAGER_MAP` / `relationManagerIndexForKey`.
+
+## Non-goals
+
+- No change to `Shipment` / `AcceptanceReport` models, tables, create flows, or data.
+- No merge of the two into a single table; no custom nested-Livewire wrapper.
+- No change to `GoodsReceive` (`GOODS_RECEIVE`) or `CompletionReports` (`DELIVERED`) tabs.
+- **Customer portal is out of scope.** `App\Filament\Customer\...\ShipmentsRelationManager`
+  is a separate class (relationship `shipments`, title already "Shipments", OUTBOUND-only,
+  no stage badge) registered only on `CustomerRequestResource`; it is untouched, and
+  renaming the staff sub-heading to "Shipments" does not collide with it. The parallel
+  buyer-portal services-fulfillment gap (no acceptance-reports surface for buyers) is
+  **deliberately deferred**, not fixed here.
+- No new "deliverables"/"fulfillment" data concept — "Fulfillment" is presentation-layer
+  vocabulary over the existing channels.
 
 ## Testing
 
-- **Stage-tab badge matrix** (`tests/Feature/Filament/App/Resources/StageTabBadgeMatrixTest.php`):
-  the previous test excluded Shipments because it used a bespoke data badge. With the
-  Fulfillment group carrying a stage-based badge, **add "Fulfillment" to the tested
-  matrix** at `AWAITING_SHIPMENT` and assert ✓/●/null across every stage like the other
-  seven tabs.
-- **Channel visibility**: a goods-only request exposes only the Shipments sub-item; a
-  services-only request exposes only Acceptance Reports; a mixed request exposes both.
-- **Services gap fix**: a services-only request can reach and create an acceptance report
-  from the Fulfillment tab (regression guard for the dead-wiring).
-- **Deep-linking**: `?activeRelationManager=shipments` and `=acceptanceReports` (legacy)
-  and `=fulfillment` all open the Fulfillment tab.
-- **Existing tests** for shipments and acceptance reports remain green (titles updated
-  where they assert "Inbound Shipments").
+- **Stage-tab badge matrix** (`tests/Feature/.../StageTabBadgeMatrixTest.php`): add a
+  Fulfillment row at tab position 6 (verified: the existing 7 rows' expected ✓/●/null need
+  **no** changes across all stages). The row resolves its badge through the group's source
+  — `ShipmentsRelationManager::getTabComponent($record, ViewRequest::class)->getBadge()` for
+  a goods/mixed record — asserting stage ✓/●/null. Rewrite the stale docblock/comment that
+  says "Shipments is intentionally excluded … data-based badge" (both false) to state that
+  Fulfillment now carries the shared stage badge.
+- **Channel visibility**: goods-only renders only the Shipments table; services-only only
+  Acceptance Reports (**and no shipments surface — bug B regression guard**); mixed renders
+  both stacked.
+- **Services-gap regression (bug A)**: a services-only request can reach and create an
+  acceptance report from the Fulfillment tab.
+- **Goods-receive tab-disable preserved**: with unapproved Goods-Receive docs, the
+  Fulfillment tab is disabled (asserts the §4 Shipments-source reuse).
+- **Deep-link**: `?activeRelationManager=fulfillment` lands on the Fulfillment tab (assert
+  the resolved active index/component, not merely no-error).
+- **Auto-advance**: `updatedActiveRelationManager(6)` →
+  `getRelationManagerKeyFromIndex(6) === 'fulfillment'` →
+  `fromRelationManagerKey('fulfillment') === AWAITING_SHIPMENT` → advances an eligible
+  request (mirror existing `updatedActiveRelationManager` coverage).
+- **`RequestResourceViewTest`**: initial render asserts **"Fulfillment"** in the tab bar
+  (the old `assertSee('Shipments')` on load breaks — "Shipments" now renders only inside
+  the group).
+- **Portal untouched**: existing customer-portal tests remain green.
 
 ## Rollout / risk
 
-- Behavior change: acceptance reports become visible on the view page for services/mixed
-  requests. This is the intended fix, confirmed with the user.
-- Low blast radius: no schema or model changes; the change is tab composition, one shared
-  badge helper extraction, and copy.
-- The `RelationGroup` indexing spike de-risks the only non-mechanical unknown before the
-  bulk of the work.
+- Intended behavior changes: acceptance reports become visible for services/mixed (bug A),
+  and the goods tab no longer shows on services-only requests (bug B).
+- Low blast radius: no schema/model changes; the change is tab composition, a small
+  `->tab()` closure that reuses existing child logic, deep-link key rename (+ the widget's
+  duplicate), copy, and dead-code removal. The §7 spike de-risks the only real unknown.
