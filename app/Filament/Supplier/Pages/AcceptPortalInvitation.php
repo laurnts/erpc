@@ -34,6 +34,8 @@ final class AcceptPortalInvitation extends Page implements HasForms
      */
     protected static string|array $withoutRouteMiddleware = [
         Authenticate::class,
+        AuthenticatePanelUser::class,
+        InitializeSupplierPortalContext::class,
     ];
 
     protected string $view = 'filament.supplier.pages.accept-portal-invitation';
@@ -41,6 +43,11 @@ final class AcceptPortalInvitation extends Page implements HasForms
     public static function canAccess(): bool
     {
         return true;
+    }
+
+    public static function isEmailVerificationRequired(Panel $panel): bool
+    {
+        return false;
     }
 
     public ?string $token = null;

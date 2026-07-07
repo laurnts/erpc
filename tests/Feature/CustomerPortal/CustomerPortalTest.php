@@ -376,9 +376,11 @@ describe('Portal Invitation', function (): void {
 
         $host = PanelDomain::customerHost();
 
-        $this->get(url()->getCustomerPortalUrl('invitation/'.$invitation->token), ['Host' => $host])
-            ->assertOk()
-            ->assertSee('Create Buyer Portal Account');
+        $response = $this->get(url()->getCustomerPortalUrl('invitation/'.$invitation->token), ['Host' => $host]);
+
+        $response->assertOk()
+            ->assertSee('Create Account')
+            ->assertSee($invitation->email);
     });
 
     it('allows unverified authenticated users to open the invitation accept page over http', function (): void {
@@ -398,10 +400,12 @@ describe('Portal Invitation', function (): void {
 
         $host = PanelDomain::customerHost();
 
-        $this->actingAs($unverifiedUser, 'customer')
-            ->get(url()->getCustomerPortalUrl('invitation/'.$invitation->token), ['Host' => $host])
-            ->assertOk()
-            ->assertSee('Create Buyer Portal Account');
+        $response = $this->actingAs($unverifiedUser, 'customer')
+            ->get(url()->getCustomerPortalUrl('invitation/'.$invitation->token), ['Host' => $host]);
+
+        $response->assertOk()
+            ->assertSee('Create Account')
+            ->assertSee($invitation->email);
     });
 });
 

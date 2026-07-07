@@ -46,6 +46,11 @@ final class AcceptPortalInvitation extends Page implements HasForms
         return true;
     }
 
+    public static function isEmailVerificationRequired(Panel $panel): bool
+    {
+        return false;
+    }
+
     public ?string $token = null;
 
     public ?PortalInvitation $invitation = null;
