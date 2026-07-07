@@ -35,8 +35,12 @@ final class ViewBuyer extends ViewRecord
                     /** @var \App\Models\Company $record */
                     $record = $this->getRecord();
 
-                    /** @var \App\Models\Team $team */
+                    /** @var \App\Models\Team|null $team */
                     $team = Filament::getTenant();
+
+                    if ($team === null) {
+                        return false;
+                    }
 
                     return ! $record->hasActivePortalMembership(PortalType::Customer, $team->getKey());
                 })

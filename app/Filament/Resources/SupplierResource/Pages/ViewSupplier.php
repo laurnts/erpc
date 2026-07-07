@@ -44,8 +44,12 @@ final class ViewSupplier extends ViewRecord
                     /** @var \App\Models\Company $record */
                     $record = $this->getRecord();
 
-                    /** @var \App\Models\Team $team */
+                    /** @var \App\Models\Team|null $team */
                     $team = Filament::getTenant();
+
+                    if ($team === null) {
+                        return false;
+                    }
 
                     return ! $record->hasActivePortalMembership(PortalType::Supplier, $team->getKey());
                 })
@@ -168,7 +172,7 @@ final class ViewSupplier extends ViewRecord
                 Section::make('Additional Information')
                     ->schema([
                         CustomFields::infolist()->forSchema($schema)->build(),
-                        TextEntry::make('notes')
+                        TextEntry::make('internal_notes')
                             ->label('Notes')
                             ->placeholder('—')
                             ->columnSpanFull(),
