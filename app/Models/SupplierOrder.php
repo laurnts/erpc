@@ -9,6 +9,7 @@ use App\Enums\CentralPurchasingRole;
 use App\Enums\OrderStatus;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
+use App\Models\Concerns\LogsErpActivity;
 use App\Observers\SupplierOrderObserver;
 use App\Services\TeamMemberService;
 use Database\Factories\SupplierOrderFactory;
@@ -73,6 +74,7 @@ final class SupplierOrder extends Model implements HasMedia
 
     use HasTeam;
     use InteractsWithMedia;
+    use LogsErpActivity;
     use SoftDeletes;
 
     /**
@@ -144,6 +146,27 @@ final class SupplierOrder extends Model implements HasMedia
             'ordered_at' => 'datetime',
             'confirmed_at' => 'datetime',
             'approved_at' => 'datetime',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'po_number',
+            'status',
+            'subtotal',
+            'tax_total',
+            'total',
+            'base_total',
+            'expected_delivery_date',
+            'ordered_at',
+            'confirmed_at',
+            'approver_1_id',
+            'approver_2_id',
+            'approved_at',
         ];
     }
 

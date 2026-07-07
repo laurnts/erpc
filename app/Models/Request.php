@@ -14,6 +14,7 @@ use App\Enums\ShipmentStatus;
 use App\Enums\SupplierQuoteStatus;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
+use App\Models\Concerns\LogsErpActivity;
 use App\Observers\RequestObserver;
 use Database\Factories\RequestFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -78,6 +79,7 @@ final class Request extends Model implements HasCustomFields, HasMedia
 
     use HasTeam;
     use InteractsWithMedia;
+    use LogsErpActivity;
     use SoftDeletes;
     use UsesCustomFields;
 
@@ -144,6 +146,23 @@ final class Request extends Model implements HasCustomFields, HasMedia
             'required_by' => 'date',
             'submitted_at' => 'datetime',
             'is_active' => 'boolean',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'title',
+            'stage',
+            'priority',
+            'is_active',
+            'buyer_id',
+            'project_id',
+            'required_by',
+            'submission_method',
         ];
     }
 

@@ -8,6 +8,7 @@ use App\Data\TeamErpSettings;
 use App\Enums\PaymentMethod;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
+use App\Models\Concerns\LogsErpActivity;
 use App\Observers\BuyerPaymentObserver;
 use Database\Factories\BuyerPaymentFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -46,6 +47,7 @@ final class BuyerPayment extends Model implements HasMedia
 
     use HasTeam;
     use InteractsWithMedia;
+    use LogsErpActivity;
     use SoftDeletes;
 
     /**
@@ -78,6 +80,20 @@ final class BuyerPayment extends Model implements HasMedia
             'payment_method' => PaymentMethod::class,
             'amount' => 'decimal:4',
             'payment_date' => 'date',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'payment_number',
+            'payment_method',
+            'amount',
+            'payment_date',
+            'reference_number',
         ];
     }
 

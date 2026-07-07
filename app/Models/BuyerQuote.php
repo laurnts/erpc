@@ -8,9 +8,11 @@ use App\Enums\BuyerQuoteStatus;
 use App\Enums\PrepaymentType;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
+use App\Models\Concerns\LogsErpActivity;
 use App\Observers\BuyerQuoteObserver;
 use App\Services\Erp\Financial\TotalsCollector;
 use App\Services\Erp\Financial\TotalsLine;
+use App\Support\DocumentUpload;
 use Database\Factories\BuyerQuoteFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -74,6 +76,7 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
 
     use HasTeam;
     use InteractsWithMedia;
+    use LogsErpActivity;
     use SoftDeletes;
     use UsesCustomFields;
 
@@ -147,6 +150,24 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
             'issued_at' => 'date',
             'valid_until' => 'date',
             'notification_metadata' => 'array',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'quote_number',
+            'version',
+            'status',
+            'total',
+            'prepayment_type',
+            'prepayment_amount',
+            'prepayment_percent',
+            'issued_at',
+            'valid_until',
         ];
     }
 
@@ -265,16 +286,7 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
     {
         $this->addMediaCollection('buyer_po')
             ->useDisk('local') // Store in private storage
-            ->acceptsMimeTypes([
-                'application/pdf',
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
-                'application/vnd.ms-excel', // xls
-                'image/png',
-                'image/jpeg',
-                'image/jpg',
-                'application/msword', // doc
-                'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // docx
-            ]);
+            ->acceptsMimeTypes(DocumentUpload::ACCEPTED_MIME_TYPES);
     }
 
     /**
