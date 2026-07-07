@@ -129,6 +129,62 @@ enum RequestStage: string implements HasColor, HasIcon, HasLabel
     }
 
     /**
+     * Get the operator-facing label matching the request workflow tab names.
+     *
+     * The view page reorders stages into 8 tabs whose names differ from the raw
+     * enum labels (e.g. Invoices is bound to AWAITING_BUYER_CONFIRMATION). This
+     * keeps list/table presentation in sync with what operators see on the tabs.
+     */
+    public function getTabLabel(): string
+    {
+        return match ($this) {
+            self::DRAFT => 'Requested Items',
+            self::AWAITING_SUPPLIER_RESPONSE => 'Supplier Quotes',
+            self::PREPARING_BUYER_QUOTE => 'Buyer Quotes',
+            self::PREPARING_SUPPLIER_ORDER => 'Supplier Orders',
+            self::GOODS_RECEIVE => 'Goods Receive',
+            self::AWAITING_BUYER_CONFIRMATION => 'Invoices',
+            self::AWAITING_SHIPMENT => 'Shipments',
+            self::SHIPPED, self::DELIVERED => 'Completion Report',
+            self::INVOICED, self::PAID, self::COMPLETED => 'Completed',
+            self::CANCELLED => 'Cancelled',
+        };
+    }
+
+    /**
+     * Get the tab position (1-8) for this stage in the view workflow tab bar,
+     * or null for stages that do not map to a distinct tab position.
+     */
+    public function getTabStep(): ?int
+    {
+        return match ($this) {
+            self::DRAFT => 1,
+            self::AWAITING_SUPPLIER_RESPONSE => 2,
+            self::PREPARING_BUYER_QUOTE => 3,
+            self::PREPARING_SUPPLIER_ORDER => 4,
+            self::GOODS_RECEIVE => 5,
+            self::AWAITING_BUYER_CONFIRMATION => 6,
+            self::AWAITING_SHIPMENT => 7,
+            self::SHIPPED, self::DELIVERED => 8,
+            default => null,
+        };
+    }
+
+    /**
+     * Get the tab-facing label with its position (e.g. "Invoices (6/8)").
+     */
+    public function getTabLabelWithStep(): string
+    {
+        $step = $this->getTabStep();
+
+        if ($step === null) {
+            return $this->getTabLabel();
+        }
+
+        return $this->getTabLabel().' ('.$step.'/8)';
+    }
+
+    /**
      * Get the relation manager key associated with this stage.
      */
     public function getRelationManagerKey(): ?string

@@ -166,75 +166,76 @@ final class ArticleResource extends Resource
             );
         }
 
-        $imagesSection = Section::make('Images')
-            ->schema([
-                SpatieMediaLibraryFileUpload::make('product_images')
-                    ->label('')
-                    ->collection('product_images')
-                    ->image()
-                    ->multiple()
-                    ->reorderable()
-                    ->maxFiles(10)
-                    ->maxSize(5120)
-                    ->helperText('The first image is used as the primary product image.'),
-            ])
-            ->collapsible();
+        $fullFormOnlySections = $forModal ? [] : [
+            Section::make('Images')
+                ->schema([
+                    SpatieMediaLibraryFileUpload::make('product_images')
+                        ->label('')
+                        ->collection('product_images')
+                        ->image()
+                        ->multiple()
+                        ->reorderable()
+                        ->maxFiles(10)
+                        ->maxSize(5120)
+                        ->helperText('The first image is used as the primary product image.'),
+                ])
+                ->collapsible(),
+            Section::make('Public Catalog')
+                ->schema([
+                    Toggle::make('show_in_product_grid')
+                        ->label('Show in Catalog')
+                        ->default(false)
+                        ->helperText('Publish this article on the public catalog (active articles only).'),
+                    TextInput::make('list_price')
+                        ->label('List Price')
+                        ->numeric()
+                        ->minValue(0)
+                        ->suffix(function (): ?string {
+                            $team = Filament::getTenant();
 
-        $publicCatalogSection = Section::make('Public Catalog')
-            ->schema([
-                Toggle::make('show_in_product_grid')
-                    ->label('Show in Catalog')
-                    ->default(false)
-                    ->helperText('Publish this article on the public catalog (active articles only).'),
-                TextInput::make('list_price')
-                    ->label('List Price')
-                    ->numeric()
-                    ->minValue(0)
-                    ->suffix(function (): ?string {
-                        $team = Filament::getTenant();
+                            return $team instanceof Team ? $team->getBaseCurrencyCode() : null;
+                        })
+                        ->helperText('Published in the team default currency. Empty shows "Price on request". Saving publishes the price and clears the review flag.')
+                        ->suffixAction(
+                            Action::make('suggestListPrice')
+                                ->label('Suggest price')
+                                ->icon('heroicon-m-calculator')
+                                ->visible(fn (?Article $record): bool => $record !== null)
+                                ->action(function (Set $set, ?Article $record): void {
+                                    $team = Filament::getTenant();
 
-                        return $team instanceof Team ? $team->getBaseCurrencyCode() : null;
-                    })
-                    ->helperText('Published in the team default currency. Empty shows "Price on request". Saving publishes the price and clears the review flag.')
-                    ->suffixAction(
-                        Action::make('suggestListPrice')
-                            ->label('Suggest price')
-                            ->icon('heroicon-m-calculator')
-                            ->visible(fn (?Article $record): bool => $record !== null)
-                            ->action(function (Set $set, ?Article $record): void {
-                                $team = Filament::getTenant();
+                                    if ($record === null || ! $team instanceof Team) {
+                                        return;
+                                    }
 
-                                if ($record === null || ! $team instanceof Team) {
-                                    return;
-                                }
+                                    $result = app(SuggestArticleListPrice::class)->execute($record, $team);
 
-                                $result = app(SuggestArticleListPrice::class)->execute($record, $team);
+                                    if ($result['price'] === null) {
+                                        Notification::make()
+                                            ->title('No price suggestion available')
+                                            ->body(implode(' ', $result['notices']))
+                                            ->warning()
+                                            ->send();
 
-                                if ($result['price'] === null) {
-                                    Notification::make()
-                                        ->title('No price suggestion available')
-                                        ->body(implode(' ', $result['notices']))
-                                        ->warning()
-                                        ->send();
+                                        return;
+                                    }
 
-                                    return;
-                                }
+                                    $set('list_price', $result['price']);
 
-                                $set('list_price', $result['price']);
+                                    $notification = Notification::make()
+                                        ->title('Suggested price filled — review and save to publish')
+                                        ->success();
 
-                                $notification = Notification::make()
-                                    ->title('Suggested price filled — review and save to publish')
-                                    ->success();
+                                    if ($result['notices'] !== []) {
+                                        $notification->body(implode(' ', $result['notices']));
+                                    }
 
-                                if ($result['notices'] !== []) {
-                                    $notification->body(implode(' ', $result['notices']));
-                                }
-
-                                $notification->send();
-                            })
-                    ),
-            ])
-            ->collapsible();
+                                    $notification->send();
+                                })
+                        ),
+                ])
+                ->collapsible(),
+        ];
 
         return [
             TextInput::make('name')
@@ -265,7 +266,7 @@ final class ArticleResource extends Resource
             Toggle::make('is_active')
                 ->label('Active')
                 ->default(true),
-            ...($forModal ? [] : [$imagesSection, $publicCatalogSection]),
+            ...$fullFormOnlySections,
             Section::make('Custom Attributes')
                 ->schema([
                     KeyValue::make('attributes')

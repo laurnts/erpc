@@ -254,7 +254,7 @@ final class RequestResource extends Resource
                     ->toggledHiddenByDefault(),
                 TextColumn::make('stage')
                     ->badge()
-                    ->formatStateUsing(fn (RequestStage $state): string => $state->getLabelWithStep())
+                    ->formatStateUsing(fn (RequestStage $state): string => $state->getTabLabelWithStep())
                     ->sortable(),
                 TextColumn::make('priority')
                     ->badge()
