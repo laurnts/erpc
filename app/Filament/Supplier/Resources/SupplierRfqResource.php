@@ -26,11 +26,11 @@ final class SupplierRfqResource extends Resource
 {
     protected static ?string $model = SupplierQuote::class;
 
-    protected static ?string $modelLabel = 'Quote Request';
+    protected static ?string $modelLabel = 'Quotation';
 
-    protected static ?string $pluralModelLabel = 'Quote Requests';
+    protected static ?string $pluralModelLabel = 'Quotation';
 
-    protected static ?string $navigationLabel = 'Quote Requests';
+    protected static ?string $navigationLabel = 'Quotations';
 
     protected static ?string $slug = 'rfqs';
 

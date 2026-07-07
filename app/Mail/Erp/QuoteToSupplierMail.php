@@ -37,6 +37,12 @@ final class QuoteToSupplierMail extends Mailable
 
     public function content(): Content
     {
+        if (! $this->quote->relationLoaded('items')) {
+            $this->quote->load(['items.requestItem']);
+        } else {
+            $this->quote->loadMissing('items.requestItem');
+        }
+
         $emailService = app(EmailTemplateService::class);
         $settings = $this->quote->team->getErpSettings();
         $templateConfig = $settings->email_template_quote_to_supplier ?? null;

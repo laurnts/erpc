@@ -51,7 +51,9 @@ final class BuyerOrderToBuyerMail extends Mailable
     {
         // Ensure items are loaded for the email template
         if (! $this->order->relationLoaded('items')) {
-            $this->order->load('items');
+            $this->order->load(['items.requestItem', 'buyerQuote.currency']);
+        } else {
+            $this->order->loadMissing(['items.requestItem', 'buyerQuote.currency']);
         }
 
         $emailService = app(EmailTemplateService::class);
@@ -102,6 +104,8 @@ final class BuyerOrderToBuyerMail extends Mailable
 
         // If template is full HTML, render it as Blade template with all necessary variables
         if ($isFullHtml && ! empty($content)) {
+            $content = $this->normalizeFullHtmlItemsTable($content);
+
             try {
                 $renderedContent = \Illuminate\Support\Facades\Blade::render($content, [
                     'order' => $this->order,
@@ -132,5 +136,25 @@ final class BuyerOrderToBuyerMail extends Mailable
                 'team' => $this->order->team,
             ],
         );
+    }
+
+    /**
+     * Replace legacy flat item loops in stored full-HTML templates with the shared
+     * hierarchical items partial used by the default buyer order email.
+     */
+    private function normalizeFullHtmlItemsTable(string $content): string
+    {
+        if (! str_contains($content, '@foreach($order->items as $index => $item)')) {
+            return $content;
+        }
+
+        $updated = preg_replace(
+            '/@if\(\$order->items && \$order->items->count\(\) > 0\)\s*(?:<!-- Items Table -->)?.*?<\/table>\s*(?:<!-- Summary Section \(Right-aligned\) -->)?\s*<table width="100%".*?<\/table>\s*@endif/s',
+            "@include('emails.partials.buyer-order-items-table', ['order' => \$order])",
+            $content,
+            1,
+        );
+
+        return is_string($updated) ? $updated : $content;
     }
 }

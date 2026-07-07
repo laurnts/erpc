@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * @property int $id
@@ -264,5 +265,46 @@ final class BuyerOrderItem extends Model
         $taxAmount = (float) $this->tax_amount;
 
         return (string) round($quantity * $taxAmount, 2);
+    }
+
+    public function isChildItem(): bool
+    {
+        return $this->requestItem?->parent_id !== null;
+    }
+
+    /**
+     * Order items as main item followed by its child/detail items.
+     *
+     * @param  Collection<int, self>  $items
+     * @return Collection<int, array{item: self, is_child: bool}>
+     */
+    public static function organizeHierarchically(Collection $items): Collection
+    {
+        $items->loadMissing('requestItem');
+
+        $mainItems = $items
+            ->filter(fn (self $item): bool => ! $item->isChildItem())
+            ->sortBy('sort_order')
+            ->values();
+
+        $childItemsByParentId = $items
+            ->filter(fn (self $item): bool => $item->isChildItem())
+            ->groupBy(fn (self $item): int => (int) $item->requestItem->parent_id);
+
+        $organized = collect();
+
+        foreach ($mainItems as $mainItem) {
+            $organized->push(['item' => $mainItem, 'is_child' => false]);
+
+            $children = $childItemsByParentId->get($mainItem->request_item_id, collect())
+                ->sortBy('sort_order')
+                ->values();
+
+            foreach ($children as $childItem) {
+                $organized->push(['item' => $childItem, 'is_child' => true]);
+            }
+        }
+
+        return $organized;
     }
 }

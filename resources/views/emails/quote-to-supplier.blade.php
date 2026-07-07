@@ -80,35 +80,7 @@
                             @endif
                             
                             @if($quote->items && $quote->items->count() > 0)
-                                <!-- Items Table -->
-                                <table width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0; border-collapse: collapse;">
-                                    <thead>
-                                        <tr style="background-color: #2563eb;">
-                                            <th style="padding: 12px 8px; text-align: center; font-size: 12px; font-weight: bold; color: #ffffff; border-right: 1px solid #1e40af; width: 5%;">#</th>
-                                            <th style="padding: 12px 8px; text-align: left; font-size: 12px; font-weight: bold; color: #ffffff; border-right: 1px solid #1e40af; width: 50%;">Description</th>
-                                            <th style="padding: 12px 8px; text-align: center; font-size: 12px; font-weight: bold; color: #ffffff; border-right: 1px solid #1e40af; width: 10%;">Qty</th>
-                                            <th style="padding: 12px 8px; text-align: center; font-size: 12px; font-weight: bold; color: #ffffff; width: 35%;">Unit</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach($quote->items as $index => $item)
-                                            @php
-                                                $rowBg = $index % 2 === 0 ? '#ffffff' : '#f9fafb';
-                                            @endphp
-                                            <tr style="background-color: {{ $rowBg }}; border-bottom: 1px solid #e5e7eb;">
-                                                <td style="padding: 10px 8px; text-align: center; font-size: 13px; color: #1f2937; border-right: 1px solid #e5e7eb;">{{ $index + 1 }}</td>
-                                                <td style="padding: 10px 8px; text-align: left; font-size: 13px; color: #1f2937; border-right: 1px solid #e5e7eb;">
-                                                    {{ $item->description }}
-                                                    @if($item->notes)
-                                                        <br><small style="color: #6b7280; font-size: 11px;">{{ $item->notes }}</small>
-                                                    @endif
-                                                </td>
-                                                <td style="padding: 10px 8px; text-align: center; font-size: 13px; color: #1f2937; border-right: 1px solid #e5e7eb;">{{ $item->quantity }}</td>
-                                                <td style="padding: 10px 8px; text-align: center; font-size: 13px; color: #1f2937;">{{ $item->unit_label ?? $item->unit ?? 'pcs' }}</td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
+                                @include('emails.partials.supplier-quote-items-table', ['quote' => $quote])
                             @endif
                             
                             @if(!empty($portalUrl))
