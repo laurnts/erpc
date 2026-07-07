@@ -1,6 +1,6 @@
 ## 0. Dependency & cleanup (do first)
 
-- [ ] 0.1 Confirm `add-line-item-activity-logging` is implemented and merged (this change consumes its `parent_type`/`parent_id` stamp, retention=never, and `*_item` morph aliases).
+- [ ] 0.1 Decoupled from `add-line-item-activity-logging` (ships first — see design D7): the interim subject enumeration is the primary scoping mechanism, and this change owns retention. No precondition to confirm; note the accepted header-rollup granularity limitation in the internal UI's empty-state/help copy if practical.
 - [ ] 0.2 Delete the dormant `RequestActivity` cluster: `RequestActivity` model, `ActivityType` + `RequestActivityType` enums, `RequestActivityPolicy`, `RequestActivityFactory`, `RequestActivitiesRelationManager`, the `create_request_activities_table` migration, `Request::activities()`; reconcile/remove `tests/Feature/Erp/RequestActivityTest.php`. Grep-verify zero writers before deletion; suite green after.
 
 ## 1. Capture gaps (Phase 1 prerequisites)
@@ -11,6 +11,8 @@
 - [ ] 1.4 Add `goods_receive_batch` (and any other unmapped child) to `Relation::enforceMorphMap`.
 - [ ] 1.5 Add `Request::supplierInvoices()` hasMany so the enumerator can reach supplier invoices; collect payment subject ids via invoices→payments.
 - [ ] 1.6 Architecture/Pest test: every request-scoped child model in the internal source has a capture path — an unlogged branch fails CI instead of rendering empty.
+- [ ] 1.7 Set `config/activitylog.php` `delete_records_older_than_days` to `null` and document that `activitylog:clean` must never be scheduled for financial records (ownership moved here from the line-item change; a no-op there if this lands first).
+- [ ] 1.8 Evaluate trimming `credit_used`/`credit_limit` from `Company::activityAttributes()` (the credit ledger already records before/after balances): verify every credit writer goes through `BuyerCreditUsageHistory` first; trim only if no direct edit path bypasses the ledger.
 
 ## 2. Audience-scoped visibility helper (first-class)
 
@@ -22,7 +24,8 @@
 ## 3. Internal timeline surface
 
 - [ ] 3.1 Timeline entry DTO (`spatie/laravel-data`) + a day-grouping renderer reusing `ActorType` `HasIcon`/`HasColor`.
-- [ ] 3.2 Internal read source: one `whereIn` over `(subject_type, subject_id)` across the request + logged child tree (via the helper's staff allow-list), eager-load causer, merge request+child media (with uploader), derive milestones from logged status + timestamp columns.
+- [ ] 3.2 Internal read source: one `whereIn` over `(subject_type, subject_id)` across the request + logged child tree (via the helper's staff allow-list, interim enumeration), eager-load causer, merge request+child media (with uploader), derive milestones from logged status + timestamp columns.
+- [ ] 3.2a Credit-ledger lane: merge `BuyerCreditUsageHistory` rows reachable via the request's buyer orders (and limit-change approvals for the request's buyer) into the internal feed, rendering amount + before→after balances + causing record link. Read-only; internal surface only in v1.
 - [ ] 3.3 Render as a collapsible infolist Section (or tab) on `ViewRequest`, paginated, summarizing per save inline ("Buyer quote BQ-123 updated — 4 fields"), drilling into the shared `event-log-detail` modal. Never raw inline old→new diffs.
 - [ ] 3.4 Pest tests: price/quantity edit appears attributed to actor+time; upload appears with uploader; unlogged-branch guard; pagination/day-grouping smoke.
 
@@ -42,3 +45,4 @@
 ## 6. Supplier timeline surface (Phase 3 — later, out of this change's shipping scope)
 
 - [ ] 6.1 Reuse the audience helper's `supplier:{companyId}` party to build the supplier-portal timeline (that supplier's own RFQs/quotes/POs only); mirror the buyer leak test asserting Supplier A cannot see Supplier B.
+- [ ] 6.2 When `add-line-item-activity-logging` lands: swap the interim subject enumeration for its `parent_type`/`parent_id` predicate; line-level price/quantity entries then appear with no further timeline changes.

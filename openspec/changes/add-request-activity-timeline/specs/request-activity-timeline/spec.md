@@ -4,9 +4,14 @@
 
 The system SHALL present, on the request detail page, a chronological timeline of what has happened to a request — audit changes, document uploads, and status/document milestones for the request and its logged child records — sourced read-time from the live activity log and rendered with actor, actor type, timestamp, and drill-in to the change detail.
 
-#### Scenario: Staff sees a price change on the timeline
-- **WHEN** a staff user opens a request whose buyer-quote line price was lowered
-- **THEN** the timeline shows an entry with the acting user, the quote reference, the change summary, and the time, ordered chronologically among other entries
+#### Scenario: Staff sees an audited change on the timeline
+- **WHEN** a staff user opens a request where an audited field changed on the request or a logged child record (e.g. a buyer quote's total or status)
+- **THEN** the timeline shows an entry with the acting user, the record reference, the change summary, and the time, ordered chronologically among other entries
+- **AND** once line-item capture is in place, line-level changes appear through the same mechanism without timeline changes
+
+#### Scenario: Credit movements appear with balances
+- **WHEN** a credit transaction is recorded for the request's buyer (e.g. credit used by an order, credit released by a payment, an approved limit change)
+- **THEN** the internal timeline shows the movement with its amount, before→after balances, and a link to the causing record, sourced read-only from the credit ledger
 
 #### Scenario: Uploads appear with their uploader
 - **WHEN** a document has been attached to the request or a child record

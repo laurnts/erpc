@@ -51,8 +51,15 @@ Stamp `uploader_id` + `actor_type` into media `custom_properties` inside `Attach
 ### D6 — Internal surface = collapsible infolist Section/tab, not a second footer widget
 `RequestInformationFlowWidget` is already full-width in the footer; a second full-width widget stacks two panels and conflates "what to do next" with "what has happened." Render history as a paginated section/tab drilling into the shared detail modal, summarizing per save inline ("Buyer quote BQ-123 updated — 4 fields"), never raw inline old→new diffs.
 
-### D7 — Capture before surface (phasing + dependency)
-Ship **after** `add-line-item-activity-logging`. Header models log only rolled-up totals/status; launching the timeline before line-item capture shows the finance owner everything except the price/quantity changes they open it to see. The internal UI is the last step of Phase 1.
+### D7 — Ship first, decoupled from line-item capture (revised)
+Originally this change was sequenced after `add-line-item-activity-logging`. Revised after weighing risk and value: the timeline ships **first**, using the interim subject enumeration (guarded by the CI completeness test) as its primary scoping mechanism, and now owns `retention=never`. When line-item capture lands later, scoping swaps to its `parent_type`/`parent_id` predicate and line-level entries appear with no other rework.
+- **Rationale:** the timeline's value is visible immediately from data that already exists (uploads, milestones, header changes, the credit ledger), while line-item capture is invisible plumbing bundled with the single riskiest task in either change (the delete-and-recreate persistence refactor). Shipping the surface first also turns it into a validation instrument for that refactor.
+- **Accepted limitation (documented, not hidden):** until line-item capture lands, price/quantity edits appear only at header rollup granularity, and a line edit whose header recalc uses `saveQuietly()` may produce no entry. The finance answer to "who changed the price on line 3" arrives with `add-line-item-activity-logging`.
+
+### D8 — Credit ledger is a first-class source; ledger vs change-log kept distinct
+`BuyerCreditUsageHistory` already provides an append-only credit ledger: `transaction_type`, `amount`, before/after balances for `available_credit`/`credit_used`/`max_credit_limit`, the causing record (morph to e.g. `BuyerOrder`), `created_by_id`, and approval-gated limit changes via `BuyerCreditLimitRequest(Approval)`. The internal timeline consumes it read-only as a finance lane ("Credit used 5,000 — available 20,000 → 15,000, from BO-123"), linked to the request via the causing order.
+- **Principle:** ledger-shaped facts (running balances) belong in the ledger; change-log-shaped facts (field edits) belong in `activity_log`. Neither system re-captures the other's domain.
+- **Cleanup (evaluate, don't assume):** `Company::activityAttributes()` currently logs `credit_used`/`credit_limit` as generic field diffs, overlapping the ledger. Verify every credit writer goes through the ledger before trimming those fields; if any direct edit path bypasses the ledger, keep the activity-log coverage as the backstop.
 
 ## Risks / Trade-offs
 
@@ -64,10 +71,10 @@ Ship **after** `add-line-item-activity-logging`. Header models log only rolled-u
 
 ## Migration Plan
 
-1. Land `add-line-item-activity-logging` (dependency).
-2. Capture prerequisites (D5), delete `RequestActivity` (D3), supplier-quote-sent write (D4).
-3. Build the audience helper (D2) + internal source + section UI (D1, D6); completeness + strict-subset architecture tests.
-4. Phase 2: buyer surface + redaction + leak test. Phase 3 (later): supplier surface reusing the helper.
+1. Capture prerequisites (D5) + retention=never, delete `RequestActivity` (D3), supplier-quote-sent write (D4).
+2. Build the audience helper (D2) + internal source incl. credit-ledger lane (D1, D8) + section UI (D6); completeness + strict-subset architecture tests.
+3. Phase 2: buyer surface + redaction + leak test. Phase 3 (later): supplier surface reusing the helper.
+4. When `add-line-item-activity-logging` lands: swap interim enumeration for the `parent` predicate; line-level entries appear automatically.
 No data migration beyond dropping `request_activities`; new attribution/logging accrues forward. Rollback = revert; the live `activity_log` is unaffected.
 
 ## Open Questions
@@ -77,3 +84,4 @@ Recommended defaults below; confirm at approval.
 - **Historical media backfill:** fail-closed "Unknown/System" and hide pre-stamp files from buyers (recommended) vs a one-time backfill for unambiguous buyer-origin collections.
 - **Buyer visibility of rejected/expired quotes & cancelled outbound shipments:** show only active/accepted milestones to avoid confusing the customer (recommended) vs full transparency.
 - **Buyer stage feed vs existing stepper:** extend the stepper with document/quote/invoice events rather than a redundant stage feed (recommended).
+- **Buyer visibility of their own credit movements:** internal-only in v1 (recommended); a buyer-facing credit lane (their own balances only) is a deliberate later decision.
