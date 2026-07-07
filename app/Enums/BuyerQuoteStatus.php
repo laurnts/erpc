@@ -54,12 +54,14 @@ enum BuyerQuoteStatus: string implements HasColor, HasIcon, HasLabel
     }
 
     /**
-     * Check if quote can be edited.
-     * Only draft quotes can be edited - sent quotes require versioning.
+     * Check if quote content can be edited.
      */
     public function canEdit(): bool
     {
-        return $this === self::DRAFT;
+        return match ($this) {
+            self::DRAFT, self::SENT => true,
+            self::ACCEPTED, self::REJECTED, self::EXPIRED, self::SUPERSEDED => false,
+        };
     }
 
     /**
@@ -68,6 +70,17 @@ enum BuyerQuoteStatus: string implements HasColor, HasIcon, HasLabel
     public function canSend(): bool
     {
         return $this === self::DRAFT;
+    }
+
+    /**
+     * Check if a new version can be created from this quote.
+     */
+    public function canCreateNewVersion(): bool
+    {
+        return match ($this) {
+            self::SENT, self::REJECTED, self::EXPIRED => true,
+            self::DRAFT, self::ACCEPTED, self::SUPERSEDED => false,
+        };
     }
 
     /**

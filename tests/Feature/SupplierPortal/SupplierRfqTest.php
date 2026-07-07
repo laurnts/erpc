@@ -185,6 +185,18 @@ describe('RFQ visibility', function (): void {
             ->assertCanSeeTableRecords([$this->quote])
             ->assertCanNotSeeTableRecords([$unsent, $declined]);
     });
+
+    it('shows count badges on tabs that have matching quotes', function (): void {
+        $this->quote->forceFill(['status' => SupplierQuoteStatus::RECEIVED])->saveQuietly();
+
+        $tabs = livewire(ListSupplierRfqs::class)->instance()->getCachedTabs();
+
+        expect($tabs['open']->getBadge())->toBeNull()
+            ->and($tabs['submitted']->getBadge())->toBe(1)
+            ->and($tabs['won']->getBadge())->toBeNull()
+            ->and($tabs['lost']->getBadge())->toBeNull()
+            ->and($tabs['declined']->getBadge())->toBeNull();
+    });
 });
 
 describe('Submitting a quote', function (): void {

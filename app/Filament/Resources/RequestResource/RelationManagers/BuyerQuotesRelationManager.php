@@ -157,7 +157,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 ->default(BuyerQuoteStatus::DRAFT)
                                 ->required()
                                 ->selectablePlaceholder(false)
-                                ->disabled(fn (?BuyerQuote $record): bool => $record instanceof \App\Models\BuyerQuote && ! $record->status->canEdit()),
+                                ->disabled(fn (?BuyerQuote $record): bool => $record instanceof \App\Models\BuyerQuote && ! $record->status->canSend()),
                         ]),
                     Grid::make(2)
                         ->schema([
@@ -2107,7 +2107,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 return true;
                             }
 
-                            return ! $record->status->canEdit();
+                            return ! $record->status->canSend();
                         }),
                     DownloadPdfAction::make()
                         ->label('PDF'),
@@ -2323,21 +2323,13 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->label('New Version')
                         ->icon('heroicon-o-document-duplicate')
                         ->color('primary')
-                        ->visible(function (?BuyerQuote $record): bool {
-                            if ($record === null) {
-                                return false;
-                            }
-                            // Don't show for superseded quotes
-                            if ($record->status === BuyerQuoteStatus::SUPERSEDED) {
-                                return false;
-                            }
-
-                            // Only show if there are additional items available
-                            return $record->hasAdditionalItems();
-                        })
+                        ->authorize(fn (?BuyerQuote $record): bool => $record !== null && auth()->user()?->can('createVersion', $record) === true)
+                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->status->canCreateNewVersion())
                         ->requiresConfirmation()
-                        ->modalHeading('Create new version with additional items?')
-                        ->modalDescription('This will create a new draft version of this quote including any additional items that have been added to the request. The current quote will be marked as superseded, and any approved PNL will be reset to pending.')
+                        ->modalHeading('Create new version?')
+                        ->modalDescription(fn (BuyerQuote $record): string => $record->hasAdditionalItems()
+                            ? 'This will create a new draft version of this quote including any additional items that have been added to the request. The current quote will be marked as superseded, and any approved PNL will be reset to pending.'
+                            : 'This will create a new draft version copied from this quote. The current quote will be marked as superseded, and any approved PNL will be reset to pending.')
                         ->action(function (BuyerQuote $record): void {
                             $newQuote = $record->createNewVersion();
                             $additionalItemsCount = $newQuote->items()->count() - $record->items()->count();

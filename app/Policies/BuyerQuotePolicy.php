@@ -220,11 +220,12 @@ final readonly class BuyerQuotePolicy
         }
 
         if ($this->isAdmin($user)) {
-            return $user->belongsToTeam($buyerQuote->team);
+            return $user->belongsToTeam($buyerQuote->team) && $buyerQuote->status->canCreateNewVersion();
         }
 
         return $user->belongsToTeam($buyerQuote->team)
-            && $user->hasPermissionTo('create buyer quotes');
+            && $user->hasPermissionTo('create buyer quotes')
+            && $buyerQuote->status->canCreateNewVersion();
     }
 
     /**

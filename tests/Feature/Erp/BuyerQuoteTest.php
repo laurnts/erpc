@@ -128,7 +128,7 @@ describe('BuyerQuote Status Transitions', function (): void {
         expect($quote->can_edit)->toBeTrue();
     });
 
-    it('cannot edit sent quotes', function (): void {
+    it('can edit sent quotes', function (): void {
         $quote = BuyerQuote::factory()
             ->recycle($this->team)
             ->recycle($this->buyer)
@@ -137,7 +137,31 @@ describe('BuyerQuote Status Transitions', function (): void {
             ->sent()
             ->create();
 
-        expect($quote->can_edit)->toBeFalse();
+        expect($quote->can_edit)->toBeTrue();
+    });
+
+    it('can create a new version from sent quotes', function (): void {
+        $quote = BuyerQuote::factory()
+            ->recycle($this->team)
+            ->recycle($this->buyer)
+            ->forRequest($this->request)
+            ->withCurrency($this->currency)
+            ->sent()
+            ->create();
+
+        expect($quote->status->canCreateNewVersion())->toBeTrue();
+    });
+
+    it('cannot create a new version from draft quotes', function (): void {
+        $quote = BuyerQuote::factory()
+            ->recycle($this->team)
+            ->recycle($this->buyer)
+            ->forRequest($this->request)
+            ->withCurrency($this->currency)
+            ->draft()
+            ->create();
+
+        expect($quote->status->canCreateNewVersion())->toBeFalse();
     });
 
     it('can send draft quotes', function (): void {

@@ -97,6 +97,92 @@ function buyerQuoteActionRelationManager(Tests\TestCase $test): Testable
     ]);
 }
 
+describe('edit record action', function (): void {
+    it('shows edit for draft quotes', function (): void {
+        $quote = buyerQuoteActionQuote($this, BuyerQuoteStatus::DRAFT);
+
+        buyerQuoteActionRelationManager($this)
+            ->assertOk()
+            ->assertActionVisible(TestAction::make('edit')->table($quote))
+            ->assertActionHidden(TestAction::make('view')->table($quote));
+    });
+
+    it('shows edit for sent quotes', function (): void {
+        $quote = buyerQuoteActionQuote($this, BuyerQuoteStatus::SENT);
+
+        buyerQuoteActionRelationManager($this)
+            ->assertOk()
+            ->assertActionVisible(TestAction::make('edit')->table($quote))
+            ->assertActionHidden(TestAction::make('view')->table($quote));
+    });
+
+    it('shows view instead of edit for terminal statuses', function (BuyerQuoteStatus $status): void {
+        $quote = buyerQuoteActionQuote($this, $status);
+
+        buyerQuoteActionRelationManager($this)
+            ->assertOk()
+            ->assertActionHidden(TestAction::make('edit')->table($quote))
+            ->assertActionVisible(TestAction::make('view')->table($quote));
+    })->with([
+        'accepted' => BuyerQuoteStatus::ACCEPTED,
+        'rejected' => BuyerQuoteStatus::REJECTED,
+        'expired' => BuyerQuoteStatus::EXPIRED,
+        'superseded' => BuyerQuoteStatus::SUPERSEDED,
+    ]);
+});
+
+describe('new version record action', function (): void {
+    it('shows new version for sent quotes even without additional items', function (): void {
+        $quote = buyerQuoteActionQuote($this, BuyerQuoteStatus::SENT);
+
+        buyerQuoteActionRelationManager($this)
+            ->assertOk()
+            ->assertActionVisible(TestAction::make('newVersion')->table($quote));
+    });
+
+    it('creates a new draft version and marks the sent quote as superseded', function (): void {
+        $quote = buyerQuoteActionQuote($this, BuyerQuoteStatus::SENT);
+
+        buyerQuoteActionRelationManager($this)
+            ->assertOk()
+            ->callAction(TestAction::make('newVersion')->table($quote))
+            ->assertNotified('New version created');
+
+        $quote->refresh();
+        $newQuote = BuyerQuote::query()
+            ->where('previous_version_id', $quote->getKey())
+            ->first();
+
+        expect($quote->status)->toBe(BuyerQuoteStatus::SUPERSEDED)
+            ->and($newQuote)->not->toBeNull()
+            ->and($newQuote->status)->toBe(BuyerQuoteStatus::DRAFT)
+            ->and($newQuote->version)->toBe(2);
+    });
+
+    it('shows new version for rejected and expired quotes', function (BuyerQuoteStatus $status): void {
+        $quote = buyerQuoteActionQuote($this, $status);
+
+        buyerQuoteActionRelationManager($this)
+            ->assertOk()
+            ->assertActionVisible(TestAction::make('newVersion')->table($quote));
+    })->with([
+        'rejected' => BuyerQuoteStatus::REJECTED,
+        'expired' => BuyerQuoteStatus::EXPIRED,
+    ]);
+
+    it('hides new version for draft, accepted, and superseded quotes', function (BuyerQuoteStatus $status): void {
+        $quote = buyerQuoteActionQuote($this, $status);
+
+        buyerQuoteActionRelationManager($this)
+            ->assertOk()
+            ->assertActionHidden(TestAction::make('newVersion')->table($quote));
+    })->with([
+        'draft' => BuyerQuoteStatus::DRAFT,
+        'accepted' => BuyerQuoteStatus::ACCEPTED,
+        'superseded' => BuyerQuoteStatus::SUPERSEDED,
+    ]);
+});
+
 describe('send header action', function (): void {
     it('marks the draft quote as sent and emails the buyer when the latest PNL is approved', function (): void {
         $quote = buyerQuoteActionQuote($this, BuyerQuoteStatus::DRAFT);

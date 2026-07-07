@@ -139,6 +139,7 @@ Collect supplier prices and select the best option per item.
 - Enter or upload supplier prices for the requested items.
 - Review and compare quotes; select the best option(s) per item.
 - Create a Quotation Evaluation (QE) when required; it must be approved before Buyer Quotes.
+- If supplier is obatained, no need to create a Quotation Evaluation (QE).
 - Use **Send to buyer** to send the selected quotes to the buyer.
 
 **Next:** once sent, continue to Buyer Quotes.
