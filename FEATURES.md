@@ -18,11 +18,12 @@ It unifies what trading firms typically run in separate tools:
 
 | Fragmented approach | ERPC approach |
 |---------------------|---------------|
-| CRM in one system | CRM + trading workflow in one platform |
+| Buyer/supplier email back-and-forth | **Buyer & supplier portals** + internal app on one platform |
+| Public RFQ via phone/email | **Public catalog** with quote cart → request |
 | Spreadsheets for margin / PNL | Built-in PNL with approval workflow |
 | Email chains for QE & PO sign-off | Structured QE, PNL, and dual-approval supplier orders |
 | Shared drives for documents | Generate PDF → re-upload for official records + Credit Limit Acceptances |
-| Manual quote / invoice follow-up | Scheduled reminders (quotes, supplier responses, overdue invoices) |
+| Manual quote / invoice follow-up | Scheduled reminders (quotes, supplier responses, overdue invoices, catalog price review) |
 | SAP too complex for daily CP work | **Bridge to SAP** — clean operational data, approvals, and documents first |
 
 ### ERPC vs SAP (High-Level)
@@ -43,6 +44,7 @@ It unifies what trading firms typically run in separate tools:
 - **Key Account managers** responsible for buyer relationships and document acceptance
 - **Senior management** (Dept Head, Deputy Director, Director) who approve QE, PNL, and supplier orders
 - **Finance** teams approving payment / completion documents
+- **Buyers and suppliers** using self-service portals for requests, quotes, RFQs, and article pricing
 - **Multi-team organizations** needing isolated workspaces with shared patterns
 
 ### One-Line Value Proposition
@@ -61,7 +63,8 @@ It unifies what trading firms typically run in separate tools:
 | **Perpajakan (tax)** | PKP / non-PKP suppliers, per-line tax, multi-currency |
 | **Documentation** | Generate PDF → re-upload signed copies for audit trail |
 | **Service sales** | Service request type, child line items, acceptance reports |
-| **Reminders** | Quote expiry, awaiting supplier quote, overdue invoices |
+| **Portals & catalog** | Buyer portal, supplier portal, public catalog storefront |
+| **Reminders** | Quote expiry, awaiting supplier quote, overdue invoices, catalog price review |
 
 ---
 
@@ -73,9 +76,9 @@ Every deal is tracked as a **Request**. The Request moves through controlled **s
 
 ```mermaid
 flowchart LR
-    subgraph CRM["CRM & Master Data"]
-        A[Buyer Inquiry / Opportunity]
-        B[Companies · Articles · Projects]
+    subgraph CRM["Inquiry & Master Data"]
+        A[Buyer Inquiry / Catalog / Portal]
+        B[Buyers · Suppliers · Articles · Projects]
     end
 
     subgraph Sourcing["Sourcing & Tender"]
@@ -93,7 +96,7 @@ flowchart LR
         H[Buyer Order]
         I[Supplier Orders]
         J[Goods Receive]
-        K[Inbound Shipment / DO]
+        K[Fulfillment — Shipment / DO · Acceptance Reports]
     end
 
     subgraph Finance["Finance & Close"]
@@ -121,7 +124,7 @@ The system defines **13 stages** (`RequestStage` enum). The **Request View** con
 | Awaiting Buyer Confirmation | Quoting | Buyer Quotes |
 | Preparing Supplier Order | Ordering | Purchases (Supplier Orders) |
 | Goods Receive | Ordering | Goods Receive |
-| Awaiting Shipment / Shipped / Delivered | Delivery | Inbound Shipments *(goods only)* |
+| Awaiting Shipment / Shipped / Delivered | Delivery | Fulfillment *(shipments for goods; acceptance reports for services)* |
 | Invoiced / Paid / Completed | Closing | Invoices *(buyer orders)* · Completion Report |
 | Cancelled | — | — |
 
@@ -132,8 +135,8 @@ The system defines **13 stages** (`RequestStage` enum). The **Request View** con
 | QE approved | Tabs after Supplier Quotes require **Quotation Evaluation approved** (or obtained+selected supplier quote bypass) |
 | PNL approved | Tabs from Invoices through Completion require **Profit & Loss approved** |
 | Accepted buyer quote | Same tabs require at least one **Accepted** buyer quote; no quotes left in **Sent** without PO upload |
-| Goods receive docs | Inbound Shipments tab blocked until goods-receive documents are approved (where applicable) |
-| Service vs goods | **Inbound Shipments** hidden for service requests; **Goods Receive** still available |
+| Goods receive docs | Fulfillment tab blocked until goods-receive documents are approved (goods requests) |
+| Service vs goods | **Fulfillment** shows inbound shipments for goods and acceptance reports for services; mixed requests show both |
 
 **Footer widget:** `RequestInformationFlowWidget` shows per-tab guidance (steps 1–8) at the bottom of Request View.
 
@@ -187,7 +190,7 @@ flowchart LR
 | 5 | Margin sign-off | PNL + approval |
 | 6 | Purchase | Buyer order + supplier PO (dual approval before send) |
 | 7 | Receipt | Goods receive |
-| 8 | Delivery | Inbound shipment + Delivery Order PDF |
+| 8 | Delivery | Fulfillment — inbound shipment + DO PDF (goods) or acceptance report (services) |
 | 9 | Billing | Buyer & supplier invoices, payment tracking |
 | 10 | Close | Completion report + finance approval |
 
@@ -265,9 +268,9 @@ Key Accounts approve QE, PNL, and supplier order documents via **Credit Limit Ac
 
 ### Sales / Commercial
 
-> *"I need CRM context and deal status without a separate CRM login."*
+> *"Buyers and suppliers need self-service without losing control."*
 
-**People, Opportunities, Tasks, Notes**, and **AI summaries** sit beside trading data. Buyer companies link to contacts used across quotes, shipments, and CRM.
+**Buyer portal** for request tracking, quotes, invoices, and shipments. **Supplier portal** for RFQ response and article pricing. **Public catalog** for published articles and quote-cart submissions. **People** and **AI summaries** provide contact context across buyers, suppliers, quotes, and shipments.
 
 ---
 
@@ -286,7 +289,8 @@ Key Accounts approve QE, PNL, and supplier order documents via **Credit Limit Ac
 - Soft delete with number sequencing that includes trashed records
 - Financial accessors on model: buyer total, supplier cost, margin %, cash flow, expected vs actual
 - Global search on request number + description
-- Relation managers on resource: items, quotes, orders, shipments, acceptance reports (service), tasks, notes
+- Relation managers on resource: items, quotes, orders, shipments, acceptance reports (service)
+- **Submission sources** — internal app, buyer portal, supplier portal, or public catalog (`RequestSubmissionMethod`)
 
 ### 5.2 Data Entry & Master Data Flexibility
 
@@ -412,22 +416,29 @@ Projects group related requests for **large or multi-phase deals**:
 - Document upload → **Credit Limit Acceptances** (Key Account)
 - Dedicated **Approval → Supplier Orders** list for approvers
 
-### 5.9 Goods Receive, Shipments & Completion
+### 5.9 Goods Receive, Fulfillment & Completion
 
 **Goods receive** (`GoodsReceiveRelationManager`)
 
 - Batch document upload per supplier order
 - Linked to request + supplier PO
 - **Approval → Goods Receive** menu — finance/key-account style document approval via `PaymentDocumentApproval`
-- Must be approved before Inbound Shipments tab unlocks (goods requests)
+- Must be approved before Fulfillment unlocks (goods requests)
 
-**Inbound shipments** (`ShipmentsRelationManager` — **goods requests only**)
+**Fulfillment** (`RelationGroup` on Request View — tab **Fulfillment**)
+
+Groups goods and service delivery in one tab:
+
+- **Inbound shipments** (`ShipmentsRelationManager`) — goods requests
 
 - Created per supplier order; types and status tracking (`ShipmentStatus`)
 - **Delivery Order (DO) PDF** (`generateShipmentDeliveryOrderPdf`) — Roman month format
 - **PIC contact** from buyer’s People — name + phone on DO
 - Email shipment to buyer (`ShipmentToBuyerMail`)
 - `do_sent_at` tracking
+- **Acceptance reports** (`AcceptanceReportsRelationManager`) — service requests
+  - Report number `AR-{YYYY}-{NNNN}`, file uploads (PDF/Word/images)
+  - Mixed requests show both shipment and acceptance-report channels
 
 **Completion report** (`CompletionReportsRelationManager`)
 
@@ -435,12 +446,6 @@ Projects group related requests for **large or multi-phase deals**:
 - Mark as **payment document** with payment-term key (`due_days-percentage`)
 - Payment documents approved in **Credit Limit Acceptances** by **Finance** role
 - Request View shows payment-term paid/not-paid matrix (invoices + approved payment docs)
-
-**Service acceptance reports** (`AcceptanceReport` model + `AcceptanceReportsRelationManager`)
-
-- Service-only: report number `AR-{YYYY}-{NNNN}`, file uploads (PDF/Word/images)
-- Registered on `RequestResource`; service fulfillment alternative to inbound shipments
-- *Note: Request View page overrides relation managers — primary service close-out on Completion Report tab; acceptance report resource available on request edit flows*
 
 ### 5.9b Invoicing & Payments (backend + widgets)
 
@@ -476,7 +481,7 @@ Goods and **service** requests follow different workflows:
 |---|-------|---------|
 | **Evaluation** | Quotation Evaluation (QE) | QE optional / streamlined path |
 | **Item structure** | Flat line items | Main item + **child items** (detail breakdown) |
-| **Fulfillment** | Goods receive + inbound shipment | **Acceptance reports** (upload PDF/Word/images) |
+| **Fulfillment** | Goods receive + inbound shipment | **Acceptance reports** (within Fulfillment tab) |
 | **Buyer quote** | Standard lines | Parent +Tax syncs to child line totals |
 
 **Example:** Main item "Preparation work" with child lines for mobilisation, project signs, etc. — only main item flows to supplier quotes; children provide commercial detail on buyer quote.
@@ -508,6 +513,7 @@ Two different “acceptance” concepts:
 | **Approval → Profit & Loss** | `ProfitAndLoss` | Senior CP roles + document flow | PNL list, export, view |
 | **Approval → Supplier Orders** | `SupplierOrder` (confirmed) | Dept Head / Deputy / Director (×2) | Dual PO approval before send |
 | **Approval → Credit Limit Requests** | `BuyerCreditLimitRequest` | Finance (×2) | Credit limit increase |
+| **Approval → Registrations** | `PortalRegistrationRequest` | CP / admin | Public catalog buyer signup |
 
 **Credit Limit Acceptances columns:** status, source (QE/PNL/PO number), request number, buyer, payment terms, uploaded/approved timestamps. Row actions: View Document, Approve.
 
@@ -517,34 +523,54 @@ Two different “acceptance” concepts:
 
 | Entity | Menu | Key fields / behaviour |
 |--------|------|------------------------|
-| **Buyers** | Master Data → Buyers | Credit limit, available credit, key accounts, import/export |
-| **Suppliers** | Master Data → Suppliers | `is_taxable` (PKP), delivery terms, import/export |
-| **Articles** | Master Data → Articles | Code auto-gen, `supplier_articles` pivot, import/export, custom fields |
-| **Tags** | Master Data → Tags | Labelling / classification |
-| **Companies** | Workspace → Companies | Unified company record (buyer and/or supplier flags) |
-| **People** | Workspace → People | Contacts, companies M2M, import/export, custom fields |
+| **Buyers** | Master Data → Buyers | Credit limit, available credit, key accounts, portal users, import/export |
+| **Suppliers** | Master Data → Suppliers | `is_taxable` (PKP), delivery terms, portal users, import/export |
+| **People** | Master Data → People | Contacts linked to buyers/suppliers; import/export, custom fields |
+| **Articles** | Master Data → Articles | Code auto-gen, `supplier_articles` pivot, public catalog pricing, import/export, custom fields |
+| **Categories** | Master Data → Categories | Tag-based classification (`TagResource`) |
 | **Currencies** | Settings → Currencies | Default currency per team |
 | **Exchange rates** | Settings → Exchange Rates | Rate history; locked on orders |
 | **Tax codes** | Settings → Tax Codes | Per-line tax rules |
 | **Unit of measures** | Settings → Unit of Measures | UoM for items |
 | **Projects** | Workflow → Projects | Group requests; auto `PRJ-{YYYY}-{NNNN}` |
-| **Team members** | Workspace → Members | Administrator / Editor / Central Purchasing + sub-roles |
+| **Members** | *(ungrouped)* | Administrator / Editor / Central Purchasing + sub-roles |
 
-### 5.15 CRM & Workspace
+### 5.15 People & AI Summaries
 
 | Feature | Detail |
 |---------|--------|
-| **Opportunities** | Pipeline resource + **Opportunities Board** (kanban page) |
-| **Tasks** | Task resource + **Tasks Board** (kanban); linkable to requests |
-| **Notes** | Notes on records; export (`NoteExporter`) |
-| **Companies** | CRM hub; links to opportunities, people |
-| **AI summaries** | `RecordSummaryService` — AI-generated record summaries |
-| **Activity log** | `RequestActivitiesRelationManager` — request audit trail (type, user, metadata) |
-| **Custom fields** | Relaticle Custom Fields on People, Opportunities, Tasks, BuyerQuote, BuyerOrder, Project, etc. |
+| **People / contacts** | Name, phone, email; optional company links; reused as PIC on shipments |
+| **AI summaries** | `RecordSummaryService` — AI-generated summaries for People and Companies (Prism) |
+| **Custom fields** | Relaticle Custom Fields on People, BuyerQuote, BuyerOrder, Project, Articles, etc. |
 
-**On Request View:** Tasks and Notes relation managers available on standard request resource (not all on View page override).
+> **Retired CRM entities:** Opportunities, Tasks, and Notes were removed (July 2026). Deal tracking lives on the Request workflow.
 
-### 5.16 Credit Limit Management
+### 5.16 Public Catalog
+
+- **Storefront** — when `CATALOG_ENABLED=true` (default), `/` shows published articles (`CatalogHome` Livewire)
+- **Article publishing** — **Show in Catalog** + **List Price** on `ArticleResource`; `SuggestArticleListPrice` action from preferred supplier cost
+- **Quote cart** — session cart at `/quote-cart`; `SubmitQuoteCart` creates a portal-originated request
+- **Registration** — `/registration` creates pending `PortalRegistrationRequest` for team approval
+- **Price review** — daily `articles:refresh-price-review` (07:00) flags stale list prices after FX/cost drift
+- **Configuration** — `config/catalog.php`: `CATALOG_ENABLED`, `CATALOG_TEAM_ID`
+
+### 5.17 Buyer Portal
+
+- Filament **customer** panel at `CUSTOMER_PATH` (default `buyer`); separate session cookie (`CUSTOMER_PORTAL_ENABLED` kill switch)
+- **Dashboard** — action items, request overview, active shipments, recent requests
+- **Requests** — `CustomerRequestResource` with buyer quotes, invoices, shipments relation managers
+- **Portal users** — invite/manage from **Master Data → Buyers → Portal Users** (`PortalUsersRelationManager`)
+- **Registration approval** — **Approval → Registrations** (`PortalRegistrationRequestResource`)
+
+### 5.18 Supplier Portal
+
+- Filament **supplier** panel at `SUPPLIER_PATH` (default `supplier`); separate session cookie (`SUPPLIER_PORTAL_ENABLED` kill switch)
+- **Dashboard** — stale prices, open RFQs, RFQ outcome widgets
+- **Quote Requests** — `SupplierRfqResource`; confidentiality via query scope, policy, and column projection
+- **My Articles** — `SupplierArticleResource` for offer pricing on linked articles
+- **Portal users** — invite/manage from **Master Data → Suppliers → Portal Users**
+
+### 5.19 Credit Limit Management
 
 - Per-buyer: `credit_limit`, `available_credit`, `requested_credit_limit`
 - **Credit limit increase requests** — **Approval → Credit Limit** (`BuyerCreditLimitRequestResource`)
@@ -554,12 +580,13 @@ Two different “acceptance” concepts:
 - **Finance → Credit Limits** overview per buyer (`BuyerCreditLimitOverviewResource`)
 - Documented flow: `docs/credit-limit-request-flow.md`
 
-### 5.17 Reminders & Alerts
+### 5.20 Reminders & Alerts
 
-Proactive notifications so quotes, supplier responses, and invoices do not slip:
+Proactive notifications so quotes, supplier responses, invoices, and catalog prices do not slip:
 
 | Schedule | Job | Who is notified |
 |----------|-----|-----------------|
+| 07:00 daily | Catalog price review (`articles:refresh-price-review`) | Flags articles needing list-price review (supplier stale-prices widget) |
 | 08:00 daily | Expiring buyer quotes (7 / 3 / 1 days) | Quote creator |
 | 08:30 daily | Expired buyer quotes (previous day) | Buyer + key accounts (email + in-app) |
 | 09:00 daily | Overdue invoices | Invoice creator (`InvoiceOverdueNotification`) |
@@ -571,14 +598,24 @@ Proactive notifications so quotes, supplier responses, and invoices do not slip:
 |--------|-------|
 | `ActiveRequestsWidget` | Counts by phase: quotation / ordering / fulfillment |
 | `QuotesExpiringWidget` | Buyer quotes expiring within window |
-| `PipelineByStageWidget` | Opportunity pipeline breakdown |
+| `PipelineByStageWidget` | Active requests by stage (count + value) |
 | `MonthlyRevenueWidget` | Buyer invoice revenue trends |
 | `AwaitingPaymentWidget` | Outstanding buyer invoices with overdue highlight |
 | `RequiresAttentionWidget` | Mixed queue: expiring quotes, overdue invoices, stale orders/shipments |
 
-> *Invoice, quote, and supplier-follow-up reminders — tanpa follow-up manual di email.*
+> *Invoice, quote, supplier-follow-up, and catalog price reminders — tanpa follow-up manual di email.*
 
-### 5.18 Platform & Automation
+### 5.21 Platform & Automation
+
+**Multi-panel architecture**
+
+| Panel | Path / domain | Purpose |
+|-------|---------------|---------|
+| App | `app.{domain}` | Internal team workspace (default Filament tenant panel) |
+| Buyer portal | `CUSTOMER_PATH` (default `buyer`) | Buyer self-service |
+| Supplier portal | `SUPPLIER_PATH` (default `supplier`) | Supplier RFQs and article pricing |
+| Public catalog | `APP_URL` `/` | Published articles and quote cart |
+| System Admin | `SYSADMIN_PATH` (default `sysadmin`) | Cross-tenant administration module |
 
 **Multi-team (Jetstream tenants)**
 
@@ -611,7 +648,7 @@ Proactive notifications so quotes, supplier responses, and invoices do not slip:
 
 | Import + export | Export only |
 |-----------------|-------------|
-| People, Buyers, Suppliers, Articles, Opportunities | QE, PNL, Buyer/Supplier Quotes, Buyer/Supplier Orders, Notes, Companies |
+| People, Buyers, Suppliers, Articles | QE, PNL, Buyer/Supplier Quotes, Buyer/Supplier Orders |
 
 Export uses `ExportCompletion` job for reliable download links when queued.
 
@@ -643,7 +680,7 @@ Export uses `ExportCompletion` job for reliable download links when queued.
 | `InvoiceToBuyerMail` | Invoice to buyer |
 | `CreditLimitIncreaseRequestMail` | Credit limit request created |
 
-**Scheduled jobs** (`routes/console.php`) — see §5.17.
+**Scheduled jobs** (`routes/console.php`) — see §5.20.
 
 **Documents** — see §5.12.
 
@@ -672,7 +709,7 @@ Export uses `ExportCompletion` job for reliable download links when queued.
 | **Purchases** (supplier POs) | CP | Preparing supplier order | Order from chosen vendors | Create PO per supplier; confirm → route to senior approval |
 | **Goods Receive** | CP, warehouse | Goods receive | Prove goods arrived from supplier | Upload GR documents; wait for **Approval → Goods Receive** |
 | **Invoices** (buyer orders) | CP | Awaiting buyer confirmation+ | Record customer order / billing basis | Create buyer order from accepted quote; send to buyer; track payment terms |
-| **Inbound Shipments** | CP, logistics | Awaiting shipment+ *(goods only)* | Deliver to customer; issue DO | Create shipment, set PIC, generate DO PDF, email buyer |
+| **Fulfillment** | CP, logistics | Awaiting shipment+ | Deliver goods or sign off services | **Goods:** create shipment, set PIC, DO PDF. **Services:** file acceptance report in same tab |
 | **Completion Report** | CP, Fin | Delivered / closing | Close job; payment evidence | Upload completion docs; mark payment documents for finance approval |
 
 ### 6.2 Approval menu (control & sign-off)
@@ -685,6 +722,7 @@ Export uses `ExportCompletion` job for reliable download links when queued.
 | **Credit Limit Acceptances** | KA (QE/PNL/PO docs); Fin (payment docs) | After document upload | Official sign-off audit trail | Open pending row → View Document → Approve |
 | **Goods Receive** | Approver per policy | After GR upload | Verify receipt paperwork before shipping | Review GR batch → approve |
 | **Credit Limit Requests** | Fin (×2) | Buyer needs higher limit | Control AR exposure | Review request → approve; limit updates automatically |
+| **Registrations** | CP, admin | Public catalog signup | Onboard buyer portal users | Review **Approval → Registrations**; approve or reject |
 
 ### 6.3 Master data (setup & maintenance)
 
@@ -693,7 +731,9 @@ Export uses `ExportCompletion` job for reliable download links when queued.
 | **Buyers** | CP, KA, admin | Before / during deals | Customer master, credit | Create buyer; assign key accounts; set credit limit |
 | **Suppliers** | CP, admin | Before tendering | Vendor master, PKP flag | Create supplier; set `is_taxable`; link to articles |
 | **Articles** | CP, admin | Before item matching | Product catalog for matching & tender | Create article; link **multiple suppliers**; import bulk |
-| **Tags** | Admin, CP | Anytime | Organize catalog / records | Tag articles or entities for filtering |
+| **Registrations** | CP, admin | Public catalog signup | Onboard new buyer portal users | Review **Approval → Registrations**; approve or reject |
+| **Portal users** | CP, KA | Buyer/supplier onboarding | Self-service access | Invite from buyer/supplier **Portal Users** tab |
+| **Categories** | Admin, CP | Anytime | Organize catalog / records | Tag articles for catalog navigation and filtering |
 | **Projects** | CP, KA | Multi-request deals | Group spend and revenue | Create project; link requests |
 
 ### 6.4 Finance menu (cross-request visibility)
@@ -706,16 +746,15 @@ Export uses `ExportCompletion` job for reliable download links when queued.
 | **Supplier Orders** (list) | CP | After PO approved/sent | PO register | Track sent/delivered POs |
 | **Credit Limits** | Fin, KA | Ongoing | Monitor buyer credit usage | View limit, used, available per buyer |
 
-### 6.5 Workspace & CRM (relationships)
+### 6.5 People, portals & catalog (external users)
 
 | Feature | Who | When | Why | How |
 |---------|-----|------|-----|-----|
-| **Companies** | Sales, CP | Lead / account setup | Single company record | Create company; flag buyer/supplier |
-| **People** | Sales, CP | Contact management | Who to call (also **PIC** on shipments) | Add contact; link to companies |
-| **Opportunities** | Sales | Pre-request pipeline | Track deals before they become requests | Board or list; convert to request when won |
-| **Tasks** | All roles | Anytime | Follow-ups don’t get lost | Assign task on request or company |
-| **Notes** | All roles | Anytime | Institutional memory | Log call/meeting notes on records |
-| **Members** | Admin | Onboarding | Who can access team | Invite user; set role + CP sub-role |
+| **People** | Sales, CP | Contact management | Who to call (also **PIC** on shipments) | Add contact; link to buyers/suppliers |
+| **Buyer portal** | Buyer users | After invitation | Self-service requests, quotes, shipments | Log in at buyer portal; create/track requests |
+| **Supplier portal** | Supplier users | After invitation | Respond to RFQs; maintain article prices | Log in at supplier portal; submit quotes |
+| **Public catalog** | Prospective buyers | Pre-deal | Browse published articles | Add to quote cart; submit request or register |
+| **Members** | Admin | Onboarding | Who can access internal team | Invite user; set role + CP sub-role |
 
 ### 6.6 Settings & automation
 
@@ -729,7 +768,7 @@ Export uses `ExportCompletion` job for reliable download links when queued.
 | **Unit of measures** | Admin | Item setup | Consistent qty units | Maintain UoM list |
 | **Import / export** | Admin, CP | Data migration; reporting | Bulk load or extract | Use list-page Import/Export on supported resources |
 | **Dashboard widgets** | CP, Fin, management | Daily | What needs attention today | Home: expiring quotes, overdue payments, active requests |
-| **Scheduled reminders** | System | Daily 08:00–10:00 | No missed deadlines | Automatic — no user action |
+| **Scheduled reminders** | System | Daily 07:00–10:00 | No missed deadlines | Automatic — no user action |
 
 ### 6.7 Goods vs service requests
 
@@ -738,7 +777,7 @@ Export uses `ExportCompletion` job for reliable download links when queued.
 | Physical product buy/sell | ✅ | — |
 | Project-based services (consulting, works) | — | ✅ |
 | Child line detail on quote | Optional | ✅ Main + child items |
-| Inbound shipment / DO | ✅ | — (use Completion Report) |
+| Fulfillment tab | ✅ Shipments + DO | ✅ Acceptance reports |
 | Goods receive documents | ✅ | Optional / lighter |
 | QE / PNL / PO approval | ✅ Same approval pattern | ✅ Same pattern |
 
@@ -749,7 +788,6 @@ Export uses `ExportCompletion` job for reliable download links when queued.
 | **Buyer invoice** (standalone) | AR billing separate from buyer order | Model + overdue widgets; **no create/edit screen yet** |
 | **Supplier invoice / payment** | AP tracking | Models only; **use PO + completion docs for now** |
 | **Request activity log** | Audit on request | Exists on resource; **not on Request View tabs** |
-| **Service acceptance reports** (AR- number) | Service delivery sign-off | Model exists; **Completion Report tab used on View** |
 
 ---
 
@@ -795,7 +833,7 @@ flowchart LR
 | **QE / PNL as documents** | Usually custom forms / third-party or spreadsheets | First-class entities with PDF + approval |
 | **CP approval matrix** | Workflow in SAP Business Workflow / BTP — project-specific | Built-in: QE, PNL, dual PO, Credit Limit Acceptances |
 | **Margin analysis** | Often report-based or external | On-request PNL before order placement |
-| **CRM** | SAP Sales Cloud / separate CRM license | Included: people, opportunities, tasks, notes |
+| **CRM** | SAP Sales Cloud / separate CRM license | People, AI summaries, buyer/supplier portals |
 | **Customization** | ABAP, Fiori, consulting-heavy | Laravel/Filament, faster iteration |
 | **Multi-entity / team** | Company codes, plants, sales orgs | Team workspaces with ERP settings per team |
 
@@ -829,7 +867,7 @@ flowchart LR
 | **SAP already in place** | **ERPC = jembatan operasional**; SAP for GL/AP/AR; ERPC for request-to-PO |
 | SAP for GL, ERPC for trading ops | ERPC owns request-to-PO; finance posts summaries to SAP |
 | Spreadsheet replacement | ERPC replaces QE/PNL/quote trackers first |
-| CRM replacement | ERPC CRM + trading avoids separate Salesforce + ops tools |
+| CRM replacement | ERPC People + portals + Request workflow avoids separate Salesforce + ops tools |
 
 **Business takeaway:** Choose SAP when the organization is a **full ERP enterprise** with complex finance and supply chain at global scale. Choose ERPC when the priority is **procurement B2B execution, auto tender, margin control, and CP approvals** — as the daily operations layer, with or without SAP behind it.
 
@@ -840,10 +878,11 @@ flowchart LR
 | Layer | Technology |
 |-------|------------|
 | Backend | PHP 8.4 · Laravel 12 |
-| Admin UI | Filament 5 · Livewire 4 |
+| Admin UI | Filament 5 · Livewire 4 (app, buyer, supplier, system-admin panels) |
 | Database | PostgreSQL 15+ |
-| Frontend | Tailwind CSS 4 |
-| Queue | Redis (optional) |
+| Frontend | Tailwind CSS 4 · public catalog (Livewire) |
+| Queue / cache | Redis (recommended) · Laravel Horizon |
+| Integrations | Spatie (permissions, media, activity log, custom fields) · Prism (AI summaries) |
 
 ---
 
@@ -859,9 +898,10 @@ flowchart LR
 | Generate PDF + re-upload | Audit trail for signed documents |
 | Service requests (jual jasa) | Goods and services in one platform |
 | Project grouping | Purchases and spend rolled up per project |
-| Reminders (quote · supplier · invoice) | Proactive follow-up |
+| Reminders (quote · supplier · invoice · catalog price) | Proactive follow-up |
+| Buyer & supplier portals + public catalog | Self-service without losing CP control |
 | Credit Limit Acceptances | Central document approval for CP and finance |
-| CRM + master data | Relationships and catalog beside transactions |
+| People + master data | Contacts and catalog beside transactions |
 | Multi-team · roles · email automation | Secure, branded operations |
 | Import/export | Data mobility and reduced manual entry |
 
@@ -877,7 +917,6 @@ flowchart LR
 |-------|-----------|-----------------|
 | **Workflow** | Requests | `RequestResource` |
 | **Workflow** | Projects | `ProjectResource` |
-| **Workflow** | Acceptance Reports | `AcceptanceReportResource` (service requests) |
 | **Master Data** | Buyers | `BuyerResource` |
 | **Master Data** | Suppliers | `SupplierResource` |
 | **Master Data** | People | `PeopleResource` |
@@ -904,6 +943,14 @@ flowchart LR
 | **Settings** | Email Templates | `EmailTemplateResource` |
 | *(ungrouped)* | Members | `MemberResource` |
 
+**Buyer portal** (`CustomerPanelProvider`, default path `buyer`): Home · Requests
+
+**Supplier portal** (`SupplierPanelProvider`, default path `supplier`): Home · Quote Requests · My Articles
+
+**Public routes** (`routes/web.php`): `/` catalog · `/quote-cart` · `/registration`
+
+> `AcceptanceReportResource` has `shouldRegisterNavigation = false` — acceptance reports are managed on the Request View **Fulfillment** tab.
+
 ---
 
 ## 11. Feature Verification Notes
@@ -925,13 +972,18 @@ Cross-check of marketing claims vs codebase (honest gaps for stakeholders).
 | Standalone buyer invoice UI | ⚠️ | `BuyerInvoice` model + widgets exist; **no Filament invoice resource** |
 | Standalone supplier invoice / payment UI | ⚠️ | Models exist; **no dedicated Filament resources** |
 | “Invoices” tab | ✅ | UI label for **Buyer Orders** tab — not separate AR module |
-| Service acceptance reports on View | ⚠️ | Model + RM exist; **not in `ViewRequest::getRelationManagers()`** — use Completion Report on view |
+| Buyer portal | ✅ | `CustomerPanelProvider`, `CustomerRequestResource` |
+| Supplier portal | ✅ | `SupplierPanelProvider`, `SupplierRfqResource`, `SupplierArticleResource` |
+| Public catalog + quote cart | ✅ | `CatalogHome`, `SubmitQuoteCart`, `CATALOG_ENABLED` |
+| Portal registration approval | ✅ | `PortalRegistrationRequestResource` |
+| Service acceptance reports on View | ✅ | `AcceptanceReportsRelationManager` inside Fulfillment `RelationGroup` |
+| Opportunities / Tasks / Notes CRM | ❌ | Retired July 2026 — deal tracking on Request workflow |
 | Request activity log on View | ⚠️ | `RequestActivitiesRelationManager` exists but not on View page override |
 | Expense module | ❌ | Not implemented — spend tracked via orders + credit limits |
 
 ---
 
-## Suggested Deck Outline (~38 slides)
+## Suggested Deck Outline (~40 slides)
 
 Expanded outline — one feature area per slide; use **§5** (what it does), **§6** (who/when/why), **§7–§11** as needed.
 
@@ -941,7 +993,7 @@ Expanded outline — one feature area per slide; use **§5** (what it does), **�
 | 2 | Problem: spreadsheets, email, SAP complexity | §1 |
 | 3 | What is ERPC? (middleware / B2B) | §1 |
 | 4 | Who is it for? | §1 · §6 |
-| 5 | Application menu map (6 groups) | §10 |
+| 5 | Application menu map + portals | §10 |
 | 6 | End-to-end lifecycle diagram | §2 |
 | 7 | Quote → purchase 10-step flow | §2 |
 | 8 | Request = one deal hub | §5.1 · §6.1 |
@@ -957,24 +1009,26 @@ Expanded outline — one feature area per slide; use **§5** (what it does), **�
 | 18 | Buyer orders (Invoices tab) | §5.8 · §6.1 |
 | 19 | Supplier orders & dual approval | §5.8 · §6.2 |
 | 20 | Goods receive approval | §5.9 · §6.2 |
-| 21 | Inbound shipments & DO PDF | §5.9 · §6.1 |
+| 21 | Fulfillment — shipments & acceptance reports | §5.9 · §6.1 |
 | 22 | Completion & payment documents | §5.9 · §6.1 · §6.2 |
 | 23 | Service vs goods | §5.11 · §6.7 |
 | 24 | Perpajakan PKP / non-PKP | §5.10 |
 | 25 | Multi-currency | §5.10 · §6.6 |
 | 26 | Documentation generate + re-upload | §5.12 |
 | 27 | Credit Limit Acceptances hub | §5.13 · §6.2 |
-| 28 | Credit limit approval | §5.16 · §6.2 |
+| 28 | Credit limit approval | §5.19 · §6.2 |
 | 29 | Finance / credit transactions | §5.9b · §6.4 |
-| 30 | Reminders & scheduled jobs | §5.17 · §6.6 |
-| 31 | Dashboard widgets | §5.18 · §6.6 |
-| 32 | CRM: People, Opportunities, Tasks | §5.15 · §6.5 |
-| 33 | Email templates & SMTP | §5.18 · §6.6 |
-| 34 | Import / export | §5.18 · §6.6 |
-| 35 | Roles & CP sub-roles | §5.18 |
-| 36 | Team settings & prefixes | §5.18 · §6.6 |
-| 37 | ERPC vs SAP (bridge) | §7 |
-| 38 | Summary & Q&A | §9 |
+| 30 | Public catalog & quote cart | §5.16 · §6.5 |
+| 31 | Buyer & supplier portals | §5.17–5.18 · §6.5 |
+| 32 | Reminders & scheduled jobs | §5.20 · §6.6 |
+| 33 | Dashboard widgets | §5.21 · §6.6 |
+| 34 | People & AI summaries | §5.15 · §6.5 |
+| 35 | Email templates & SMTP | §5.21 · §6.6 |
+| 36 | Import / export | §5.21 · §6.6 |
+| 37 | Roles & CP sub-roles | §5.21 |
+| 38 | Team settings & prefixes | §5.21 · §6.6 |
+| 39 | ERPC vs SAP (bridge) | §7 |
+| 40 | Summary & Q&A | §9 |
 
 **Design tips:** Pair capability slides (§5) with usage slides (§6) — e.g. slide 15 = what QE is, optional slide 15b = who approves QE and when. Show §10 menu map as overview. Technical gaps: §11.
 

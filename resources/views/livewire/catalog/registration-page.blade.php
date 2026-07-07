@@ -2,10 +2,10 @@
     <h1 class="text-2xl font-bold text-black dark:text-white mb-2">Register for Buyer Portal Access</h1>
 
     @if ($submitted)
-        <div class="flex flex-col items-center gap-4 rounded-xl border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/40 p-10 text-center mt-6">
-            <x-heroicon-o-check-circle class="h-14 w-14 text-green-600 dark:text-green-400"/>
-            <p class="text-lg font-semibold text-green-800 dark:text-green-300">Application received</p>
-            <p class="text-sm text-green-700 dark:text-green-400">
+        <div class="flex flex-col items-center gap-4 rounded-xl border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/40 p-10 text-center mt-6 p-4">
+            <x-heroicon-o-check-circle class="h-10 w-10 text-green-600 dark:text-green-400"/>
+            <p class="text-lg font-semibold text-green-800 dark:text-gray-300">Application received</p>
+            <p class="text-sm text-green-700 dark:text-gray-200">
                 Your application is awaiting approval. We will notify you by email as soon as a decision has been made.
                 You will not be able to sign in until your application is approved.
             </p>

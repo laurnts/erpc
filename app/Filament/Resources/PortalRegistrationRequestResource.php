@@ -11,8 +11,11 @@ use App\Filament\Resources\PortalRegistrationRequestResource\Pages\ListPortalReg
 use App\Models\PortalRegistrationRequest;
 use App\Models\User;
 use Filament\Actions\Action;
+use Filament\Actions\ViewAction;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -87,7 +90,11 @@ final class PortalRegistrationRequestResource extends Resource
                 SelectFilter::make('status')
                     ->options(PortalRegistrationStatus::class),
             ])
+            ->recordAction('view')
             ->recordActions([
+                ViewAction::make()
+                    ->modalHeading('Registration details')
+                    ->schema(fn (PortalRegistrationRequest $record): array => self::getViewSchema($record)),
                 Action::make('approve')
                     ->label('Approve')
                     ->icon('heroicon-o-check')
@@ -150,6 +157,50 @@ final class PortalRegistrationRequestResource extends Resource
                     }),
             ])
             ->defaultSort('created_at', 'desc');
+    }
+
+    /**
+     * @return array<int, \Filament\Schemas\Components\Component|\Filament\Infolists\Components\Entry>
+     */
+    private static function getViewSchema(PortalRegistrationRequest $record): array
+    {
+        return [
+            Section::make('Application')
+                ->schema([
+                    TextEntry::make('name')
+                        ->state($record->name),
+                    TextEntry::make('email')
+                        ->state($record->email),
+                    TextEntry::make('company_name')
+                        ->label('Company')
+                        ->state($record->company_name),
+                    TextEntry::make('phone')
+                        ->state($record->phone)
+                        ->placeholder('-'),
+                    TextEntry::make('message')
+                        ->state($record->message)
+                        ->placeholder('-')
+                        ->columnSpanFull(),
+                    TextEntry::make('status')
+                        ->state($record->status)
+                        ->badge(),
+                    TextEntry::make('created_at')
+                        ->label('Applied at')
+                        ->state($record->created_at)
+                        ->dateTime(),
+                    TextEntry::make('decidedBy.name')
+                        ->label('Decided by')
+                        ->state($record->decidedBy?->name)
+                        ->placeholder('-')
+                        ->visible($record->decided_at !== null),
+                    TextEntry::make('decided_at')
+                        ->label('Decided at')
+                        ->state($record->decided_at)
+                        ->dateTime()
+                        ->visible($record->decided_at !== null),
+                ])
+                ->columns(2),
+        ];
     }
 
     /**

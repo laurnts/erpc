@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\CreationSource;
 use App\Enums\DeliveryType;
+use App\Enums\PortalType;
 use App\Models\Concerns\HasAiSummary;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTags;
@@ -333,6 +334,20 @@ final class Company extends Model implements HasCustomFields, HasMedia
     public function portalMemberships(): HasMany
     {
         return $this->hasMany(CompanyPortalUser::class, 'company_id');
+    }
+
+    /**
+     * Whether this company already has at least one user who can log in to the
+     * given portal for the team — i.e. an Active membership row.
+     */
+    public function hasActivePortalMembership(PortalType $portal, int $teamId): bool
+    {
+        return $this->portalMemberships()
+            ->where('team_id', $teamId)
+            ->where('portal', $portal)
+            ->where('is_active', true)
+            ->whereNotNull('user_id')
+            ->exists();
     }
 
     /**

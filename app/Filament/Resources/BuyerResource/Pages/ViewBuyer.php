@@ -27,7 +27,19 @@ final class ViewBuyer extends ViewRecord
                 ->label('Invite Portal User')
                 ->icon('heroicon-o-envelope')
                 ->color('primary')
-                ->visible(fn (): bool => (bool) config('app.customer_portal_enabled', true))
+                ->visible(function (): bool {
+                    if (! config('app.customer_portal_enabled', true)) {
+                        return false;
+                    }
+
+                    /** @var \App\Models\Company $record */
+                    $record = $this->getRecord();
+
+                    /** @var \App\Models\Team $team */
+                    $team = Filament::getTenant();
+
+                    return ! $record->hasActivePortalMembership(PortalType::Customer, $team->getKey());
+                })
                 ->schema([
                     TextInput::make('name')
                         ->label('Contact Name')

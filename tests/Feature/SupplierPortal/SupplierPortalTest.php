@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Actions\Portal\InvitePortalUser;
 use App\Enums\PortalType;
 use App\Filament\Supplier\Pages\AcceptPortalInvitation;
+use App\Filament\Supplier\Pages\Auth\SupplierLogin;
 use App\Filament\Supplier\Pages\SupplierDashboard;
 use App\Filament\Supplier\Resources\SupplierArticleResource;
 use App\Filament\Supplier\Resources\SupplierArticleResource\Pages\EditSupplierArticle;
@@ -142,6 +143,32 @@ describe('Supplier Portal Access', function (): void {
             ->assertOk()
             ->assertSee('Supplier Sign in')
             ->assertSee('Sign In');
+    });
+
+    it('redirects supplier login to dashboard not stale admin intended url', function (): void {
+        session(['url.intended' => url()->getAppUrl('login')]);
+
+        $this->actingAs($this->portalUser, 'supplier');
+        Filament::setCurrentPanel('supplier');
+
+        expect(app(\App\Http\Responses\LoginResponse::class)
+            ->toResponse(request())
+            ->getTargetUrl())
+            ->toBe(SupplierDashboard::getUrl(panel: 'supplier'));
+    });
+
+    it('authenticates supplier via livewire and redirects to dashboard', function (): void {
+        Filament::setCurrentPanel('supplier');
+
+        livewire(SupplierLogin::class)
+            ->fillForm([
+                'email' => $this->portalUser->email,
+                'password' => 'password',
+            ])
+            ->call('authenticate')
+            ->assertRedirect(SupplierDashboard::getUrl(panel: 'supplier'));
+
+        $this->assertAuthenticatedAs($this->portalUser, 'supplier');
     });
 
     it('resolves supplier portal team and company from context', function (): void {

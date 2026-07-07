@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Enums\PortalType;
+use App\Models\CompanyPortalUser;
 use App\Models\User;
 use Filament\Facades\Filament;
 
@@ -23,6 +25,48 @@ it('can render the view page', function (): void {
 
     livewire(App\Filament\Resources\BuyerResource\Pages\ViewBuyer::class, ['record' => $record->getKey()])
         ->assertOk();
+});
+
+it('shows invite portal user action when buyer has no active portal access', function (): void {
+    $record = App\Models\Company::factory()->buyer()->for($this->user->personalTeam())->create();
+
+    livewire(App\Filament\Resources\BuyerResource\Pages\ViewBuyer::class, ['record' => $record->getKey()])
+        ->assertActionVisible('invitePortalUser');
+});
+
+it('hides invite portal user action when buyer already has active portal access', function (): void {
+    $record = App\Models\Company::factory()->buyer()->for($this->user->personalTeam())->create();
+    $portalUser = User::factory()->create();
+
+    CompanyPortalUser::query()->create([
+        'team_id' => $this->user->personalTeam()->getKey(),
+        'company_id' => $record->getKey(),
+        'user_id' => $portalUser->getKey(),
+        'portal' => PortalType::Customer,
+        'invited_by' => $this->user->getKey(),
+        'is_active' => true,
+    ]);
+
+    livewire(App\Filament\Resources\BuyerResource\Pages\ViewBuyer::class, ['record' => $record->getKey()])
+        ->assertActionHidden('invitePortalUser');
+});
+
+it('shows invite portal user action when buyer only has a pending invitation', function (): void {
+    $record = App\Models\Company::factory()->buyer()->for($this->user->personalTeam())->create();
+
+    CompanyPortalUser::query()->create([
+        'team_id' => $this->user->personalTeam()->getKey(),
+        'company_id' => $record->getKey(),
+        'user_id' => null,
+        'portal' => PortalType::Customer,
+        'invited_by' => $this->user->getKey(),
+        'is_active' => false,
+        'invited_name' => 'Pending Person',
+        'invited_email' => 'pending@portal.test',
+    ]);
+
+    livewire(App\Filament\Resources\BuyerResource\Pages\ViewBuyer::class, ['record' => $record->getKey()])
+        ->assertActionVisible('invitePortalUser');
 });
 
 it('can render `:dataset` column', function (string $column): void {
