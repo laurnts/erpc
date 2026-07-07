@@ -87,7 +87,7 @@ it('activates the same membership row on acceptance instead of creating a duplic
 
     $invitation = App\Models\PortalInvitation::query()->where('email', 'fresh@buyer.test')->firstOrFail();
 
-    $user = app(App\Actions\Portal\AcceptPortalInvitation::class)->execute($invitation, 'Fresh Invitee', 'secret-password');
+    $user = app(App\Actions\Portal\AcceptPortalInvitation::class)->acceptAsNewUser($invitation, 'Fresh Invitee', 'secret-password');
 
     $memberships = CompanyPortalUser::query()
         ->where('company_id', $this->buyer->getKey())

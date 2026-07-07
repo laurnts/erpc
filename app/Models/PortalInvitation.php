@@ -20,6 +20,7 @@ use Illuminate\Support\Str;
  * @property int $invited_by
  * @property string $token
  * @property Carbon|null $accepted_at
+ * @property Carbon|null $expires_at
  */
 final class PortalInvitation extends Model
 {
@@ -35,6 +36,7 @@ final class PortalInvitation extends Model
         'invited_by',
         'token',
         'accepted_at',
+        'expires_at',
     ];
 
     /**
@@ -45,6 +47,7 @@ final class PortalInvitation extends Model
         return [
             'portal' => PortalType::class,
             'accepted_at' => 'datetime',
+            'expires_at' => 'datetime',
         ];
     }
 
@@ -56,6 +59,11 @@ final class PortalInvitation extends Model
     public function isAccepted(): bool
     {
         return $this->accepted_at !== null;
+    }
+
+    public function isExpired(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isPast();
     }
 
     public function markAccepted(): void

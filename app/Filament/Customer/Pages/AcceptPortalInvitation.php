@@ -9,6 +9,7 @@ use App\Enums\PortalType;
 use App\Http\Middleware\AuthenticatePanelUser;
 use App\Http\Middleware\InitializeCustomerPortalContext;
 use App\Models\PortalInvitation;
+use App\Models\User;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -17,7 +18,6 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Panel;
 use Filament\Schemas\Schema;
-use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Validation\Rules\Password;
 
 final class AcceptPortalInvitation extends Page implements HasForms
@@ -56,6 +56,13 @@ final class AcceptPortalInvitation extends Page implements HasForms
     public ?PortalInvitation $invitation = null;
 
     /**
+     * Whether the invited email already has a user account. Existing accounts
+     * accept by signing in (no password set here); only new emails create an
+     * account through the form below.
+     */
+    public bool $accountExists = false;
+
+    /**
      * @var array<string, mixed>|null
      */
     public ?array $data = [];
@@ -68,32 +75,42 @@ final class AcceptPortalInvitation extends Page implements HasForms
             ->where('token', $token)
             ->where('portal', PortalType::Customer)
             ->whereNull('accepted_at')
+            ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->with('company')
             ->firstOrFail();
 
-        $this->form->fill([
-            'name' => $this->invitation->name,
-            'email' => $this->invitation->email,
-        ]);
+        $this->accountExists = User::query()->where('email', $this->invitation->email)->exists();
+
+        if (! $this->accountExists) {
+            /** @phpstan-ignore property.notFound */
+            $this->form->fill([
+                'name' => $this->invitation->name,
+                'email' => $this->invitation->email,
+            ]);
+        }
     }
 
-    public function getTitle(): string|Htmlable
+    public function getTitle(): string
     {
         return 'Accept Portal Invitation';
     }
 
-    public function getHeading(): string|Htmlable
+    public function getHeading(): string
     {
-        return 'Create Buyer Portal Account';
+        return $this->accountExists ? 'Accept Portal Invitation' : 'Create Buyer Portal Account';
     }
 
-    public function getSubheading(): string|Htmlable|null
+    public function getSubheading(): string
     {
         return 'You have been invited to access the portal for '.$this->invitation?->company?->name;
     }
 
     public function form(Schema $schema): Schema
     {
+        if ($this->accountExists) {
+            return $schema->components([])->statePath('data');
+        }
+
         return $schema
             ->components([
                 TextInput::make('name')
@@ -128,9 +145,16 @@ final class AcceptPortalInvitation extends Page implements HasForms
             return;
         }
 
+        if ($this->accountExists) {
+            $this->acceptAsExistingUser();
+
+            return;
+        }
+
+        /** @phpstan-ignore property.notFound */
         $data = $this->form->getState();
 
-        app(AcceptPortalInvitationAction::class)->execute(
+        app(AcceptPortalInvitationAction::class)->acceptAsNewUser(
             $this->invitation,
             (string) $data['name'],
             (string) $data['password'],
@@ -143,5 +167,35 @@ final class AcceptPortalInvitation extends Page implements HasForms
             ->send();
 
         $this->redirect(filament()->getPanel('customer')->getLoginUrl());
+    }
+
+    private function acceptAsExistingUser(): void
+    {
+        /** @var User|null $user */
+        $user = auth('customer')->user();
+
+        if ($user === null || $user->email !== $this->invitation->email) {
+            session()->put('url.intended', url()->getCustomerPortalUrl('invitation/'.$this->token));
+
+            Notification::make()
+                ->title('Please sign in to accept')
+                ->body('This invitation is for '.$this->invitation->email.'. Sign in to that account to accept it.')
+                ->warning()
+                ->send();
+
+            $this->redirect(filament()->getPanel('customer')->getLoginUrl());
+
+            return;
+        }
+
+        app(AcceptPortalInvitationAction::class)->acceptAsExistingUser($this->invitation, $user);
+
+        Notification::make()
+            ->title('Access granted')
+            ->body('You now have access to '.$this->invitation->company?->name.'.')
+            ->success()
+            ->send();
+
+        $this->redirect(CustomerDashboard::getUrl(panel: 'customer'));
     }
 }

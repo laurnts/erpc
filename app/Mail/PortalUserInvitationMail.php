@@ -6,6 +6,7 @@ namespace App\Mail;
 
 use App\Enums\PortalType;
 use App\Models\PortalInvitation;
+use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -31,6 +32,8 @@ final class PortalUserInvitationMail extends Mailable
 
     public function content(): Content
     {
+        $recipientHasAccount = User::query()->where('email', $this->invitation->email)->exists();
+
         return new Content(
             markdown: 'emails.portal-user-invitation',
             with: [
@@ -38,7 +41,8 @@ final class PortalUserInvitationMail extends Mailable
                 'acceptUrl' => $this->acceptUrl,
                 'companyName' => $this->invitation->company->name,
                 'portalName' => $this->portalName(),
-                'portalPitch' => $this->portalPitch(),
+                'portalPitch' => $this->portalPitch($recipientHasAccount),
+                'buttonLabel' => $recipientHasAccount ? 'Sign in to accept' : 'Accept Invitation',
             ],
         );
     }
@@ -48,8 +52,12 @@ final class PortalUserInvitationMail extends Mailable
         return $this->invitation->portal === PortalType::Supplier ? 'Supplier' : 'Buyer';
     }
 
-    private function portalPitch(): string
+    private function portalPitch(bool $recipientHasAccount): string
     {
+        if ($recipientHasAccount) {
+            return 'You already have an account. Sign in to accept access to '.$this->invitation->company->name.'.';
+        }
+
         return $this->invitation->portal === PortalType::Supplier
             ? 'Click the button below to create your account, maintain your article prices and availability, and respond to quote requests.'
             : 'Click the button below to create your account and start submitting goods and services requests on your own.';

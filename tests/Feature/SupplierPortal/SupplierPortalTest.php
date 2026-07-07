@@ -240,14 +240,14 @@ describe('Supplier Portal Invitation', function (): void {
         Mail::assertNothingSent();
     });
 
-    it('rejects invitation when email belongs to an existing user', function (): void {
+    it('rejects inviting a user who already has access to the supplier', function (): void {
         Mail::fake();
 
         expect(fn () => app(InvitePortalUser::class)->execute(
             team: $this->team,
             company: $this->supplier,
             portal: PortalType::Supplier,
-            email: $this->portalUser->email,
+            email: $this->portalUser->email, // already an active member of this supplier
             name: 'Supplier Contact',
             invitedBy: $this->admin,
         ))->toThrow(\Illuminate\Validation\ValidationException::class);
@@ -255,6 +255,71 @@ describe('Supplier Portal Invitation', function (): void {
         Mail::assertNothingSent();
 
         expect(PortalInvitation::query()->where('email', $this->portalUser->email)->exists())->toBeFalse();
+    });
+
+    it('invites an existing user to a supplier they do not yet belong to', function (): void {
+        Mail::fake();
+
+        $existing = User::factory()->create(['email' => 'existing.supplier@supplier.test']);
+        $otherSupplier = Company::factory()->supplier()->for($this->team)->create();
+
+        $invitation = app(InvitePortalUser::class)->execute(
+            team: $this->team,
+            company: $otherSupplier,
+            portal: PortalType::Supplier,
+            email: $existing->email,
+            name: 'Existing Supplier Contact',
+            invitedBy: $this->admin,
+        );
+
+        expect($invitation->company_id)->toBe($otherSupplier->getKey());
+        Mail::assertSent(\App\Mail\PortalUserInvitationMail::class);
+    });
+
+    it('lets an existing user accept a supplier invitation to an additional company', function (): void {
+        $existing = User::factory()->create([
+            'email' => 'multi@supplier.test',
+            'password' => \Illuminate\Support\Facades\Hash::make('original-password'),
+        ]);
+        $otherSupplier = Company::factory()->supplier()->for($this->team)->create();
+
+        $invitation = PortalInvitation::query()->create([
+            'team_id' => $this->team->getKey(),
+            'company_id' => $otherSupplier->getKey(),
+            'email' => 'multi@supplier.test',
+            'name' => 'Multi Supplier',
+            'portal' => PortalType::Supplier,
+            'invited_by' => $this->admin->getKey(),
+            'token' => PortalInvitation::generateToken(),
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        CompanyPortalUser::query()->create([
+            'team_id' => $this->team->getKey(),
+            'company_id' => $otherSupplier->getKey(),
+            'user_id' => null,
+            'portal' => PortalType::Supplier,
+            'invited_by' => $this->admin->getKey(),
+            'is_active' => false,
+            'invited_name' => 'Multi Supplier',
+            'invited_email' => 'multi@supplier.test',
+        ]);
+
+        Filament::setCurrentPanel('supplier');
+        $this->actingAs($existing, 'supplier');
+
+        livewire(AcceptPortalInvitation::class, ['token' => $invitation->token])
+            ->call('accept')
+            ->assertHasNoErrors();
+
+        expect(User::query()->where('email', 'multi@supplier.test')->count())->toBe(1)
+            ->and(\Illuminate\Support\Facades\Hash::check('original-password', (string) $existing->fresh()?->password))->toBeTrue()
+            ->and(CompanyPortalUser::query()
+                ->where('company_id', $otherSupplier->getKey())
+                ->where('user_id', $existing->getKey())
+                ->where('is_active', true)
+                ->exists())->toBeTrue()
+            ->and($invitation->fresh()?->accepted_at)->not->toBeNull();
     });
 
     it('does not resolve customer-typed invitation tokens on the supplier accept page', function (): void {

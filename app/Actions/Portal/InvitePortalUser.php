@@ -21,9 +21,17 @@ use Illuminate\Validation\ValidationException;
  * and the invitation mail copy. Alongside the invitation (the token carrier),
  * an Invited-state membership row is created so the person is visible in the
  * Portal Users list from the moment of invitation.
+ *
+ * An email that already has a user account may be invited to companies they
+ * do not yet belong to — one person can hold portal access at several
+ * companies. Acceptance requires them to sign in first (never a password
+ * reset); the only block is re-inviting someone who already has a membership
+ * row for this company+portal (reactivate that row instead).
  */
 final readonly class InvitePortalUser
 {
+    private const int EXPIRY_DAYS = 7;
+
     public function execute(
         Team $team,
         Company $company,
@@ -34,13 +42,7 @@ final readonly class InvitePortalUser
     ): PortalInvitation {
         $this->assertCompanyHoldsPortalRole($company, $portal);
 
-        if (User::query()->where('email', $email)->exists()) {
-            $portalLabel = $portal === PortalType::Supplier ? 'supplier portal' : 'customer portal';
-
-            throw ValidationException::withMessages([
-                'email' => ["A user with this email address already has an account. Only new users can be invited to the {$portalLabel}."],
-            ]);
-        }
+        $this->assertNoExistingMembership($company, $portal, $email);
 
         $invitation = DB::transaction(function () use ($team, $company, $portal, $email, $name, $invitedBy): PortalInvitation {
             PortalInvitation::query()
@@ -58,6 +60,7 @@ final readonly class InvitePortalUser
                 'portal' => $portal,
                 'invited_by' => $invitedBy->getKey(),
                 'token' => PortalInvitation::generateToken(),
+                'expires_at' => now()->addDays(self::EXPIRY_DAYS),
             ]);
 
             CompanyPortalUser::query()->updateOrCreate(
@@ -88,6 +91,38 @@ final readonly class InvitePortalUser
         Mail::to($email)->send(new PortalUserInvitationMail($invitation, $acceptUrl));
 
         return $invitation;
+    }
+
+    /**
+     * A person may belong to many companies, but only one membership row may
+     * exist per company+portal (the DB enforces this). Re-inviting someone who
+     * already has such a row — active or deactivated — would collide on
+     * acceptance, so it is blocked here with guidance toward the Portal Users
+     * list, where the row can be reactivated.
+     */
+    private function assertNoExistingMembership(Company $company, PortalType $portal, string $email): void
+    {
+        $user = User::query()->where('email', $email)->first();
+
+        if ($user === null) {
+            return;
+        }
+
+        $membership = CompanyPortalUser::query()
+            ->where('company_id', $company->getKey())
+            ->where('portal', $portal)
+            ->where('user_id', $user->getKey())
+            ->first();
+
+        if ($membership === null) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'email' => [$membership->is_active
+                ? 'This person already has access to this company. Manage them from the Portal Users list.'
+                : 'This person had access that was deactivated. Reactivate them from the Portal Users list instead of re-inviting.'],
+        ]);
     }
 
     private function assertCompanyHoldsPortalRole(Company $company, PortalType $portal): void

@@ -240,7 +240,7 @@ describe('Customer Portal Access', function (): void {
 });
 
 describe('Portal Invitation Security', function (): void {
-    it('rejects invitation when email belongs to an existing user', function (): void {
+    it('rejects inviting a user who already has access to the company', function (): void {
         Mail::fake();
 
         $this->actingAs($this->admin);
@@ -251,33 +251,35 @@ describe('Portal Invitation Security', function (): void {
             team: $this->team,
             company: $this->buyer,
             portal: PortalType::Customer,
-            email: $this->portalUser->email, // already has a User record
+            email: $this->portalUser->email, // already an active member of this buyer
             name: 'Portal Contact',
             invitedBy: $this->admin,
         ))->toThrow(\Illuminate\Validation\ValidationException::class);
 
         Mail::assertNothingSent();
+        expect(PortalInvitation::query()->where('email', $this->portalUser->email)->exists())->toBeFalse();
     });
 
-    it('does not create an invitation record when email belongs to existing user', function (): void {
+    it('invites an existing user to a company they do not yet belong to', function (): void {
         Mail::fake();
 
+        $existing = User::factory()->create(['email' => 'existing.contact@buyer.test']);
+
         $this->actingAs($this->admin);
+        Filament::setTenant($this->team);
+        Filament::setCurrentPanel('app');
 
-        try {
-            app(InvitePortalUser::class)->execute(
-                team: $this->team,
-                company: $this->buyer,
-                portal: PortalType::Customer,
-                email: $this->portalUser->email,
-                name: 'Portal Contact',
-                invitedBy: $this->admin,
-            );
-        } catch (\Illuminate\Validation\ValidationException) {
-            // expected
-        }
+        $invitation = app(InvitePortalUser::class)->execute(
+            team: $this->team,
+            company: $this->buyer,
+            portal: PortalType::Customer,
+            email: $existing->email,
+            name: 'Existing Contact',
+            invitedBy: $this->admin,
+        );
 
-        expect(PortalInvitation::query()->where('email', $this->portalUser->email)->exists())->toBeFalse();
+        expect($invitation->email)->toBe('existing.contact@buyer.test');
+        Mail::assertSent(\App\Mail\PortalUserInvitationMail::class);
     });
 });
 
@@ -406,6 +408,109 @@ describe('Portal Invitation', function (): void {
         $response->assertOk()
             ->assertSee('Create Account')
             ->assertSee($invitation->email);
+    });
+
+    it('lets an existing user accept an invitation to an additional company', function (): void {
+        $existing = User::factory()->create([
+            'email' => 'multi@buyer.test',
+            'password' => \Illuminate\Support\Facades\Hash::make('original-password'),
+        ]);
+
+        $invitation = PortalInvitation::query()->create([
+            'team_id' => $this->team->getKey(),
+            'company_id' => $this->buyer->getKey(),
+            'email' => 'multi@buyer.test',
+            'name' => 'Multi Company',
+            'portal' => PortalType::Customer,
+            'invited_by' => $this->admin->getKey(),
+            'token' => PortalInvitation::generateToken(),
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        CompanyPortalUser::query()->create([
+            'team_id' => $this->team->getKey(),
+            'company_id' => $this->buyer->getKey(),
+            'user_id' => null,
+            'portal' => PortalType::Customer,
+            'invited_by' => $this->admin->getKey(),
+            'is_active' => false,
+            'invited_name' => 'Multi Company',
+            'invited_email' => 'multi@buyer.test',
+        ]);
+
+        $this->actingAs($existing, 'customer');
+
+        livewire(\App\Filament\Customer\Pages\AcceptPortalInvitation::class, ['token' => $invitation->token])
+            ->call('accept')
+            ->assertHasNoErrors();
+
+        expect(User::query()->where('email', 'multi@buyer.test')->count())->toBe(1)
+            ->and(\Illuminate\Support\Facades\Hash::check('original-password', (string) $existing->fresh()?->password))->toBeTrue()
+            ->and(CompanyPortalUser::query()
+                ->where('company_id', $this->buyer->getKey())
+                ->where('user_id', $existing->getKey())
+                ->where('is_active', true)
+                ->exists())->toBeTrue()
+            ->and($invitation->fresh()?->accepted_at)->not->toBeNull();
+    });
+
+    it('asks an unauthenticated existing-account invitee to sign in before accepting', function (): void {
+        User::factory()->create(['email' => 'guest.multi@buyer.test']);
+
+        $invitation = PortalInvitation::query()->create([
+            'team_id' => $this->team->getKey(),
+            'company_id' => $this->buyer->getKey(),
+            'email' => 'guest.multi@buyer.test',
+            'name' => 'Guest Multi',
+            'portal' => PortalType::Customer,
+            'invited_by' => $this->admin->getKey(),
+            'token' => PortalInvitation::generateToken(),
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        $host = PanelDomain::customerHost();
+
+        $this->get(url()->getCustomerPortalUrl('invitation/'.$invitation->token), ['Host' => $host])
+            ->assertOk()
+            ->assertSee('Sign in')
+            ->assertDontSee('Create Account');
+    });
+
+    it('does not grant access when an unauthenticated user submits an existing-account invitation', function (): void {
+        User::factory()->create(['email' => 'guest.multi2@buyer.test']);
+
+        $invitation = PortalInvitation::query()->create([
+            'team_id' => $this->team->getKey(),
+            'company_id' => $this->buyer->getKey(),
+            'email' => 'guest.multi2@buyer.test',
+            'name' => 'Guest Multi 2',
+            'portal' => PortalType::Customer,
+            'invited_by' => $this->admin->getKey(),
+            'token' => PortalInvitation::generateToken(),
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        livewire(\App\Filament\Customer\Pages\AcceptPortalInvitation::class, ['token' => $invitation->token])
+            ->call('accept')
+            ->assertRedirect(filament()->getPanel('customer')->getLoginUrl());
+
+        expect($invitation->fresh()?->accepted_at)->toBeNull();
+    });
+
+    it('does not resolve an expired invitation on the accept page', function (): void {
+        $invitation = PortalInvitation::query()->create([
+            'team_id' => $this->team->getKey(),
+            'company_id' => $this->buyer->getKey(),
+            'email' => 'expired@buyer.test',
+            'name' => 'Expired Invitee',
+            'portal' => PortalType::Customer,
+            'invited_by' => $this->admin->getKey(),
+            'token' => PortalInvitation::generateToken(),
+            'expires_at' => now()->subDay(),
+        ]);
+
+        expect(fn () => livewire(\App\Filament\Customer\Pages\AcceptPortalInvitation::class, ['token' => $invitation->token]))
+            ->toThrow(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
     });
 });
 
