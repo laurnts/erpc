@@ -9,6 +9,7 @@ use App\Filament\Resources\AcceptanceReportResource\Pages\CreateAcceptanceReport
 use App\Filament\Resources\AcceptanceReportResource\Pages\ListAcceptanceReports;
 use App\Filament\Resources\AcceptanceReportResource\Pages\ViewAcceptanceReport;
 use App\Models\AcceptanceReport;
+use App\Support\DocumentUpload;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -126,7 +127,7 @@ final class AcceptanceReportResource extends Resource
                 ->schema([
                     FileUpload::make('attachments')
                         ->label('Files')
-                        ->helperText('Upload PDF, Word documents, or images')
+                        ->helperText(DocumentUpload::helperText(5120, formats: 'PDF, Word, or images'))
                         ->acceptedFileTypes([
                             'application/pdf',
                             'application/msword',

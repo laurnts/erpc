@@ -11,6 +11,7 @@ use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestS
 use App\Models\BuyerOrder;
 use App\Models\PaymentDocumentApproval;
 use App\Models\Request;
+use App\Support\DocumentUpload;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\CreateAction;
@@ -101,23 +102,13 @@ final class CompletionReportsRelationManager extends RelationManager
                 CreateAction::make()
                     ->label('Upload Document')
                     ->modalHeading('Upload Document')
+                    ->modalSubmitActionLabel('Submit')
                     ->icon('heroicon-o-arrow-up-tray')
                     ->form([
                         FileUpload::make('document')
                             ->label('Document')
-                            ->helperText('Upload completion report documentation (PDF, Excel, Word, Images)')
-                            ->hint('Maximum file size: 10MB')
-                            ->hintColor('warning')
-                            ->acceptedFileTypes([
-                                'application/pdf',
-                                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
-                                'application/vnd.ms-excel', // xls
-                                'image/png',
-                                'image/jpeg',
-                                'image/jpg',
-                                'application/msword', // doc
-                                'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // docx
-                            ])
+                            ->helperText(DocumentUpload::helperText(10240))
+                            ->acceptedFileTypes(DocumentUpload::ACCEPTED_MIME_TYPES)
                             ->disk('local')
                             ->directory(Request::COMPLETION_REPORTS_UPLOAD_DIRECTORY)
                             ->visibility('private')
@@ -127,7 +118,7 @@ final class CompletionReportsRelationManager extends RelationManager
                             ->required()
                             ->maxSize(10240) // 10MB in KB
                             ->validationMessages([
-                                'max' => 'The file size must not exceed 10MB. Please compress or resize your file before uploading.',
+                                'max' => DocumentUpload::maxSizeMessage(10240),
                             ]),
                         TextInput::make('name')
                             ->label('Document Name')

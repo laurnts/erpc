@@ -7,6 +7,7 @@ namespace App\Filament\Supplier\Resources\SupplierRfqResource\Schemas;
 use App\Models\Currency;
 use App\Models\SupplierQuote;
 use App\Models\SupplierQuoteItem;
+use App\Support\DocumentUpload;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -74,17 +75,8 @@ final readonly class SupplierRfqSubmissionForm
                         ->rows(3),
                     FileUpload::make('quotation_file')
                         ->label('Quotation Document')
-                        ->helperText('Optionally attach your quotation document (PDF, Excel, Word, Images).')
-                        ->acceptedFileTypes([
-                            'application/pdf',
-                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                            'application/vnd.ms-excel',
-                            'image/png',
-                            'image/jpeg',
-                            'image/jpg',
-                            'application/msword',
-                            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                        ])
+                        ->helperText(DocumentUpload::helperText(10240, notes: ['Optional — attach your quotation document if available']))
+                        ->acceptedFileTypes(DocumentUpload::ACCEPTED_MIME_TYPES)
                         ->disk('local')
                         ->directory(SupplierQuote::QUOTATION_UPLOAD_DIRECTORY)
                         ->visibility('private')

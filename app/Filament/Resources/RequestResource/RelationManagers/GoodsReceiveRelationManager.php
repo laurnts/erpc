@@ -10,6 +10,7 @@ use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestS
 use App\Models\GoodsReceiveBatch;
 use App\Models\PaymentDocumentApproval;
 use App\Models\Request;
+use App\Support\DocumentUpload;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\CreateAction;
@@ -121,6 +122,7 @@ final class GoodsReceiveRelationManager extends RelationManager
                 CreateAction::make()
                     ->label('Upload Document')
                     ->modalHeading('Goods Receive Documents')
+                    ->modalSubmitActionLabel('Submit')
                     ->icon('heroicon-o-arrow-up-tray')
                     ->form([
                         Select::make('supplier_order_id')
@@ -142,20 +144,9 @@ final class GoodsReceiveRelationManager extends RelationManager
                             ->preload(),
                         FileUpload::make('document')
                             ->label('Documents')
-                            ->helperText('Upload one or more goods receive documents (PDF, Excel, Word, Images). All files will appear as one row.')
-                            ->hint('Maximum file size per file: 10MB')
-                            ->hintColor('warning')
+                            ->helperText(DocumentUpload::helperText(10240, notes: ['All files appear as one row']))
                             ->multiple()
-                            ->acceptedFileTypes([
-                                'application/pdf',
-                                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                                'application/vnd.ms-excel',
-                                'image/png',
-                                'image/jpeg',
-                                'image/jpg',
-                                'application/msword',
-                                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                            ])
+                            ->acceptedFileTypes(DocumentUpload::ACCEPTED_MIME_TYPES)
                             ->disk('local')
                             ->directory(Request::GOODS_RECEIVE_UPLOAD_DIRECTORY)
                             ->visibility('private')
@@ -165,7 +156,7 @@ final class GoodsReceiveRelationManager extends RelationManager
                             ->required()
                             ->maxSize(10240)
                             ->validationMessages([
-                                'max' => 'Each file must not exceed 10MB.',
+                                'max' => DocumentUpload::maxSizeMessage(10240),
                             ]),
                         TextInput::make('name')
                             ->label('Document Name (optional)')

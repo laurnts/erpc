@@ -12,6 +12,7 @@ use App\Filament\Resources\RequestResource;
 use App\Models\Membership;
 use App\Models\ProfitAndLoss;
 use App\Services\Erp\PdfGenerationService;
+use App\Support\DocumentUpload;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -116,20 +117,12 @@ final class ViewProfitAndLoss extends ViewRecord
                     ->form([
                         FileUpload::make('document')
                             ->label('Document')
+                            ->helperText(DocumentUpload::helperText(10240))
                             ->required()
                             ->disk('local')
                             ->directory(ProfitAndLoss::DOCUMENTS_UPLOAD_DIRECTORY)
                             ->visibility('private')
-                            ->acceptedFileTypes([
-                                'application/pdf',
-                                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                                'application/vnd.ms-excel',
-                                'image/png',
-                                'image/jpeg',
-                                'image/jpg',
-                                'application/msword',
-                                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                            ])
+                            ->acceptedFileTypes(DocumentUpload::ACCEPTED_MIME_TYPES)
                             ->maxSize(10240),
                         TextInput::make('name')
                             ->label('Document Name')
