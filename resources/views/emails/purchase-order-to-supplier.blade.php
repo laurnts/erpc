@@ -99,7 +99,7 @@
                                 </p>
                             @endif
                             
-                            @if($order->items && $order->items->count() > 0)
+                            @if($order->hierarchicalDisplayLines()->isNotEmpty())
                                 <!-- Items Table -->
                                 <table width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0; border-collapse: collapse;">
                                     <thead>
@@ -117,24 +117,29 @@
                                         @php
                                             $currency = $order->currency;
                                         @endphp
-                                        @foreach($order->items as $index => $item)
+                                        @foreach($order->hierarchicalDisplayLines() as $index => $line)
                                             @php
-                                                $rowBg = $index % 2 === 0 ? '#ffffff' : '#f9fafb';
-                                                $lineTax = (float)$item->tax_amount * (float)$item->quantity;
+                                                $isChild = $line['is_child'];
+                                                $rowBg = $isChild ? '#f9fafb' : ($index % 2 === 0 ? '#ffffff' : '#f9fafb');
+                                                $textColor = $isChild ? '#6b7280' : '#1f2937';
+                                                $fontWeight = $isChild ? 'normal' : 'bold';
                                             @endphp
                                             <tr style="background-color: {{ $rowBg }}; border-bottom: 1px solid #e5e7eb;">
-                                                <td style="padding: 10px 8px; text-align: center; font-size: 13px; color: #1f2937; border-right: 1px solid #e5e7eb;">{{ $index + 1 }}</td>
-                                                <td style="padding: 10px 8px; text-align: left; font-size: 13px; color: #1f2937; border-right: 1px solid #e5e7eb;">
-                                                    {{ $item->description }}
-                                                    @if($item->notes)
-                                                        <br><small style="color: #6b7280; font-size: 11px;">{{ $item->notes }}</small>
+                                                <td style="padding: 10px 8px; text-align: center; font-size: 13px; color: {{ $textColor }}; border-right: 1px solid #e5e7eb;">{{ $index + 1 }}</td>
+                                                <td style="padding: 10px 8px; text-align: left; font-size: {{ $isChild ? '12px' : '13px' }}; color: {{ $textColor }}; border-right: 1px solid #e5e7eb; {{ $isChild ? 'padding-left: 24px;' : '' }}">
+                                                    @if($isChild)
+                                                        <span style="color: #9ca3af; margin-right: 4px;">↳</span>
+                                                    @endif
+                                                    {{ $line['label'] }}
+                                                    @if($line['notes'])
+                                                        <br><small style="color: #6b7280; font-size: 11px;">{{ $line['notes'] }}</small>
                                                     @endif
                                                 </td>
-                                                <td style="padding: 10px 8px; text-align: center; font-size: 13px; color: #1f2937; border-right: 1px solid #e5e7eb;">{{ $item->quantity }}</td>
-                                                <td style="padding: 10px 8px; text-align: center; font-size: 13px; color: #1f2937; border-right: 1px solid #e5e7eb;">{{ $item->unit_label }}</td>
-                                                <td style="padding: 10px 8px; text-align: right; font-size: 13px; color: #1f2937; border-right: 1px solid #e5e7eb;">{{ $currency ? $currency->formatNumber((float)$item->unit_price_exc_tax) : number_format((float)$item->unit_price_exc_tax, 2) }}</td>
-                                                <td style="padding: 10px 8px; text-align: right; font-size: 13px; color: #1f2937; border-right: 1px solid #e5e7eb;">{{ $currency ? $currency->formatNumber($lineTax) : number_format($lineTax, 2) }}</td>
-                                                <td style="padding: 10px 8px; text-align: right; font-size: 13px; color: #1f2937; font-weight: bold;">{{ $currency ? $currency->format((float)$item->line_total) : number_format((float)$item->line_total, 2) }}</td>
+                                                <td style="padding: 10px 8px; text-align: center; font-size: 13px; color: {{ $textColor }}; border-right: 1px solid #e5e7eb;">{{ number_format($line['quantity'], 0) }}</td>
+                                                <td style="padding: 10px 8px; text-align: center; font-size: 13px; color: {{ $textColor }}; border-right: 1px solid #e5e7eb;">{{ $line['unit_label'] }}</td>
+                                                <td style="padding: 10px 8px; text-align: right; font-size: 13px; color: {{ $textColor }}; border-right: 1px solid #e5e7eb;">{{ $currency ? $currency->formatNumber($line['unit_price_exc_tax']) : number_format($line['unit_price_exc_tax'], 2) }}</td>
+                                                <td style="padding: 10px 8px; text-align: right; font-size: 13px; color: {{ $textColor }}; border-right: 1px solid #e5e7eb;">{{ $currency ? $currency->formatNumber($line['line_tax']) : number_format($line['line_tax'], 2) }}</td>
+                                                <td style="padding: 10px 8px; text-align: right; font-size: 13px; color: {{ $textColor }}; font-weight: {{ $fontWeight }};">{{ $currency ? $currency->format($line['line_total']) : number_format($line['line_total'], 2) }}</td>
                                             </tr>
                                         @endforeach
                                     </tbody>

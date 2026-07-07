@@ -29,6 +29,7 @@ use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Psr\Log\LoggerInterface;
 
 /**
  * @property Schema $emailForm
@@ -71,7 +72,7 @@ final class EmailSettings extends Page implements HasForms
         $team = Filament::getTenant();
         $settings = $team->getErpSettings();
         $emailService = app(EmailTemplateService::class);
-        $smtpPassword = $settings->smtp_password ? Crypt::decryptString($settings->smtp_password) : null;
+        $smtpPassword = $this->decryptSmtpPassword($settings->smtp_password);
 
         $this->emailForm->fill([
             'test_email_address' => $settings->test_email_address ?? '',
@@ -102,6 +103,28 @@ final class EmailSettings extends Page implements HasForms
             'email_template_delivery_order_cc' => $this->getTemplateCc($settings, 'delivery_order'),
             'email_template_delivery_order_bcc' => $this->getTemplateBcc($settings, 'delivery_order'),
         ]);
+    }
+
+    private function decryptSmtpPassword(?string $encrypted): ?string
+    {
+        if (empty($encrypted)) {
+            return null;
+        }
+
+        try {
+            return Crypt::decryptString($encrypted);
+        } catch (\Throwable $e) {
+            $this->logger()->warning('Failed to decrypt SMTP password on Email Settings page', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    private function logger(): LoggerInterface
+    {
+        return app(LoggerInterface::class);
     }
 
     /**

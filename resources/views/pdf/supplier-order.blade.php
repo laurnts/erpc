@@ -82,20 +82,29 @@
             </tr>
         </thead>
         <tbody>
-            @forelse($order->items as $index => $item)
-                <tr>
+            @php
+                $displayLines = $order->hierarchicalDisplayLines();
+            @endphp
+            @forelse($displayLines as $index => $line)
+                @php
+                    $isChild = $line['is_child'];
+                @endphp
+                <tr class="{{ $isChild ? 'row-child' : 'row-main' }}">
                     <td class="text-center">{{ $index + 1 }}</td>
-                    <td>
-                        {{ $item->description }}
-                        @if($item->notes)
-                            <br><small style="color: #6b7280;">{{ $item->notes }}</small>
+                    <td class="{{ $isChild ? 'child-description' : '' }}">
+                        @if($isChild)
+                            <span class="child-marker">↳</span>
+                        @endif
+                        {{ $line['label'] }}
+                        @if($line['notes'])
+                            <br><small style="color: #6b7280;">{{ $line['notes'] }}</small>
                         @endif
                     </td>
-                    <td class="text-center">{{ number_format((float)$item->quantity, 0) }}</td>
-                    <td class="text-center">{{ $item->unit_label }}</td>
-                    <td class="text-right">{{ $order->currency?->formatNumber((float)$item->unit_price_exc_tax) ?? number_format((float)$item->unit_price_exc_tax, 2) }}</td>
-                    <td class="text-right">{{ $order->currency?->formatNumber((float)($item->tax_amount * $item->quantity)) ?? number_format((float)($item->tax_amount * $item->quantity), 2) }}</td>
-                    <td class="text-right">{{ $order->currency?->formatNumber((float)$item->line_total) ?? number_format((float)$item->line_total, 2) }}</td>
+                    <td class="text-center">{{ number_format($line['quantity'], 0) }}</td>
+                    <td class="text-center">{{ $line['unit_label'] }}</td>
+                    <td class="text-right">{{ $order->currency?->formatNumber($line['unit_price_exc_tax']) ?? number_format($line['unit_price_exc_tax'], 2) }}</td>
+                    <td class="text-right">{{ $order->currency?->formatNumber($line['line_tax']) ?? number_format($line['line_tax'], 2) }}</td>
+                    <td class="text-right">{{ $order->currency?->formatNumber($line['line_total']) ?? number_format($line['line_total'], 2) }}</td>
                 </tr>
             @empty
                 <tr>

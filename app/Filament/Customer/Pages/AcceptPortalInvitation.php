@@ -6,6 +6,8 @@ namespace App\Filament\Customer\Pages;
 
 use App\Actions\Portal\AcceptPortalInvitation as AcceptPortalInvitationAction;
 use App\Enums\PortalType;
+use App\Http\Middleware\AuthenticatePanelUser;
+use App\Http\Middleware\InitializeCustomerPortalContext;
 use App\Models\PortalInvitation;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -13,6 +15,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Panel;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Validation\Rules\Password;
@@ -32,6 +35,8 @@ final class AcceptPortalInvitation extends Page implements HasForms
      */
     protected static string|array $withoutRouteMiddleware = [
         Authenticate::class,
+        AuthenticatePanelUser::class,
+        InitializeCustomerPortalContext::class,
     ];
 
     protected string $view = 'filament.customer.pages.accept-portal-invitation';

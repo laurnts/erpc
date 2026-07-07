@@ -583,6 +583,131 @@ describe('SupplierOrderItem Tax Calculations', function (): void {
     });
 });
 
+describe('Hierarchical display lines', function (): void {
+    it('shows child buyer quote items under main supplier order lines without affecting totals', function (): void {
+        $supplier = Company::factory()->supplier()->recycle($this->team)->create();
+        $mainReqItem = RequestItem::factory()->recycle($this->request)->create([
+            'parent_id' => null,
+            'supplier_id' => $supplier->getKey(),
+        ]);
+        $childReqItem = RequestItem::factory()->recycle($this->request)->create([
+            'parent_id' => $mainReqItem->getKey(),
+            'supplier_id' => $supplier->getKey(),
+        ]);
+
+        $quote = \App\Models\BuyerQuote::factory()
+            ->recycle($this->team)
+            ->recycle($this->buyer)
+            ->forRequest($this->request)
+            ->withCurrency($this->currency)
+            ->accepted()
+            ->create();
+
+        \App\Models\BuyerQuoteItem::factory()->forBuyerQuote($quote)->create([
+            'request_item_id' => $mainReqItem->getKey(),
+            'description' => 'Main service',
+            'quantity' => '1',
+            'cost_price' => '600000',
+            'sort_order' => 1,
+        ]);
+        \App\Models\BuyerQuoteItem::factory()->forBuyerQuote($quote)->create([
+            'request_item_id' => $childReqItem->getKey(),
+            'description' => 'Child detail work',
+            'quantity' => '1',
+            'cost_price' => '50000',
+            'sort_order' => 2,
+        ]);
+
+        $order = SupplierOrder::factory()
+            ->recycle($this->team)
+            ->recycle($this->request)
+            ->recycle($supplier)
+            ->recycle($this->currency)
+            ->create();
+
+        SupplierOrderItem::factory()->forSupplierOrder($order)->create([
+            'request_item_id' => $mainReqItem->getKey(),
+            'description' => 'Main service',
+            'quantity' => '1',
+            'unit_price' => '600000',
+            'unit_price_exc_tax' => '600000',
+            'tax_rate' => '0',
+            'tax_amount' => '0',
+            'line_total' => '600000',
+            'sort_order' => 1,
+        ]);
+
+        $order->recalculateTotals();
+        $order->refresh();
+
+        $lines = $order->hierarchicalDisplayLines();
+
+        expect($lines)->toHaveCount(2)
+            ->and($lines[0]['is_child'])->toBeFalse()
+            ->and($lines[0]['label'])->toContain('Main service')
+            ->and($lines[1]['is_child'])->toBeTrue()
+            ->and($lines[1]['label'])->toContain('Child detail work')
+            ->and((float) $order->total)->toBe(600000.0);
+    });
+
+    it('orders supplier order PDF items hierarchically under their parent', function (): void {
+        $supplier = Company::factory()->supplier()->recycle($this->team)->create();
+        $mainReqItem = RequestItem::factory()->recycle($this->request)->create([
+            'parent_id' => null,
+            'supplier_id' => $supplier->getKey(),
+        ]);
+        $childReqItem = RequestItem::factory()->recycle($this->request)->create([
+            'parent_id' => $mainReqItem->getKey(),
+            'supplier_id' => $supplier->getKey(),
+        ]);
+
+        $quote = \App\Models\BuyerQuote::factory()
+            ->recycle($this->team)
+            ->recycle($this->buyer)
+            ->forRequest($this->request)
+            ->withCurrency($this->currency)
+            ->accepted()
+            ->create();
+
+        \App\Models\BuyerQuoteItem::factory()->forBuyerQuote($quote)->create([
+            'request_item_id' => $mainReqItem->getKey(),
+            'description' => 'Main work',
+            'sort_order' => 1,
+        ]);
+        \App\Models\BuyerQuoteItem::factory()->forBuyerQuote($quote)->create([
+            'request_item_id' => $childReqItem->getKey(),
+            'description' => 'Child work',
+            'sort_order' => 2,
+        ]);
+
+        $order = SupplierOrder::factory()
+            ->recycle($this->team)
+            ->recycle($this->request)
+            ->recycle($supplier)
+            ->recycle($this->currency)
+            ->create(['po_number' => 'PO-2026-0099']);
+
+        SupplierOrderItem::factory()->forSupplierOrder($order)->create([
+            'request_item_id' => $mainReqItem->getKey(),
+            'description' => 'Main work',
+            'sort_order' => 1,
+        ]);
+
+        $html = view('pdf.supplier-order', [
+            'order' => $order->load(['supplier', 'currency', 'items']),
+            'company' => ['name' => 'Test Co', 'address' => '', 'phone' => '', 'email' => ''],
+        ])->render();
+
+        $mainPos = strpos($html, 'Main work');
+        $childPos = strpos($html, 'Child work');
+
+        expect($mainPos)->not->toBeFalse()
+            ->and($childPos)->not->toBeFalse()
+            ->and($mainPos)->toBeLessThan($childPos)
+            ->and($html)->toContain('↳');
+    });
+});
+
 describe('Request SupplierOrders Relationship', function (): void {
     it('request has many supplier orders', function (): void {
         SupplierOrder::factory()

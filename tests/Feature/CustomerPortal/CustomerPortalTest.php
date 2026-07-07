@@ -362,6 +362,47 @@ describe('Portal Invitation', function (): void {
             ->and(CompanyPortalUser::query()->where('company_id', $this->buyer->getKey())->whereHas('user', fn ($q) => $q->where('email', 'accept@buyer.test'))->exists())->toBeTrue()
             ->and($invitation->fresh()?->accepted_at)->not->toBeNull();
     });
+
+    it('allows guests to open the invitation accept page over http', function (): void {
+        $invitation = PortalInvitation::query()->create([
+            'team_id' => $this->team->getKey(),
+            'company_id' => $this->buyer->getKey(),
+            'email' => 'guest.invite@buyer.test',
+            'name' => 'Guest Invitee',
+            'portal' => PortalType::Customer,
+            'invited_by' => $this->admin->getKey(),
+            'token' => PortalInvitation::generateToken(),
+        ]);
+
+        $host = PanelDomain::customerHost();
+
+        $this->get(url()->getCustomerPortalUrl('invitation/'.$invitation->token), ['Host' => $host])
+            ->assertOk()
+            ->assertSee('Create Buyer Portal Account');
+    });
+
+    it('allows unverified authenticated users to open the invitation accept page over http', function (): void {
+        $unverifiedUser = User::factory()->create([
+            'email_verified_at' => null,
+        ]);
+
+        $invitation = PortalInvitation::query()->create([
+            'team_id' => $this->team->getKey(),
+            'company_id' => $this->buyer->getKey(),
+            'email' => 'other.invite@buyer.test',
+            'name' => 'Other Invitee',
+            'portal' => PortalType::Customer,
+            'invited_by' => $this->admin->getKey(),
+            'token' => PortalInvitation::generateToken(),
+        ]);
+
+        $host = PanelDomain::customerHost();
+
+        $this->actingAs($unverifiedUser, 'customer')
+            ->get(url()->getCustomerPortalUrl('invitation/'.$invitation->token), ['Host' => $host])
+            ->assertOk()
+            ->assertSee('Create Buyer Portal Account');
+    });
 });
 
 describe('Customer Request Submission', function (): void {

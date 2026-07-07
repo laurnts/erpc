@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\BuyerQuoteStatus;
 use App\Enums\CentralPurchasingRole;
 use App\Enums\OrderStatus;
 use App\Models\Concerns\HasCreator;
@@ -19,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
@@ -612,6 +614,146 @@ final class SupplierOrder extends Model implements HasMedia
             'base_total' => (float) $this->base_total,
             'currency_code' => $this->currency?->code,
             'exchange_rate' => (float) $this->exchange_rate,
+        ];
+    }
+
+    /**
+     * Buyer quote items from accepted quotes that belong to this order's supplier.
+     *
+     * @return Collection<int, BuyerQuoteItem>
+     */
+    public function acceptedBuyerQuoteItemsForSupplier(): Collection
+    {
+        $this->loadMissing('request');
+
+        return BuyerQuote::query()
+            ->where('request_id', $this->request_id)
+            ->where('status', BuyerQuoteStatus::ACCEPTED)
+            ->with([
+                'items.requestItem',
+                'items.supplierQuoteItem.supplierQuote',
+                'items.unitOfMeasure',
+                'items.article',
+            ])
+            ->get()
+            ->flatMap(fn (BuyerQuote $quote): Collection => $quote->items)
+            ->filter(fn (BuyerQuoteItem $item): bool => $this->buyerQuoteItemBelongsToSupplier($item))
+            ->values();
+    }
+
+    /**
+     * Display lines for PO views: stored main items plus display-only child breakdown
+     * from accepted buyer quotes. Child lines are never included in order totals.
+     *
+     * @return Collection<int, array{
+     *     is_child: bool,
+     *     label: string,
+     *     quantity: float,
+     *     unit_label: string,
+     *     unit_price_exc_tax: float,
+     *     line_tax: float,
+     *     line_total: float,
+     *     notes: ?string,
+     * }>
+     */
+    public function hierarchicalDisplayLines(): Collection
+    {
+        $this->loadMissing(['items.unitOfMeasure', 'items.article', 'currency']);
+
+        $quoteItems = $this->acceptedBuyerQuoteItemsForSupplier();
+
+        $childItemsByParentId = $quoteItems
+            ->filter(fn (BuyerQuoteItem $item): bool => $item->isChildItem())
+            ->groupBy(fn (BuyerQuoteItem $item): int => (int) $item->requestItem->parent_id);
+
+        $lines = collect();
+
+        foreach ($this->items as $orderItem) {
+            $lines->push($this->displayLineFromSupplierOrderItem($orderItem));
+
+            if ($orderItem->request_item_id === null) {
+                continue;
+            }
+
+            $children = $childItemsByParentId->get($orderItem->request_item_id, collect())
+                ->sortBy('sort_order')
+                ->values();
+
+            foreach ($children as $childItem) {
+                $lines->push($this->displayLineFromBuyerQuoteChildItem($childItem));
+            }
+        }
+
+        return $lines;
+    }
+
+    private function buyerQuoteItemBelongsToSupplier(BuyerQuoteItem $quoteItem): bool
+    {
+        $supplierId = $quoteItem->requestItem?->supplier_id
+            ?? $quoteItem->supplierQuoteItem?->supplierQuote?->supplier_id;
+
+        return $supplierId !== null && (int) $supplierId === (int) $this->supplier_id;
+    }
+
+    /**
+     * @return array{
+     *     is_child: bool,
+     *     label: string,
+     *     quantity: float,
+     *     unit_label: string,
+     *     unit_price_exc_tax: float,
+     *     line_tax: float,
+     *     line_total: float,
+     *     notes: ?string,
+     * }
+     */
+    private function displayLineFromSupplierOrderItem(SupplierOrderItem $item): array
+    {
+        $quantity = (float) $item->quantity;
+        $lineTax = (float) $item->tax_amount * $quantity;
+
+        return [
+            'is_child' => false,
+            'label' => $item->display_text,
+            'quantity' => $quantity,
+            'unit_label' => $item->unit_label,
+            'unit_price_exc_tax' => (float) $item->unit_price_exc_tax,
+            'line_tax' => $lineTax,
+            'line_total' => (float) $item->line_total,
+            'notes' => $item->notes,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     is_child: bool,
+     *     label: string,
+     *     quantity: float,
+     *     unit_label: string,
+     *     unit_price_exc_tax: float,
+     *     line_tax: float,
+     *     line_total: float,
+     *     notes: ?string,
+     * }
+     */
+    private function displayLineFromBuyerQuoteChildItem(BuyerQuoteItem $item): array
+    {
+        $quantity = (float) $item->quantity;
+        $unitPrice = $item->supplierQuoteItem !== null
+            ? (float) ($item->supplierQuoteItem->unit_price ?? 0)
+            : (float) $item->cost_price;
+
+        return [
+            'is_child' => true,
+            'label' => $item->article !== null
+                ? sprintf('[%s] %s', $item->article->code, $item->article->name)
+                : $item->description,
+            'quantity' => $quantity,
+            'unit_label' => $item->unit_label,
+            'unit_price_exc_tax' => $unitPrice,
+            'line_tax' => 0.0,
+            'line_total' => round($quantity * $unitPrice, 4),
+            'notes' => $item->notes,
         ];
     }
 }

@@ -6,6 +6,8 @@ namespace App\Filament\Supplier\Pages;
 
 use App\Actions\Portal\AcceptPortalInvitation as AcceptPortalInvitationAction;
 use App\Enums\PortalType;
+use App\Http\Middleware\AuthenticatePanelUser;
+use App\Http\Middleware\InitializeSupplierPortalContext;
 use App\Models\PortalInvitation;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -13,6 +15,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Panel;
 use Filament\Schemas\Schema;
 use Illuminate\Validation\Rules\Password;
 

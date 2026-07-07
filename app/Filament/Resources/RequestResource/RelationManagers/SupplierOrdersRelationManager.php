@@ -40,6 +40,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ViewField;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Grid;
@@ -226,8 +227,14 @@ final class SupplierOrdersRelationManager extends RelationManager
                 Section::make('Line Items')
                     ->columnSpanFull()
                     ->schema([
+                        ViewField::make('hierarchical_line_items')
+                            ->label('')
+                            ->view('filament.infolists.components.supplier-order-items')
+                            ->visible(fn (?SupplierOrder $record): bool => $record !== null && ! $record->is_editable)
+                            ->dehydrated(false),
                         Repeater::make('items')
                             ->relationship()
+                            ->visible(fn (?SupplierOrder $record): bool => $record === null || $record->is_editable)
                             ->schema([
                                 Grid::make(12)
                                     ->schema([
