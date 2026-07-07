@@ -996,7 +996,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                         ->where('status', BuyerQuoteStatus::ACCEPTED)
                         ->exists()),
                 Action::make('sendAllToSuppliers')
-                    ->label('Send Purchase Orders to Suppliers')
+                    ->label('Send PO to Suppliers')
                     ->icon('heroicon-o-paper-airplane')
                     ->color('primary')
                     ->size(Size::Small)

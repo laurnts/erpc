@@ -39,7 +39,7 @@ final readonly class PdfGenerationService
      */
     public function buildBuyerQuotePdfData(BuyerQuote $quote): array
     {
-        $quote->load(['buyer', 'currency', 'items', 'paymentTerms', 'team']);
+        $quote->load(['buyer', 'currency', 'items.requestItem', 'paymentTerms', 'team']);
 
         // Process items: filter hidden items and distribute their prices
         $visibleItems = $quote->items->filter(fn ($item): bool => ! $item->hide_from_pdf);

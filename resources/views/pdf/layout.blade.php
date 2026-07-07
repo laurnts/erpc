@@ -153,6 +153,29 @@
             background-color: #f9fafb;
         }
 
+        .items-table tbody tr.row-main {
+            background-color: #eff6ff;
+            font-weight: bold;
+        }
+
+        .items-table tbody tr.row-child {
+            background-color: #ffffff;
+            color: #6b7280;
+        }
+
+        .items-table tbody tr.row-child td {
+            font-weight: normal;
+        }
+
+        .items-table .child-description {
+            padding-left: 20px;
+        }
+
+        .items-table .child-marker {
+            color: #9ca3af;
+            margin-right: 4px;
+        }
+
         .items-table tfoot td {
             font-weight: bold;
             background-color: #f1f5f9;

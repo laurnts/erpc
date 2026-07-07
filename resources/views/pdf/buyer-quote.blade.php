@@ -72,10 +72,22 @@
             </tr>
         </thead>
         <tbody>
-            @forelse($items ?? $quote->items as $index => $item)
-                <tr>
+            @php
+                $itemCollection = collect($items ?? $quote->items);
+                $organizedItems = \App\Models\BuyerQuoteItem::organizeHierarchically($itemCollection);
+            @endphp
+            @forelse($organizedItems as $index => $entry)
+                @php
+                    /** @var \App\Models\BuyerQuoteItem $item */
+                    $item = $entry['item'];
+                    $isChild = $entry['is_child'];
+                @endphp
+                <tr class="{{ $isChild ? 'row-child' : 'row-main' }}">
                     <td class="text-center">{{ $index + 1 }}</td>
-                    <td>
+                    <td class="{{ $isChild ? 'child-description' : '' }}">
+                        @if($isChild)
+                            <span class="child-marker">↳</span>
+                        @endif
                         {{ $item->description }}
                         @if($item->notes)
                             <br><small style="color: #6b7280;">{{ $item->notes }}</small>

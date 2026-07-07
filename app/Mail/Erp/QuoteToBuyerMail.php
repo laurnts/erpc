@@ -51,7 +51,9 @@ final class QuoteToBuyerMail extends Mailable
     {
         // Ensure items are loaded for the email template
         if (! $this->quote->relationLoaded('items')) {
-            $this->quote->load('items');
+            $this->quote->load(['items.requestItem']);
+        } else {
+            $this->quote->loadMissing('items.requestItem');
         }
 
         $emailService = app(EmailTemplateService::class);
@@ -104,6 +106,8 @@ final class QuoteToBuyerMail extends Mailable
         // If template is full HTML, render it as Blade template with all necessary variables
         if ($isFullHtml && ! empty($content)) {
             try {
+                $content = $this->normalizeFullHtmlItemsTable($content);
+
                 $renderedContent = \Illuminate\Support\Facades\Blade::render($content, [
                     'quote' => $this->quote,
                     'team' => $this->quote->team,
@@ -111,6 +115,7 @@ final class QuoteToBuyerMail extends Mailable
                     'request' => $this->quote->request,
                     'currency' => $currency,
                     'totalAmount' => $totalAmount,
+                    'content' => '',
                 ]);
 
                 return new Content(
@@ -133,5 +138,25 @@ final class QuoteToBuyerMail extends Mailable
                 'team' => $this->quote->team,
             ],
         );
+    }
+
+    /**
+     * Replace legacy flat item loops in stored full-HTML templates with the shared
+     * hierarchical items partial used by the default buyer quote email.
+     */
+    private function normalizeFullHtmlItemsTable(string $content): string
+    {
+        if (! str_contains($content, '@foreach($quote->items as $index => $item)')) {
+            return $content;
+        }
+
+        $updated = preg_replace(
+            '/@if\(\$quote->items && \$quote->items->count\(\) > 0\)\s*(?:<!-- Items Table -->)?.*?<\/table>\s*@endif/s',
+            "@include('emails.partials.buyer-quote-items-table', ['quote' => \$quote])",
+            $content,
+            1,
+        );
+
+        return is_string($updated) ? $updated : $content;
     }
 }
