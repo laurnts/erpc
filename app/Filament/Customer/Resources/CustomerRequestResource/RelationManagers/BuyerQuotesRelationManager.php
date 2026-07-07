@@ -8,6 +8,7 @@ use App\Actions\Media\AttachUploadedFiles;
 use App\Enums\BuyerQuoteStatus;
 use App\Filament\Actions\DownloadPdfAction;
 use App\Models\BuyerQuote;
+use App\Support\DocumentUpload;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
@@ -145,17 +146,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                 ->schema([
                     FileUpload::make('buyer_po_files')
                         ->label('PO File')
-                        ->helperText('PDF, Excel, Word, or images (max 2MB per file)')
-                        ->acceptedFileTypes([
-                            'application/pdf',
-                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                            'application/vnd.ms-excel',
-                            'image/png',
-                            'image/jpeg',
-                            'image/jpg',
-                            'application/msword',
-                            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                        ])
+                        ->helperText(DocumentUpload::helperText(2048))
+                        ->acceptedFileTypes(DocumentUpload::ACCEPTED_MIME_TYPES)
                         ->disk('local')
                         ->directory(BuyerQuote::PO_FILES_UPLOAD_DIRECTORY)
                         ->visibility('private')

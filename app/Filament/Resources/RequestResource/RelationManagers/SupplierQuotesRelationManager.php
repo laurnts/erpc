@@ -17,6 +17,7 @@ use App\Models\SupplierQuote;
 use App\Models\SupplierQuoteItem;
 use App\Models\TaxCode;
 use App\Models\UnitOfMeasure;
+use App\Support\DocumentUpload;
 use App\Support\SafeCast;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -1636,8 +1637,8 @@ final class SupplierQuotesRelationManager extends RelationManager
 
                             return false;
                         })
-                        ->modalSubmitActionLabel('Save')
-                        ->modalCancelActionLabel('Close')
+                        ->modalSubmitActionLabel('Submit')
+                        ->modalCancelActionLabel('Cancel')
                         ->action(function (SupplierQuote $record, array $data): void {
                             $record->load('media');
                             $isReupload = $record->hasAdditionalRequestItems() && $record->getMedia('quotation')->isNotEmpty();
@@ -1703,17 +1704,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                 ->schema([
                     FileUpload::make('quotation_file')
                         ->label('Quotation document')
-                        ->helperText('Upload the supplier quotation document (PDF, Excel, Word, Images), then click Save.')
-                        ->acceptedFileTypes([
-                            'application/pdf',
-                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                            'application/vnd.ms-excel',
-                            'image/png',
-                            'image/jpeg',
-                            'image/jpg',
-                            'application/msword',
-                            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                        ])
+                        ->helperText(DocumentUpload::helperText(10240))
+                        ->acceptedFileTypes(DocumentUpload::ACCEPTED_MIME_TYPES)
                         ->disk('local')
                         ->directory(SupplierQuote::QUOTATION_UPLOAD_DIRECTORY)
                         ->visibility('private')

@@ -28,6 +28,7 @@ use App\Models\User;
 use App\Services\Erp\Financial\LineCalculator;
 use App\Services\Erp\Financial\MarginConvention;
 use App\Services\TeamMemberService;
+use App\Support\DocumentUpload;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -1037,19 +1038,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                 ->schema([
                     FileUpload::make('buyer_po_files')
                         ->label('Upload Buyer PO Files')
-                        ->helperText('Upload purchasing order from buyer as reference (PDF, Excel, Word, Images)')
-                        ->hint('Maximum file size: 2MB. Files exceeding this limit will be rejected.')
-                        ->hintColor('warning')
-                        ->acceptedFileTypes([
-                            'application/pdf',
-                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
-                            'application/vnd.ms-excel', // xls
-                            'image/png',
-                            'image/jpeg',
-                            'image/jpg',
-                            'application/msword', // doc
-                            'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // docx
-                        ])
+                        ->helperText(DocumentUpload::helperText(2048, notes: ['Buyer purchasing order, for reference']))
+                        ->acceptedFileTypes(DocumentUpload::ACCEPTED_MIME_TYPES)
                         ->disk('local')
                         ->directory(BuyerQuote::PO_FILES_UPLOAD_DIRECTORY)
                         ->visibility('private')
@@ -1060,7 +1050,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->maxFiles(10)
                         ->maxSize(2048) // 2MB in KB - validation error will show if exceeded
                         ->validationMessages([
-                            'max' => 'The file size must not exceed 2MB. Please compress or resize your file before uploading.',
+                            'max' => DocumentUpload::maxSizeMessage(2048),
                         ])
                         ->dehydrated(false)
                         ->afterStateUpdated(function ($state, $record, $set) {

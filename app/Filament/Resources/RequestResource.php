@@ -18,6 +18,7 @@ use App\Filament\Resources\RequestResource\RelationManagers\ShipmentsRelationMan
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierOrdersRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierQuotesRelationManager;
 use App\Models\Request;
+use App\Support\DocumentUpload;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -196,17 +197,8 @@ final class RequestResource extends Resource
                 ->schema([
                     FileUpload::make('proof_files')
                         ->label('Proof of Request')
-                        ->helperText("Buyer's email, letter, RFQ, or PO. PDF, Excel, Word, or images (max 10MB per file).")
-                        ->acceptedFileTypes([
-                            'application/pdf',
-                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                            'application/vnd.ms-excel',
-                            'image/png',
-                            'image/jpeg',
-                            'image/jpg',
-                            'application/msword',
-                            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                        ])
+                        ->helperText(DocumentUpload::helperText(10240, notes: ["Buyer's email, letter, RFQ, or PO"]))
+                        ->acceptedFileTypes(DocumentUpload::ACCEPTED_MIME_TYPES)
                         ->disk('local')
                         ->directory(Request::PROOF_UPLOAD_DIRECTORY)
                         ->visibility('private')

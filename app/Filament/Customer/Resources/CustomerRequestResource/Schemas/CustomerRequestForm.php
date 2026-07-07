@@ -9,6 +9,7 @@ use App\Enums\RequestSubmissionMethod;
 use App\Models\Project;
 use App\Models\UnitOfMeasure;
 use App\Services\Portal\CustomerPortalContext;
+use App\Support\DocumentUpload;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
@@ -116,17 +117,8 @@ final readonly class CustomerRequestForm
                         ->columnSpanFull(),
                     FileUpload::make('attachment_files')
                         ->label('Upload RFQ/PR Documents')
-                        ->helperText('PDF, Excel, Word, or images (max 10MB per file)')
-                        ->acceptedFileTypes([
-                            'application/pdf',
-                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                            'application/vnd.ms-excel',
-                            'image/png',
-                            'image/jpeg',
-                            'image/jpg',
-                            'application/msword',
-                            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                        ])
+                        ->helperText(DocumentUpload::helperText(10240))
+                        ->acceptedFileTypes(DocumentUpload::ACCEPTED_MIME_TYPES)
                         ->disk('local')
                         ->directory(self::ATTACHMENTS_UPLOAD_DIRECTORY)
                         ->visibility('private')

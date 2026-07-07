@@ -13,6 +13,7 @@ use App\Filament\Resources\SupplierOrderApprovals\Pages\ViewSupplierOrderApprova
 use App\Models\SupplierOrder;
 use App\Policies\SupplierOrderApprovalPolicy;
 use App\Services\TeamMemberService;
+use App\Support\DocumentUpload;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -133,20 +134,12 @@ final class SupplierOrderApprovalResource extends Resource
                         ->form([
                             FileUpload::make('document')
                                 ->label('Document')
+                                ->helperText(DocumentUpload::helperText(10240))
                                 ->required()
                                 ->disk('local')
                                 ->directory(SupplierOrder::DOCUMENTS_UPLOAD_DIRECTORY)
                                 ->visibility('private')
-                                ->acceptedFileTypes([
-                                    'application/pdf',
-                                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                                    'application/vnd.ms-excel',
-                                    'image/png',
-                                    'image/jpeg',
-                                    'image/jpg',
-                                    'application/msword',
-                                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                                ])
+                                ->acceptedFileTypes(DocumentUpload::ACCEPTED_MIME_TYPES)
                                 ->maxSize(10240),
                             TextInput::make('name')
                                 ->label('Document Name')
