@@ -61,6 +61,60 @@ Originally this change was sequenced after `add-line-item-activity-logging`. Rev
 - **Principle:** ledger-shaped facts (running balances) belong in the ledger; change-log-shaped facts (field edits) belong in `activity_log`. Neither system re-captures the other's domain.
 - **Cleanup (evaluate, don't assume):** `Company::activityAttributes()` currently logs `credit_used`/`credit_limit` as generic field diffs, overlapping the ledger. Verify every credit writer goes through the ledger before trimming those fields; if any direct edit path bypasses the ledger, keep the activity-log coverage as the backstop.
 
+## Reference Mockup (approved by the owner; corrected after self-review)
+
+Layout intent for implementers. Notable deliberate choices: no filter/search bar in v1 (pagination + day-grouping only — YAGNI); abuse-case entries (cancellation, deletion) are first-class citizens of the feed; portal-submitted requests are attributed to the **Buyer** actor (never System); the ⓘ line documents the accepted header-rollup limitation (task 0.1); the note composer is drawn only to reserve the slot — it is NOT in scope.
+
+**Internal surface — collapsible section at the bottom of `ViewRequest`:**
+
+```
+├────────────────────────────────────────────────────────────────────────────┤
+│ ▼ History                                                                  │
+│   ⓘ Line-level price changes appear after line-item logging lands;        │
+│     until then money edits show at document level.                         │
+│                                                                            │
+│  ── Today ─────────────────────────────────────────────────────────────    │
+│  💼 Sarah (Staff)   updated Buyer Quote BQ-2026-088 · 4 fields      14:32  │
+│     └ total, status, valid_until, prepayment_percent   [View details]      │
+│  💼 Sarah (Staff)   created Buyer Order BO-2026-031                 14:34  │
+│  🏦 CREDIT  Credit used 5,000.00 — available 20,000 → 15,000        14:35  │
+│     └ caused by BO-2026-031 · recorded by Sarah            [Open BO]       │
+│  💼 Andi (Staff)    ✖ cancelled Buyer Order BO-2026-029             11:02  │
+│     └ status: confirmed → cancelled                    [View details]      │
+│  💼 Andi (Staff)    🗑 deleted Supplier Quote SQ-2026-101            11:04  │
+│     └ last values snapshotted                          [View details]      │
+│  🛒 PT Maju (Buyer) uploaded PO-scan-signed.pdf → Attachments       13:10  │
+│                                                                            │
+│  ── Yesterday ─────────────────────────────────────────────────────────    │
+│  🚚 CV Pump (Supplier) submitted quote SQ-2026-104                  16:44  │
+│  💼 Budi (Staff)    ⚑ Stage: Supplier Quotes → Buyer Quotes         16:50  │
+│  💼 Budi (Staff)    sent RFQ to CV Pump Sejahtera                   09:12  │
+│                                                                            │
+│  ── 3 Jul 2026 ────────────────────────────────────────────────────────    │
+│  🛒 PT Maju (Buyer) created Request via portal submission           08:03  │
+│                                              ‹ Prev · Page 1 of 4 · Next › │
+├────────────────────────────────────────────────────────────────────────────┤
+│  ✍️ [ Write a note… ]                     (slot reserved — NOT in scope)   │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+`[View details]` opens the existing shared `event-log-detail` modal with exact field diffs (`total: 1,200.00 → 950.00`, …). Icons come from `ActorType` (`HasIcon`/`HasColor`); 🏦 marks the credit-ledger lane (D8).
+
+**Buyer surface — extends the existing stage stepper on the portal request view:**
+
+```
+│  ◉──────◉──────◉──────○──────○   (existing stage stepper, unchanged)      │
+├───────────────────────────────────────────────────────────────────────────┤
+│ ▼ Activity                                                                │
+│  📄 Your team   uploaded PO-scan-signed.pdf                 Today 13:10   │
+│  📨 Quote BQ-2026-088 sent to you · 950.00                  Yesterday     │
+│  ⚑  Status: Quotation in progress                           Yesterday     │
+│  ✅ Request received                                        3 Jul 2026    │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+Buyer rendering rules visible above: same document reference as internal (BQ-2026-088, never a re-numbered alias); the quote amount shown is the buyer's own sell price (present in `BuyerQuote`'s `logOnly` attributes — no cost/margin exists in that payload); causer collapsed to 'Your team'; stage label from `CustomerRequestStagePresenter`; supplier entries do not exist on this code path (additive allow-list, D2).
+
 ## Risks / Trade-offs
 
 - **Silent-drop of an unregistered child model** (already realized for five models) → back the interim subject enumeration with a CI architecture test that fails when a request-child model using `LogsErpActivity` is missing from the source; migrate to the `parent` predicate once line-item logging lands.
