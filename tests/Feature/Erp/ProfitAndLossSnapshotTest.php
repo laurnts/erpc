@@ -115,15 +115,16 @@ it('renders the approved PDF from the frozen snapshot, not the live quote', func
         ->and($html)->not->toContain('5,000.00');
 });
 
-it('clears the snapshot when a new quote version resets the PNL', function (): void {
+it('clears the snapshot and re-links the PNL when a new quote version is created', function (): void {
     $pnl = ProfitAndLoss::factory()->forBuyerQuote($this->quote)->create();
     $pnl->update(['status' => PNLStatus::APPROVED]);
     expect($pnl->fresh()->financial_snapshot)->not->toBeNull();
 
     // A new quote version resets approved PNLs so they must be re-approved.
-    $this->quote->createNewVersion();
+    $newQuote = $this->quote->createNewVersion();
 
     $fresh = $pnl->fresh();
     expect($fresh->status)->toBe(PNLStatus::NEED_APPROVAL)
-        ->and($fresh->financial_snapshot)->toBeNull();
+        ->and($fresh->financial_snapshot)->toBeNull()
+        ->and($fresh->buyer_quote_id)->toBe($newQuote->getKey());
 });

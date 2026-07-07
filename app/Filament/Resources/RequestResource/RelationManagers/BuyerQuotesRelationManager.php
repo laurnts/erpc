@@ -1865,13 +1865,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         return $draftQuote !== null && auth()->user()?->can('send', $draftQuote) === true;
                     })
                     ->visible(function () use ($request): bool {
-                        if (! $request->buyerQuotes()->where('status', BuyerQuoteStatus::DRAFT)->exists()) {
-                            return false;
-                        }
-                        /** @var \App\Models\ProfitAndLoss|null $latestPNL */
-                        $latestPNL = $request->profitAndLosses()->latest()->first();
-
-                        return $latestPNL !== null && $latestPNL->status->isApproved();
+                        return $request->buyerQuotes()->where('status', BuyerQuoteStatus::DRAFT)->exists();
                     })
                     ->requiresConfirmation()
                     ->modalHeading('Send draft quote(s)?')
@@ -1895,6 +1889,29 @@ final class BuyerQuotesRelationManager extends RelationManager
                         return implode("\n\n", $lines);
                     })
                     ->action(function () use ($request): void {
+                        /** @var \App\Models\ProfitAndLoss|null $latestPNL */
+                        $latestPNL = $request->profitAndLosses()->latest()->first();
+
+                        if ($latestPNL === null) {
+                            Notification::make()
+                                ->title('PNL required')
+                                ->body('Create a profit and loss record for this request before sending the buyer quote.')
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
+
+                        if (! $latestPNL->status->isApproved()) {
+                            Notification::make()
+                                ->title('PNL approval required')
+                                ->body('Approve the PNL for the current buyer quote version before sending.')
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
+
                         $sendableQuotes = $request->buyerQuotes()->where('status', BuyerQuoteStatus::DRAFT)->orderBy('id')->get();
                         if ($sendableQuotes->isEmpty()) {
                             Notification::make()

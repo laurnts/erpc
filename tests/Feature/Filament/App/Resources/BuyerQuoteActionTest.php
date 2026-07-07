@@ -142,6 +142,8 @@ describe('new version record action', function (): void {
 
     it('creates a new draft version and marks the sent quote as superseded', function (): void {
         $quote = buyerQuoteActionQuote($this, BuyerQuoteStatus::SENT);
+        $pnl = buyerQuoteActionPnl($this);
+        $pnl->update(['buyer_quote_id' => $quote->getKey(), 'status' => PNLStatus::APPROVED]);
 
         buyerQuoteActionRelationManager($this)
             ->assertOk()
@@ -156,7 +158,9 @@ describe('new version record action', function (): void {
         expect($quote->status)->toBe(BuyerQuoteStatus::SUPERSEDED)
             ->and($newQuote)->not->toBeNull()
             ->and($newQuote->status)->toBe(BuyerQuoteStatus::DRAFT)
-            ->and($newQuote->version)->toBe(2);
+            ->and($newQuote->version)->toBe(2)
+            ->and($pnl->fresh()->buyer_quote_id)->toBe($newQuote->getKey())
+            ->and($pnl->fresh()->status)->toBe(PNLStatus::NEED_APPROVAL);
     });
 
     it('shows new version for rejected and expired quotes', function (BuyerQuoteStatus $status): void {
@@ -233,24 +237,28 @@ describe('send header action', function (): void {
         'superseded' => BuyerQuoteStatus::SUPERSEDED,
     ]);
 
-    it('hides send when the latest PNL is not approved', function (): void {
+    it('shows send but warns when the latest PNL is not approved', function (): void {
         $quote = buyerQuoteActionQuote($this, BuyerQuoteStatus::DRAFT);
         buyerQuoteActionPnl($this, PNLStatus::NEED_APPROVAL);
 
         buyerQuoteActionRelationManager($this)
             ->assertOk()
-            ->assertActionHidden(TestAction::make('send')->table());
+            ->assertActionVisible(TestAction::make('send')->table())
+            ->callAction(TestAction::make('send')->table())
+            ->assertNotified('PNL approval required');
 
         expect($quote->refresh()->status)->toBe(BuyerQuoteStatus::DRAFT)
             ->and($quote->issued_at)->toBeNull();
     });
 
-    it('hides send when the request has no PNL at all', function (): void {
+    it('shows send but warns when the request has no PNL at all', function (): void {
         buyerQuoteActionQuote($this, BuyerQuoteStatus::DRAFT);
 
         buyerQuoteActionRelationManager($this)
             ->assertOk()
-            ->assertActionHidden(TestAction::make('send')->table());
+            ->assertActionVisible(TestAction::make('send')->table())
+            ->callAction(TestAction::make('send')->table())
+            ->assertNotified('PNL required');
     });
 });
 

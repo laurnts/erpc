@@ -405,8 +405,8 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
         $this->status = BuyerQuoteStatus::SUPERSEDED;
         $this->save();
 
-        // Reset PNL status to pending for this request
-        $this->resetPnlStatusForRequest();
+        // Reset PNL for this request and link it to the new quote version.
+        $this->resetPnlStatusForRequest($newQuote);
 
         return $newQuote;
     }
@@ -531,9 +531,9 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
     }
 
     /**
-     * Reset PNL status to pending for this request when new version is created.
+     * Reset PNL for this request when a new quote version is created.
      */
-    private function resetPnlStatusForRequest(): void
+    private function resetPnlStatusForRequest(BuyerQuote $newQuote): void
     {
         if ($this->request_id === null) {
             return;
@@ -541,16 +541,20 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
 
         $profitAndLosses = \App\Models\ProfitAndLoss::query()
             ->where('request_id', $this->request_id)
-            ->where('status', \App\Enums\PNLStatus::APPROVED)
             ->get();
 
         foreach ($profitAndLosses as $pnl) {
-            $pnl->status = \App\Enums\PNLStatus::NEED_APPROVAL;
-            $pnl->dept_head_sales_approved_at = null;
-            $pnl->deputy_director_approved_at = null;
-            $pnl->director_approved_at = null;
-            // Clear the frozen figures so the next approval re-captures them.
-            $pnl->financial_snapshot = null;
+            $pnl->buyer_quote_id = $newQuote->getKey();
+
+            if ($pnl->status === \App\Enums\PNLStatus::APPROVED) {
+                $pnl->status = \App\Enums\PNLStatus::NEED_APPROVAL;
+                $pnl->dept_head_sales_approved_at = null;
+                $pnl->deputy_director_approved_at = null;
+                $pnl->director_approved_at = null;
+                // Clear the frozen figures so the next approval re-captures them.
+                $pnl->financial_snapshot = null;
+            }
+
             $pnl->saveQuietly();
         }
     }
