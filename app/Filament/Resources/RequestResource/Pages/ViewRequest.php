@@ -293,56 +293,59 @@ final class ViewRequest extends ViewRecord
                 ->visible(fn (Request $record): bool => $record->getMedia('attachments')->isNotEmpty())
                 ->columnSpanFull(),
 
-            // Financial Summary, Payment Terms & Shipment (three columns)
-            Grid::make(3)
+            // Financials — full width, four columns across
+            Section::make('Financials')
+                ->icon('heroicon-o-banknotes')
                 ->schema([
-                    Section::make('Financials')
-                        ->icon('heroicon-o-banknotes')
-                        ->extraAttributes(['class' => 'three-column-section'])
+                    Grid::make(4)
                         ->schema([
-                            Grid::make(2)
-                                ->schema([
-                                    TextEntry::make('buyer_total_display')
-                                        ->label('Buyer Total')
-                                        ->state(fn (Request $record): string => $this->getDisplayBuyerTotal($record))
-                                        ->color(fn (Request $record): string => $this->getBuyerTotalColor($record)),
-                                    TextEntry::make('supplier_cost_display')
-                                        ->label('Supplier Costs')
-                                        ->state(fn (Request $record): string => $this->getDisplaySupplierCost($record))
-                                        ->color(fn (Request $record): string => $this->getSupplierCostColor($record)),
-                                    TextEntry::make('gross_margin_display')
-                                        ->label('Gross Margin')
-                                        ->state(fn (Request $record): string => $this->getDisplayGrossMargin($record))
-                                        ->color(fn (Request $record): string => $this->getGrossMarginColor($record)),
-                                    TextEntry::make('margin_percent_display')
-                                        ->label('Margin %')
-                                        ->state(fn (Request $record): string => $this->getDisplayMarginPercent($record))
-                                        ->badge()
-                                        ->color(fn (Request $record): string => $this->getMarginPercentColor($record)),
-                                ]),
+                            TextEntry::make('buyer_total_display')
+                                ->label('Buyer Total')
+                                ->state(fn (Request $record): string => $this->getDisplayBuyerTotal($record))
+                                ->color(fn (Request $record): string => $this->getBuyerTotalColor($record)),
+                            TextEntry::make('supplier_cost_display')
+                                ->label('Supplier Costs')
+                                ->state(fn (Request $record): string => $this->getDisplaySupplierCost($record))
+                                ->color(fn (Request $record): string => $this->getSupplierCostColor($record)),
+                            TextEntry::make('gross_margin_display')
+                                ->label('Gross Margin')
+                                ->state(fn (Request $record): string => $this->getDisplayGrossMargin($record))
+                                ->color(fn (Request $record): string => $this->getGrossMarginColor($record)),
+                            TextEntry::make('margin_percent_display')
+                                ->label('Margin %')
+                                ->state(fn (Request $record): string => $this->getDisplayMarginPercent($record))
+                                ->badge()
+                                ->color(fn (Request $record): string => $this->getMarginPercentColor($record)),
                         ]),
+                ])
+                ->columnSpanFull(),
+
+            // Payments & Fulfillment — two equal-width columns
+            Grid::make(2)
+                ->schema([
                     Section::make('Payments')
                         ->icon('heroicon-o-credit-card')
                         ->extraAttributes(['class' => 'three-column-section'])
                         ->schema([
+                            TextEntry::make('payment_terms_list')
+                                ->hiddenLabel()
+                                ->state(fn (Request $record): HtmlString => $this->getPaymentTermsList($record))
+                                ->placeholder('No payment terms')
+                                ->columnSpanFull(),
                             TextEntry::make('prepayment_display')
                                 ->label('Prepayment')
                                 ->state(fn (Request $record): string => $this->getPrepaymentDisplay($record))
                                 ->placeholder('No prepayment')
                                 ->columnSpanFull(),
-                            TextEntry::make('payment_terms_list')
-                                ->label('Payment Terms')
-                                ->state(fn (Request $record): HtmlString => $this->getPaymentTermsList($record))
-                                ->placeholder('No payment terms')
-                                ->columnSpanFull(),
                         ]),
-                    Section::make('Shipments')
+                    Section::make('Fulfillment')
                         ->icon('heroicon-o-truck')
                         ->extraAttributes(['class' => 'three-column-section'])
                         ->schema([
                             TextEntry::make('shipments_list')
+                                ->hiddenLabel()
                                 ->state(fn (Request $record): HtmlString => $this->getShipmentsList($record))
-                                ->placeholder('No shipments')
+                                ->placeholder('No fulfillment records')
                                 ->columnSpanFull(),
                         ]),
                 ])
@@ -750,6 +753,32 @@ final class ViewRequest extends ViewRecord
     }
 
     /**
+     * Render a status pill with reliable inline colors.
+     *
+     * Filament color names are mapped to explicit inline styles rather than
+     * Tailwind utility classes (e.g. `bg-warning-100`), because those class
+     * names are assembled at runtime and are not always emitted by the JIT
+     * build — which left some badges rendering with no background.
+     */
+    private function statusBadge(string $label, string $color): string
+    {
+        $palette = match ($color) {
+            'success' => 'background-color:#dcfce7;color:#166534;',
+            'warning' => 'background-color:#fef3c7;color:#92400e;',
+            'danger' => 'background-color:#fee2e2;color:#991b1b;',
+            'info' => 'background-color:#dbeafe;color:#1e40af;',
+            'primary' => 'background-color:#e0e7ff;color:#3730a3;',
+            default => 'background-color:#f1f5f9;color:#334155;',
+        };
+
+        return sprintf(
+            '<span style="%sdisplay:inline-flex;align-items:center;padding:0.125rem 0.5rem;border-radius:9999px;font-size:0.75rem;font-weight:500;line-height:1.25;white-space:nowrap;">%s</span>',
+            $palette,
+            htmlspecialchars($label)
+        );
+    }
+
+    /**
      * Get payment terms list as HTML.
      */
     private function getPaymentTermsList(Request $record): HtmlString
@@ -767,26 +796,34 @@ final class ViewRequest extends ViewRecord
             return new HtmlString('<span class="text-gray-400">No payment terms</span>');
         }
 
+        $cell = 'padding:0.5rem 1rem 0.5rem 0;border-top:1px solid rgba(148,163,184,0.25);vertical-align:middle;';
+        $lastCell = 'padding:0.5rem 0 0.5rem 0;border-top:1px solid rgba(148,163,184,0.25);vertical-align:middle;';
+
         $rows = [];
         foreach ($paymentTerms as $term) {
             $status = $this->getPaymentTermStatus($record, $term->due_days, $term->percentage);
             $statusColor = $status === 'Paid' ? 'success' : 'warning';
-            $statusBadge = sprintf(
-                '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-%s-100 text-%s-800">%s</span>',
-                $statusColor,
-                $statusColor,
-                htmlspecialchars($status)
-            );
 
             $rows[] = sprintf(
-                '<tr><td class="pr-4">%d days</td><td class="pr-4 text-left">%d%%</td><td>%s</td></tr>',
+                '<tr><td style="%swhite-space:nowrap;">%d days</td><td style="%s">%d%%</td><td style="%stext-align:right;">%s</td></tr>',
+                $cell,
                 $term->due_days,
+                $cell,
                 $term->percentage,
-                $statusBadge
+                $lastCell,
+                $this->statusBadge($status, $statusColor)
             );
         }
 
-        $html = '<table class="text-sm w-full"><thead><tr class="text-gray-500"><th class="text-left pr-4">Due Days</th><th class="text-left pr-4">Percentage</th><th class="text-left">Status</th></tr></thead><tbody>'.implode('', $rows).'</tbody></table>';
+        $head = 'padding:0 1rem 0.5rem 0;font-weight:500;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;';
+        $headLast = 'padding:0 0 0.5rem 0;font-weight:500;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;text-align:right;';
+        $html = sprintf(
+            '<table style="width:100%%;border-collapse:collapse;font-size:0.875rem;"><thead><tr><th style="%stext-align:left;">Due</th><th style="%stext-align:left;">Portion</th><th style="%s">Status</th></tr></thead><tbody>%s</tbody></table>',
+            $head,
+            $head,
+            $headLast,
+            implode('', $rows)
+        );
 
         return new HtmlString($html);
     }
@@ -852,25 +889,34 @@ final class ViewRequest extends ViewRecord
             return new HtmlString('<span class="text-gray-400">No shipments</span>');
         }
 
+        $cell = 'padding:0.5rem 1rem 0.5rem 0;border-top:1px solid rgba(148,163,184,0.25);vertical-align:middle;';
+        $lastCell = 'padding:0.5rem 0 0.5rem 0;border-top:1px solid rgba(148,163,184,0.25);vertical-align:middle;';
+
         $rows = [];
         foreach ($shipments as $shipment) {
-            $statusBadge = sprintf(
-                '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-%s-100 text-%s-800">%s</span>',
-                $shipment->status->getColor(),
-                $shipment->status->getColor(),
-                htmlspecialchars($shipment->status->getLabel())
-            );
-
             $rows[] = sprintf(
-                '<tr><td class="pr-4 font-medium">%s</td><td class="pr-4">%s</td><td class="pr-4">%s</td><td>%s</td></tr>',
+                '<tr><td style="%sfont-weight:500;white-space:nowrap;">%s</td><td style="%s">%s</td><td style="%s">%s</td><td style="%swhite-space:nowrap;">%s</td></tr>',
+                $cell,
                 htmlspecialchars($shipment->shipment_number),
-                $statusBadge,
-                htmlspecialchars($shipment->carrier_name ?? '-'),
-                htmlspecialchars($shipment->tracking_number ?? '-')
+                $cell,
+                $this->statusBadge($shipment->status->getLabel(), $shipment->status->getColor()),
+                $cell,
+                htmlspecialchars($shipment->carrier_name ?? '—'),
+                $lastCell,
+                htmlspecialchars($shipment->tracking_number ?? '—')
             );
         }
 
-        $html = '<table class="text-sm w-full"><thead><tr class="text-gray-500"><th class="text-left pr-4">Shipment #</th><th class="text-left pr-4">Status</th><th class="text-left pr-4">Carrier</th><th class="text-left">Tracking</th></tr></thead><tbody>'.implode('', $rows).'</tbody></table>';
+        $head = 'padding:0 1rem 0.5rem 0;font-weight:500;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;text-align:left;';
+        $headLast = 'padding:0 0 0.5rem 0;font-weight:500;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;text-align:left;';
+        $html = sprintf(
+            '<table style="width:100%%;border-collapse:collapse;font-size:0.875rem;"><thead><tr><th style="%s">Shipment</th><th style="%s">Status</th><th style="%s">Carrier</th><th style="%s">Tracking</th></tr></thead><tbody>%s</tbody></table>',
+            $head,
+            $head,
+            $head,
+            $headLast,
+            implode('', $rows)
+        );
 
         return new HtmlString($html);
     }
