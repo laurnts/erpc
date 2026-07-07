@@ -14,6 +14,7 @@ use App\Models\People;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\GitHubService;
+use App\Support\ActivityLogContext;
 use App\Support\PanelDomain;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
@@ -30,6 +31,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\View;
 use Relaticle\SystemAdmin\Models\SystemAdministrator;
+use Spatie\Activitylog\Facades\CauserResolver;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class AppServiceProvider extends ServiceProvider
@@ -61,10 +63,31 @@ final class AppServiceProvider extends ServiceProvider
 
         $this->configurePolicies();
         $this->configureModels();
+        $this->configureActivityLog();
         $this->configureFilament();
         $this->configureLegacyCustomerPortalRedirects();
         $this->configureGitHubStars();
         $this->configureLivewire();
+    }
+
+    /**
+     * Resolve the activity-log causer across every panel guard.
+     *
+     * Spatie only inspects the default (web) guard, which would leave
+     * buyer/supplier portal and sysadmin actions unattributed. The shared
+     * ActivityLogContext picks the guard tied to the active panel.
+     */
+    private function configureActivityLog(): void
+    {
+        CauserResolver::resolveUsing(function (Model|int|string|null $subject = null): ?Model {
+            // Preserve an explicitly-provided causer (e.g. activity()->causedBy($user));
+            // only auto-detect across panel guards when none was supplied.
+            if ($subject instanceof Model) {
+                return $subject;
+            }
+
+            return ActivityLogContext::currentCauser();
+        });
     }
 
     private function configurePolicies(): void

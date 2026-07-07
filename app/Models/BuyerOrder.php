@@ -8,6 +8,7 @@ use App\Data\TeamErpSettings;
 use App\Enums\OrderStatus;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
+use App\Models\Concerns\LogsErpActivity;
 use App\Observers\BuyerOrderObserver;
 use Database\Factories\BuyerOrderFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -60,6 +61,7 @@ final class BuyerOrder extends Model implements HasCustomFields
     use HasFactory;
 
     use HasTeam;
+    use LogsErpActivity;
     use SoftDeletes;
     use UsesCustomFields;
 
@@ -117,6 +119,24 @@ final class BuyerOrder extends Model implements HasCustomFields
             'payment_terms_days' => 'integer',
             'ordered_at' => 'datetime',
             'confirmed_at' => 'datetime',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'order_number',
+            'status',
+            'subtotal',
+            'tax_total',
+            'total',
+            'credit_released',
+            'payment_terms_days',
+            'ordered_at',
+            'confirmed_at',
         ];
     }
 

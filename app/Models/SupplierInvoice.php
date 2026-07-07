@@ -8,6 +8,7 @@ use App\Enums\InvoiceStatus;
 use App\Enums\InvoiceType;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
+use App\Models\Concerns\LogsErpActivity;
 use App\Observers\SupplierInvoiceObserver;
 use Database\Factories\SupplierInvoiceFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -73,6 +74,7 @@ final class SupplierInvoice extends Model implements HasMedia
 
     use HasTeam;
     use InteractsWithMedia;
+    use LogsErpActivity;
     use SoftDeletes;
 
     /**
@@ -130,6 +132,23 @@ final class SupplierInvoice extends Model implements HasMedia
             'net_days' => 'integer',
             'invoice_date' => 'date',
             'due_at' => 'date',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'invoice_number',
+            'reference_number',
+            'type',
+            'status',
+            'total',
+            'amount_paid',
+            'invoice_date',
+            'due_at',
         ];
     }
 

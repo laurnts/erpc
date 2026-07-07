@@ -10,6 +10,7 @@ use App\Enums\InvoiceType;
 use App\Enums\OrderStatus;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
+use App\Models\Concerns\LogsErpActivity;
 use App\Observers\BuyerInvoiceObserver;
 use Database\Factories\BuyerInvoiceFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -71,6 +72,7 @@ final class BuyerInvoice extends Model implements HasMedia
 
     use HasTeam;
     use InteractsWithMedia;
+    use LogsErpActivity;
     use SoftDeletes;
 
     /**
@@ -128,6 +130,22 @@ final class BuyerInvoice extends Model implements HasMedia
             'issued_at' => 'date',
             'due_at' => 'date',
             'notification_metadata' => 'array',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'invoice_number',
+            'type',
+            'status',
+            'total',
+            'amount_paid',
+            'issued_at',
+            'due_at',
         ];
     }
 

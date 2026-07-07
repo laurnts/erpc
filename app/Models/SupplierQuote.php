@@ -10,9 +10,11 @@ use App\Enums\SupplierQuoteStatus;
 use App\Enums\SupplierQuoteSubmissionMethod;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
+use App\Models\Concerns\LogsErpActivity;
 use App\Observers\SupplierQuoteObserver;
 use App\Services\Erp\Financial\TotalsCollector;
 use App\Services\Erp\Financial\TotalsLine;
+use App\Support\DocumentUpload;
 use Database\Factories\SupplierQuoteFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
@@ -77,6 +79,7 @@ final class SupplierQuote extends Model implements HasMedia
 
     use HasTeam;
     use InteractsWithMedia;
+    use LogsErpActivity;
     use SoftDeletes;
 
     /**
@@ -163,22 +166,32 @@ final class SupplierQuote extends Model implements HasMedia
     }
 
     /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'quote_number',
+            'supplier_reference',
+            'status',
+            'total',
+            'prepayment_type',
+            'prepayment_amount',
+            'prepayment_percent',
+            'quoted_at',
+            'valid_until',
+            'obtained',
+        ];
+    }
+
+    /**
      * Register media collections for this model.
      */
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('quotation')
             ->useDisk('local')
-            ->acceptsMimeTypes([
-                'application/pdf',
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'application/vnd.ms-excel',
-                'image/png',
-                'image/jpeg',
-                'image/jpg',
-                'application/msword',
-                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            ]);
+            ->acceptsMimeTypes(DocumentUpload::ACCEPTED_MIME_TYPES);
     }
 
     /**

@@ -11,6 +11,7 @@ use App\Models\Concerns\HasAiSummary;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTags;
 use App\Models\Concerns\HasTeam;
+use App\Models\Concerns\LogsErpActivity;
 use App\Observers\CompanyObserver;
 use App\Services\AvatarService;
 use Database\Factories\CompanyFactory;
@@ -76,6 +77,7 @@ final class Company extends Model implements HasCustomFields, HasMedia
     use HasTags;
     use HasTeam;
     use InteractsWithMedia;
+    use LogsErpActivity;
     use SoftDeletes;
     use UsesCustomFields;
 
@@ -154,6 +156,27 @@ final class Company extends Model implements HasCustomFields, HasMedia
             // Use SafeDeliveryTypeCast to handle invalid enum values gracefully (e.g., "Franco")
             // This prevents errors when loading models with invalid delivery_type values
             'delivery_type' => \App\Casts\SafeDeliveryTypeCast::class,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'name',
+            'is_buyer',
+            'is_supplier',
+            'credit_limit',
+            'requested_credit_limit',
+            'credit_used',
+            'credit_status',
+            'is_on_hold',
+            'on_hold_reason',
+            'payment_terms_days',
+            'is_active',
+            'default_currency_id',
         ];
     }
 
