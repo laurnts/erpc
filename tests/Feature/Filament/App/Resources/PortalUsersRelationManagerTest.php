@@ -6,11 +6,13 @@ use App\Enums\PortalType;
 use App\Filament\Resources\BuyerResource\Pages\ViewBuyer;
 use App\Filament\Resources\BuyerResource\RelationManagers\PortalUsersRelationManager;
 use App\Filament\Resources\SupplierResource\Pages\ViewSupplier;
+use App\Http\Middleware\ApplyTenantScopes;
 use App\Models\Company;
 use App\Models\CompanyPortalUser;
 use App\Models\PortalInvitation;
 use App\Models\User;
 use Filament\Facades\Filament;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Mail;
 
 use function Pest\Livewire\livewire;
@@ -56,6 +58,8 @@ it('lists all three lifecycle states in one table', function (): void {
     ])
         ->assertCanSeeTableRecords([$invited, $active, $deactivated])
         ->assertSee('invited@portal.test')
+        ->assertSee('Invited Person')
+        ->assertSee($member->name)
         ->assertSee($member->email);
 });
 
@@ -117,6 +121,57 @@ it('deactivates an active membership and reactivates a deactivated one', functio
     $component->callTableAction('reactivate', $active);
 
     expect($active->refresh()->is_active)->toBeTrue();
+});
+
+it('shows linked user name and email for an approved registration membership', function (): void {
+    $portalUser = User::factory()->unverified()->create([
+        'name' => 'David disini',
+        'email' => 'daviddisini@gmail.com',
+    ]);
+
+    $active = portalMembership($this, $this->buyer, PortalType::Customer, [
+        'user_id' => $portalUser->getKey(),
+        'is_active' => true,
+        'invited_email' => null,
+        'invited_name' => null,
+    ]);
+
+    livewire(PortalUsersRelationManager::class, [
+        'ownerRecord' => $this->buyer,
+        'pageClass' => ViewBuyer::class,
+    ])
+        ->assertCanSeeTableRecords([$active])
+        ->assertSee('David disini')
+        ->assertSee('daviddisini@gmail.com');
+});
+
+it('shows portal user details even when the linked user is not a staff team member', function (): void {
+    $portalUser = User::factory()->unverified()->create([
+        'name' => 'External Portal User',
+        'email' => 'external.portal@test',
+    ]);
+
+    $active = portalMembership($this, $this->buyer, PortalType::Customer, [
+        'user_id' => $portalUser->getKey(),
+        'is_active' => true,
+        'invited_email' => null,
+        'invited_name' => null,
+    ]);
+
+    User::addGlobalScope(
+        ApplyTenantScopes::TENANT_USER_SCOPE,
+        fn (Builder $query) => $query
+            ->whereHas('teams', fn (Builder $query) => $query->where('teams.id', $this->team->getKey()))
+            ->orWhereHas('ownedTeams', fn (Builder $query) => $query->where('teams.id', $this->team->getKey()))
+    );
+
+    livewire(PortalUsersRelationManager::class, [
+        'ownerRecord' => $this->buyer,
+        'pageClass' => ViewBuyer::class,
+    ])
+        ->assertCanSeeTableRecords([$active])
+        ->assertSee('External Portal User')
+        ->assertSee('external.portal@test');
 });
 
 it('lists supplier portal memberships on the supplier view', function (): void {

@@ -12,6 +12,8 @@ use App\Models\Company;
 use App\Models\CompanyPortalUser;
 use App\Models\PortalRegistrationRequest;
 use App\Models\User;
+use Filament\Auth\Notifications\VerifyEmail as FilamentVerifyEmail;
+use Filament\Facades\Filament;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
@@ -21,8 +23,8 @@ use Illuminate\Validation\ValidationException;
  * (reusing the stored password hash — the "hashed" cast stores an already
  * hashed value verbatim), and an active customer portal membership for the
  * application's team, then notifies the applicant. The user's email is NOT
- * pre-verified: the applicant completes the standard email-verification
- * round-trip on first sign-in (the application email was never verified).
+ * verified on first sign-in via the customer panel's email-verification flow
+ * (the application email address was never verified).
  */
 final readonly class ApprovePortalRegistration
 {
@@ -40,7 +42,7 @@ final readonly class ApprovePortalRegistration
             ]);
         }
 
-        DB::transaction(function () use ($application, $approver): void {
+        $user = DB::transaction(function () use ($application, $approver): User {
             $company = Company::query()->create([
                 'team_id' => $application->team_id,
                 'creator_id' => $approver->getKey(),
@@ -71,7 +73,15 @@ final readonly class ApprovePortalRegistration
                 'decided_by' => $approver->getKey(),
                 'decided_at' => now(),
             ])->save();
+
+            return $user;
         });
+
+        Filament::setCurrentPanel('customer');
+
+        $verificationNotification = app(FilamentVerifyEmail::class);
+        $verificationNotification->url = Filament::getVerifyEmailUrl($user);
+        $user->notify($verificationNotification);
 
         $signInUrl = url()->getCustomerPortalUrl('login');
 

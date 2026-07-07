@@ -222,10 +222,6 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        if (! $this->hasVerifiedEmail()) {
-            return false;
-        }
-
         return match ($panel->getId()) {
             'app' => $this->belongsToAnyInternalTeam(),
             'customer' => $this->hasActiveCustomerPortalAccess(),

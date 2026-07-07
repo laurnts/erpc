@@ -2,10 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Auth\Notifications\VerifyEmail;
 use App\Actions\CustomerPortal\ApprovePortalRegistration;
 use App\Actions\CustomerPortal\RejectPortalRegistration;
 use App\Enums\PortalRegistrationStatus;
 use App\Enums\PortalType;
+use App\Filament\Customer\Pages\Auth\CustomerLogin;
+use App\Filament\Pages\Auth\EmailVerificationPrompt;
 use App\Livewire\Catalog\RegistrationPage;
 use App\Mail\PortalRegistrationApprovedMail;
 use App\Mail\PortalRegistrationReceivedMail;
@@ -18,11 +21,13 @@ use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 
 use function Pest\Livewire\livewire;
 
 beforeEach(function (): void {
     Mail::fake();
+    Notification::fake();
 
     $this->admin = User::factory()->withPersonalTeam()->create();
     $this->team = $this->admin->personalTeam();
@@ -162,9 +167,14 @@ describe('Approval', function (): void {
             ->and($membership->team_id)->toBe($this->team->getKey());
 
         Mail::assertSent(PortalRegistrationApprovedMail::class, fn (PortalRegistrationApprovedMail $mail): bool => $mail->hasTo('jane@applicant.test'));
+
+        Notification::assertSentTo(
+            $user,
+            VerifyEmail::class,
+        );
     });
 
-    it('lets the approved user sign in once their email is verified', function (): void {
+    it('lets the approved user sign in before email verification and reach the verification prompt', function (): void {
         $application = PortalRegistrationRequest::factory()->create([
             'team_id' => $this->team->getKey(),
             'email' => 'jane@applicant.test',
@@ -175,15 +185,43 @@ describe('Approval', function (): void {
 
         $user = User::query()->where('email', 'jane@applicant.test')->firstOrFail();
 
-        expect(Auth::guard('customer')->attempt([
+        expect($user->canAccessPanel(Filament::getPanel('customer')))->toBeTrue()
+            ->and($user->hasVerifiedEmail())->toBeFalse();
+
+        Filament::setCurrentPanel('customer');
+
+        livewire(CustomerLogin::class)
+            ->fillForm([
+                'email' => 'jane@applicant.test',
+                'password' => 'SuperSecret123!',
+            ])
+            ->call('authenticate')
+            ->assertHasNoErrors();
+
+        $this->assertAuthenticatedAs($user, 'customer');
+
+        Notification::assertSentTo($user, VerifyEmail::class);
+    });
+
+    it('sends a verification email when the user first lands on the verification prompt', function (): void {
+        $application = PortalRegistrationRequest::factory()->create([
+            'team_id' => $this->team->getKey(),
             'email' => 'jane@applicant.test',
-            'password' => 'SuperSecret123!',
-        ]))->toBeTrue()
-            ->and($user->canAccessPanel(Filament::getPanel('customer')))->toBeFalse();
+            'password' => Hash::make('SuperSecret123!'),
+        ]);
 
-        $user->forceFill(['email_verified_at' => now()])->save();
+        app(ApprovePortalRegistration::class)->execute($application, $this->admin);
 
-        expect($user->refresh()->canAccessPanel(Filament::getPanel('customer')))->toBeTrue();
+        $user = User::query()->where('email', 'jane@applicant.test')->firstOrFail();
+
+        Notification::fake();
+
+        $this->actingAs($user, 'customer');
+        Filament::setCurrentPanel('customer');
+
+        livewire(EmailVerificationPrompt::class)->assertSuccessful();
+
+        Notification::assertSentTo($user, VerifyEmail::class);
     });
 
     it('refuses to approve a non-pending application', function (): void {

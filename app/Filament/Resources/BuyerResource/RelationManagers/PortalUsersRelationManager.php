@@ -36,11 +36,9 @@ final class PortalUsersRelationManager extends RelationManager
         return $table
             ->columns([
                 TextColumn::make('display_name')
-                    ->label('Name')
-                    ->state(fn (CompanyPortalUser $record): string => $record->user->name ?? $record->invited_name ?? '—'),
+                    ->label('Name'),
                 TextColumn::make('display_email')
-                    ->label('Email')
-                    ->state(fn (CompanyPortalUser $record): string => $record->user->email ?? $record->invited_email ?? '—'),
+                    ->label('Email'),
                 TextColumn::make('state')
                     ->label('Status')
                     ->badge()

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\ApiTokens;
+use App\Filament\Pages\Auth\EmailVerificationPrompt;
 use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\CreateTeam;
 use App\Filament\Pages\EditProfile;
@@ -82,7 +83,7 @@ final class AppPanelProvider extends PanelProvider
             ->authGuard('web')
             ->authPasswordBroker('users')
             ->passwordReset()
-            ->emailVerification()
+            ->emailVerification(EmailVerificationPrompt::class)
             ->strictAuthorization()
             ->databaseNotifications()
             ->brandLogoHeight('2.6rem')

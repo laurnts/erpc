@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Support;
 
+use App\Filament\Pages\Auth\EmailVerificationPrompt;
 use App\Http\Middleware\UsePanelSession;
 use App\Services\Portal\PortalContext;
 use Filament\Actions\Action;
@@ -42,7 +43,7 @@ final readonly class PortalPanelConfigurator
         return $panel
             ->authPasswordBroker('users')
             ->passwordReset()
-            ->emailVerification()
+            ->emailVerification(EmailVerificationPrompt::class)
             ->strictAuthorization()
             ->databaseNotifications()
             ->brandLogoHeight('2.6rem')

@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\PortalMembershipState;
 use App\Enums\PortalType;
+use App\Http\Middleware\ApplyTenantScopes;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -19,6 +20,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property bool $is_active
  * @property string|null $invited_name
  * @property string|null $invited_email
+ * @property-read string $display_name
+ * @property-read string $display_email
  */
 final class CompanyPortalUser extends Model
 {
@@ -60,6 +63,16 @@ final class CompanyPortalUser extends Model
         return $this->is_active ? PortalMembershipState::Active : PortalMembershipState::Deactivated;
     }
 
+    public function getDisplayNameAttribute(): string
+    {
+        return $this->user?->name ?? $this->invited_name ?? '—';
+    }
+
+    public function getDisplayEmailAttribute(): string
+    {
+        return $this->user?->email ?? $this->invited_email ?? '—';
+    }
+
     /**
      * @return BelongsTo<Team, $this>
      */
@@ -77,11 +90,15 @@ final class CompanyPortalUser extends Model
     }
 
     /**
+     * Portal users are often external to the staff team; bypass the admin
+     * panel's tenant scope so membership rows can resolve their linked user.
+     *
      * @return BelongsTo<User, $this>
      */
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class)
+            ->withoutGlobalScope(ApplyTenantScopes::TENANT_USER_SCOPE);
     }
 
     /**

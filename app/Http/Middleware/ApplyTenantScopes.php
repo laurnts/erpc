@@ -15,12 +15,14 @@ use Illuminate\Http\Request;
 
 final readonly class ApplyTenantScopes
 {
+    public const TENANT_USER_SCOPE = 'app_tenancy';
+
     public function handle(Request $request, Closure $next): mixed
     {
         $tenantId = Filament::getTenant()->getKey();
 
         User::addGlobalScope(
-            filament()->getTenancyScopeName(),
+            self::TENANT_USER_SCOPE,
             fn (Builder $query) => $query
                 ->whereHas('teams', fn (Builder $query) => $query->where('teams.id', $tenantId))
                 ->orWhereHas('ownedTeams', fn (Builder $query) => $query->where('teams.id', $tenantId))

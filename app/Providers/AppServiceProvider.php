@@ -43,6 +43,16 @@ final class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(\Filament\Auth\Http\Responses\Contracts\LoginResponse::class, LoginResponse::class);
 
+        $this->app->bind(
+            \Filament\Auth\Notifications\ResetPassword::class,
+            \App\Auth\Notifications\ResetPassword::class,
+        );
+
+        $this->app->bind(
+            \Filament\Auth\Notifications\VerifyEmail::class,
+            \App\Auth\Notifications\VerifyEmail::class,
+        );
+
         // Use custom ExportCompletion so the Export is refreshed before sending the
         // completion notification (ensures download links appear in the notification).
         $this->app->bind(
