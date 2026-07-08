@@ -6,6 +6,7 @@ namespace App\Services\Timeline;
 
 use App\Data\TimelineEntry;
 use App\Enums\ActorType;
+use App\Enums\RequestStage;
 use App\Models\ActivityLog;
 use App\Models\BuyerCreditUsageHistory;
 use App\Models\BuyerOrder;
@@ -234,12 +235,7 @@ final readonly class RequestTimelineSource
                     actorType: $activity->actor_type ?? ActorType::System,
                     entryType: TimelineAudience::ENTRY_ACTIVITY,
                     event: $event,
-                    headline: trim(sprintf(
-                        '%s %s %s',
-                        $event,
-                        Str::headline($subjectType),
-                        $subjectNumber ?? '#'.$subjectId,
-                    )),
+                    headline: $this->activityHeadline($event, $subjectType, $subjectNumber, $subjectId, $attributes),
                     subjectType: $subjectType,
                     subjectId: $subjectId,
                     subjectNumber: $subjectNumber,
@@ -252,6 +248,50 @@ final readonly class RequestTimelineSource
                     ],
                 );
             });
+    }
+
+    /**
+     * Approval timestamp/approver columns → the human role that approved.
+     * The activity causer is *who* approved; the field tells *which* role.
+     *
+     * @var array<string, string>
+     */
+    private const APPROVAL_FIELD_LABELS = [
+        'dept_head_sales_approved_at' => 'Dept Head (Sales)',
+        'deputy_director_approved_at' => 'Deputy Director',
+        'director_approved_at' => 'Director',
+        'approver_1_id' => 'Approver 1',
+        'approver_2_id' => 'Approver 2',
+        'approved_at' => 'final approval',
+    ];
+
+    /**
+     * Render an atomic, human headline: a stage change reads as workflow
+     * progress, and setting an approval field reads as that role's approval
+     * (attributed to the causer), instead of a generic "updated · 1 field".
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function activityHeadline(string $event, string $subjectType, ?string $subjectNumber, int $subjectId, array $attributes): string
+    {
+        $label = $subjectNumber ?? '#'.$subjectId;
+
+        if ($subjectType === 'request' && array_key_exists('stage', $attributes) && $event !== 'created') {
+            $stage = $attributes['stage'];
+            $stageLabel = $stage instanceof RequestStage
+                ? $stage->getLabel()
+                : (RequestStage::tryFrom((string) $stage)?->getLabel() ?? (string) $stage);
+
+            return 'Progressed to '.$stageLabel;
+        }
+
+        foreach (self::APPROVAL_FIELD_LABELS as $field => $roleLabel) {
+            if (array_key_exists($field, $attributes) && $attributes[$field] !== null) {
+                return sprintf('Approved %s %s — %s', Str::headline($subjectType), $label, $roleLabel);
+            }
+        }
+
+        return trim(sprintf('%s %s %s', $event, Str::headline($subjectType), $label));
     }
 
     /**

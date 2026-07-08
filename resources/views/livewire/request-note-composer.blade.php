@@ -20,7 +20,7 @@
             wire:model="body"
             rows="3"
             placeholder="Write a note for this request…"
-            class="block w-full rounded-lg border-gray-300 bg-white text-sm text-gray-950 shadow-sm placeholder:text-gray-400 focus:border-primary-500 focus:ring-primary-500 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500"
+            class="block w-full rounded-lg border-gray-300 bg-white px-3 py-2 text-sm leading-relaxed text-gray-950 shadow-sm placeholder:text-gray-400 focus:border-primary-500 focus:ring-primary-500 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500"
         ></textarea>
         @error('body')
             <p class="text-xs text-danger-600 dark:text-danger-400">{{ $message }}</p>

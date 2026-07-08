@@ -67,7 +67,7 @@ beforeEach(function (): void {
 
 it('renders the activity section with the supplier\'s own quotation activity', function (): void {
     livewire(ViewSupplierRfq::class, ['record' => $this->quote->getKey()])
-        ->assertSee('Activity')
+        ->assertSee('Activities')
         ->assertSee($this->quote->quote_number)
         ->assertDontSee('No activity recorded for this request yet.');
 
@@ -96,7 +96,7 @@ it('never surfaces another supplier\'s activity on a shared request', function (
         ->create(['creator_id' => $this->admin->getKey()]);
 
     livewire(ViewSupplierRfq::class, ['record' => $this->quote->getKey()])
-        ->assertSee('Activity')
+        ->assertSee('Activities')
         ->assertDontSee($rivalQuote->quote_number)
         ->assertDontSee('Rival Supplier Co');
 

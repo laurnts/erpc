@@ -110,7 +110,7 @@ final class ViewCustomerRequest extends ViewRecord
                             ->view('filament.customer.components.request-progress-timeline'),
                     ])
                     ->columnSpanFull(),
-                Section::make('Activity')
+                Section::make('Activities')
                     ->schema([
                         ViewEntry::make('activity_timeline')
                             ->label('')
