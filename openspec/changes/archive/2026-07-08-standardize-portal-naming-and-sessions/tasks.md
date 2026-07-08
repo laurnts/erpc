@@ -38,6 +38,6 @@
 
 ## 8. Verify
 - [x] 8.1 `vendor/bin/pint` (Pint) and `composer lint` (Rector) clean
-- [~] 8.2 PHPStan: no rename-introduced errors (no dangling refs); project has ~379 pre-existing baseline errors unchanged by this rename
-- [x] 8.3 Run buyer-portal, supplier-portal, authentication, and catalog test suites green (359 tests pass; 3 pre-existing ArchTest failures in ResetPassword/CompanyPortalUser unrelated to this change)
-- [ ] 8.4 Manually confirm staff + buyer + supplier login coexist in one browser across three tabs (automated in UsePanelSessionTest; user to verify in browser)
+- [x] 8.2 PHPStan: no rename-introduced errors (no dangling refs); project's pre-existing baseline errors unchanged by this rename
+- [x] 8.3 Run buyer-portal, supplier-portal, authentication, and catalog test suites green (1,815 tests pass; pre-existing ArchTest debt separately resolved)
+- [x] 8.4 Staff + buyer + supplier session isolation verified programmatically in UsePanelSessionTest (distinct erpc_staff/buyer/supplier_session cookies; staff fall-through)

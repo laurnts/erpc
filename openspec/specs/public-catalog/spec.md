@@ -87,6 +87,6 @@ The system SHALL let visitors collect articles with chosen quantities into a ses
 
 #### Scenario: Signed-in user submits
 - **WHEN** an active portal user submits the cart
-- **THEN** a Request is created per the Catalog Quote Cart Submission requirement (customer-portal spec)
+- **THEN** a Request is created per the Catalog Quote Cart Submission requirement (buyer-portal spec)
 - **AND** the cart is cleared and a confirmation with the request number is shown
 

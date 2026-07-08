@@ -17,7 +17,7 @@ The system SHALL provide a dedicated Filament panel for supplier self-service at
 #### Scenario: Panel access control
 - **WHEN** supplier panel access is evaluated
 - **THEN** access requires a verified email and an active `company_portal_users` row with `portal = supplier` for a company with `is_supplier = true`
-- **AND** a customer-portal membership grants no supplier panel access, and vice versa — including for one person at a dual-role company
+- **AND** a buyer-portal membership grants no supplier panel access, and vice versa — including for one person at a dual-role company
 
 #### Scenario: Branding is rendered by the shared portal shell
 - **WHEN** the supplier panel renders its brand name, logo, or favicon
