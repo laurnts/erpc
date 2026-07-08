@@ -305,7 +305,6 @@ final class ViewRequest extends ViewRecord
                         ->columnSpanFull(),
                 ])
                 ->collapsible()
-                ->collapsed()
                 ->visible(fn (Request $record): bool => $record->getMedia('attachments')->isNotEmpty())
                 ->columnSpanFull(),
 

@@ -161,12 +161,10 @@ final class ViewBuyerRequest extends ViewRecord
                             ->columnSpanFull(),
                     ])
                     ->collapsible()
-                    ->collapsed()
                     ->visible(fn (Request $record): bool => filled($record->description)),
                 Section::make('Attached Documents')
                     ->icon('heroicon-o-paper-clip')
                     ->collapsible()
-                    ->collapsed()
                     ->visible(fn (Request $record): bool => $record->submission_method === RequestSubmissionMethod::DOCUMENT)
                     ->schema([
                         ViewEntry::make('attachments_list')
@@ -175,7 +173,6 @@ final class ViewBuyerRequest extends ViewRecord
                     ]),
                 Section::make('Request Progress')
                     ->collapsible()
-                    ->collapsed()
                     ->schema([
                         ViewEntry::make('stage_timeline')
                             ->label('')
@@ -184,7 +181,6 @@ final class ViewBuyerRequest extends ViewRecord
                     ]),
                 Section::make('Quotes')
                     ->collapsible()
-                    ->collapsed()
                     ->schema([
                         Livewire::make(BuyerQuotesRelationManager::class, fn (Request $record): array => [
                             'ownerRecord' => $record,
@@ -196,7 +192,6 @@ final class ViewBuyerRequest extends ViewRecord
                         ->exists()),
                 Section::make('Request Items')
                     ->collapsible()
-                    ->collapsed()
                     ->visible(fn (Request $record): bool => $record->items()->exists())
                     ->schema([
                         ViewEntry::make('items_table')
@@ -206,12 +201,10 @@ final class ViewBuyerRequest extends ViewRecord
                 Section::make('Payments')
                     ->icon('heroicon-o-credit-card')
                     ->collapsible()
-                    ->collapsed()
                     ->visible(fn (Request $record): bool => $this->hasPayableInvoice($record))
                     ->schema($this->paymentCardEntries()),
                 Section::make(fn (Request $record): string => 'Activity · '.$this->activityCount($record))
                     ->collapsible()
-                    ->collapsed()
                     ->schema([
                         ViewEntry::make('activity_timeline')
                             ->label('')
