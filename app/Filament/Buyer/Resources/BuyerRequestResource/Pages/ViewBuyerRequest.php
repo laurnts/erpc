@@ -177,7 +177,7 @@ final class ViewBuyerRequest extends ViewRecord
                         ViewEntry::make('stage_timeline')
                             ->label('')
                             ->state(fn (Request $record): array => $presenter->timeline($record))
-                            ->view('filament.buyer.components.request-progress-timeline'),
+                            ->view('filament.portal.components.request-progress-timeline'),
                     ]),
                 Section::make('Quotes')
                     ->collapsible()
@@ -190,7 +190,8 @@ final class ViewBuyerRequest extends ViewRecord
                     ->visible(fn (Request $record): bool => $record->buyerQuotes()
                         ->where('status', '!=', BuyerQuoteStatus::DRAFT)
                         ->exists()),
-                Section::make('Request Items')
+                Section::make('Requested Items')
+                    ->icon('heroicon-o-queue-list')
                     ->collapsible()
                     ->visible(fn (Request $record): bool => $record->items()->exists())
                     ->schema([
@@ -203,7 +204,8 @@ final class ViewBuyerRequest extends ViewRecord
                     ->collapsible()
                     ->visible(fn (Request $record): bool => $this->hasPayableInvoice($record))
                     ->schema($this->paymentCardEntries()),
-                Section::make(fn (Request $record): string => 'Activity · '.$this->activityCount($record))
+                Section::make(fn (Request $record): string => 'Activities · '.$this->activityCount($record))
+                    ->icon('heroicon-o-clock')
                     ->collapsible()
                     ->schema([
                         ViewEntry::make('activity_timeline')

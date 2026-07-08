@@ -17,7 +17,7 @@
             <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                 @foreach ($items as $item)
                     <tr wire:key="request-item-{{ $item->getKey() }}">
-                        <td class="px-3 py-2.5 text-gray-900 dark:text-white">{{ $item->description }}</td>
+                        <td class="px-3 py-2.5 text-gray-900 dark:text-white">{{ $item->parent_id !== null ? '└─ ' : '' }}{{ $item->description }}</td>
                         <td class="px-3 py-2.5 tabular-nums text-gray-900 dark:text-white">{{ number_format((float) $item->quantity, 4) }}</td>
                         <td class="px-3 py-2.5 text-gray-900 dark:text-white">{{ $item->unitOfMeasure?->label ?? $item->unit?->value ?? 'pcs' }}</td>
                     </tr>

@@ -79,10 +79,18 @@ final class SupplierRequestResource extends Resource
                     ->label('Reference')
                     ->searchable()
                     ->sortable()
+                    ->copyable()
                     ->weight('bold'),
+                TextColumn::make('status')
+                    ->label('Status')
+                    ->badge()
+                    ->formatStateUsing(fn (SupplierQuote $record): string => $presenter->label($record))
+                    ->color(fn (SupplierQuote $record): string => $presenter->color($record)),
                 TextColumn::make('items_count')
                     ->label('Items')
-                    ->counts('items'),
+                    ->counts('items')
+                    ->sortable()
+                    ->alignCenter(),
                 TextColumn::make('sent_to_supplier_at')
                     ->label('Received')
                     ->dateTime()
@@ -97,11 +105,6 @@ final class SupplierRequestResource extends Resource
                     ->formatStateUsing(fn (SupplierQuote $record): string => $record->submitted_at !== null
                         ? $record->formatted_total
                         : '—'),
-                TextColumn::make('status')
-                    ->label('Status')
-                    ->badge()
-                    ->formatStateUsing(fn (SupplierQuote $record): string => $presenter->label($record))
-                    ->color(fn (SupplierQuote $record): string => $presenter->color($record)),
             ])
             ->filters([
                 SelectFilter::make('status_group')

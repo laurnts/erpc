@@ -10,15 +10,14 @@ use App\Filament\Supplier\Resources\SupplierRequestResource;
 use App\Filament\Supplier\Resources\SupplierRequestResource\Schemas\SupplierRequestSubmissionForm;
 use App\Models\Request;
 use App\Models\SupplierQuote;
-use App\Models\SupplierQuoteItem;
 use App\Models\User;
+use App\Services\Portal\RequestStageTimelinePresenter;
 use App\Services\Portal\SupplierPortalContext;
 use App\Services\SupplierPortal\SupplierRequestStatusPresenter;
 use App\Services\Timeline\PortalTimelineSource;
 use App\Services\Timeline\TimelineParty;
 use App\Support\SafeCast;
 use Filament\Actions\Action;
-use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Notifications\Notification;
@@ -92,47 +91,36 @@ final class ViewSupplierRequest extends ViewRecord
                     ])
                     ->columns(4)
                     ->columnSpanFull(),
-                Section::make('Requested Items')
+                Section::make('Request Progress')
                     ->collapsible()
                     ->schema([
-                        RepeatableEntry::make('items')
+                        ViewEntry::make('stage_timeline')
                             ->label('')
-                            ->schema([
-                                TextEntry::make('description')
-                                    ->label('Description')
-                                    ->formatStateUsing(fn (SupplierQuoteItem $record, string $state): string => $record->requestItem?->parent_id !== null
-                                        ? '└─ '.$state
-                                        : $state),
-                                TextEntry::make('quantity')
-                                    ->label('Quantity')
-                                    ->numeric(),
-                                TextEntry::make('unit_label')
-                                    ->label('Unit'),
-                                TextEntry::make('notes')
-                                    ->label('Notes')
-                                    ->placeholder('—'),
-                                TextEntry::make('unit_price')
-                                    ->label('Your Unit Price')
-                                    ->formatStateUsing(fn (SupplierQuoteItem $record): string => $record->formatted_unit_price)
-                                    ->visible(fn (): bool => $this->quoteRecord()->submitted_at !== null),
-                                TextEntry::make('line_total')
-                                    ->label('Line Total')
-                                    ->formatStateUsing(fn (SupplierQuoteItem $record): string => $record->formatted_line_total)
-                                    ->visible(fn (): bool => $this->quoteRecord()->submitted_at !== null),
-                                TextEntry::make('is_selected')
-                                    ->label('Result')
-                                    ->badge()
-                                    ->getStateUsing(fn (SupplierQuoteItem $record): ?string => $record->requestItem?->parent_id !== null
-                                        ? null
-                                        : ($record->is_selected ? 'Won' : 'Not selected'))
-                                    ->color(fn (SupplierQuoteItem $record): string => $record->is_selected ? 'success' : 'gray')
-                                    ->placeholder('—')
-                                    ->visible(fn (): bool => $this->quoteRecord()->outcomes_announced_at !== null),
+                            ->state(function (): array {
+                                $request = $this->parentRequest();
+
+                                return $request instanceof Request
+                                    ? app(RequestStageTimelinePresenter::class)->timeline($request)
+                                    : [];
+                            })
+                            ->view('filament.portal.components.request-progress-timeline'),
+                    ]),
+                Section::make('Requested Items')
+                    ->icon('heroicon-o-queue-list')
+                    ->collapsible()
+                    ->schema([
+                        ViewEntry::make('items_table')
+                            ->label('')
+                            ->state(fn (SupplierQuote $record): array => [
+                                'items' => $record->items,
+                                'showPrices' => $record->submitted_at !== null,
+                                'showResult' => $record->outcomes_announced_at !== null,
                             ])
-                            ->columns($this->quoteRecord()->outcomes_announced_at !== null ? 7 : 6),
+                            ->view('filament.supplier.components.request-items-table'),
                     ]),
                 Section::make('Activities')
-                    ->description('Your interactions on this quotation, most recent first.')
+                    ->icon('heroicon-o-clock')
+                    ->description('Your interactions on this quotation — the latest activity is at the bottom.')
                     ->collapsible()
                     ->schema([
                         ViewEntry::make('activity_timeline')

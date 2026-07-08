@@ -88,7 +88,7 @@
             </ul>
         </div>
     @empty
-        <p class="text-gray-500 dark:text-gray-400">No history recorded for this request yet.</p>
+        <p class="text-gray-500 dark:text-gray-400">No activity recorded for this request yet.</p>
     @endforelse
 
     @if ($paginator->lastPage() > 1)
@@ -96,10 +96,10 @@
             <x-filament::button
                 color="gray"
                 size="xs"
-                wire:click="previousPage"
-                :disabled="$paginator->onFirstPage()"
+                wire:click="nextPage"
+                :disabled="! $paginator->hasMorePages()"
             >
-                &lsaquo; Prev
+                &lsaquo; Older
             </x-filament::button>
 
             <span>Page {{ $paginator->currentPage() }} of {{ $paginator->lastPage() }}</span>
@@ -107,10 +107,10 @@
             <x-filament::button
                 color="gray"
                 size="xs"
-                wire:click="nextPage"
-                :disabled="! $paginator->hasMorePages()"
+                wire:click="previousPage"
+                :disabled="$paginator->onFirstPage()"
             >
-                Next &rsaquo;
+                Newer &rsaquo;
             </x-filament::button>
         </div>
     @endif
