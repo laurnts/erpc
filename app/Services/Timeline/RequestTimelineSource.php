@@ -318,15 +318,23 @@ final readonly class RequestTimelineSource
 
     private function creditHeadline(BuyerCreditUsageHistory $row): string
     {
-        if ($row->transaction_type === 'approved') {
+        $limitBefore = (float) $row->max_credit_limit_before;
+        $limitAfter = (float) $row->max_credit_limit_after;
+
+        if ($row->transaction_type === 'approved' || $limitBefore !== $limitAfter) {
             return sprintf(
                 'Credit limit %s → %s',
-                number_format((float) $row->max_credit_limit_before, 2),
-                number_format((float) $row->max_credit_limit_after, 2),
+                number_format($limitBefore, 2),
+                number_format($limitAfter, 2),
             );
         }
 
-        $verb = $row->transaction_type === 'debit' ? 'Credit used' : 'Credit released';
+        // Derive the verb from the balance direction rather than a specific
+        // transaction_type literal (writers use 'debit'/'credit' and a
+        // dynamic value); rising credit_used means credit was consumed.
+        $verb = (float) $row->credit_used_after >= (float) $row->credit_used_before
+            ? 'Credit used'
+            : 'Credit released';
 
         return sprintf(
             '%s %s — available %s → %s',
