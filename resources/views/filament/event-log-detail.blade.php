@@ -5,7 +5,17 @@
     $oldValues = (array) $properties->get('old', []);
     $keys = array_keys($newValues + $oldValues);
 
-    $format = function ($value): string {
+    // Monetary fields are formatted through the team's base currency (the app-wide
+    // standard, e.g. IDR "Rp 11.200.000,-") instead of raw stored values.
+    $moneyFields = [
+        'total', 'subtotal', 'tax_total', 'tax_amount', 'base_total', 'amount', 'amount_paid',
+        'unit_price', 'unit_price_exc_tax', 'cost_price', 'line_total', 'line_subtotal', 'line_tax',
+        'margin_amount', 'prepayment_amount', 'credit_limit', 'requested_credit_limit', 'credit_used',
+        'credit_released', 'available_credit', 'max_credit_limit',
+    ];
+    $currency = ($activity->team ?? \Filament\Facades\Filament::getTenant())?->getBaseCurrency();
+
+    $format = function ($value, ?string $key = null) use ($currency, $moneyFields): string {
         if (is_null($value)) {
             return '—';
         }
@@ -15,7 +25,27 @@
         if (is_array($value)) {
             return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '—';
         }
-        return trim((string) $value) === '' ? '—' : (string) $value;
+        if (trim((string) $value) === '') {
+            return '—';
+        }
+        if ($currency !== null && $key !== null && in_array($key, $moneyFields, true) && is_numeric($value)) {
+            return $currency->format((float) $value);
+        }
+        // Format ISO date/datetime strings (e.g. "2026-07-10T00:00:00.000000Z").
+        if (is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/', $value)) {
+            try {
+                $date = \Illuminate\Support\Carbon::parse($value);
+
+                return $date->format($date->format('H:i') === '00:00' ? 'M j, Y' : 'M j, Y H:i');
+            } catch (\Throwable $e) {
+                // fall through to the raw value
+            }
+        }
+        // Trim trailing zeros on other decimals (e.g. "50.0000" -> "50").
+        if (is_numeric($value) && str_contains((string) $value, '.')) {
+            return rtrim(rtrim((string) $value, '0'), '.');
+        }
+        return (string) $value;
     };
 
     $recordLabel = $activity->subject_type
@@ -64,8 +94,8 @@
                     @foreach ($keys as $key)
                         <tr>
                             <td class="px-4 py-2 font-medium text-gray-950 dark:text-white">{{ \Illuminate\Support\Str::headline($key) }}</td>
-                            <td class="px-4 py-2 text-gray-500 line-through decoration-gray-300 dark:text-gray-400">{{ $format($oldValues[$key] ?? null) }}</td>
-                            <td class="px-4 py-2 text-gray-950 dark:text-white">{{ $format($newValues[$key] ?? null) }}</td>
+                            <td class="px-4 py-2 text-gray-500 line-through decoration-gray-300 dark:text-gray-400">{{ $format($oldValues[$key] ?? null, $key) }}</td>
+                            <td class="px-4 py-2 text-gray-950 dark:text-white">{{ $format($newValues[$key] ?? null, $key) }}</td>
                         </tr>
                     @endforeach
                 </tbody>
