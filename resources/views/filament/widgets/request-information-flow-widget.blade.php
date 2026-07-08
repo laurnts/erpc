@@ -127,7 +127,7 @@
             margin-bottom: 0.25rem;
         }
     </style>
-    <x-filament::section class="w-full max-w-full">
+    <x-filament::section compact class="w-full max-w-full">
         <div x-show="hasContent()" class="prose prose-sm max-w-none w-full dark:prose-invert [&_ul]:!list-disc [&_ul]:list-outside [&_ul]:pl-6 [&_ul]:space-y-1 [&_li]:marker:text-current" x-html="content"></div>
         <div x-show="!hasContent()" class="text-gray-500 dark:text-gray-400 text-sm">
             Select a tab above to view its information flow guide.
