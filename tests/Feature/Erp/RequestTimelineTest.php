@@ -253,15 +253,15 @@ it('keeps every logged request-child model inside the staff allow-list so no bra
     }
 });
 
-it('renders the History section with day-grouped entries on the request view page', function (): void {
+it('renders the Activities section with day-grouped entries on the request view page', function (): void {
     ['request' => $request, 'quote' => $quote] = seedTimelineRequest($this);
 
     $quote->update(['total' => '950.0000']);
 
-    // History renders at the very bottom as an always-open footer widget.
+    // Activities render in the sticky right sidebar.
     livewire(ViewRequest::class, ['record' => $request->getKey()])
         ->assertOk()
-        ->assertSeeLivewire(\App\Filament\Widgets\RequestHistoryWidget::class);
+        ->assertSeeLivewire(\App\Livewire\RequestHistorySidebar::class);
 
     livewire(RequestHistoryTimeline::class, ['request' => $request])
         ->assertOk()
@@ -269,6 +269,10 @@ it('renders the History section with day-grouped entries on the request view pag
         ->assertSee('updated Buyer Quote '.$quote->quote_number)
         ->assertSee('1 field')
         ->assertSee('View details')
+        ->assertDontSee('Line-level price changes appear after line-item logging lands');
+
+    livewire(\App\Livewire\RequestHistorySidebar::class, ['request' => $request])
+        ->assertOk()
         ->assertSee('Line-level price changes appear after line-item logging lands');
 });
 

@@ -84,6 +84,36 @@
     @apply px-4 lg:px-6;
 }
 
+/* Portal panels — horizontal header navigation */
+.fi-panel-buyer,
+.fi-panel-supplier {
+    .fi-topbar-start {
+        @apply flex;
+    }
+
+    .fi-topbar-nav-groups {
+        @apply gap-x-1;
+    }
+
+    .fi-topbar-item-btn {
+        @apply rounded-xl px-3.5 py-2;
+    }
+
+    .fi-topbar-item.fi-active {
+        .fi-topbar-item-btn {
+            @apply bg-primary-50 hover:bg-primary-50 focus-visible:bg-primary-50 dark:bg-primary-500/10 dark:hover:bg-primary-500/10 dark:focus-visible:bg-primary-500/10;
+
+            > .fi-icon {
+                @apply text-primary-600 dark:text-primary-400;
+            }
+        }
+
+        .fi-topbar-item-label {
+            @apply font-semibold text-primary-600 dark:text-primary-400;
+        }
+    }
+}
+
 /* Button Enhancements */
 .fi-btn {
     @apply relative overflow-hidden transition-shadow duration-200 rounded-xl;
@@ -409,4 +439,181 @@ input[type='radio']:not(:disabled) {
 /* Buyer request detail — sticky metadata sidebar */
 .fi-panel-buyer .buyer-request-sidebar {
     @apply lg:sticky lg:top-6 lg:self-start;
+}
+
+.fi-panel-buyer .buyer-request-detail-grid {
+    @apply items-stretch;
+}
+
+@media (min-width: 1024px) {
+    .fi-panel-buyer .buyer-request-detail-grid {
+        grid-template-columns: minmax(0, 25%) minmax(0, 50%) minmax(0, 25%);
+    }
+
+    .fi-panel-buyer .buyer-request-detail-grid > div:has(.buyer-request-activities-sidebar) {
+        position: sticky;
+        top: 1.5rem;
+        align-self: start;
+        z-index: 10;
+        height: fit-content;
+    }
+}
+
+.fi-panel-buyer .buyer-request-detail-main {
+    @apply min-w-0;
+}
+
+.fi-panel-buyer .buyer-request-activities-sidebar .buyer-request-activities-card {
+    max-height: calc(100vh - 5rem);
+    @apply flex flex-col overflow-hidden;
+}
+
+.fi-panel-buyer .buyer-request-activities-sidebar .buyer-request-activities-card > .fi-section-content-ctn {
+    @apply flex min-h-0 flex-1 flex-col overflow-hidden;
+}
+
+.fi-panel-buyer .buyer-request-activities-body {
+    @apply flex min-h-0 flex-1 flex-col overflow-hidden;
+}
+
+.fi-panel-buyer .buyer-request-activities-scroll {
+    max-height: calc(100vh - 14rem);
+    @apply min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1;
+}
+
+.fi-panel-buyer .buyer-request-activities-sidebar .fi-section-content {
+    @apply flex min-h-0 flex-1 flex-col overflow-hidden p-0;
+}
+
+/* Admin request detail — three-column layout (guide | work | history) */
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-detail-grid {
+  @apply items-stretch;
+}
+
+@media (min-width: 1280px) {
+  .fi-resource-view-record-page.admin-request-detail-page .admin-request-detail-grid {
+    grid-template-columns: minmax(0, 22%) minmax(0, 56%) minmax(0, 22%);
+  }
+}
+
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-guide-column {
+  @apply flex flex-col gap-3;
+  height: fit-content;
+}
+
+@media (min-width: 1280px) {
+  .fi-resource-view-record-page.admin-request-detail-page .admin-request-detail-grid > div:has(.admin-request-guide-column),
+  .fi-resource-view-record-page.admin-request-detail-page .admin-request-detail-grid > div:has(.admin-request-history-sidebar) {
+    position: sticky;
+    top: 1.25rem;
+    align-self: start;
+    z-index: 10;
+    height: fit-content;
+  }
+
+  .fi-resource-view-record-page.admin-request-detail-page .fi-page-main,
+  .fi-resource-view-record-page.admin-request-detail-page .fi-page-content,
+  .fi-resource-view-record-page.admin-request-detail-page .admin-request-detail-grid,
+  .fi-resource-view-record-page.admin-request-detail-page .admin-request-detail-grid > div {
+    overflow: visible;
+  }
+}
+
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-stage-bar,
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-step-guide,
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-history-sidebar {
+  height: fit-content;
+}
+
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-stage-bar-card {
+  @apply border-gray-300 dark:border-gray-600;
+}
+
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-stage-bar-list {
+  position: relative;
+}
+
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-stage-bar-btn:disabled {
+  @apply cursor-not-allowed opacity-60;
+}
+
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-stage-bar-item--current .admin-request-stage-bar-btn {
+  @apply bg-primary-50 dark:bg-primary-500/10;
+}
+
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-stage-bar-check {
+  display: flex;
+  height: 1.25rem;
+  width: 1.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background-color: #22c55e;
+  color: #ffffff;
+}
+
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-stage-bar-check svg {
+  color: #ffffff;
+}
+
+.fi-resource-view-record-page.admin-request-detail-page #request-relation-managers .fi-sc-tabs > nav.fi-tabs {
+  display: none !important;
+}
+
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-detail-main {
+  @apply min-w-0;
+}
+
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-step-guide-card {
+  @apply border-gray-300 dark:border-gray-600;
+}
+
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-history-sidebar .admin-request-history-card {
+  max-height: calc(100vh - 5rem);
+  @apply flex flex-col overflow-hidden;
+}
+
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-history-sidebar .admin-request-history-card > .fi-section-content-ctn {
+  @apply flex min-h-0 flex-1 flex-col overflow-hidden;
+}
+
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-history-body {
+  @apply flex min-h-0 flex-1 flex-col overflow-hidden;
+}
+
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-history-scroll {
+  max-height: calc(100vh - 14rem);
+  @apply min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1;
+}
+
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-history-composer-outer {
+  @apply shrink-0 bg-white dark:bg-gray-900;
+}
+
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-history-sidebar .fi-section-content {
+  @apply flex min-h-0 flex-1 flex-col overflow-hidden p-0;
+}
+
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-history-sidebar .admin-request-history-body {
+  @apply px-4 pb-4;
+}
+
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-history-timeline {
+  @apply min-w-0;
+}
+
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-history-timeline li,
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-activity-log-full li {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.admin-request-activity-log-full {
+  @apply min-h-[60vh] max-h-[80vh];
+}
+
+.admin-request-activity-log-full .admin-request-history-entries {
+  max-height: calc(80vh - 12rem);
+  @apply overflow-y-auto pr-1;
 }

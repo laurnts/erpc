@@ -33,6 +33,8 @@ final class BuyerRequestResource extends Resource
 
     protected static ?string $slug = 'requests';
 
+    protected static ?string $navigationLabel = 'My Requests';
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document-list';
 
     protected static ?int $navigationSort = 1;

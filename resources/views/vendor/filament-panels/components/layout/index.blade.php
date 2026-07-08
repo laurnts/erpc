@@ -15,7 +15,8 @@
         $maxContentWidth = Width::tryFrom($maxContentWidth) ?? $maxContentWidth;
     }
 
-    $usesSplitSidebarLayout = in_array(filament()->getId(), ['app', 'buyer'], true);
+    $usesSplitSidebarLayout = in_array(filament()->getId(), ['app', 'buyer'], true)
+        && ! $hasTopNavigation;
 @endphp
 
 <x-filament-panels::layout.base
