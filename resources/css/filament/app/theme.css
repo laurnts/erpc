@@ -84,6 +84,37 @@
     @apply px-4 lg:px-6;
 }
 
+
+/* Portal panels — horizontal header navigation */
+.fi-panel-customer,
+.fi-panel-supplier {
+    .fi-topbar-start {
+        @apply flex;
+    }
+
+    .fi-topbar-nav-groups {
+        @apply gap-x-1;
+    }
+
+    .fi-topbar-item-btn {
+        @apply rounded-xl px-3.5 py-2;
+    }
+
+    .fi-topbar-item.fi-active {
+        .fi-topbar-item-btn {
+            @apply bg-primary-50 hover:bg-primary-50 focus-visible:bg-primary-50 dark:bg-primary-500/10 dark:hover:bg-primary-500/10 dark:focus-visible:bg-primary-500/10;
+
+            > .fi-icon {
+                @apply text-primary-600 dark:text-primary-400;
+            }
+        }
+
+        .fi-topbar-item-label {
+            @apply font-semibold text-primary-600 dark:text-primary-400;
+        }
+    }
+}
+
 /* Button Enhancements */
 .fi-btn {
     @apply relative overflow-hidden transition-shadow duration-200 rounded-xl;

@@ -54,7 +54,6 @@ final class CustomerPanelProvider extends PanelProvider
                 AuthenticatePanelUser::class,
                 InitializeCustomerPortalContext::class,
             ])
-            ->sidebarCollapsibleOnDesktop()
             ->font('Inter');
 
         return PortalPanelConfigurator::apply(

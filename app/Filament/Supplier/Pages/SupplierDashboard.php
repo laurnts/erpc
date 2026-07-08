@@ -11,6 +11,8 @@ use Filament\Pages\Dashboard as BaseDashboard;
 
 final class SupplierDashboard extends BaseDashboard
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $navigationLabel = 'Home';
 
     protected static ?string $title = 'Home';

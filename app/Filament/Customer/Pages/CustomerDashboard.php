@@ -12,6 +12,8 @@ use Filament\Pages\Dashboard as BaseDashboard;
 
 final class CustomerDashboard extends BaseDashboard
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $navigationLabel = 'Home';
 
     protected static ?string $title = 'Home';

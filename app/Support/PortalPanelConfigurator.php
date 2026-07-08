@@ -41,6 +41,7 @@ final readonly class PortalPanelConfigurator
     public static function apply(Panel $panel, string $context, string $dashboard, string $guestBrandName): Panel
     {
         return $panel
+            ->topNavigation()
             ->authPasswordBroker('users')
             ->passwordReset()
             ->emailVerification(EmailVerificationPrompt::class)
