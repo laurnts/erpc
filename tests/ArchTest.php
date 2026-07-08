@@ -30,6 +30,16 @@ arch()->preset()
         // queue worker cannot resolve them. Queuing would require reworking team
         // SMTP to be re-established in the worker (tracked as a follow-up).
         'App\Mail',
+        // Auth notifications (ResetPassword/VerifyEmail) extend Laravel's framework
+        // notification classes and are grouped here rather than in App\Notifications.
+        'App\Auth\Notifications',
+        // Filament tenancy: the model references ApplyTenantScopes::TENANT_USER_SCOPE
+        // to drop the tenant global scope; that scope constant lives on the middleware.
+        'App\Models\CompanyPortalUser',
+        // Portal invitation-acceptance pages register panel auth middleware
+        // (AuthenticatePanelUser + Initialize*PortalContext) as Filament page middleware.
+        'App\Filament\Buyer\Pages\AcceptPortalInvitation',
+        'App\Filament\Supplier\Pages\AcceptPortalInvitation',
     ]);
 
 // Excluding App\Mail from the laravel preset above also drops its debug-output
@@ -87,6 +97,7 @@ arch('avoid mutation')
         'App\Services\Favicon\Drivers',
         'App\Providers\Filament',
         'App\Http\Middleware', // middleware extend framework base classes
+        'App\Auth\Notifications', // framework notifications carry mutable public properties
     ]);
 
 arch('avoid inheritance')
@@ -108,6 +119,7 @@ arch('avoid inheritance')
         'App\Settings', // Spatie Settings requires extending Settings base class
         'App\View',
         'App\Http\Middleware', // middleware extend framework base classes (e.g. Filament Authenticate)
+        'App\Auth\Notifications', // extend Laravel's ResetPassword/VerifyEmail notifications
     ]);
 
 // arch('annotations')

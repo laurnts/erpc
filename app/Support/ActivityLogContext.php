@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Auth;
  * signal for which guard is in play) and falls back to scanning known guards
  * for non-panel contexts.
  */
-final class ActivityLogContext
+final readonly class ActivityLogContext
 {
     /**
      * Guard name => the actor type it represents.
