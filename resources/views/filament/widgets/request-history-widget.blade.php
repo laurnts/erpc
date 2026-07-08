@@ -1,5 +1,5 @@
 <x-filament-widgets::widget>
-    <x-filament::section icon="heroicon-o-clock" heading="Activities">
+    <x-filament::section compact icon="heroicon-o-clock" heading="Activities">
         @livewire(
             \App\Livewire\RequestHistoryTimeline::class,
             ['request' => $record],
