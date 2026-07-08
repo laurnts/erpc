@@ -28,7 +28,7 @@
                     @endphp
 
                     <div
-                        class="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between"
+                        class="flex flex-col flex-wrap gap-4 p-4 sm:flex-row sm:items-center sm:justify-between"
                         style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px;"
                         wire:key="pending-quote-{{ $quote->getKey() }}"
                     >

@@ -3,7 +3,7 @@
 @endphp
 
 <div
-    class="mt-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5"
+    class="my-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5"
     wire:key="note-composer-{{ $request->getKey() }}"
 >
     <form wire:submit="submit" class="space-y-3">

@@ -22,6 +22,8 @@ use App\Filament\Resources\RequestResource\RelationManagers\ItemsRelationManager
 use App\Filament\Resources\RequestResource\RelationManagers\ShipmentsRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierOrdersRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierQuotesRelationManager;
+use App\Livewire\RequestGuideColumn;
+use App\Livewire\RequestHistorySidebar;
 use App\Models\Request;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -32,12 +34,14 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Resources\RelationManagers\RelationGroup;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Livewire;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\HtmlString;
+use Livewire\Attributes\On;
 use Relaticle\CustomFields\Facades\CustomFields;
 
 final class ViewRequest extends ViewRecord
@@ -65,6 +69,79 @@ final class ViewRequest extends ViewRecord
     public function getMaxWidth(): \Filament\Support\Enums\Width
     {
         return Width::Full;
+    }
+
+    public function content(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                Grid::make()
+                    ->columns(['default' => 1, 'xl' => 12])
+                    ->extraAttributes(['class' => 'admin-request-detail-grid'])
+                    ->schema([
+                        Group::make()
+                            ->columnSpan(['default' => 'full', 'xl' => 3])
+                            ->extraAttributes([
+                                'class' => 'admin-request-detail-sidebar admin-request-detail-sidebar--guide xl:sticky xl:top-5 xl:z-10 xl:self-start',
+                            ])
+                            ->schema([
+                                Livewire::make(RequestGuideColumn::class, fn (): array => [
+                                    'request' => $this->getRecord(),
+                                    'activeRelationManager' => $this->activeRelationManager,
+                                ])->key(fn (): string => 'request-guide-column-'.$this->getRecord()->getKey().'-'.$this->activeRelationManager),
+                            ]),
+                        Group::make()
+                            ->columnSpan(['default' => 'full', 'xl' => 6])
+                            ->extraAttributes(['class' => 'admin-request-detail-main'])
+                            ->schema([
+                                $this->hasInfolist()
+                                    ? $this->getInfolistContentComponent()
+                                    : $this->getFormContentComponent(),
+                                Group::make()
+                                    ->extraAttributes(['id' => 'request-relation-managers'])
+                                    ->schema([
+                                        $this->getRelationManagersContentComponent(),
+                                    ]),
+                            ]),
+                        Group::make()
+                            ->columnSpan(['default' => 'full', 'xl' => 3])
+                            ->extraAttributes([
+                                'class' => 'admin-request-detail-sidebar admin-request-detail-sidebar--history xl:sticky xl:top-5 xl:z-10 xl:self-start',
+                            ])
+                            ->schema([
+                                Livewire::make(RequestHistorySidebar::class, fn (): array => [
+                                    'request' => $this->getRecord(),
+                                ])->key(fn (): string => 'request-history-sidebar-'.$this->getRecord()->getKey()),
+                            ]),
+                    ]),
+            ]);
+    }
+
+    /**
+     * @return array<string>
+     */
+    public function getPageClasses(): array
+    {
+        return [
+            ...parent::getPageClasses(),
+            'admin-request-detail-page',
+        ];
+    }
+
+    #[On('request-guide-go-to-tab')]
+    public function goToRelationManagerFromGuide(string $relationKey): void
+    {
+        $index = self::relationManagerIndexForKey($relationKey);
+
+        if ($index !== null) {
+            $this->activeRelationManager = $index;
+        }
+
+        $this->js(<<<'JS'
+            $nextTick(() => {
+                document.getElementById('request-relation-managers')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        JS);
     }
 
     /**
@@ -218,12 +295,13 @@ final class ViewRequest extends ViewRecord
                         ->label('Request number')
                         ->weight('bold')
                         ->size('md')
-                        ->copyable(),
+                        ->copyable()
+                        ->columnSpan(['default' => 2, 'lg' => 1]),
                     TextEntry::make('title')
                         ->label('Title')
                         ->weight('bold')
                         ->size('md')
-                        ->columnSpan(3),
+                        ->columnSpan(['default' => 2, 'lg' => 1]),
                     TextEntry::make('stage')
                         ->label('Status')
                         ->badge()
@@ -389,8 +467,6 @@ final class ViewRequest extends ViewRecord
             // Custom Fields
             CustomFields::infolist()->forSchema($schema)->build()->columnSpanFull(),
 
-            // History renders at the very bottom as an always-open footer widget
-            // (see getFooterWidgets + RequestHistoryWidget), below the guide.
         ]);
     }
 
@@ -457,16 +533,9 @@ final class ViewRequest extends ViewRecord
         return null;
     }
 
-    /**
-     * Get footer widgets for the page.
-     * This adds the information flow guide below the relation managers.
-     */
-    public function getFooterWidgets(): array
+    protected function getFooterWidgets(): array
     {
-        return [
-            \App\Filament\Widgets\RequestInformationFlowWidget::class,
-            \App\Filament\Widgets\RequestHistoryWidget::class,
-        ];
+        return [];
     }
 
     /**

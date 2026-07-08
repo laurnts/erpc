@@ -15,9 +15,6 @@ use App\Livewire\BuyerPendingQuoteActions;
 use App\Models\BuyerInvoice;
 use App\Models\Request;
 use App\Services\BuyerPortal\BuyerRequestStagePresenter;
-use App\Services\Portal\BuyerPortalContext;
-use App\Services\Timeline\PortalTimelineSource;
-use App\Services\Timeline\TimelineParty;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Infolists\Components\ViewEntry;
@@ -82,16 +79,15 @@ final class ViewBuyerRequest extends ViewRecord
 
     public function infolist(Schema $schema): Schema
     {
-        $presenter = app(BuyerRequestStagePresenter::class);
-
         return $schema
             ->columns(1)
             ->components([
                 Grid::make()
-                    ->columns(['default' => 1, 'lg' => 4])
+                    ->columns(['default' => 1, 'lg' => 12])
+                    ->extraAttributes(['class' => 'buyer-request-detail-grid'])
                     ->schema([
                         Group::make()
-                            ->columnSpan(['lg' => 1])
+                            ->columnSpan(['default' => 'full', 'lg' => 3])
                             ->extraAttributes([
                                 'class' => 'buyer-request-sidebar lg:sticky lg:top-6 lg:self-start',
                                 'style' => 'position: sticky; top: 1.5rem; align-self: flex-start; height: fit-content;',
@@ -112,7 +108,8 @@ final class ViewBuyerRequest extends ViewRecord
                                     ]),
                             ]),
                         Group::make()
-                            ->columnSpan(['lg' => 3])
+                            ->columnSpan(['default' => 'full', 'lg' => 6])
+                            ->extraAttributes(['class' => 'buyer-request-detail-main'])
                             ->schema([
                                 Livewire::make(BuyerPendingQuoteActions::class, fn (Request $record): array => [
                                     'request' => $record,
@@ -121,13 +118,6 @@ final class ViewBuyerRequest extends ViewRecord
                                     ->visible(fn (Request $record): bool => $record->buyerQuotes()
                                         ->where('status', BuyerQuoteStatus::SENT)
                                         ->exists()),
-                                Section::make('Request Progress')
-                                    ->schema([
-                                        ViewEntry::make('stage_timeline')
-                                            ->label('')
-                                            ->state(fn (Request $record): array => $presenter->timeline($record))
-                                            ->view('filament.buyer.components.request-progress-timeline'),
-                                    ]),
                                 Section::make('Quotes')
                                     ->schema([
                                         Livewire::make(BuyerQuotesRelationManager::class, fn (Request $record): array => [
@@ -149,17 +139,21 @@ final class ViewBuyerRequest extends ViewRecord
                                     ->icon('heroicon-o-credit-card')
                                     ->visible(fn (Request $record): bool => $this->hasPayableInvoice($record))
                                     ->schema($this->paymentCardEntries()),
-                                Section::make(fn (Request $record): string => 'Activity · '.$this->activityCount($record))
-                                    ->collapsible()
-                                    ->collapsed()
+                            ]),
+                        Group::make()
+                            ->columnSpan(['default' => 'full', 'lg' => 3])
+                            ->extraAttributes([
+                                'class' => 'buyer-request-activities-sidebar lg:sticky lg:top-6 lg:z-10 lg:self-start',
+                            ])
+                            ->schema([
+                                Section::make('Activities')
+                                    ->icon('heroicon-o-clock')
+                                    ->compact()
+                                    ->extraAttributes(['class' => 'buyer-request-activities-card'])
                                     ->schema([
-                                        ViewEntry::make('activity_timeline')
+                                        ViewEntry::make('activities_sidebar')
                                             ->label('')
-                                            ->state(fn (Request $record): array => app(PortalTimelineSource::class)->forParty(
-                                                $record,
-                                                TimelineParty::buyer(app(BuyerPortalContext::class)->companyId()),
-                                            ))
-                                            ->view('filament.buyer.components.request-activity-timeline'),
+                                            ->view('filament.buyer.components.request-activities-sidebar'),
                                     ]),
                             ]),
                     ]),
@@ -211,13 +205,5 @@ final class ViewBuyerRequest extends ViewRecord
             EditAction::make()
                 ->visible(fn (Request $record): bool => $record->isEditableByBuyer()),
         ];
-    }
-
-    private function activityCount(Request $record): int
-    {
-        return count(app(PortalTimelineSource::class)->forParty(
-            $record,
-            TimelineParty::buyer(app(BuyerPortalContext::class)->companyId()),
-        ));
     }
 }

@@ -42,14 +42,18 @@ function viewTestRequest(Tests\TestCase $test): Request
 }
 
 describe('Request view page layout', function (): void {
-    it('renders the view page with the three-column summary', function (): void {
+    it('renders the three-column admin layout with guide, work area, and history', function (): void {
         $record = viewTestRequest($this);
 
         livewire(ViewRequest::class, ['record' => $record->getKey()])
             ->assertOk()
+            ->assertSeeLivewire(\App\Livewire\RequestStageBar::class)
+            ->assertSeeLivewire(\App\Livewire\RequestStepGuide::class)
+            ->assertSeeLivewire(\App\Livewire\RequestHistorySidebar::class)
             ->assertSee('Financials')
             ->assertSee('Payments')
-            ->assertSee('Shipments');
+            ->assertSee('Activities')
+            ->assertDontSeeLivewire(\App\Filament\Widgets\RequestInformationFlowWidget::class);
     });
 
     it('still exposes requested items via the Items relation manager tab', function (): void {

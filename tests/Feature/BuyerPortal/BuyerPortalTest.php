@@ -1102,7 +1102,7 @@ describe('Buyer Portal Phase 4', function (): void {
             ->assertSee('Quote awaiting confirmation');
     });
 
-    it('renders request progress timeline on request detail', function (): void {
+    it('renders activities sidebar on request detail', function (): void {
         $request = Request::factory()->for($this->team)->for($this->buyer, 'buyer')->create([
             'submission_method' => RequestSubmissionMethod::MANUAL,
             'submitted_at' => now(),
@@ -1118,8 +1118,8 @@ describe('Buyer Portal Phase 4', function (): void {
             ['record' => $request->getRouteKey()],
         )
             ->assertOk()
-            ->assertSee('Request Progress')
-            ->assertSee('In transit');
+            ->assertSee('Activities')
+            ->assertDontSee('Request Progress');
     });
 
     it('shows awaiting confirmation for sent quotes even when request stage is stale', function (): void {
