@@ -8,6 +8,7 @@ use App\Enums\ShipmentStatus;
 use App\Enums\ShipmentType;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
+use App\Models\Concerns\LogsErpActivity;
 use App\Observers\ShipmentObserver;
 use App\Support\RomanNumerals;
 use Database\Factories\ShipmentFactory;
@@ -66,6 +67,7 @@ final class Shipment extends Model implements HasMedia
 
     use HasTeam;
     use InteractsWithMedia;
+    use LogsErpActivity;
     use SoftDeletes;
 
     /**
@@ -109,6 +111,25 @@ final class Shipment extends Model implements HasMedia
             'expected_delivery_at' => 'datetime',
             'delivered_at' => 'datetime',
             'do_sent_at' => 'datetime',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'shipment_number',
+            'type',
+            'status',
+            'do_number',
+            'carrier_name',
+            'tracking_number',
+            'shipped_at',
+            'expected_delivery_at',
+            'delivered_at',
+            'do_sent_at',
         ];
     }
 

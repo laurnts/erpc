@@ -8,6 +8,7 @@ use App\Models\Company;
 use App\Models\Project;
 use App\Models\Request;
 use App\Models\RequestItem;
+use App\Models\SupplierInvoice;
 use App\Models\SupplierQuote;
 use App\Models\Team;
 use App\Models\User;
@@ -85,6 +86,17 @@ describe('Request Model', function (): void {
         RequestItem::factory()->count(3)->recycle($request)->create();
 
         expect($request->items)->toHaveCount(3);
+    });
+
+    it('has many supplier invoices', function (): void {
+        $request = Request::factory()->recycle($this->team)->recycle($this->buyer)->create();
+        $otherRequest = Request::factory()->recycle($this->team)->recycle($this->buyer)->create();
+        $invoices = SupplierInvoice::factory()->count(2)->recycle($this->team)->recycle($request)->create();
+        SupplierInvoice::factory()->recycle($this->team)->recycle($otherRequest)->create();
+
+        expect($request->supplierInvoices)->toHaveCount(2)
+            ->and($request->supplierInvoices->pluck('id')->sort()->values()->all())
+            ->toBe($invoices->pluck('id')->sort()->values()->all());
     });
 });
 

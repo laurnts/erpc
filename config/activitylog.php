@@ -12,8 +12,13 @@ return [
     /*
      * When the clean-command is executed, all recording activities older than
      * the number of days specified here will be deleted.
+     *
+     * Set to null on purpose: activity records back financial audit trails
+     * (orders, invoices, payments, credit changes) and must be kept permanently.
+     * Never schedule the `activitylog:clean` command — with this value at null
+     * it deletes nothing, but it must not be relied on as the only safeguard.
      */
-    'delete_records_older_than_days' => 365,
+    'delete_records_older_than_days' => null,
 
     /*
      * If no log name is passed to the activity() helper

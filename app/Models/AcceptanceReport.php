@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
+use App\Models\Concerns\LogsErpActivity;
 use Database\Factories\AcceptanceReportFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -42,6 +43,7 @@ final class AcceptanceReport extends Model implements HasMedia
 
     use HasTeam;
     use InteractsWithMedia;
+    use LogsErpActivity;
     use SoftDeletes;
 
     /**
@@ -89,6 +91,17 @@ final class AcceptanceReport extends Model implements HasMedia
     {
         return [
             'reported_at' => 'date',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'report_number',
+            'reported_at',
         ];
     }
 
