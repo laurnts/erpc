@@ -48,7 +48,7 @@ final class SupplierQuoteOutcomeNotification extends Notification implements Sho
                 ->line('Quote: '.$this->quote->quote_number);
         }
 
-        return $mail->action('View Quote Request', url()->getSupplierPortalUrl('rfqs/'.$this->quote->getKey()));
+        return $mail->action('View Quote Request', url()->getSupplierPortalUrl('requests/'.$this->quote->getKey()));
     }
 
     /**

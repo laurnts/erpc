@@ -6,9 +6,8 @@ use App\Actions\SupplierPortal\AnnounceRfqOutcomes;
 use App\Enums\PortalType;
 use App\Enums\QEStatus;
 use App\Enums\SupplierQuoteStatus;
-use App\Filament\Supplier\Resources\SupplierRfqResource\Pages\ListSupplierRfqs;
-use App\Filament\Supplier\Resources\SupplierRfqResource\Pages\ViewSupplierRfq;
-use App\Filament\Supplier\Widgets\SupplierRfqOutcomesWidget;
+use App\Filament\Supplier\Resources\SupplierRequestResource\Pages\ListSupplierRequests;
+use App\Filament\Supplier\Resources\SupplierRequestResource\Pages\ViewSupplierRequest;
 use App\Livewire\SupplierQuoteComparison;
 use App\Models\Company;
 use App\Models\CompanyPortalUser;
@@ -22,7 +21,7 @@ use App\Models\Team;
 use App\Models\User;
 use App\Notifications\SupplierQuoteOutcomeNotification;
 use App\Services\Portal\SupplierPortalContext;
-use App\Services\SupplierPortal\SupplierRfqStatusPresenter;
+use App\Services\SupplierPortal\SupplierRequestStatusPresenter;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Notification;
 
@@ -95,7 +94,7 @@ function createSupplierPortalMembership(Team $team, Company $company, User $user
 describe('Pre-announcement churn stays internal', function (): void {
     it('fires no supplier-facing notification while selections are applied and re-applied', function (): void {
         Notification::fake();
-        $presenter = app(SupplierRfqStatusPresenter::class);
+        $presenter = app(SupplierRequestStatusPresenter::class);
 
         livewire(SupplierQuoteComparison::class, ['request' => $this->request])
             ->call('selectSingleSupplier', $this->quoteA->getKey())
@@ -311,7 +310,7 @@ describe('Announcing outcomes', function (): void {
 describe('Portal outcome visibility', function (): void {
     it('shows Won and Lost only after announcement, with the internal vocabulary never leaking', function (): void {
         Notification::fake();
-        $presenter = app(SupplierRfqStatusPresenter::class);
+        $presenter = app(SupplierRequestStatusPresenter::class);
 
         livewire(SupplierQuoteComparison::class, ['request' => $this->request])
             ->call('selectSingleSupplier', $this->quoteA->getKey())
@@ -325,8 +324,8 @@ describe('Portal outcome visibility', function (): void {
         Filament::setCurrentPanel('supplier');
         app(SupplierPortalContext::class)->setCompany($this->supplierA->getKey());
 
-        livewire(ListSupplierRfqs::class)
-            ->set('activeTab', 'won')
+        livewire(ListSupplierRequests::class)
+            ->filterTable('status_group', 'won')
             ->assertCanNotSeeTableRecords([$this->quoteA]);
 
         app(AnnounceRfqOutcomes::class)->execute($this->request);
@@ -334,27 +333,19 @@ describe('Portal outcome visibility', function (): void {
         expect($presenter->label($this->quoteA->refresh()))->toBe('Won')
             ->and($presenter->label($this->quoteB->refresh()))->toBe('Not selected');
 
-        livewire(ListSupplierRfqs::class)
-            ->set('activeTab', 'won')
+        livewire(ListSupplierRequests::class)
+            ->filterTable('status_group', 'won')
             ->assertCanSeeTableRecords([$this->quoteA])
             ->assertCanNotSeeTableRecords([$this->quoteB]);
-
-        livewire(SupplierRfqOutcomesWidget::class)
-            ->assertCanSeeTableRecords([$this->quoteA]);
 
         // The losing supplier sees their own quote under Lost — never the winner.
         $this->actingAs($this->portalUserB, 'supplier');
         app(SupplierPortalContext::class)->setCompany($this->supplierB->getKey());
 
-        livewire(ListSupplierRfqs::class)
-            ->set('activeTab', 'lost')
+        livewire(ListSupplierRequests::class)
+            ->filterTable('status_group', 'lost')
             ->assertCanSeeTableRecords([$this->quoteB])
             ->assertCanNotSeeTableRecords([$this->quoteA])
-            ->assertDontSee('Alpha Supplies');
-
-        livewire(SupplierRfqOutcomesWidget::class)
-            ->assertCanSeeTableRecords([$this->quoteB])
-            ->assertSee('Not selected')
             ->assertDontSee('Alpha Supplies');
     });
 
@@ -392,7 +383,7 @@ describe('Portal outcome visibility', function (): void {
 
         // Alpha sees per-item results from their own flags — and never the
         // winner's identity or the winning price on the lost item.
-        livewire(ViewSupplierRfq::class, ['record' => $this->quoteA->getKey()])
+        livewire(ViewSupplierRequest::class, ['record' => $this->quoteA->getKey()])
             ->assertSee('Won')
             ->assertSee('Not selected')
             ->assertDontSee('Beta Trading')
@@ -402,8 +393,8 @@ describe('Portal outcome visibility', function (): void {
         expect($itemA2->refresh()->is_selected)->toBeFalse();
 
         // Both quotes land in Won: each supplier won at least one item.
-        livewire(ListSupplierRfqs::class)
-            ->set('activeTab', 'won')
+        livewire(ListSupplierRequests::class)
+            ->filterTable('status_group', 'won')
             ->assertCanSeeTableRecords([$this->quoteA]);
     });
 });

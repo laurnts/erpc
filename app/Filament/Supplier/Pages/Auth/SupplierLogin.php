@@ -6,7 +6,7 @@ namespace App\Filament\Supplier\Pages\Auth;
 
 use App\Enums\PortalType;
 use App\Filament\Concerns\SignsInWithPendingPortalInvitation;
-use App\Filament\Supplier\Pages\SupplierDashboard;
+use App\Filament\Supplier\Resources\SupplierRequestResource;
 use App\Models\PortalInvitation;
 use Filament\Actions\Action;
 use Filament\Auth\Pages\Login as BaseLogin;
@@ -24,7 +24,7 @@ final class SupplierLogin extends BaseLogin
             $user = Filament::auth()->user();
 
             if ($user instanceof FilamentUser && $user->canAccessPanel(Filament::getPanel('supplier'))) {
-                $this->redirect(SupplierDashboard::getUrl(panel: 'supplier'));
+                $this->redirect(SupplierRequestResource::getUrl('index', panel: 'supplier'));
 
                 return;
             }

@@ -7,7 +7,7 @@ use App\Enums\PortalType;
 use App\Enums\RequestStage;
 use App\Enums\RequestSubmissionMethod;
 use App\Filament\Buyer\Pages\Auth\BuyerLogin;
-use App\Filament\Buyer\Pages\BuyerDashboard;
+use App\Filament\Buyer\Resources\BuyerRequestResource;
 use App\Filament\Buyer\Resources\BuyerRequestResource\Schemas\BuyerRequestForm;
 use App\Filament\Pages\Auth\Login as AppLogin;
 use App\Filament\Resources\RequestResource;
@@ -104,12 +104,12 @@ describe('Buyer Portal Access', function (): void {
             ->assertRedirect(url()->getBuyerPortalUrl('login'));
     });
 
-    it('serves buyer dashboard at panel root without tenant route conflict', function (): void {
+    it('redirects panel root to the requests list without tenant route conflict', function (): void {
         $host = PanelDomain::buyerHost();
 
         $this->actingAs($this->portalUser, 'buyer')
             ->get("http://{$host}/buyer", ['Host' => $host])
-            ->assertOk();
+            ->assertRedirect(BuyerRequestResource::getUrl('index', panel: 'buyer'));
     });
 
     it('shows login page for staff session instead of redirecting to forbidden dashboard', function (): void {
@@ -129,7 +129,7 @@ describe('Buyer Portal Access', function (): void {
             ->assertRedirect(url()->getBuyerPortalUrl('login'));
     });
 
-    it('redirects buyer login to dashboard not stale admin intended url', function (): void {
+    it('redirects buyer login to requests list not stale admin intended url', function (): void {
         $host = PanelDomain::buyerHost();
 
         session(['url.intended' => url()->getAppUrl('login')]);
@@ -140,7 +140,22 @@ describe('Buyer Portal Access', function (): void {
         expect(app(\App\Http\Responses\LoginResponse::class)
             ->toResponse(request())
             ->getTargetUrl())
-            ->toBe(BuyerDashboard::getUrl(panel: 'buyer'));
+            ->toBe(BuyerRequestResource::getUrl('index', panel: 'buyer'));
+    });
+
+    it('shows Requests as the only item in the top navigation', function (): void {
+        $this->actingAs($this->portalUser, 'buyer');
+        Filament::setCurrentPanel('buyer');
+        app(BuyerPortalContext::class)->setCompany($this->buyer->getKey());
+
+        $panel = Filament::getPanel('buyer');
+
+        $labels = collect($panel->getNavigation())
+            ->flatMap(fn ($group) => collect($group->getItems())->map(fn ($item): string => (string) $item->getLabel()))
+            ->values();
+
+        expect($panel->hasTopNavigation())->toBeTrue()
+            ->and($labels->all())->toBe(['Requests']);
     });
 
     it('keeps buyer and admin sessions isolated on the same subdomain', function (): void {
@@ -148,7 +163,7 @@ describe('Buyer Portal Access', function (): void {
 
         $this->actingAs($this->portalUser, 'buyer')
             ->get("http://{$host}/buyer", ['Host' => $host])
-            ->assertOk();
+            ->assertRedirect(BuyerRequestResource::getUrl('index', panel: 'buyer'));
 
         $this->actingAs($this->admin, 'web')
             ->get(url()->getAppUrl('login'))
@@ -156,7 +171,7 @@ describe('Buyer Portal Access', function (): void {
 
         $this->actingAs($this->portalUser, 'buyer')
             ->get("http://{$host}/buyer", ['Host' => $host])
-            ->assertOk();
+            ->assertRedirect(BuyerRequestResource::getUrl('index', panel: 'buyer'));
     });
 
     it('detects buyer session for livewire requests from buyer panel', function (): void {
@@ -804,30 +819,6 @@ describe('Buyer Portal Phase 3', function (): void {
             ->and($this->portalUser->can('view', $inbound))->toBeFalse();
     });
 
-    it('loads buyer dashboard with scoped widgets', function (): void {
-        Request::factory()->for($this->team)->for($this->buyer, 'buyer')->create([
-            'submission_method' => RequestSubmissionMethod::MANUAL,
-            'submitted_at' => now(),
-            'stage' => RequestStage::AWAITING_BUYER_CONFIRMATION,
-        ]);
-
-        $otherBuyer = Company::factory()->buyer()->for($this->team)->create();
-
-        Request::factory()->for($this->team)->for($otherBuyer, 'buyer')->create([
-            'submission_method' => RequestSubmissionMethod::MANUAL,
-            'submitted_at' => now(),
-        ]);
-
-        $this->actingAs($this->portalUser, 'buyer');
-        Filament::setCurrentPanel('buyer');
-        app(BuyerPortalContext::class)->setCompany($this->buyer->getKey());
-
-        livewire(\App\Filament\Buyer\Pages\BuyerDashboard::class)->assertOk();
-
-        livewire(\App\Filament\Buyer\Widgets\PortalRequestsOverviewWidget::class)
-            ->assertSee('Awaiting Confirmation');
-    });
-
     it('resolves portal team from company context', function (): void {
         $this->actingAs($this->portalUser, 'buyer');
         app(BuyerPortalContext::class)->setCompany($this->buyer->getKey());
@@ -1078,28 +1069,25 @@ it('rejects path traversal in uploaded file attachment and accepts files inside 
 });
 
 describe('Buyer Portal Phase 4', function (): void {
-    it('shows action items widget for quotes awaiting confirmation', function (): void {
+    it('renders the staff-style header on the request detail page', function (): void {
         $request = Request::factory()->for($this->team)->for($this->buyer, 'buyer')->create([
             'submission_method' => RequestSubmissionMethod::MANUAL,
             'submitted_at' => now(),
-            'stage' => RequestStage::AWAITING_BUYER_CONFIRMATION,
+            'stage' => RequestStage::SHIPPED,
         ]);
-
-        \App\Models\BuyerQuote::factory()
-            ->for($this->team)
-            ->for($request)
-            ->for($this->buyer, 'buyer')
-            ->sent()
-            ->withTotals(1000, 100, 1100)
-            ->create();
 
         $this->actingAs($this->portalUser, 'buyer');
         Filament::setCurrentPanel('buyer');
         app(BuyerPortalContext::class)->setCompany($this->buyer->getKey());
 
-        livewire(\App\Filament\Buyer\Widgets\PortalActionItemsWidget::class)
-            ->assertSee('Needs Your Attention')
-            ->assertSee('Quote awaiting confirmation');
+        livewire(
+            \App\Filament\Buyer\Resources\BuyerRequestResource\Pages\ViewBuyerRequest::class,
+            ['record' => $request->getRouteKey()],
+        )
+            ->assertOk()
+            ->assertSee($request->request_number)
+            ->assertSee('Required By')
+            ->assertSee('Type');
     });
 
     it('renders request progress timeline on request detail', function (): void {

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Buyer\Pages\Auth;
 
 use App\Enums\PortalType;
-use App\Filament\Buyer\Pages\BuyerDashboard;
+use App\Filament\Buyer\Resources\BuyerRequestResource;
 use App\Filament\Concerns\SignsInWithPendingPortalInvitation;
 use App\Models\PortalInvitation;
 use Filament\Actions\Action;
@@ -24,7 +24,7 @@ final class BuyerLogin extends BaseLogin
             $user = Filament::auth()->user();
 
             if ($user instanceof FilamentUser && $user->canAccessPanel(Filament::getPanel('buyer'))) {
-                $this->redirect(BuyerDashboard::getUrl(panel: 'buyer'));
+                $this->redirect(BuyerRequestResource::getUrl('index', panel: 'buyer'));
 
                 return;
             }

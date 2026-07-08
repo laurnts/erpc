@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Notification;
  * declined_at stamp alone drives presentation ("Declined" over "Expired"),
  * the reminder-job skip, and the expiry-sweep skip. A staff re-send clears it.
  */
-final readonly class DeclineSupplierRfq
+final readonly class DeclineSupplierRequest
 {
     public function execute(SupplierQuote $quote, User $user): SupplierQuote
     {

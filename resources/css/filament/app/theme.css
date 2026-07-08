@@ -405,8 +405,3 @@ input[type='radio']:not(:disabled) {
 .fi-panel-buyer.fi-buyer-login .fi-simple-header-heading {
     @apply text-2xl font-bold tracking-tight text-gray-950 dark:text-white;
 }
-
-/* Buyer request detail — sticky metadata sidebar */
-.fi-panel-buyer .buyer-request-sidebar {
-    @apply lg:sticky lg:top-6 lg:self-start;
-}

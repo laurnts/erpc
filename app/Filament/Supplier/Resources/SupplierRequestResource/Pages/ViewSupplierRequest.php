@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace App\Filament\Supplier\Resources\SupplierRfqResource\Pages;
+namespace App\Filament\Supplier\Resources\SupplierRequestResource\Pages;
 
-use App\Actions\SupplierPortal\DeclineSupplierRfq;
-use App\Actions\SupplierPortal\SubmitSupplierRfqResponse;
-use App\Filament\Supplier\Resources\SupplierRfqResource;
-use App\Filament\Supplier\Resources\SupplierRfqResource\Schemas\SupplierRfqSubmissionForm;
+use App\Actions\SupplierPortal\DeclineSupplierRequest;
+use App\Actions\SupplierPortal\SubmitSupplierRequestResponse;
+use App\Filament\Supplier\Resources\SupplierRequestResource;
+use App\Filament\Supplier\Resources\SupplierRequestResource\Schemas\SupplierRequestSubmissionForm;
 use App\Models\Request;
 use App\Models\SupplierQuote;
 use App\Models\SupplierQuoteItem;
 use App\Models\User;
 use App\Services\Portal\SupplierPortalContext;
-use App\Services\SupplierPortal\SupplierRfqStatusPresenter;
+use App\Services\SupplierPortal\SupplierRequestStatusPresenter;
 use App\Services\Timeline\PortalTimelineSource;
 use App\Services\Timeline\TimelineParty;
 use App\Support\SafeCast;
@@ -25,13 +25,14 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Width;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Livewire\Attributes\On;
 
-final class ViewSupplierRfq extends ViewRecord
+final class ViewSupplierRequest extends ViewRecord
 {
-    protected static string $resource = SupplierRfqResource::class;
+    protected static string $resource = SupplierRequestResource::class;
 
     /**
      * Re-render the page (and its activity infolist) after the pinned composer
@@ -40,16 +41,27 @@ final class ViewSupplierRfq extends ViewRecord
     #[On('note-posted')]
     public function refreshAfterNote(): void {}
 
+    public function getMaxContentWidth(): Width
+    {
+        return Width::Full;
+    }
+
     public function infolist(Schema $schema): Schema
     {
-        $presenter = app(SupplierRfqStatusPresenter::class);
+        $presenter = app(SupplierRequestStatusPresenter::class);
 
         return $schema
+            ->columns(1)
             ->components([
-                Section::make('Quote Request')
+                // Request header — same structure as the staff request view,
+                // restricted to this supplier's own quotation data.
+                Section::make()
                     ->schema([
                         TextEntry::make('quote_number')
-                            ->label('Reference'),
+                            ->label('Reference')
+                            ->weight('bold')
+                            ->size('md')
+                            ->copyable(),
                         TextEntry::make('status')
                             ->label('Status')
                             ->badge()
@@ -78,7 +90,8 @@ final class ViewSupplierRfq extends ViewRecord
                             ->placeholder('—')
                             ->columnSpanFull(),
                     ])
-                    ->columns(2),
+                    ->columns(4)
+                    ->columnSpanFull(),
                 Section::make('Requested Items')
                     ->schema([
                         RepeatableEntry::make('items')
@@ -174,7 +187,7 @@ final class ViewSupplierRfq extends ViewRecord
                 ->icon('heroicon-o-paper-airplane')
                 ->color('primary')
                 ->visible(fn (): bool => $this->supplierUser()?->can('submit', $this->quoteRecord()) === true)
-                ->form(fn (): array => SupplierRfqSubmissionForm::components($this->quoteRecord()))
+                ->form(fn (): array => SupplierRequestSubmissionForm::components($this->quoteRecord()))
                 ->modalWidth('2xl')
                 ->action(function (array $data): void {
                     $user = $this->supplierUser();
@@ -195,7 +208,7 @@ final class ViewSupplierRfq extends ViewRecord
                         ? $data['notes']
                         : null;
 
-                    app(SubmitSupplierRfqResponse::class)->execute(
+                    app(SubmitSupplierRequestResponse::class)->execute(
                         quote: $quote,
                         user: $user,
                         itemPrices: $itemPrices,
@@ -211,7 +224,7 @@ final class ViewSupplierRfq extends ViewRecord
                         ->success()
                         ->send();
 
-                    $this->redirect(SupplierRfqResource::getUrl('view', ['record' => $quote]));
+                    $this->redirect(SupplierRequestResource::getUrl('view', ['record' => $quote]));
                 }),
             Action::make('decline')
                 ->label('Decline')
@@ -227,14 +240,14 @@ final class ViewSupplierRfq extends ViewRecord
 
                     abort_unless($user !== null && $user->can('decline', $quote), 403);
 
-                    app(DeclineSupplierRfq::class)->execute($quote, $user);
+                    app(DeclineSupplierRequest::class)->execute($quote, $user);
 
                     Notification::make()
                         ->title('Quote request declined')
                         ->success()
                         ->send();
 
-                    $this->redirect(SupplierRfqResource::getUrl('index'));
+                    $this->redirect(SupplierRequestResource::getUrl('index'));
                 }),
         ];
     }

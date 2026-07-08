@@ -69,7 +69,7 @@ final class QuoteToSupplierMail extends Mailable
                 'content' => $content,
                 'team' => $this->quote->team,
                 'portalUrl' => config('app.supplier_portal_enabled')
-                    ? url()->getSupplierPortalUrl('rfqs')
+                    ? url()->getSupplierPortalUrl('requests')
                     : null,
             ],
         );

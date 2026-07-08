@@ -26,7 +26,7 @@ use Illuminate\Support\Facades\Notification;
  * The existing observer machinery performs the PENDING→RECEIVED transition
  * unchanged.
  */
-final readonly class SubmitSupplierRfqResponse
+final readonly class SubmitSupplierRequestResponse
 {
     public function __construct(
         private AttachUploadedFiles $attachUploadedFiles,

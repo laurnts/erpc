@@ -6,6 +6,7 @@ namespace App\Filament\Supplier\Pages;
 
 use App\Actions\Portal\AcceptPortalInvitation as AcceptPortalInvitationAction;
 use App\Enums\PortalType;
+use App\Filament\Supplier\Resources\SupplierRequestResource;
 use App\Http\Middleware\AuthenticatePanelUser;
 use App\Http\Middleware\InitializeSupplierPortalContext;
 use App\Models\PortalInvitation;
@@ -196,6 +197,6 @@ final class AcceptPortalInvitation extends Page implements HasForms
             ->success()
             ->send();
 
-        $this->redirect(SupplierDashboard::getUrl(panel: 'supplier'));
+        $this->redirect(SupplierRequestResource::getUrl('index', panel: 'supplier'));
     }
 }

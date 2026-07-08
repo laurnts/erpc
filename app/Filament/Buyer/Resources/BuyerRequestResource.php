@@ -47,12 +47,12 @@ final class BuyerRequestResource extends Resource
         $presenter = app(BuyerRequestStagePresenter::class);
 
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->withExists(Request::itemPresenceExistsConstraints()))
             ->columns([
                 TextColumn::make('request_number')
-                    ->label('Request No.')
+                    ->label('Request #')
                     ->searchable()
                     ->sortable()
+                    ->copyable()
                     ->weight('bold'),
                 TextColumn::make('title')
                     ->label('Title')
@@ -64,23 +64,19 @@ final class BuyerRequestResource extends Resource
                     ->badge()
                     ->formatStateUsing(fn (Request $record): string => $presenter->label($record))
                     ->color(fn (Request $record): string => $presenter->color($presenter->effectiveStage($record))),
-                TextColumn::make('item_type_summary')
-                    ->label('Type')
+                TextColumn::make('priority')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'Goods' => 'primary',
-                        'Services' => 'success',
-                        'Mixed' => 'warning',
-                        default => 'gray',
-                    }),
-                TextColumn::make('submitted_at')
-                    ->label('Submitted')
-                    ->dateTime()
                     ->sortable(),
                 TextColumn::make('required_by')
-                    ->label('Required by')
+                    ->label('Required By')
                     ->date()
-                    ->sortable(),
+                    ->sortable()
+                    ->color(fn (Request $record): string => $record->required_by !== null && $record->required_by->isPast() ? 'danger' : 'gray'),
+                TextColumn::make('items_count')
+                    ->label('Items')
+                    ->counts('items')
+                    ->sortable()
+                    ->alignCenter(),
             ])
             ->filters([
                 SelectFilter::make('status_group')
@@ -125,7 +121,7 @@ final class BuyerRequestResource extends Resource
                         };
                     }),
             ])
-            ->defaultSort('submitted_at', 'desc')
+            ->defaultSort('created_at', 'desc')
             ->recordUrl(fn (Request $record): string => self::getUrl('view', ['record' => $record]));
     }
 

@@ -26,11 +26,11 @@ final class SupplierArticleResource extends Resource
 
     protected static ?string $navigationLabel = 'My Articles';
 
-    protected static ?string $slug = 'my-articles';
+    protected static ?string $slug = 'articles';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-cube';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 2;
 
     public static function form(Schema $schema): Schema
     {
@@ -104,7 +104,7 @@ final class SupplierArticleResource extends Resource
 
         return $query
             ->forSupplier($companyId)
-            ->with(['article', 'supplierPriceCurrency']);
+            ->with(['article.unitOfMeasure', 'article.media', 'supplierPriceCurrency']);
     }
 
     public static function canCreate(): bool

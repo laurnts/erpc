@@ -36,9 +36,9 @@ final readonly class PortalPanelConfigurator
 {
     /**
      * @param  class-string<PortalContext>  $context
-     * @param  class-string<\Filament\Pages\Page>  $dashboard
+     * @param  class-string<\Filament\Resources\Resource>  $homeResource
      */
-    public static function apply(Panel $panel, string $context, string $dashboard, string $guestBrandName): Panel
+    public static function apply(Panel $panel, string $context, string $homeResource, string $guestBrandName): Panel
     {
         return $panel
             ->authPasswordBroker('users')
@@ -46,12 +46,14 @@ final readonly class PortalPanelConfigurator
             ->emailVerification(EmailVerificationPrompt::class)
             ->strictAuthorization()
             ->databaseNotifications()
+            ->topNavigation()
+            ->homeUrl(fn (): string => $homeResource::getUrl('index'))
             ->brandLogoHeight('2.6rem')
             ->brandName(fn (): string => self::resolveBrandName($context, $guestBrandName))
             ->brandLogo(fn (): View|Factory|null => self::resolveBrandLogo($context))
             ->favicon(fn (): string => self::resolveFaviconUrl($context))
             ->userMenuItems([
-                self::switchCompanyAction($context, $dashboard),
+                self::switchCompanyAction($context, $homeResource),
             ])
             ->colors([
                 'primary' => Color::Blue,
@@ -126,9 +128,9 @@ final readonly class PortalPanelConfigurator
 
     /**
      * @param  class-string<PortalContext>  $context
-     * @param  class-string<\Filament\Pages\Page>  $dashboard
+     * @param  class-string<\Filament\Resources\Resource>  $homeResource
      */
-    private static function switchCompanyAction(string $context, string $dashboard): Action
+    private static function switchCompanyAction(string $context, string $homeResource): Action
     {
         return Action::make('switchPortalCompany')
             ->label('Switch Company')
@@ -148,7 +150,7 @@ final readonly class PortalPanelConfigurator
                     ->required()
                     ->native(false),
             ])
-            ->action(function (array $data) use ($context, $dashboard): void {
+            ->action(function (array $data) use ($context, $homeResource): void {
                 app($context)->setCompany((int) $data['company_id']);
 
                 Notification::make()
@@ -156,7 +158,7 @@ final readonly class PortalPanelConfigurator
                     ->success()
                     ->send();
 
-                redirect($dashboard::getUrl());
+                redirect($homeResource::getUrl('index'));
             });
     }
 }
