@@ -210,6 +210,16 @@ final class AppServiceProvider extends ServiceProvider
             'tax_code' => \App\Models\TaxCode::class,
             'currency' => \App\Models\Currency::class,
             'exchange_rate' => \App\Models\ExchangeRate::class,
+
+            // ERP line items (activity logging subjects)
+            'request_item' => \App\Models\RequestItem::class,
+            'buyer_quote_item' => \App\Models\BuyerQuoteItem::class,
+            'supplier_quote_item' => \App\Models\SupplierQuoteItem::class,
+            'buyer_order_item' => \App\Models\BuyerOrderItem::class,
+            'supplier_order_item' => \App\Models\SupplierOrderItem::class,
+            'buyer_invoice_item' => \App\Models\BuyerInvoiceItem::class,
+            'supplier_invoice_item' => \App\Models\SupplierInvoiceItem::class,
+            'shipment_item' => \App\Models\ShipmentItem::class,
         ]);
 
         // Bind our custom Import model to the Filament Import model

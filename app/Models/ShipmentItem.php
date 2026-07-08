@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\ItemCondition;
+use App\Models\Concerns\LogsErpActivity;
+use App\Models\Concerns\StampsParentOnActivity;
 use Database\Factories\ShipmentItemFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -36,6 +38,10 @@ final class ShipmentItem extends Model
 {
     /** @use HasFactory<ShipmentItemFactory> */
     use HasFactory;
+
+    use LogsErpActivity, StampsParentOnActivity {
+        StampsParentOnActivity::isLogEmpty insteadof LogsErpActivity;
+    }
 
     /**
      * @var list<string>
@@ -71,6 +77,28 @@ final class ShipmentItem extends Model
             'condition' => ItemCondition::class,
             'sort_order' => 'integer',
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'quantity_shipped',
+            'quantity_received',
+            'condition',
+        ];
+    }
+
+    protected function activityParentAlias(): string
+    {
+        return 'shipment';
+    }
+
+    protected function activityParentIdColumn(): string
+    {
+        return 'shipment_id';
     }
 
     /**
@@ -218,7 +246,7 @@ final class ShipmentItem extends Model
     public function getUnit(): string
     {
         $orderItem = $this->getOrderItem();
-        
+
         if ($orderItem === null) {
             return 'pcs';
         }

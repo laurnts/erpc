@@ -7,6 +7,8 @@ namespace App\Models;
 use App\Casts\SafeUnitCast;
 use App\Enums\Erp\PriceBasis;
 use App\Enums\Unit;
+use App\Models\Concerns\LogsErpActivity;
+use App\Models\Concerns\StampsParentOnActivity;
 use App\Observers\SupplierQuoteItemObserver;
 use App\Services\Erp\Financial\LineCalculator;
 use Database\Factories\SupplierQuoteItemFactory;
@@ -52,6 +54,10 @@ final class SupplierQuoteItem extends Model
 {
     /** @use HasFactory<SupplierQuoteItemFactory> */
     use HasFactory;
+
+    use LogsErpActivity, StampsParentOnActivity {
+        StampsParentOnActivity::isLogEmpty insteadof LogsErpActivity;
+    }
 
     /**
      * @var list<string>
@@ -115,6 +121,35 @@ final class SupplierQuoteItem extends Model
             'is_selected' => 'boolean',
             'sort_order' => 'integer',
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'quantity',
+            'unit_price',
+            'tax_rate',
+            'tax_code_id',
+            'is_tax_inclusive',
+            'unit_of_measure_id',
+            'unit',
+            'article_id',
+            'line_total',
+            'is_selected',
+        ];
+    }
+
+    protected function activityParentAlias(): string
+    {
+        return 'supplier_quote';
+    }
+
+    protected function activityParentIdColumn(): string
+    {
+        return 'supplier_quote_id';
     }
 
     /**

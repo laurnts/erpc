@@ -1687,7 +1687,8 @@ final class BuyerQuotesRelationManager extends RelationManager
 
                         // Remove invalid orphan line items and re-link PNL when the linked quote was deleted
                         $this->syncChildItemTaxFromParents($record);
-                        $record->items()->whereNull('request_item_id')->delete();
+                        // Model-level delete so orphan removals fire `deleted` events (D2).
+                        $record->items()->whereNull('request_item_id')->get()->each->delete();
 
                         $pnl = \App\Models\ProfitAndLoss::query()
                             ->where('request_id', $request->getKey())
@@ -2057,9 +2058,12 @@ final class BuyerQuotesRelationManager extends RelationManager
 
                                     $childRequestItemIds = $mainItem->requestItem?->children()->pluck('id')->toArray() ?? [];
                                     if ($childRequestItemIds !== []) {
+                                        // Model-level delete (not query-builder) so each removed
+                                        // line fires its `deleted` event for the audit log (D2).
                                         $record->items()
                                             ->whereIn('request_item_id', $childRequestItemIds)
-                                            ->delete();
+                                            ->get()
+                                            ->each->delete();
                                     }
 
                                     $childSortOrder = $mainItem->sort_order;
@@ -2101,8 +2105,9 @@ final class BuyerQuotesRelationManager extends RelationManager
                             // Recalculate quote totals
                             $record->recalculateTotals();
 
-                            // Remove invalid orphan line items (no request_item_id)
-                            $record->items()->whereNull('request_item_id')->delete();
+                            // Remove invalid orphan line items (no request_item_id).
+                            // Model-level delete so removals fire `deleted` events (D2).
+                            $record->items()->whereNull('request_item_id')->get()->each->delete();
                         }),
                     \Filament\Actions\DeleteAction::make()
                         ->hidden(function (?BuyerQuote $record): bool {

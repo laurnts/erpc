@@ -7,6 +7,8 @@ namespace App\Models;
 use App\Casts\SafeUnitCast;
 use App\Enums\Erp\PriceBasis;
 use App\Enums\Unit;
+use App\Models\Concerns\LogsErpActivity;
+use App\Models\Concerns\StampsParentOnActivity;
 use App\Observers\BuyerQuoteItemObserver;
 use App\Services\Erp\Financial\DocumentTotals;
 use App\Services\Erp\Financial\LineCalculator;
@@ -62,6 +64,10 @@ final class BuyerQuoteItem extends Model
 {
     /** @use HasFactory<BuyerQuoteItemFactory> */
     use HasFactory;
+
+    use LogsErpActivity, StampsParentOnActivity {
+        StampsParentOnActivity::isLogEmpty insteadof LogsErpActivity;
+    }
 
     /**
      * @var list<string>
@@ -135,6 +141,36 @@ final class BuyerQuoteItem extends Model
             'sort_order' => 'integer',
             'hide_from_pdf' => 'boolean',
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'quantity',
+            'unit_price',
+            'cost_price',
+            'tax_rate',
+            'tax_code_id',
+            'is_tax_inclusive',
+            'unit_of_measure_id',
+            'unit',
+            'article_id',
+            'line_total',
+            'margin_percent',
+        ];
+    }
+
+    protected function activityParentAlias(): string
+    {
+        return 'buyer_quote';
+    }
+
+    protected function activityParentIdColumn(): string
+    {
+        return 'buyer_quote_id';
     }
 
     /**

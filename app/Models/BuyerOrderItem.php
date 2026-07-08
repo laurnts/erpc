@@ -6,6 +6,8 @@ namespace App\Models;
 
 use App\Casts\SafeUnitCast;
 use App\Enums\Unit;
+use App\Models\Concerns\LogsErpActivity;
+use App\Models\Concerns\StampsParentOnActivity;
 use Database\Factories\BuyerOrderItemFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -45,6 +47,10 @@ final class BuyerOrderItem extends Model
 {
     /** @use HasFactory<BuyerOrderItemFactory> */
     use HasFactory;
+
+    use LogsErpActivity, StampsParentOnActivity {
+        StampsParentOnActivity::isLogEmpty insteadof LogsErpActivity;
+    }
 
     /**
      * @var list<string>
@@ -100,6 +106,34 @@ final class BuyerOrderItem extends Model
             'tax_rate' => 'decimal:4',
             'sort_order' => 'integer',
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'quantity',
+            'unit_price',
+            'tax_rate',
+            'tax_code_id',
+            'is_tax_inclusive',
+            'unit_of_measure_id',
+            'unit',
+            'article_id',
+            'line_total',
+        ];
+    }
+
+    protected function activityParentAlias(): string
+    {
+        return 'buyer_order';
+    }
+
+    protected function activityParentIdColumn(): string
+    {
+        return 'buyer_order_id';
     }
 
     /**

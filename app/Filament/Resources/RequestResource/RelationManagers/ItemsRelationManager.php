@@ -15,6 +15,7 @@ use App\Models\RequestItem;
 use App\Models\SupplierQuote;
 use App\Models\UnitOfMeasure;
 use App\Services\Email\EmailTemplateService;
+use App\Support\LineItemReconciler;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -190,6 +191,8 @@ final class ItemsRelationManager extends RelationManager
                 Repeater::make('children')
                     ->label('Detail Items')
                     ->schema([
+                        Hidden::make('id')
+                            ->default(null),
                         TextInput::make('description')
                             ->required()
                             ->maxLength(255)
@@ -735,6 +738,7 @@ final class ItemsRelationManager extends RelationManager
                         if ($record->isMainItem()) {
                             $data['children'] = $record->children()->get()->map(function (RequestItem $child): array {
                                 return [
+                                    'id' => $child->getKey(),
                                     'description' => $child->description,
                                     'quantity' => $child->quantity,
                                     'unit_of_measure_id' => $child->unit_of_measure_id,
@@ -775,29 +779,34 @@ final class ItemsRelationManager extends RelationManager
                             $childrenData = [];
                         }
 
-                        // Re-sync children from the submitted data
+                        // Re-sync children from the submitted data. Reconcile in place
+                        // (match by id) so an unchanged child fires no event, an edited
+                        // child fires `updated`, and a removed child fires `deleted`
+                        // instead of churning the whole set (design D2). parent_id is set
+                        // by the children() relation and item_type cascades via the
+                        // RequestItem creating-observer, exactly as before.
                         if ($record->isMainItem()) {
-                            // Delete existing children
-                            $record->children()->delete();
+                            $rows = is_array($childrenData) ? $childrenData : [];
 
-                            // Create new children
-                            if (! empty($childrenData) && is_array($childrenData)) {
-                                $sortOrder = 0;
-                                foreach ($childrenData as $childData) {
-                                    // Validate child data structure
-                                    if (is_array($childData) && isset($childData['description']) && ! empty($childData['description'])) {
-                                        RequestItem::create([
-                                            'request_id' => $request->id,
-                                            'parent_id' => $record->id,
-                                            'description' => $childData['description'],
-                                            'quantity' => $childData['quantity'] ?? 1,
-                                            'unit_of_measure_id' => $childData['unit_of_measure_id'] ?? null,
-                                            'sort_order' => $sortOrder++,
-                                            'is_matched' => false,
-                                        ]);
-                                    }
-                                }
-                            }
+                            $rows = array_values(array_filter(
+                                $rows,
+                                static fn ($childData): bool => is_array($childData)
+                                    && isset($childData['description'])
+                                    && ! empty($childData['description']),
+                            ));
+
+                            LineItemReconciler::reconcile(
+                                $record->children(),
+                                $rows,
+                                static fn (array $childData, int $index): array => [
+                                    'request_id' => $request->id,
+                                    'description' => $childData['description'],
+                                    'quantity' => $childData['quantity'] ?? 1,
+                                    'unit_of_measure_id' => $childData['unit_of_measure_id'] ?? null,
+                                    'sort_order' => $index,
+                                    'is_matched' => false,
+                                ],
+                            );
                         }
 
                         return $record;

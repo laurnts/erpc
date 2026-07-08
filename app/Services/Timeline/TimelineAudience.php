@@ -53,6 +53,14 @@ final readonly class TimelineAudience
         'profit_and_loss',
         'acceptance_report',
         'goods_receive_batch',
+        'request_item',
+        'buyer_quote_item',
+        'supplier_quote_item',
+        'buyer_order_item',
+        'supplier_order_item',
+        'buyer_invoice_item',
+        'supplier_invoice_item',
+        'shipment_item',
     ];
 
     /**
@@ -79,6 +87,14 @@ final readonly class TimelineAudience
         'acceptance_report' => 'Internal fulfillment record; not classified buyer-facing in v1.',
         'goods_receive_batch' => 'Internal inbound goods handling.',
         'company' => 'Team master data whose audited attributes include internal credit fields (credit_used, credit_limit).',
+        'request_item' => 'Line-level change surfaced only on the internal timeline, grouped under its parent request.',
+        'buyer_quote_item' => 'Line-level change surfaced only on the internal timeline, grouped under its parent buyer quote.',
+        'supplier_quote_item' => 'Supplier cost line; internal-only, never buyer-facing.',
+        'buyer_order_item' => 'Line-level change surfaced only on the internal timeline, grouped under its parent buyer order.',
+        'supplier_order_item' => 'Supplier-side purchasing line; internal cost data.',
+        'buyer_invoice_item' => 'Line-level change surfaced only on the internal timeline, grouped under its parent buyer invoice.',
+        'supplier_invoice_item' => 'Supplier-side billing line; internal cost data.',
+        'shipment_item' => 'Internal fulfillment line; not classified buyer-facing in v1.',
     ];
 
     /**

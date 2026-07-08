@@ -149,6 +149,8 @@ final class SupplierInvoice extends Model implements HasMedia
             'amount_paid',
             'invoice_date',
             'due_at',
+            'exchange_rate',
+            'currency_id',
         ];
     }
 
