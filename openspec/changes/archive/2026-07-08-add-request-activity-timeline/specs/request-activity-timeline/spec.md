@@ -67,7 +67,7 @@ Uploaded documents SHALL record who uploaded them and under which actor type, st
 
 ### Requirement: Buyer Timeline
 
-The customer portal SHALL present a buyer timeline built from a separate hard-coded additive allow-list resolved from a buyer-authorized request, extending the existing stage stepper, with internal figures, supplier data, staff identities, and internal links structurally excluded.
+The buyer portal SHALL present a buyer timeline built from a separate hard-coded additive allow-list resolved from a buyer-authorized request, extending the existing stage stepper, with internal figures, supplier data, staff identities, and internal links structurally excluded.
 
 #### Scenario: Buyer sees safe milestones only
 - **WHEN** a buyer views their request timeline
