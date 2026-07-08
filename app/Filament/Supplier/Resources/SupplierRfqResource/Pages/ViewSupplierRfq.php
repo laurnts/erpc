@@ -117,7 +117,7 @@ final class ViewSupplierRfq extends ViewRecord
                             ])
                             ->columns($this->quoteRecord()->outcomes_announced_at !== null ? 7 : 6),
                     ]),
-                Section::make('Activity')
+                Section::make('Activities')
                     ->description('Your interactions on this quotation, most recent first.')
                     ->schema([
                         ViewEntry::make('activity_timeline')

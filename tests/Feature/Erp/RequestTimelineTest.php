@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\ActorType;
+use App\Enums\RequestStage;
 use App\Filament\Resources\RequestResource\Pages\ViewRequest;
 use App\Livewire\RequestHistoryTimeline;
 use App\Models\ActivityLog;
@@ -10,9 +11,11 @@ use App\Models\BuyerCreditLimitRequest;
 use App\Models\BuyerCreditUsageHistory;
 use App\Models\BuyerOrder;
 use App\Models\BuyerQuote;
+use App\Models\Company;
 use App\Models\Concerns\LogsErpActivity;
 use App\Models\Request;
 use App\Models\RequestItem;
+use App\Models\SupplierOrder;
 use App\Models\User;
 use App\Services\Timeline\RequestTimelineSource;
 use App\Services\Timeline\TimelineAudience;
@@ -310,4 +313,32 @@ it('paginates the timeline component and clamps out-of-range pages', function ()
         ->assertSee('Page 2 of 2')
         ->call('previousPage')
         ->assertSee('Page 1 of 2');
+});
+
+it('renders a stage change as atomic workflow progress', function (): void {
+    ['request' => $request] = seedTimelineRequest($this);
+
+    $request->update(['stage' => RequestStage::PREPARING_BUYER_QUOTE]);
+
+    livewire(RequestHistoryTimeline::class, ['request' => $request])
+        ->assertOk()
+        ->assertSee('Progressed to '.RequestStage::PREPARING_BUYER_QUOTE->getLabel())
+        ->assertDontSee('updated Request');
+});
+
+it('renders an approval atomically with the role, attributed to the approver', function (): void {
+    ['request' => $request] = seedTimelineRequest($this);
+
+    $supplier = Company::factory()->supplier()->recycle($this->team)->create();
+    $order = SupplierOrder::factory()->recycle($this->team)->for($request)->create([
+        'supplier_id' => $supplier->getKey(),
+    ]);
+
+    ActivityLog::query()->delete();
+
+    $order->update(['approver_1_id' => $this->admin->getKey()]);
+
+    livewire(RequestHistoryTimeline::class, ['request' => $request])
+        ->assertOk()
+        ->assertSee('Approved Supplier Order '.$order->po_number.' — Approver 1');
 });
