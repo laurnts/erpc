@@ -538,6 +538,13 @@ final readonly class RequestTimelineSource
     {
         $orderNumbers = $subjectNumbers['buyer_order'] ?? [];
 
+        // Format money through the team's base currency (the app-wide standard,
+        // e.g. IDR renders "Rp 11.200.000,-") rather than a raw number_format.
+        $currency = $request->team?->getBaseCurrency();
+        $money = fn (float|int|string $value): string => $currency !== null
+            ? $currency->format((float) $value)
+            : number_format((float) $value, 2);
+
         return BuyerCreditUsageHistory::query()
             ->with('createdBy')
             ->where(function (Builder $query) use ($orderNumbers, $request): void {
@@ -556,7 +563,7 @@ final readonly class RequestTimelineSource
                 });
             })
             ->get()
-            ->map(function (BuyerCreditUsageHistory $row) use ($orderNumbers): TimelineEntry {
+            ->map(function (BuyerCreditUsageHistory $row) use ($orderNumbers, $money): TimelineEntry {
                 $causedByOrder = in_array($row->related_type, [BuyerOrder::class, 'buyer_order'], true)
                     ? ($orderNumbers[(int) $row->related_id] ?? null)
                     : null;
@@ -569,7 +576,7 @@ final readonly class RequestTimelineSource
                     actorType: $recordedBy !== null ? ActorType::Staff : ActorType::System,
                     entryType: TimelineAudience::ENTRY_CREDIT,
                     event: $row->transaction_type,
-                    headline: $this->creditHeadline($row),
+                    headline: $this->creditHeadline($row, $money),
                     subjectType: 'buyer_credit_usage_history',
                     subjectId: (int) $row->getKey(),
                     subjectNumber: $causedByOrder,
@@ -587,17 +594,16 @@ final readonly class RequestTimelineSource
             });
     }
 
-    private function creditHeadline(BuyerCreditUsageHistory $row): string
+    /**
+     * @param  callable(float|int|string): string  $money
+     */
+    private function creditHeadline(BuyerCreditUsageHistory $row, callable $money): string
     {
         $limitBefore = (float) $row->max_credit_limit_before;
         $limitAfter = (float) $row->max_credit_limit_after;
 
         if ($row->transaction_type === 'approved' || $limitBefore !== $limitAfter) {
-            return sprintf(
-                'Credit limit %s → %s',
-                number_format($limitBefore, 2),
-                number_format($limitAfter, 2),
-            );
+            return sprintf('Credit limit %s → %s', $money($limitBefore), $money($limitAfter));
         }
 
         // Derive the verb from the balance direction rather than a specific
@@ -610,9 +616,9 @@ final readonly class RequestTimelineSource
         return sprintf(
             '%s %s — available %s → %s',
             $verb,
-            number_format((float) $row->amount, 2),
-            number_format((float) $row->available_credit_before, 2),
-            number_format((float) $row->available_credit_after, 2),
+            $money($row->amount),
+            $money($row->available_credit_before),
+            $money($row->available_credit_after),
         );
     }
 
