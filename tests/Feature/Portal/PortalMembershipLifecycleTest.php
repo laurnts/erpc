@@ -12,7 +12,7 @@ use Filament\Facades\Filament;
 
 beforeEach(function (): void {
     config([
-        'app.customer_portal_enabled' => true,
+        'app.buyer_portal_enabled' => true,
         'app.supplier_portal_enabled' => true,
     ]);
 
@@ -27,7 +27,7 @@ function lifecycleMembership(object $testCase, array $attributes = []): CompanyP
         'team_id' => $testCase->team->getKey(),
         'company_id' => $testCase->buyer->getKey(),
         'user_id' => null,
-        'portal' => PortalType::Customer,
+        'portal' => PortalType::Buyer,
         'invited_by' => $testCase->admin->getKey(),
         'is_active' => false,
         'invited_name' => 'Invited Person',
@@ -56,7 +56,7 @@ it('creates an Invited membership row at invite time', function (): void {
     $invitation = app(App\Actions\Portal\InvitePortalUser::class)->execute(
         team: $this->team,
         company: $this->buyer,
-        portal: PortalType::Customer,
+        portal: PortalType::Buyer,
         email: 'fresh@buyer.test',
         name: 'Fresh Invitee',
         invitedBy: $this->admin,
@@ -79,7 +79,7 @@ it('activates the same membership row on acceptance instead of creating a duplic
     app(App\Actions\Portal\InvitePortalUser::class)->execute(
         team: $this->team,
         company: $this->buyer,
-        portal: PortalType::Customer,
+        portal: PortalType::Buyer,
         email: 'fresh@buyer.test',
         name: 'Fresh Invitee',
         invitedBy: $this->admin,
@@ -91,7 +91,7 @@ it('activates the same membership row on acceptance instead of creating a duplic
 
     $memberships = CompanyPortalUser::query()
         ->where('company_id', $this->buyer->getKey())
-        ->where('portal', PortalType::Customer)
+        ->where('portal', PortalType::Buyer)
         ->get();
 
     expect($memberships)->toHaveCount(1)
@@ -112,8 +112,8 @@ it('grants no panel access for an invited-state membership on either portal', fu
         'invited_email' => $user->email,
     ]);
 
-    expect($user->canAccessPanel(Filament::getPanel('customer')))->toBeFalse()
+    expect($user->canAccessPanel(Filament::getPanel('buyer')))->toBeFalse()
         ->and($user->canAccessPanel(Filament::getPanel('supplier')))->toBeFalse()
-        ->and($user->hasActiveCustomerPortalAccess())->toBeFalse()
+        ->and($user->hasActiveBuyerPortalAccess())->toBeFalse()
         ->and($user->hasActiveSupplierPortalAccess())->toBeFalse();
 });

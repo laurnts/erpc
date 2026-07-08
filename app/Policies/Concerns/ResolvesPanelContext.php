@@ -14,13 +14,13 @@ use Filament\Facades\Filament;
  */
 trait ResolvesPanelContext
 {
-    private function isCustomerPanel(): bool
+    private function isBuyerPanel(): bool
     {
-        if (auth()->guard('customer')->check()) {
+        if (auth()->guard('buyer')->check()) {
             return true;
         }
 
-        return Filament::getCurrentPanel()?->getId() === 'customer';
+        return Filament::getCurrentPanel()?->getId() === 'buyer';
     }
 
     private function isSupplierPanel(): bool
@@ -35,7 +35,7 @@ trait ResolvesPanelContext
     private function userOwnsBuyerCompany(User $user, ?int $buyerCompanyId): bool
     {
         return $buyerCompanyId !== null
-            && in_array($buyerCompanyId, $user->activeCustomerPortalCompanyIds(), true);
+            && in_array($buyerCompanyId, $user->activeBuyerPortalCompanyIds(), true);
     }
 
     private function userOwnsSupplierCompany(User $user, ?int $supplierCompanyId): bool

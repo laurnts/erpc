@@ -8,13 +8,13 @@ use Filament\Support\Contracts\HasLabel;
 
 enum PortalType: string implements HasLabel
 {
-    case Customer = 'customer';
+    case Buyer = 'buyer';
     case Supplier = 'supplier';
 
     public function getLabel(): string
     {
         return match ($this) {
-            self::Customer => 'Customer Portal',
+            self::Buyer => 'Buyer Portal',
             self::Supplier => 'Supplier Portal',
         };
     }

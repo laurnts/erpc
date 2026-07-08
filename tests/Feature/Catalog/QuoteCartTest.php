@@ -41,7 +41,7 @@ beforeEach(function (): void {
         'team_id' => $this->team->getKey(),
         'company_id' => $this->buyer->getKey(),
         'user_id' => $this->portalUser->getKey(),
-        'portal' => PortalType::Customer,
+        'portal' => PortalType::Buyer,
         'is_active' => true,
     ]);
 
@@ -123,7 +123,7 @@ describe('Guest gate', function (): void {
             ->and(app(QuoteCart::class)->items())->toBe([$this->article->getKey() => 4.0]);
     });
 
-    it('signs the visitor into the customer guard inline and keeps the cart in the session', function (): void {
+    it('signs the visitor into the buyer guard inline and keeps the cart in the session', function (): void {
         app(QuoteCart::class)->add($this->article->getKey(), 4.0);
 
         livewire(QuoteCartPage::class)
@@ -132,11 +132,11 @@ describe('Guest gate', function (): void {
             ->call('signIn')
             ->assertHasNoErrors();
 
-        expect(auth()->guard('customer')->check())->toBeTrue()
+        expect(auth()->guard('buyer')->check())->toBeTrue()
             ->and(app(QuoteCart::class)->items())->toBe([$this->article->getKey() => 4.0]);
     });
 
-    it('rejects sign-in for accounts without active customer portal access', function (): void {
+    it('rejects sign-in for accounts without active buyer portal access', function (): void {
         $outsider = User::factory()->create(['email' => 'outsider@catalog.test']);
 
         livewire(QuoteCartPage::class)
@@ -145,7 +145,7 @@ describe('Guest gate', function (): void {
             ->call('signIn')
             ->assertHasErrors('email');
 
-        expect(auth()->guard('customer')->check())->toBeFalse();
+        expect(auth()->guard('buyer')->check())->toBeFalse();
     });
 });
 
@@ -162,7 +162,7 @@ describe('Submission', function (): void {
         $cart->add($this->article->getKey(), 3.0);
         $cart->add($second->getKey(), 1.5);
 
-        $this->actingAs($this->portalUser, 'customer');
+        $this->actingAs($this->portalUser, 'buyer');
 
         $component = livewire(QuoteCartPage::class)
             ->assertSee('Request a quote')
@@ -204,7 +204,7 @@ describe('Submission', function (): void {
 
         $this->article->forceFill(['show_in_product_grid' => false])->save();
 
-        $this->actingAs($this->portalUser, 'customer');
+        $this->actingAs($this->portalUser, 'buyer');
 
         livewire(QuoteCartPage::class)
             ->call('submit')
@@ -221,7 +221,7 @@ describe('Submission', function (): void {
             ->where('user_id', $this->portalUser->getKey())
             ->update(['is_active' => false]);
 
-        $this->actingAs($this->portalUser, 'customer');
+        $this->actingAs($this->portalUser, 'buyer');
 
         livewire(QuoteCartPage::class)
             ->call('submit')
@@ -233,7 +233,7 @@ describe('Submission', function (): void {
     it('makes the submitted request visible through buyer scoping', function (): void {
         app(QuoteCart::class)->add($this->article->getKey(), 2.0);
 
-        $this->actingAs($this->portalUser, 'customer');
+        $this->actingAs($this->portalUser, 'buyer');
 
         livewire(QuoteCartPage::class)->call('submit')->assertHasNoErrors();
 

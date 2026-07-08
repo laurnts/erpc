@@ -34,12 +34,12 @@ it('sends a buyer portal password reset email to an active unverified portal use
         'team_id' => $this->team->getKey(),
         'company_id' => $buyer->getKey(),
         'user_id' => $portalUser->getKey(),
-        'portal' => PortalType::Customer,
+        'portal' => PortalType::Buyer,
         'invited_by' => $this->admin->getKey(),
         'is_active' => true,
     ]);
 
-    Filament::setCurrentPanel('customer');
+    Filament::setCurrentPanel('buyer');
 
     livewire(RequestPasswordReset::class)
         ->fillForm(['email' => 'buyer.reset@test'])
@@ -98,7 +98,7 @@ it('sends a staff password reset email to an internal team user', function (): v
     });
 });
 
-it('does not send a buyer portal reset email when the user lacks customer portal access', function (): void {
+it('does not send a buyer portal reset email when the user lacks buyer portal access', function (): void {
     $supplier = Company::factory()->supplier()->for($this->team)->create();
 
     $portalUser = User::factory()->create([
@@ -114,7 +114,7 @@ it('does not send a buyer portal reset email when the user lacks customer portal
         'is_active' => true,
     ]);
 
-    Filament::setCurrentPanel('customer');
+    Filament::setCurrentPanel('buyer');
 
     livewire(RequestPasswordReset::class)
         ->fillForm(['email' => 'supplier.only@test'])
@@ -126,15 +126,15 @@ it('does not send a buyer portal reset email when the user lacks customer portal
 
 it('exposes forgot-password on each panel login page', function (): void {
     config([
-        'app.customer_portal_enabled' => true,
+        'app.buyer_portal_enabled' => true,
         'app.supplier_portal_enabled' => true,
     ]);
 
-    $customerHost = App\Support\PanelDomain::customerHost();
+    $buyerHost = App\Support\PanelDomain::buyerHost();
     $supplierHost = App\Support\PanelDomain::supplierHost();
     $appHost = App\Support\PanelDomain::appHost();
 
-    $this->get("http://{$customerHost}/buyer/login", ['Host' => $customerHost])
+    $this->get("http://{$buyerHost}/buyer/login", ['Host' => $buyerHost])
         ->assertOk()
         ->assertSee('Forgot password?', false);
 

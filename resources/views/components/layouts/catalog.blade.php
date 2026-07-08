@@ -44,7 +44,7 @@
                 </button>
 
                 <nav class="hidden md:flex items-center gap-5 text-sm font-medium">
-                    <a href="{{ url()->getCustomerPortalUrl('login') }}" class="text-gray-700 dark:text-gray-200 hover:text-primary">Buyer Login</a>
+                    <a href="{{ url()->getBuyerPortalUrl('login') }}" class="text-gray-700 dark:text-gray-200 hover:text-primary">Buyer Login</a>
                     <a href="{{ url()->getSupplierPortalUrl('login') }}" class="text-gray-700 dark:text-gray-200 hover:text-primary">Supplier Login</a>
                     <a href="{{ url()->getAppUrl('login') }}" class="text-gray-700 dark:text-gray-200 hover:text-primary">Staff Login</a>
                     <a href="{{ route('catalog.register') }}" class="bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-md">Register</a>
@@ -55,7 +55,7 @@
         </div>
 
         <nav class="md:hidden flex items-center gap-4 text-sm font-medium mt-3 overflow-x-auto">
-            <a href="{{ url()->getCustomerPortalUrl('login') }}" class="text-gray-700 dark:text-gray-200 whitespace-nowrap">Buyer Login</a>
+            <a href="{{ url()->getBuyerPortalUrl('login') }}" class="text-gray-700 dark:text-gray-200 whitespace-nowrap">Buyer Login</a>
             <a href="{{ url()->getSupplierPortalUrl('login') }}" class="text-gray-700 dark:text-gray-200 whitespace-nowrap">Supplier Login</a>
             <a href="{{ url()->getAppUrl('login') }}" class="text-gray-700 dark:text-gray-200 whitespace-nowrap">Staff Login</a>
             <a href="{{ route('catalog.register') }}" class="text-primary whitespace-nowrap">Register</a>

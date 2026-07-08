@@ -216,7 +216,7 @@ final class Request extends Model implements HasCustomFields, HasMedia
         return $this->submission_method !== null;
     }
 
-    public function isEditableByCustomer(): bool
+    public function isEditableByBuyer(): bool
     {
         return $this->isPortalSubmission()
             && $this->stage === RequestStage::DRAFT;

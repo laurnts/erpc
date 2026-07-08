@@ -61,6 +61,6 @@ final class PortalRequestReceivedConfirmationNotification extends Notification i
 
     private function portalRequestUrl(): string
     {
-        return url()->getCustomerPortalUrl('requests/'.$this->request->getKey());
+        return url()->getBuyerPortalUrl('requests/'.$this->request->getKey());
     }
 }

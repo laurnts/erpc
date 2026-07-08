@@ -32,7 +32,7 @@ final readonly class PdfGenerationService
 
     /**
      * Build the view data for the buyer-quote PDF. The footer totals come from the
-     * stored document columns so the customer PDF total always matches the system's
+     * stored document columns so the buyer PDF total always matches the system's
      * records; service child/detail lines never inflate it.
      *
      * @return array<string, mixed>
@@ -129,7 +129,7 @@ final readonly class PdfGenerationService
 
     /**
      * Build the view data for the buyer-order PDF. Footer totals come from the
-     * stored document columns so the customer PDF total matches the system's records.
+     * stored document columns so the buyer PDF total matches the system's records.
      *
      * @return array<string, mixed>
      */
@@ -195,7 +195,7 @@ final readonly class PdfGenerationService
         });
 
         // Footer totals are the stored document totals, never a re-sum of the
-        // displayed lines, so the customer PDF total always matches the order record.
+        // displayed lines, so the buyer PDF total always matches the order record.
         return [
             'order' => $order,
             'items' => $processedItems,

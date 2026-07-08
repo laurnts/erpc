@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Timeline;
 
 use App\Enums\RequestStage;
-use App\Services\CustomerPortal\CustomerRequestStagePresenter;
+use App\Services\BuyerPortal\BuyerRequestStagePresenter;
 use Illuminate\Support\Str;
 
 /**
@@ -41,7 +41,7 @@ final readonly class RedactionRules
             return $stage->getLabel();
         }
 
-        return app(CustomerRequestStagePresenter::class)->labelForStage($stage);
+        return app(BuyerRequestStagePresenter::class)->labelForStage($stage);
     }
 
     /**

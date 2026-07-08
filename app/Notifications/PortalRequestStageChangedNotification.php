@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Notifications;
 
 use App\Models\Request;
-use App\Services\CustomerPortal\CustomerRequestStagePresenter;
+use App\Services\BuyerPortal\BuyerRequestStagePresenter;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -29,7 +29,7 @@ final class PortalRequestStageChangedNotification extends Notification implement
 
     public function toMail(object $notifiable): MailMessage
     {
-        $presenter = app(CustomerRequestStagePresenter::class);
+        $presenter = app(BuyerRequestStagePresenter::class);
         $statusLabel = $presenter->label($this->request);
 
         return (new MailMessage)
@@ -46,7 +46,7 @@ final class PortalRequestStageChangedNotification extends Notification implement
      */
     public function toDatabase(object $notifiable): array
     {
-        $presenter = app(CustomerRequestStagePresenter::class);
+        $presenter = app(BuyerRequestStagePresenter::class);
 
         return [
             'title' => 'Request status updated',
@@ -61,6 +61,6 @@ final class PortalRequestStageChangedNotification extends Notification implement
 
     private function portalRequestUrl(): string
     {
-        return url()->getCustomerPortalUrl('requests/'.$this->request->getKey());
+        return url()->getBuyerPortalUrl('requests/'.$this->request->getKey());
     }
 }

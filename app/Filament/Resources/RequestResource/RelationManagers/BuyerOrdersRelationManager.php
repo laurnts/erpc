@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\RequestResource\RelationManagers;
 
+use App\Actions\Media\AttachUploadedFiles;
 use App\Enums\BuyerQuoteStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\InvoiceType;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
+use App\Enums\PaymentStatus;
 use App\Enums\RequestStage;
 use App\Filament\Actions\DownloadPdfAction;
 use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestStageTab;
@@ -20,12 +22,14 @@ use App\Models\BuyerPayment;
 use App\Models\BuyerQuote;
 use App\Models\Request;
 use App\Services\Email\EmailTemplateService;
+use App\Support\DocumentUpload;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -54,6 +58,13 @@ final class BuyerOrdersRelationManager extends RelationManager
     protected static ?string $title = 'Invoices';
 
     protected static string|\BackedEnum|null $icon = 'heroicon-o-document-currency-dollar';
+
+    /**
+     * Temp upload directory for staff-submitted payment proof files. The
+     * FileUpload component and the AttachUploadedFiles call site must
+     * reference the same value — drift between them silently drops files.
+     */
+    private const string PAYMENT_PROOF_UPLOAD_DIRECTORY = 'uploads-tmp/buyer-payment-proof';
 
     protected static function getAssociatedStage(): RequestStage
     {
@@ -650,6 +661,24 @@ final class BuyerOrdersRelationManager extends RelationManager
                             TextInput::make('reference_number')
                                 ->label('Reference')
                                 ->maxLength(255),
+                            FileUpload::make('proof')
+                                ->label('Proof of Transfer')
+                                ->helperText(DocumentUpload::helperText(10240))
+                                ->acceptedFileTypes(DocumentUpload::ACCEPTED_MIME_TYPES)
+                                ->disk('local')
+                                ->directory(self::PAYMENT_PROOF_UPLOAD_DIRECTORY)
+                                ->visibility('private')
+                                ->downloadable()
+                                ->openable()
+                                ->previewable()
+                                ->maxSize(10240)
+                                ->validationMessages([
+                                    'max' => DocumentUpload::maxSizeMessage(10240),
+                                ]),
+                            Textarea::make('note')
+                                ->label('Note')
+                                ->rows(2)
+                                ->maxLength(1000),
                         ])
                         ->action(function (BuyerOrder $record, array $data): void {
                             $invoice = $this->activeInvoiceFor($record);
@@ -664,18 +693,84 @@ final class BuyerOrdersRelationManager extends RelationManager
                                 return;
                             }
 
-                            BuyerPayment::create([
+                            /** @var int|null $staffId */
+                            $staffId = auth()->id();
+
+                            $payment = BuyerPayment::create([
                                 'team_id' => $invoice->team_id,
                                 'buyer_invoice_id' => $invoice->getKey(),
                                 'payment_method' => $data['payment_method'],
                                 'amount' => $data['amount'],
                                 'payment_date' => $data['payment_date'],
                                 'reference_number' => $data['reference_number'] ?? null,
+                                'notes' => $data['note'] ?? null,
+                                'status' => PaymentStatus::Confirmed,
+                                'submitted_actor_type' => 'staff',
+                                'submitted_by_id' => $staffId,
+                                'confirmed_by_id' => $staffId,
+                                'confirmed_at' => now(),
                             ]);
+
+                            $files = $data['proof'] ?? null;
+                            $files = is_array($files) ? $files : ($files !== null ? [$files] : []);
+
+                            if ($files !== []) {
+                                app(AttachUploadedFiles::class)->execute(
+                                    $payment,
+                                    $files,
+                                    'payment_proof',
+                                    self::PAYMENT_PROOF_UPLOAD_DIRECTORY,
+                                );
+                            }
 
                             Notification::make()
                                 ->title('Payment recorded')
                                 ->body('The payment has been recorded and the invoice updated.')
+                                ->success()
+                                ->send();
+                        }),
+                    Action::make('confirmPayment')
+                        ->label('Confirm Payment')
+                        ->icon('heroicon-o-check-badge')
+                        ->color('success')
+                        ->visible(function (?BuyerOrder $record): bool {
+                            if ($record === null) {
+                                return false;
+                            }
+                            $invoice = $this->activeInvoiceFor($record);
+
+                            return $invoice !== null && $invoice->payments()
+                                ->where('status', PaymentStatus::Pending->value)
+                                ->exists();
+                        })
+                        ->requiresConfirmation()
+                        ->modalHeading('Confirm buyer payment?')
+                        ->modalDescription('This confirms the oldest pending buyer-submitted payment and applies it against the invoice outstanding balance.')
+                        ->action(function (BuyerOrder $record): void {
+                            $invoice = $this->activeInvoiceFor($record);
+
+                            $payment = $invoice?->payments()
+                                ->where('status', PaymentStatus::Pending->value)
+                                ->oldest('id')
+                                ->first();
+
+                            if ($payment === null) {
+                                Notification::make()
+                                    ->title('Nothing to confirm')
+                                    ->body('There are no pending payments for this invoice.')
+                                    ->warning()
+                                    ->send();
+
+                                return;
+                            }
+
+                            /** @var \App\Models\User $staff */
+                            $staff = auth()->user();
+                            $payment->confirm($staff);
+
+                            Notification::make()
+                                ->title('Payment confirmed')
+                                ->body('The payment has been confirmed and the invoice updated.')
                                 ->success()
                                 ->send();
                         }),

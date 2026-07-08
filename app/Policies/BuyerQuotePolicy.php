@@ -33,8 +33,8 @@ final readonly class BuyerQuotePolicy
 
     public function viewAny(User $user): bool
     {
-        if ($this->isCustomerPanel()) {
-            return $user->hasActiveCustomerPortalAccess();
+        if ($this->isBuyerPanel()) {
+            return $user->hasActiveBuyerPortalAccess();
         }
 
         return $user->hasVerifiedEmail() && $user->currentTeam !== null;
@@ -42,7 +42,7 @@ final readonly class BuyerQuotePolicy
 
     public function view(User $user, BuyerQuote $buyerQuote): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return $this->userCanAccessPortalQuote($user, $buyerQuote)
                 && $buyerQuote->status !== BuyerQuoteStatus::DRAFT;
         }
@@ -57,7 +57,7 @@ final readonly class BuyerQuotePolicy
 
     public function create(User $user): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -72,7 +72,7 @@ final readonly class BuyerQuotePolicy
 
     public function update(User $user, BuyerQuote $buyerQuote): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -86,7 +86,7 @@ final readonly class BuyerQuotePolicy
 
     public function delete(User $user, BuyerQuote $buyerQuote): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -100,7 +100,7 @@ final readonly class BuyerQuotePolicy
 
     public function deleteAny(User $user): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -115,7 +115,7 @@ final readonly class BuyerQuotePolicy
 
     public function restore(User $user, BuyerQuote $buyerQuote): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -129,7 +129,7 @@ final readonly class BuyerQuotePolicy
 
     public function restoreAny(User $user): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -144,7 +144,7 @@ final readonly class BuyerQuotePolicy
 
     public function forceDelete(User $user, BuyerQuote $buyerQuote): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -158,7 +158,7 @@ final readonly class BuyerQuotePolicy
 
     public function forceDeleteAny(User $user): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -172,11 +172,11 @@ final readonly class BuyerQuotePolicy
     }
 
     /**
-     * Customer portal: accept or reject a sent quote.
+     * Buyer portal: accept or reject a sent quote.
      */
     public function respond(User $user, BuyerQuote $buyerQuote): bool
     {
-        if (! $this->isCustomerPanel()) {
+        if (! $this->isBuyerPanel()) {
             return false;
         }
 
@@ -185,7 +185,7 @@ final readonly class BuyerQuotePolicy
     }
 
     /**
-     * Customer portal: upload purchase order for a sent quote.
+     * Buyer portal: upload purchase order for a sent quote.
      */
     public function uploadPo(User $user, BuyerQuote $buyerQuote): bool
     {
@@ -197,7 +197,7 @@ final readonly class BuyerQuotePolicy
      */
     public function send(User $user, BuyerQuote $buyerQuote): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -215,7 +215,7 @@ final readonly class BuyerQuotePolicy
      */
     public function createVersion(User $user, BuyerQuote $buyerQuote): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -233,7 +233,7 @@ final readonly class BuyerQuotePolicy
      */
     public function extendValidity(User $user, BuyerQuote $buyerQuote): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 

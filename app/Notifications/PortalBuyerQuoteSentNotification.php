@@ -62,6 +62,6 @@ final class PortalBuyerQuoteSentNotification extends Notification implements Sho
 
     private function portalRequestUrl(): string
     {
-        return url()->getCustomerPortalUrl('requests/'.$this->buyerQuote->request_id);
+        return url()->getBuyerPortalUrl('requests/'.$this->buyerQuote->request_id);
     }
 }

@@ -15,7 +15,7 @@ use Illuminate\Support\Carbon;
 /**
  * A pending buyer self-registration application (design D4). Holds the
  * applicant's details and hashed password until staff approve (creating the
- * buyer Company + User + customer portal membership) or reject. No User,
+ * buyer Company + User + buyer portal membership) or reject. No User,
  * Company, or portal-access records exist before approval.
  *
  * @property int $team_id

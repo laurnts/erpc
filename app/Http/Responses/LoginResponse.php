@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Responses;
 
-use App\Filament\Customer\Pages\Auth\CustomerLogin;
-use App\Filament\Customer\Pages\CustomerDashboard;
+use App\Filament\Buyer\Pages\Auth\BuyerLogin;
+use App\Filament\Buyer\Pages\BuyerDashboard;
 use App\Filament\Pages\Auth\Login;
 use App\Filament\Resources\RequestResource;
 use App\Filament\Supplier\Pages\Auth\SupplierLogin;
@@ -26,8 +26,8 @@ final readonly class LoginResponse implements \Filament\Auth\Http\Responses\Cont
             return redirect()->intended($panel->getUrl());
         }
 
-        if ($this->isCustomerLoginResponse($request, $panel)) {
-            return $this->redirectToCustomerHome();
+        if ($this->isBuyerLoginResponse($request, $panel)) {
+            return $this->redirectToBuyerHome();
         }
 
         if ($this->isSupplierLoginResponse($request, $panel)) {
@@ -37,21 +37,21 @@ final readonly class LoginResponse implements \Filament\Auth\Http\Responses\Cont
         return $this->redirectToAppHome($request);
     }
 
-    private function isCustomerLoginResponse(mixed $request, ?Panel $panel): bool
+    private function isBuyerLoginResponse(mixed $request, ?Panel $panel): bool
     {
         if ($this->isLivewireAppLoginComponent($request)) {
             return false;
         }
 
-        if ($panel?->getId() === 'customer') {
+        if ($panel?->getId() === 'buyer') {
             return true;
         }
 
-        if ($this->isLivewireCustomerLoginComponent($request)) {
+        if ($this->isLivewireBuyerLoginComponent($request)) {
             return true;
         }
 
-        return $request->user('customer') !== null && $request->user('web') === null;
+        return $request->user('buyer') !== null && $request->user('web') === null;
     }
 
     private function isLivewireAppLoginComponent(mixed $request): bool
@@ -65,10 +65,10 @@ final readonly class LoginResponse implements \Filament\Auth\Http\Responses\Cont
         return false;
     }
 
-    private function isLivewireCustomerLoginComponent(mixed $request): bool
+    private function isLivewireBuyerLoginComponent(mixed $request): bool
     {
         foreach ($this->livewireSnapshots($request) as $snapshot) {
-            if (($snapshot['memo']['name'] ?? null) === CustomerLogin::class) {
+            if (($snapshot['memo']['name'] ?? null) === BuyerLogin::class) {
                 return true;
             }
         }
@@ -128,16 +128,16 @@ final readonly class LoginResponse implements \Filament\Auth\Http\Responses\Cont
         }
     }
 
-    private function redirectToCustomerHome(): RedirectResponse|Redirector
+    private function redirectToBuyerHome(): RedirectResponse|Redirector
     {
-        $customerHome = CustomerDashboard::getUrl(panel: 'customer');
+        $buyerHome = BuyerDashboard::getUrl(panel: 'buyer');
         $intended = session()->pull('url.intended');
 
-        if (is_string($intended) && str_contains($intended, $this->customerPortalPathNeedle())) {
+        if (is_string($intended) && str_contains($intended, $this->buyerPortalPathNeedle())) {
             return redirect()->to($intended);
         }
 
-        return redirect()->to($customerHome);
+        return redirect()->to($buyerHome);
     }
 
     private function redirectToSupplierHome(): RedirectResponse|Redirector
@@ -163,7 +163,7 @@ final readonly class LoginResponse implements \Filament\Auth\Http\Responses\Cont
         $intended = session()->pull('url.intended');
 
         if (is_string($intended)
-            && ! str_contains($intended, $this->customerPortalPathNeedle())
+            && ! str_contains($intended, $this->buyerPortalPathNeedle())
             && ! str_contains($intended, $this->supplierPortalPathNeedle())) {
             return redirect()->to($intended);
         }
@@ -171,9 +171,9 @@ final readonly class LoginResponse implements \Filament\Auth\Http\Responses\Cont
         return redirect()->to($default);
     }
 
-    private function customerPortalPathNeedle(): string
+    private function buyerPortalPathNeedle(): string
     {
-        return '/'.trim((string) config('app.customer_path', 'buyer'), '/');
+        return '/'.trim((string) config('app.buyer_path', 'buyer'), '/');
     }
 
     private function supplierPortalPathNeedle(): string

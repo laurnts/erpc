@@ -21,7 +21,7 @@ use App\Enums\ItemType;
 use App\Enums\PortalType;
 use App\Enums\RequestStage;
 use App\Enums\RequestSubmissionMethod;
-use App\Filament\Customer\Resources\CustomerRequestResource\Pages\EditCustomerRequest;
+use App\Filament\Buyer\Resources\BuyerRequestResource\Pages\EditBuyerRequest;
 use App\Filament\Resources\RequestResource\Pages\ViewRequest;
 use App\Filament\Resources\RequestResource\RelationManagers\ItemsRelationManager;
 use App\Models\Article;
@@ -32,7 +32,7 @@ use App\Models\RequestItem;
 use App\Models\Team;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
-use App\Services\Portal\CustomerPortalContext;
+use App\Services\Portal\BuyerPortalContext;
 use Illuminate\Support\Facades\Event;
 
 use function Pest\Livewire\livewire;
@@ -77,9 +77,9 @@ function requestItemEventCounts(callable $run, ?bool $childrenOnly = null): arra
     return $counts;
 }
 
-describe('Customer request edit reconciliation (surface 1)', function (): void {
+describe('Buyer request edit reconciliation (surface 1)', function (): void {
     beforeEach(function (): void {
-        config(['app.customer_portal_enabled' => true]);
+        config(['app.buyer_portal_enabled' => true]);
 
         $this->portalUser = User::factory()->create(['email' => 'recon.portal@buyer.test']);
 
@@ -87,7 +87,7 @@ describe('Customer request edit reconciliation (surface 1)', function (): void {
             'team_id' => $this->team->getKey(),
             'company_id' => $this->buyer->getKey(),
             'user_id' => $this->portalUser->getKey(),
-            'portal' => PortalType::Customer,
+            'portal' => PortalType::Buyer,
             'is_active' => true,
         ]);
 
@@ -118,13 +118,13 @@ describe('Customer request edit reconciliation (surface 1)', function (): void {
             'sort_order' => 1,
         ]);
 
-        $this->actingAs($this->portalUser, 'customer');
-        \Filament\Facades\Filament::setCurrentPanel('customer');
-        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
+        $this->actingAs($this->portalUser, 'buyer');
+        \Filament\Facades\Filament::setCurrentPanel('buyer');
+        app(BuyerPortalContext::class)->setCompany($this->buyer->getKey());
     });
 
     it('fires exactly one updated event for a quantity edit — no delete/create churn', function (): void {
-        $component = livewire(EditCustomerRequest::class, ['record' => $this->request->getKey()]);
+        $component = livewire(EditBuyerRequest::class, ['record' => $this->request->getKey()]);
         $items = $component->get('data.items');
 
         $keyByDescription = [];
@@ -152,7 +152,7 @@ describe('Customer request edit reconciliation (surface 1)', function (): void {
     });
 
     it('fires a deleted event for a removed line and preserves the rest', function (): void {
-        $component = livewire(EditCustomerRequest::class, ['record' => $this->request->getKey()]);
+        $component = livewire(EditBuyerRequest::class, ['record' => $this->request->getKey()]);
         $items = $component->get('data.items');
 
         $keyByDescription = [];

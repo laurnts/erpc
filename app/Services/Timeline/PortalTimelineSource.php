@@ -387,7 +387,7 @@ final readonly class PortalTimelineSource
     /**
      * Apply the party's presentation redaction to one entry: collapse the
      * causer to the generic party-facing label (never a staff name), re-map
-     * any stage value through the customer presenter, rewrite a stage-change
+     * any stage value through the buyer presenter, rewrite a stage-change
      * headline to the mapped label, and drop links outside the allow-list.
      */
     private function redact(TimelineEntry $entry, TimelineParty $party, RedactionRules $rules): TimelineEntry

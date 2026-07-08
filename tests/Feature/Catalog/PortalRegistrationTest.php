@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Actions\BuyerPortal\ApprovePortalRegistration;
+use App\Actions\BuyerPortal\RejectPortalRegistration;
 use App\Auth\Notifications\VerifyEmail;
-use App\Actions\CustomerPortal\ApprovePortalRegistration;
-use App\Actions\CustomerPortal\RejectPortalRegistration;
 use App\Enums\PortalRegistrationStatus;
 use App\Enums\PortalType;
-use App\Filament\Customer\Pages\Auth\CustomerLogin;
+use App\Filament\Buyer\Pages\Auth\BuyerLogin;
 use App\Filament\Pages\Auth\EmailVerificationPrompt;
 use App\Livewire\Catalog\RegistrationPage;
 use App\Mail\PortalRegistrationApprovedMail;
@@ -127,7 +127,7 @@ describe('Application submission', function (): void {
             'password' => Hash::make('SuperSecret123!'),
         ]);
 
-        expect(Auth::guard('customer')->attempt([
+        expect(Auth::guard('buyer')->attempt([
             'email' => 'pending@applicant.test',
             'password' => 'SuperSecret123!',
         ]))->toBeFalse();
@@ -135,7 +135,7 @@ describe('Application submission', function (): void {
 });
 
 describe('Approval', function (): void {
-    it('creates the buyer company, user, and active customer membership, reusing the stored hash', function (): void {
+    it('creates the buyer company, user, and active buyer membership, reusing the stored hash', function (): void {
         $application = PortalRegistrationRequest::factory()->create([
             'team_id' => $this->team->getKey(),
             'name' => 'Jane Applicant',
@@ -162,7 +162,7 @@ describe('Approval', function (): void {
             ->and($user->password)->toBe($application->password)
             ->and(Hash::check('SuperSecret123!', $user->password))->toBeTrue()
             ->and($user->email_verified_at)->toBeNull()
-            ->and($membership->portal)->toBe(PortalType::Customer)
+            ->and($membership->portal)->toBe(PortalType::Buyer)
             ->and($membership->is_active)->toBeTrue()
             ->and($membership->team_id)->toBe($this->team->getKey());
 
@@ -185,12 +185,12 @@ describe('Approval', function (): void {
 
         $user = User::query()->where('email', 'jane@applicant.test')->firstOrFail();
 
-        expect($user->canAccessPanel(Filament::getPanel('customer')))->toBeTrue()
+        expect($user->canAccessPanel(Filament::getPanel('buyer')))->toBeTrue()
             ->and($user->hasVerifiedEmail())->toBeFalse();
 
-        Filament::setCurrentPanel('customer');
+        Filament::setCurrentPanel('buyer');
 
-        livewire(CustomerLogin::class)
+        livewire(BuyerLogin::class)
             ->fillForm([
                 'email' => 'jane@applicant.test',
                 'password' => 'SuperSecret123!',
@@ -198,7 +198,7 @@ describe('Approval', function (): void {
             ->call('authenticate')
             ->assertHasNoErrors();
 
-        $this->assertAuthenticatedAs($user, 'customer');
+        $this->assertAuthenticatedAs($user, 'buyer');
 
         Notification::assertSentTo($user, VerifyEmail::class);
     });
@@ -216,8 +216,8 @@ describe('Approval', function (): void {
 
         Notification::fake();
 
-        $this->actingAs($user, 'customer');
-        Filament::setCurrentPanel('customer');
+        $this->actingAs($user, 'buyer');
+        Filament::setCurrentPanel('buyer');
 
         livewire(EmailVerificationPrompt::class)->assertSuccessful();
 
@@ -271,7 +271,7 @@ describe('Rejection', function (): void {
 
         Mail::assertSent(PortalRegistrationRejectedMail::class, fn (PortalRegistrationRejectedMail $mail): bool => $mail->hasTo('jane@applicant.test'));
 
-        expect(Auth::guard('customer')->attempt([
+        expect(Auth::guard('buyer')->attempt([
             'email' => 'jane@applicant.test',
             'password' => 'password',
         ]))->toBeFalse();

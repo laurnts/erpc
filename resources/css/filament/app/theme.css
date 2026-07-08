@@ -397,11 +397,11 @@ input[type='radio']:not(:disabled) {
     @apply rounded-xl;
 }
 
-/* Customer portal login */
-.fi-panel-customer.fi-customer-login .fi-simple-header .fi-logo {
+/* Buyer portal login */
+.fi-panel-buyer.fi-buyer-login .fi-simple-header .fi-logo {
     @apply mb-4;
 }
 
-.fi-panel-customer.fi-customer-login .fi-simple-header-heading {
+.fi-panel-buyer.fi-buyer-login .fi-simple-header-heading {
     @apply text-2xl font-bold tracking-tight text-gray-950 dark:text-white;
 }

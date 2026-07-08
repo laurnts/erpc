@@ -50,7 +50,7 @@ function makeInvitation(object $testCase, PortalType $portal, string $email): Po
 
 describe('acceptAsNewUser', function (): void {
     it('creates a verified user with a portal-typed membership and marks the invitation accepted', function (): void {
-        $invitation = makeInvitation($this, PortalType::Customer, 'new@buyer.test');
+        $invitation = makeInvitation($this, PortalType::Buyer, 'new@buyer.test');
 
         $user = app(AcceptPortalInvitation::class)->acceptAsNewUser($invitation, 'New Person', 'secret-password');
 
@@ -65,7 +65,7 @@ describe('acceptAsNewUser', function (): void {
             ->first();
 
         expect($membership)->not->toBeNull()
-            ->and($membership->portal)->toBe(PortalType::Customer)
+            ->and($membership->portal)->toBe(PortalType::Buyer)
             ->and($membership->is_active)->toBeTrue();
     });
 
@@ -85,7 +85,7 @@ describe('acceptAsNewUser', function (): void {
     it('refuses to create a second account when the email already has one', function (): void {
         User::factory()->create(['email' => 'existing@buyer.test']);
 
-        $invitation = makeInvitation($this, PortalType::Customer, 'existing@buyer.test');
+        $invitation = makeInvitation($this, PortalType::Buyer, 'existing@buyer.test');
 
         expect(fn () => app(AcceptPortalInvitation::class)->acceptAsNewUser($invitation, 'Existing', 'secret-password'))
             ->toThrow(ValidationException::class);
@@ -99,7 +99,7 @@ describe('acceptAsExistingUser', function (): void {
             'password' => Hash::make('original-password'),
         ]);
 
-        $invitation = makeInvitation($this, PortalType::Customer, 'existing@buyer.test');
+        $invitation = makeInvitation($this, PortalType::Buyer, 'existing@buyer.test');
 
         $user = app(AcceptPortalInvitation::class)->acceptAsExistingUser($invitation, $existing);
 
@@ -119,13 +119,13 @@ describe('acceptAsExistingUser', function (): void {
     it('activates the invited placeholder row instead of creating a duplicate', function (): void {
         $existing = User::factory()->create(['email' => 'existing@buyer.test']);
 
-        $invitation = makeInvitation($this, PortalType::Customer, 'existing@buyer.test');
+        $invitation = makeInvitation($this, PortalType::Buyer, 'existing@buyer.test');
 
         app(AcceptPortalInvitation::class)->acceptAsExistingUser($invitation, $existing);
 
         $memberships = CompanyPortalUser::query()
             ->where('company_id', $invitation->company_id)
-            ->where('portal', PortalType::Customer)
+            ->where('portal', PortalType::Buyer)
             ->get();
 
         expect($memberships)->toHaveCount(1)
@@ -135,7 +135,7 @@ describe('acceptAsExistingUser', function (): void {
     it('refuses to grant access to a user whose email does not match the invitation', function (): void {
         $other = User::factory()->create(['email' => 'someone-else@buyer.test']);
 
-        $invitation = makeInvitation($this, PortalType::Customer, 'invited@buyer.test');
+        $invitation = makeInvitation($this, PortalType::Buyer, 'invited@buyer.test');
 
         expect(fn () => app(AcceptPortalInvitation::class)->acceptAsExistingUser($invitation, $other))
             ->toThrow(ValidationException::class);

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Catalog;
 
-use App\Actions\CustomerPortal\NotifyTeamOfPortalRequest;
+use App\Actions\BuyerPortal\NotifyTeamOfPortalRequest;
 use App\Enums\ItemType;
 use App\Enums\PortalType;
 use App\Enums\RequestStage;
@@ -24,7 +24,7 @@ use Illuminate\Validation\ValidationException;
  *
  * Validates every line first (positive quantity, article still grid-visible)
  * and rejects the whole submission when any line fails — never a partial
- * Request. The buyer company is the submitting user's active customer-portal
+ * Request. The buyer company is the submitting user's active buyer-portal
  * membership at the catalog team; the request then flows through the existing
  * portal-originated workflow (buyer_id scoping makes it visible in the portal).
  */
@@ -126,7 +126,7 @@ final readonly class SubmitQuoteCart
         $membership = CompanyPortalUser::query()
             ->where('user_id', $user->getKey())
             ->where('team_id', $teamId)
-            ->where('portal', PortalType::Customer)
+            ->where('portal', PortalType::Buyer)
             ->where('is_active', true)
             ->whereHas('company', fn (Builder $query) => $query->where('is_buyer', true))
             ->orderBy('company_id')
@@ -134,7 +134,7 @@ final readonly class SubmitQuoteCart
 
         if ($membership === null) {
             throw ValidationException::withMessages([
-                'cart' => ['No active customer portal access found for your account.'],
+                'cart' => ['No active buyer portal access found for your account.'],
             ]);
         }
 

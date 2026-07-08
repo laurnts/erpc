@@ -27,7 +27,7 @@ it('invites an email that already has a user account', function (): void {
     $invitation = app(InvitePortalUser::class)->execute(
         team: $this->team,
         company: $this->buyer,
-        portal: PortalType::Customer,
+        portal: PortalType::Buyer,
         email: 'existing@buyer.test',
         name: 'Existing Person',
         invitedBy: $this->admin,
@@ -47,7 +47,7 @@ it('sets a future expiry on the invitation', function (): void {
     $invitation = app(InvitePortalUser::class)->execute(
         team: $this->team,
         company: $this->buyer,
-        portal: PortalType::Customer,
+        portal: PortalType::Buyer,
         email: 'fresh@buyer.test',
         name: 'Fresh Person',
         invitedBy: $this->admin,
@@ -65,7 +65,7 @@ it('rejects inviting a user who already has active access to this company and po
         'team_id' => $this->team->getKey(),
         'company_id' => $this->buyer->getKey(),
         'user_id' => $user->getKey(),
-        'portal' => PortalType::Customer,
+        'portal' => PortalType::Buyer,
         'invited_by' => $this->admin->getKey(),
         'is_active' => true,
     ]);
@@ -73,7 +73,7 @@ it('rejects inviting a user who already has active access to this company and po
     expect(fn () => app(InvitePortalUser::class)->execute(
         team: $this->team,
         company: $this->buyer,
-        portal: PortalType::Customer,
+        portal: PortalType::Buyer,
         email: 'member@buyer.test',
         name: 'Member',
         invitedBy: $this->admin,
@@ -87,7 +87,7 @@ it('rejects inviting a user whose access to this company was deactivated', funct
         'team_id' => $this->team->getKey(),
         'company_id' => $this->buyer->getKey(),
         'user_id' => $user->getKey(),
-        'portal' => PortalType::Customer,
+        'portal' => PortalType::Buyer,
         'invited_by' => $this->admin->getKey(),
         'is_active' => false,
     ]);
@@ -95,7 +95,7 @@ it('rejects inviting a user whose access to this company was deactivated', funct
     expect(fn () => app(InvitePortalUser::class)->execute(
         team: $this->team,
         company: $this->buyer,
-        portal: PortalType::Customer,
+        portal: PortalType::Buyer,
         email: 'deactivated@buyer.test',
         name: 'Deactivated',
         invitedBy: $this->admin,
@@ -110,7 +110,7 @@ it('allows inviting an existing member of one company to a different company', f
         'team_id' => $this->team->getKey(),
         'company_id' => $otherBuyer->getKey(),
         'user_id' => $user->getKey(),
-        'portal' => PortalType::Customer,
+        'portal' => PortalType::Buyer,
         'invited_by' => $this->admin->getKey(),
         'is_active' => true,
     ]);
@@ -118,7 +118,7 @@ it('allows inviting an existing member of one company to a different company', f
     $invitation = app(InvitePortalUser::class)->execute(
         team: $this->team,
         company: $this->buyer,
-        portal: PortalType::Customer,
+        portal: PortalType::Buyer,
         email: 'multi@buyer.test',
         name: 'Multi Company',
         invitedBy: $this->admin,

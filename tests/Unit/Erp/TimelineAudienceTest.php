@@ -142,7 +142,7 @@ it('redacts causer, stage labels, and links for the buyer but not for staff', fu
         ->and($buyer->collapseCauser)->toBeTrue()
         ->and($buyer->genericCauserLabel)->toBe('Your team')
         ->and($buyer->stageLabel(RequestStage::DRAFT))->toBe('Request Received')
-        ->and($buyer->allowsLinkRoute('filament.customer.resources.requests.view'))->toBeTrue()
+        ->and($buyer->allowsLinkRoute('filament.buyer.resources.requests.view'))->toBeTrue()
         ->and($buyer->allowsLinkRoute('filament.app.resources.requests.view'))->toBeFalse()
         ->and($buyer->allowsLinkRoute('filament.sysadmin.pages.dashboard'))->toBeFalse()
         ->and($buyer->allowsLinkRoute(null))->toBeFalse();

@@ -42,7 +42,7 @@ it('hides invite portal user action when buyer already has active portal access'
         'team_id' => $this->user->personalTeam()->getKey(),
         'company_id' => $record->getKey(),
         'user_id' => $portalUser->getKey(),
-        'portal' => PortalType::Customer,
+        'portal' => PortalType::Buyer,
         'invited_by' => $this->user->getKey(),
         'is_active' => true,
     ]);
@@ -58,7 +58,7 @@ it('shows invite portal user action when buyer only has a pending invitation', f
         'team_id' => $this->user->personalTeam()->getKey(),
         'company_id' => $record->getKey(),
         'user_id' => null,
-        'portal' => PortalType::Customer,
+        'portal' => PortalType::Buyer,
         'invited_by' => $this->user->getKey(),
         'is_active' => false,
         'invited_name' => 'Pending Person',

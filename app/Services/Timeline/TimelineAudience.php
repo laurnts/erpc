@@ -72,7 +72,7 @@ final readonly class TimelineAudience
      * BuyerOrder in particular is buyer-owned and logged, but its audited
      * attributes include internal credit mechanics (credit_released,
      * payment_terms_days); the buyer sees BuyerInvoice + BuyerPayment as
-     * the customer-facing money artifacts instead.
+     * the buyer-facing money artifacts instead.
      *
      * @var array<string, string> morph alias => exclusion reason
      */
@@ -218,7 +218,7 @@ final readonly class TimelineAudience
                 collapseCauser: true,
                 genericCauserLabel: 'Your team',
                 remapStageLabels: true,
-                allowedLinkRoutePrefixes: ['filament.customer.resources.requests.'],
+                allowedLinkRoutePrefixes: ['filament.buyer.resources.requests.'],
             ),
             ActorType::Supplier => new RedactionRules(
                 collapseCauser: true,

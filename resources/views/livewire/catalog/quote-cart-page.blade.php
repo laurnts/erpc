@@ -81,7 +81,7 @@
                 @if ($isSignedIn)
                     <div class="rounded-xl border border-gray-100 dark:border-gray-900 p-6 flex flex-col gap-4">
                         <p class="text-sm text-gray-600 dark:text-gray-300">
-                            Signed in as <span class="font-medium text-black dark:text-white">{{ $customerName }}</span>
+                            Signed in as <span class="font-medium text-black dark:text-white">{{ $buyerName }}</span>
                         </p>
                         <button type="button"
                                 wire:click="submit"
@@ -128,7 +128,7 @@
                         <div class="flex flex-col gap-2 text-sm text-gray-600 dark:text-gray-300 border-t border-gray-100 dark:border-gray-900 pt-4">
                             <span>No account yet?</span>
                             <a href="{{ route('catalog.register') }}" class="font-medium text-primary hover:underline">Register for portal access</a>
-                            <a href="{{ url()->getCustomerPortalUrl('login') }}" class="font-medium text-primary hover:underline">Go to the buyer portal</a>
+                            <a href="{{ url()->getBuyerPortalUrl('login') }}" class="font-medium text-primary hover:underline">Go to the buyer portal</a>
                         </div>
                     </div>
                 @endif

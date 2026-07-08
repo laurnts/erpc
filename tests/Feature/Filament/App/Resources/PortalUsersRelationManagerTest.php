@@ -44,11 +44,11 @@ function portalMembership(object $testCase, Company $company, PortalType $portal
 it('lists all three lifecycle states in one table', function (): void {
     $member = User::factory()->create();
 
-    $invited = portalMembership($this, $this->buyer, PortalType::Customer);
-    $active = portalMembership($this, $this->buyer, PortalType::Customer, [
+    $invited = portalMembership($this, $this->buyer, PortalType::Buyer);
+    $active = portalMembership($this, $this->buyer, PortalType::Buyer, [
         'user_id' => $member->getKey(), 'is_active' => true, 'invited_email' => null, 'invited_name' => null,
     ]);
-    $deactivated = portalMembership($this, $this->buyer, PortalType::Customer, [
+    $deactivated = portalMembership($this, $this->buyer, PortalType::Buyer, [
         'user_id' => User::factory()->create()->getKey(), 'is_active' => false, 'invited_email' => null, 'invited_name' => null,
     ]);
 
@@ -64,14 +64,14 @@ it('lists all three lifecycle states in one table', function (): void {
 });
 
 it('revokes an invited membership together with its pending invitation', function (): void {
-    $invited = portalMembership($this, $this->buyer, PortalType::Customer);
+    $invited = portalMembership($this, $this->buyer, PortalType::Buyer);
 
     $invitation = PortalInvitation::query()->create([
         'team_id' => $this->team->getKey(),
         'company_id' => $this->buyer->getKey(),
         'email' => 'invited@portal.test',
         'name' => 'Invited Person',
-        'portal' => PortalType::Customer,
+        'portal' => PortalType::Buyer,
         'invited_by' => $this->user->getKey(),
         'token' => PortalInvitation::generateToken(),
     ]);
@@ -88,7 +88,7 @@ it('revokes an invited membership together with its pending invitation', functio
 it('resends the invitation for an invited membership', function (): void {
     Mail::fake();
 
-    $invited = portalMembership($this, $this->buyer, PortalType::Customer);
+    $invited = portalMembership($this, $this->buyer, PortalType::Buyer);
 
     livewire(PortalUsersRelationManager::class, [
         'ownerRecord' => $this->buyer,
@@ -102,7 +102,7 @@ it('resends the invitation for an invited membership', function (): void {
 
 it('deactivates an active membership and reactivates a deactivated one', function (): void {
     $member = User::factory()->create();
-    $active = portalMembership($this, $this->buyer, PortalType::Customer, [
+    $active = portalMembership($this, $this->buyer, PortalType::Buyer, [
         'user_id' => $member->getKey(), 'is_active' => true, 'invited_email' => null, 'invited_name' => null,
     ]);
 
@@ -129,7 +129,7 @@ it('shows linked user name and email for an approved registration membership', f
         'email' => 'daviddisini@gmail.com',
     ]);
 
-    $active = portalMembership($this, $this->buyer, PortalType::Customer, [
+    $active = portalMembership($this, $this->buyer, PortalType::Buyer, [
         'user_id' => $portalUser->getKey(),
         'is_active' => true,
         'invited_email' => null,
@@ -151,7 +151,7 @@ it('shows portal user details even when the linked user is not a staff team memb
         'email' => 'external.portal@test',
     ]);
 
-    $active = portalMembership($this, $this->buyer, PortalType::Customer, [
+    $active = portalMembership($this, $this->buyer, PortalType::Buyer, [
         'user_id' => $portalUser->getKey(),
         'is_active' => true,
         'invited_email' => null,
@@ -180,7 +180,7 @@ it('lists supplier portal memberships on the supplier view', function (): void {
     $supplierInvited = portalMembership($this, $supplier, PortalType::Supplier, [
         'invited_email' => 'contact@supplier.test',
     ]);
-    $customerTyped = portalMembership($this, $supplier, PortalType::Customer, [
+    $buyerTyped = portalMembership($this, $supplier, PortalType::Buyer, [
         'invited_email' => 'wrongportal@supplier.test',
     ]);
 
@@ -189,5 +189,5 @@ it('lists supplier portal memberships on the supplier view', function (): void {
         'pageClass' => ViewSupplier::class,
     ])
         ->assertCanSeeTableRecords([$supplierInvited])
-        ->assertCanNotSeeTableRecords([$customerTyped]);
+        ->assertCanNotSeeTableRecords([$buyerTyped]);
 });

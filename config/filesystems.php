@@ -38,6 +38,15 @@ return [
             'throw' => false,
         ],
 
+        // Private business documents (payment proofs, invoices, shipment docs,
+        // etc.) — never publicly served, kept out of the web root.
+        'private' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private'),
+            'visibility' => 'private',
+            'throw' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

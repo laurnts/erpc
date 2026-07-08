@@ -20,6 +20,26 @@
             </form>
         </x-filament::section>
 
+        {{-- Payment / Bank Details Section --}}
+        <x-filament::section>
+            <x-slot name="heading">
+                Payment Bank Details
+            </x-slot>
+            <x-slot name="description">
+                Bank account shown to buyers and staff when submitting a payment against an invoice.
+            </x-slot>
+
+            <form wire:submit="savePaymentSettings">
+                {{ $this->paymentForm }}
+
+                <div class="mt-4 flex justify-end">
+                    <x-filament::button type="submit">
+                        Save
+                    </x-filament::button>
+                </div>
+            </form>
+        </x-filament::section>
+
         {{-- Document Number Prefixes Section --}}
         <x-filament::section>
             <x-slot name="heading">

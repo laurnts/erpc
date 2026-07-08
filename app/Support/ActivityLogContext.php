@@ -28,7 +28,7 @@ final class ActivityLogContext
      */
     private const GUARD_ACTORS = [
         'web' => ActorType::Staff,
-        'customer' => ActorType::Buyer,
+        'buyer' => ActorType::Buyer,
         'supplier' => ActorType::Supplier,
         'sysadmin' => ActorType::Admin,
     ];
