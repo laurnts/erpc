@@ -255,10 +255,10 @@ it('renders the History section with day-grouped entries on the request view pag
 
     $quote->update(['total' => '950.0000']);
 
+    // History renders at the very bottom as an always-open footer widget.
     livewire(ViewRequest::class, ['record' => $request->getKey()])
         ->assertOk()
-        ->assertSee('History')
-        ->assertSeeLivewire(RequestHistoryTimeline::class);
+        ->assertSeeLivewire(\App\Filament\Widgets\RequestHistoryWidget::class);
 
     livewire(RequestHistoryTimeline::class, ['request' => $request])
         ->assertOk()
