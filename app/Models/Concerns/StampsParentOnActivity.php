@@ -8,7 +8,10 @@ use App\Models\Article;
 use App\Models\Company;
 use App\Models\TaxCode;
 use App\Models\UnitOfMeasure;
+use App\Support\ActivityLogContext;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Spatie\Activitylog\Contracts\Activity;
 
 /**
@@ -64,6 +67,17 @@ trait StampsParentOnActivity
         }
 
         $activity->properties = $properties;
+
+        /*
+         * Portal actors carry no Filament tenant and often no currentTeam, so
+         * the ambient ActivityLogContext cannot stamp team_id for them. The
+         * parent header always owns a team; stamping it here keeps every item
+         * row team-scoped (design D7's goal: no orphan rows the team-scoped
+         * viewer can never surface).
+         */
+        if ($activity->getAttribute('team_id') === null) {
+            $activity->setAttribute('team_id', $this->resolveActivityTeamId());
+        }
     }
 
     /**
@@ -75,6 +89,10 @@ trait StampsParentOnActivity
      */
     public function isLogEmpty(array $changes): bool
     {
+        if ($this->itemActivityContextSuppressed()) {
+            return true;
+        }
+
         $attributes = $changes['attributes'] ?? [];
         $old = $changes['old'] ?? [];
 
@@ -104,6 +122,42 @@ trait StampsParentOnActivity
     protected function derivedActivityAttributes(): array
     {
         return ['line_total', 'margin_percent'];
+    }
+
+    /**
+     * Item rows are only meaningful inside a team-scoped acting context
+     * (design D7): seeders, console imports and queue workers would
+     * otherwise flood the log with rows no reviewer caused. The test
+     * environment is exempt from the console check — the whole battery runs
+     * under `artisan test`. A row whose team cannot be resolved even from
+     * its parent header would be invisible to the team-scoped viewer, so it
+     * is suppressed rather than written as an orphan.
+     */
+    protected function itemActivityContextSuppressed(): bool
+    {
+        if (app()->runningInConsole() && ! app()->runningUnitTests()) {
+            return true;
+        }
+
+        return $this->resolveActivityTeamId() === null;
+    }
+
+    /**
+     * The owning team: the parent header's `team_id`, falling back to the
+     * ambient context (tenant / authenticated causer) when the parent is
+     * already gone (e.g. cascade paths).
+     */
+    protected function resolveActivityTeamId(): ?int
+    {
+        $relation = Str::camel(Str::beforeLast($this->activityParentIdColumn(), '_id'));
+
+        $parent = method_exists($this, $relation) ? $this->getRelationValue($relation) : null;
+
+        if ($parent instanceof Model && $parent->getAttribute('team_id') !== null) {
+            return (int) $parent->getAttribute('team_id');
+        }
+
+        return ActivityLogContext::currentTeamId();
     }
 
     /**

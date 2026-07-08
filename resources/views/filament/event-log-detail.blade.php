@@ -88,6 +88,14 @@
     $recordLabel = $activity->subject_type
         ? \Illuminate\Support\Str::headline($activity->subject_type) . ' #' . $activity->subject_id
         : '—';
+
+    // Line-item activities carry their header pointer + human line handle
+    // (StampsParentOnActivity), so a line change reads in document context.
+    $parentType = $properties->get('parent_type');
+    $parentLabel = $parentType !== null
+        ? \Illuminate\Support\Str::headline((string) $parentType) . ' #' . $properties->get('parent_id')
+        : null;
+    $lineLabel = $properties->get('line_label');
 @endphp
 
 <div class="space-y-6 text-sm">
@@ -108,6 +116,16 @@
             <dt class="text-gray-500 dark:text-gray-400">Record</dt>
             <dd class="mt-1 font-medium text-gray-950 dark:text-white">{{ $recordLabel }}</dd>
         </div>
+        @if ($parentLabel !== null)
+            <div>
+                <dt class="text-gray-500 dark:text-gray-400">Belongs To</dt>
+                <dd class="mt-1 font-medium text-gray-950 dark:text-white">{{ $parentLabel }}</dd>
+            </div>
+            <div>
+                <dt class="text-gray-500 dark:text-gray-400">Line</dt>
+                <dd class="mt-1 font-medium text-gray-950 dark:text-white">{{ $lineLabel ?? '—' }}</dd>
+            </div>
+        @endif
         <div class="col-span-2">
             <dt class="text-gray-500 dark:text-gray-400">When</dt>
             <dd class="mt-1 font-medium text-gray-950 dark:text-white">
