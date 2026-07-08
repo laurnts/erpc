@@ -7,7 +7,7 @@ use App\Models\Company;
 use App\Models\CompanyPortalUser;
 use App\Models\Team;
 use App\Models\User;
-use App\Services\Portal\CustomerPortalContext;
+use App\Services\Portal\BuyerPortalContext;
 use App\Services\Portal\SupplierPortalContext;
 use Filament\Facades\Filament;
 
@@ -15,7 +15,7 @@ use function Pest\Livewire\livewire;
 
 beforeEach(function (): void {
     config([
-        'app.customer_portal_enabled' => true,
+        'app.buyer_portal_enabled' => true,
         'app.supplier_portal_enabled' => true,
     ]);
 
@@ -73,11 +73,11 @@ function actAsPortalMember(object $testCase, PortalType $portal): void
         'is_active' => true,
     ]);
 
-    $guard = $isSupplier ? 'supplier' : 'customer';
+    $guard = $isSupplier ? 'supplier' : 'buyer';
     $testCase->actingAs($portalUser, $guard);
     Filament::setCurrentPanel($guard);
 
-    $context = $isSupplier ? SupplierPortalContext::class : CustomerPortalContext::class;
+    $context = $isSupplier ? SupplierPortalContext::class : BuyerPortalContext::class;
     app($context)->setCompany($company->getKey());
 }
 
@@ -87,20 +87,20 @@ test('supplier portal page renders: :dataset', function (string $page): void {
     livewire($page)->assertOk();
 })->with(portalSmokeResourcePages('Supplier'));
 
-test('customer portal page renders: :dataset', function (string $page): void {
-    actAsPortalMember($this, PortalType::Customer);
+test('buyer portal page renders: :dataset', function (string $page): void {
+    actAsPortalMember($this, PortalType::Buyer);
 
     livewire($page)->assertOk();
-})->with(portalSmokeResourcePages('Customer'));
+})->with(portalSmokeResourcePages('Buyer'));
 
 test('both portals render branding through the shared portal shell', function (): void {
-    actAsPortalMember($this, PortalType::Customer);
-    $customerLogo = Filament::getPanel('customer')->getBrandLogo();
+    actAsPortalMember($this, PortalType::Buyer);
+    $buyerLogo = Filament::getPanel('buyer')->getBrandLogo();
 
-    expect($customerLogo)->toBeInstanceOf(\Illuminate\View\View::class)
-        ->and($customerLogo->name())->toBe('filament.portal.brand-logo');
+    expect($buyerLogo)->toBeInstanceOf(\Illuminate\View\View::class)
+        ->and($buyerLogo->name())->toBe('filament.portal.brand-logo');
 
-    auth('customer')->logout();
+    auth('buyer')->logout();
 
     actAsPortalMember($this, PortalType::Supplier);
     $supplierLogo = Filament::getPanel('supplier')->getBrandLogo();

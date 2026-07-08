@@ -55,7 +55,7 @@ describe('Supplier Portal Access', function (): void {
         Filament::setCurrentPanel('supplier');
 
         expect($this->portalUser->canAccessPanel(Filament::getPanel('supplier')))->toBeTrue()
-            ->and($this->portalUser->canAccessPanel(Filament::getPanel('customer')))->toBeFalse()
+            ->and($this->portalUser->canAccessPanel(Filament::getPanel('buyer')))->toBeFalse()
             ->and($this->portalUser->canAccessPanel(Filament::getPanel('app')))->toBeFalse();
     });
 
@@ -72,7 +72,7 @@ describe('Supplier Portal Access', function (): void {
             'team_id' => $this->team->getKey(),
             'company_id' => $buyer->getKey(),
             'user_id' => $buyerContact->getKey(),
-            'portal' => PortalType::Customer,
+            'portal' => PortalType::Buyer,
             'is_active' => true,
         ]);
 
@@ -80,23 +80,23 @@ describe('Supplier Portal Access', function (): void {
             ->and($buyerContact->hasActiveSupplierPortalAccess())->toBeFalse();
     });
 
-    it('denies supplier panel access for a customer-typed membership at a dual-role company', function (): void {
+    it('denies supplier panel access for a buyer-typed membership at a dual-role company', function (): void {
         $dualRole = Company::factory()->buyerAndSupplier()->for($this->team)->create();
-        $customerContact = User::factory()->create();
+        $buyerContact = User::factory()->create();
 
         CompanyPortalUser::query()->create([
             'team_id' => $this->team->getKey(),
             'company_id' => $dualRole->getKey(),
-            'user_id' => $customerContact->getKey(),
-            'portal' => PortalType::Customer,
+            'user_id' => $buyerContact->getKey(),
+            'portal' => PortalType::Buyer,
             'is_active' => true,
         ]);
 
-        expect($customerContact->canAccessPanel(Filament::getPanel('supplier')))->toBeFalse()
-            ->and($customerContact->canAccessPanel(Filament::getPanel('customer')))->toBeTrue();
+        expect($buyerContact->canAccessPanel(Filament::getPanel('supplier')))->toBeFalse()
+            ->and($buyerContact->canAccessPanel(Filament::getPanel('buyer')))->toBeTrue();
     });
 
-    it('denies customer panel access for a supplier-typed membership at a dual-role company', function (): void {
+    it('denies buyer panel access for a supplier-typed membership at a dual-role company', function (): void {
         $dualRole = Company::factory()->buyerAndSupplier()->for($this->team)->create();
         $supplierContact = User::factory()->create();
 
@@ -108,7 +108,7 @@ describe('Supplier Portal Access', function (): void {
             'is_active' => true,
         ]);
 
-        expect($supplierContact->canAccessPanel(Filament::getPanel('customer')))->toBeFalse()
+        expect($supplierContact->canAccessPanel(Filament::getPanel('buyer')))->toBeFalse()
             ->and($supplierContact->canAccessPanel(Filament::getPanel('supplier')))->toBeTrue();
     });
 
@@ -179,14 +179,14 @@ describe('Supplier Portal Access', function (): void {
             ->and(app(SupplierPortalContext::class)->company()->getKey())->toBe($this->supplier->getKey());
     });
 
-    it('excludes customer-typed memberships from the supplier context', function (): void {
+    it('excludes buyer-typed memberships from the supplier context', function (): void {
         $dualRole = Company::factory()->buyerAndSupplier()->for($this->team)->create();
 
         CompanyPortalUser::query()->create([
             'team_id' => $this->team->getKey(),
             'company_id' => $dualRole->getKey(),
             'user_id' => $this->portalUser->getKey(),
-            'portal' => PortalType::Customer,
+            'portal' => PortalType::Buyer,
             'is_active' => true,
         ]);
 
@@ -322,15 +322,15 @@ describe('Supplier Portal Invitation', function (): void {
             ->and($invitation->fresh()?->accepted_at)->not->toBeNull();
     });
 
-    it('does not resolve customer-typed invitation tokens on the supplier accept page', function (): void {
+    it('does not resolve buyer-typed invitation tokens on the supplier accept page', function (): void {
         $buyerOnly = Company::factory()->buyer()->for($this->team)->create();
 
         $invitation = PortalInvitation::query()->create([
             'team_id' => $this->team->getKey(),
             'company_id' => $buyerOnly->getKey(),
-            'email' => 'customer.invite@buyer.test',
-            'name' => 'Customer Invitee',
-            'portal' => PortalType::Customer,
+            'email' => 'buyer.invite@buyer.test',
+            'name' => 'Buyer Invitee',
+            'portal' => PortalType::Buyer,
             'invited_by' => $this->admin->getKey(),
             'token' => PortalInvitation::generateToken(),
         ]);
@@ -375,15 +375,15 @@ describe('Supplier Portal Invitation', function (): void {
             ->and($user->canAccessPanel(Filament::getPanel('supplier')))->toBeTrue();
     });
 
-    it('does not accept customer invitations on the supplier acceptance page', function (): void {
+    it('does not accept buyer invitations on the supplier acceptance page', function (): void {
         $buyer = Company::factory()->buyer()->for($this->team)->create();
 
         $invitation = PortalInvitation::query()->create([
             'team_id' => $this->team->getKey(),
             'company_id' => $buyer->getKey(),
-            'email' => 'customer@buyer.test',
-            'name' => 'Customer User',
-            'portal' => PortalType::Customer,
+            'email' => 'buyer@buyer.test',
+            'name' => 'Buyer User',
+            'portal' => PortalType::Buyer,
             'invited_by' => $this->admin->getKey(),
             'token' => PortalInvitation::generateToken(),
         ]);

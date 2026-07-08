@@ -68,14 +68,14 @@ function actAsBuyerPortalUser(Tests\TestCase $test): User
         'team_id' => $test->team->getKey(),
         'company_id' => $test->buyer->getKey(),
         'user_id' => $portalUser->getKey(),
-        'portal' => PortalType::Customer,
+        'portal' => PortalType::Buyer,
         'invited_by' => $test->staff->getKey(),
         'is_active' => true,
     ]);
 
-    actingAs($portalUser, 'customer');
-    Filament::setCurrentPanel('customer');
-    app(\App\Services\Portal\CustomerPortalContext::class)->setCompany($test->buyer->getKey());
+    actingAs($portalUser, 'buyer');
+    Filament::setCurrentPanel('buyer');
+    app(\App\Services\Portal\BuyerPortalContext::class)->setCompany($test->buyer->getKey());
 
     return $portalUser;
 }

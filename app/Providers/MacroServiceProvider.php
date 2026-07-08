@@ -29,11 +29,11 @@ final class MacroServiceProvider extends ServiceProvider
             return $scheme.'://'.$host.'/'.ltrim($path, '/');
         });
 
-        URL::macro('getCustomerPortalUrl', function (string $path = ''): string {
+        URL::macro('getBuyerPortalUrl', function (string $path = ''): string {
             $parsed = parse_url((string) config('app.url'));
             $scheme = $parsed['scheme'] ?? 'https';
-            $host = PanelDomain::customerHost();
-            $prefix = trim((string) config('app.customer_path', 'buyer'), '/');
+            $host = PanelDomain::buyerHost();
+            $prefix = trim((string) config('app.buyer_path', 'buyer'), '/');
 
             if ($path === '') {
                 return $scheme.'://'.$host.'/'.$prefix;

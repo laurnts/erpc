@@ -26,7 +26,7 @@ use Illuminate\Support\Collection;
  * The resulting item set (values + hierarchy) is identical to the old
  * delete-and-recreate; only the events and the surviving primary keys differ.
  */
-final class LineItemReconciler
+final readonly class LineItemReconciler
 {
     /**
      * @template TItem of Model

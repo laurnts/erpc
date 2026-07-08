@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Observers;
 
-use App\Actions\CustomerPortal\NotifyPortalUsers;
+use App\Actions\BuyerPortal\NotifyPortalUsers;
 use App\Actions\Erp\GenerateSupplierQuotesForRequest;
 use App\Data\TeamErpSettings;
 use App\Enums\RequestStage;

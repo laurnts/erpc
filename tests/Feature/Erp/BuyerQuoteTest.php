@@ -326,10 +326,10 @@ describe('BuyerQuote Validity Extension', function (): void {
             ->sent()
             ->create();
 
-        $extension = $quote->extendValidity($newValidUntil, 'Customer requested more time');
+        $extension = $quote->extendValidity($newValidUntil, 'Buyer requested more time');
 
         expect($extension)->toBeInstanceOf(BuyerQuoteExtension::class)
-            ->and($extension->reason)->toBe('Customer requested more time')
+            ->and($extension->reason)->toBe('Buyer requested more time')
             ->and($quote->valid_until->format('Y-m-d'))->toBe($newValidUntil->format('Y-m-d'));
     });
 

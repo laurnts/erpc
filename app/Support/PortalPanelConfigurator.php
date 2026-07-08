@@ -27,7 +27,7 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Throwable;
 
 /**
- * Shared shell for external portal panels (customer, supplier): middleware
+ * Shared shell for external portal panels (buyer, supplier): middleware
  * stack, theme, branding resolved from the portal context, and the
  * switch-company user menu. Call after panel-specific configuration; panel
  * middleware registered before this runs ahead of the shared stack.

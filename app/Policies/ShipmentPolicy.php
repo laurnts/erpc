@@ -37,8 +37,8 @@ final readonly class ShipmentPolicy
 
     public function viewAny(User $user): bool
     {
-        if ($this->isCustomerPanel()) {
-            return $user->hasActiveCustomerPortalAccess();
+        if ($this->isBuyerPanel()) {
+            return $user->hasActiveBuyerPortalAccess();
         }
 
         if ($this->isAdmin($user)) {
@@ -52,7 +52,7 @@ final readonly class ShipmentPolicy
 
     public function view(User $user, Shipment $shipment): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return $this->userCanAccessPortalShipment($user, $shipment);
         }
 
@@ -66,7 +66,7 @@ final readonly class ShipmentPolicy
 
     public function create(User $user): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -81,7 +81,7 @@ final readonly class ShipmentPolicy
 
     public function update(User $user, Shipment $shipment): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -95,7 +95,7 @@ final readonly class ShipmentPolicy
 
     public function delete(User $user, Shipment $shipment): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -109,7 +109,7 @@ final readonly class ShipmentPolicy
 
     public function deleteAny(User $user): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -124,7 +124,7 @@ final readonly class ShipmentPolicy
 
     public function restore(User $user, Shipment $shipment): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -138,7 +138,7 @@ final readonly class ShipmentPolicy
 
     public function restoreAny(User $user): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -153,7 +153,7 @@ final readonly class ShipmentPolicy
 
     public function forceDelete(User $user, Shipment $shipment): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -167,7 +167,7 @@ final readonly class ShipmentPolicy
 
     public function forceDeleteAny(User $user): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 

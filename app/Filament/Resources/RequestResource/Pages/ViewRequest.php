@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\RequestResource\Pages;
 
-use App\Enums\InvoiceStatus;
-use App\Enums\PrepaymentType;
 use App\Enums\QEStatus;
 use App\Enums\RequestStage;
 use App\Enums\RequestSubmissionMethod;
+use App\Filament\Concerns\InteractsWithPaymentCard;
 use App\Filament\Resources\BuyerResource;
 use App\Filament\Resources\ProfitAndLossResource;
 use App\Filament\Resources\ProjectResource;
@@ -23,10 +22,6 @@ use App\Filament\Resources\RequestResource\RelationManagers\ItemsRelationManager
 use App\Filament\Resources\RequestResource\RelationManagers\ShipmentsRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierOrdersRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierQuotesRelationManager;
-use App\Models\BuyerInvoice;
-use App\Models\BuyerOrder;
-use App\Models\Currency;
-use App\Models\PaymentDocumentApproval;
 use App\Models\Request;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -47,6 +42,8 @@ use Relaticle\CustomFields\Facades\CustomFields;
 
 final class ViewRequest extends ViewRecord
 {
+    use InteractsWithPaymentCard;
+
     protected static string $resource = RequestResource::class;
 
     /**
@@ -199,6 +196,10 @@ final class ViewRequest extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            // Registered so its modal renders and the per-installment "Record
+            // payment" buttons can open it via mountAction(); the header button
+            // itself is hidden — the payment table rows are the trigger.
+            $this->recordPaymentAction()->extraAttributes(['class' => 'hidden']),
             ActionGroup::make([
                 EditAction::make(),
                 RestoreAction::make(),
@@ -265,19 +266,33 @@ final class ViewRequest extends ViewRecord
                 ])
                 ->columns(4)
                 ->columnSpanFull(),
-            // Internal Notes
-            Section::make('Internal Notes')
-                ->icon('heroicon-o-document-text')
+            // Internal Notes + Description
+            // Side by side when both exist; either one alone spans full width.
+            Grid::make(2)
                 ->schema([
-                    TextEntry::make('internal_notes')
-                        ->label('')
-                        ->placeholder('No internal notes')
-                        ->markdown()
-                        ->columnSpanFull(),
+                    Section::make('Internal Notes')
+                        ->icon('heroicon-o-document-text')
+                        ->schema([
+                            TextEntry::make('internal_notes')
+                                ->label('')
+                                ->placeholder('No internal notes')
+                                ->markdown()
+                                ->columnSpanFull(),
+                        ])
+                        ->collapsible()
+                        ->visible(fn (Request $record): bool => $this->hasInternalNotes($record))
+                        ->columnSpan(fn (Request $record): int => $this->hasInternalNotes($record) && $this->hasDescription($record) ? 1 : 2),
+                    Section::make('Description')
+                        ->schema([
+                            TextEntry::make('description')
+                                ->label('')
+                                ->markdown()
+                                ->columnSpanFull(),
+                        ])
+                        ->collapsible()
+                        ->visible(fn (Request $record): bool => $this->hasDescription($record))
+                        ->columnSpan(fn (Request $record): int => $this->hasInternalNotes($record) && $this->hasDescription($record) ? 1 : 2),
                 ])
-                ->collapsible()
-                ->collapsed()
-                ->visible(fn (Request $record): bool => $record->internal_notes !== null && $record->internal_notes !== '')
                 ->columnSpanFull(),
 
             // Proof of Request (buyer uploads + staff proof documents)
@@ -327,18 +342,7 @@ final class ViewRequest extends ViewRecord
                     Section::make('Payments')
                         ->icon('heroicon-o-credit-card')
                         ->extraAttributes(['class' => 'three-column-section'])
-                        ->schema([
-                            TextEntry::make('payment_terms_list')
-                                ->hiddenLabel()
-                                ->state(fn (Request $record): HtmlString => $this->getPaymentTermsList($record))
-                                ->placeholder('No payment terms')
-                                ->columnSpanFull(),
-                            TextEntry::make('prepayment_display')
-                                ->label('Prepayment')
-                                ->state(fn (Request $record): string => $this->getPrepaymentDisplay($record))
-                                ->placeholder('No prepayment')
-                                ->columnSpanFull(),
-                        ]),
+                        ->schema($this->paymentCardEntries()),
                     Section::make('Fulfillment')
                         ->icon('heroicon-o-truck')
                         ->extraAttributes(['class' => 'three-column-section'])
@@ -380,19 +384,6 @@ final class ViewRequest extends ViewRecord
                                 ->placeholder('No supplier order'),
                         ]),
                 ])
-                ->columnSpanFull(),
-
-            // Description (if exists)
-            Section::make('Description')
-                ->schema([
-                    TextEntry::make('description')
-                        ->label('')
-                        ->markdown()
-                        ->columnSpanFull(),
-                ])
-                ->collapsible()
-                ->collapsed()
-                ->visible(fn (Request $record): bool => $record->description !== null)
                 ->columnSpanFull(),
 
             // Custom Fields
@@ -479,33 +470,19 @@ final class ViewRequest extends ViewRecord
     }
 
     /**
-     * Format a currency value using the team's base currency.
+     * Whether the request has internal notes worth displaying.
      */
-    private function formatCurrency(float $value): string
+    private function hasInternalNotes(Request $record): bool
     {
-        if ($value === 0.0) {
-            return '-';
-        }
+        return $record->internal_notes !== null && $record->internal_notes !== '';
+    }
 
-        /** @var \App\Models\Team|null $team */
-        $team = filament()->getTenant();
-
-        // Try to get the base currency (active)
-        $currency = $team?->getBaseCurrency();
-
-        // If not found (e.g., inactive), try to get it by code anyway
-        if ($currency === null && $team !== null) {
-            $code = $team->getErpSettings()->default_currency;
-            $currency = Currency::query()
-                ->where('code', $code)
-                ->first();
-        }
-
-        if ($currency === null) {
-            return number_format($value, 2);
-        }
-
-        return $currency->format($value);
+    /**
+     * Whether the request has a description worth displaying.
+     */
+    private function hasDescription(Request $record): bool
+    {
+        return $record->description !== null && $record->description !== '';
     }
 
     /**
@@ -592,18 +569,6 @@ final class ViewRequest extends ViewRecord
         $margin = ($buyerTotal - $supplierCost) / $buyerTotal * 100;
 
         return $this->formatPercentage($margin);
-    }
-
-    /**
-     * Get effective buyer total (confirmed orders > draft orders > expected from quotes).
-     */
-    private function getEffectiveBuyerTotal(Request $record): float
-    {
-        if ($record->has_buyer_order_confirmed || $record->buyer_total > 0) {
-            return $record->buyer_total;
-        }
-
-        return $record->expected_buyer_total;
     }
 
     /**
@@ -707,180 +672,6 @@ final class ViewRequest extends ViewRecord
         }
 
         return 'info';
-    }
-
-    /**
-     * Get the primary buyer order for payment terms display.
-     * Prefers confirmed orders, then most recent order.
-     */
-    private function getPrimaryBuyerOrder(Request $record): ?BuyerOrder
-    {
-        // Try to get confirmed order first
-        $confirmedOrder = $record->buyerOrders()
-            ->whereNotIn('status', [\App\Enums\OrderStatus::DRAFT, \App\Enums\OrderStatus::CANCELLED])
-            ->with('buyerQuote')
-            ->orderByDesc('confirmed_at')
-            ->first();
-
-        if ($confirmedOrder !== null) {
-            return $confirmedOrder;
-        }
-
-        // Fall back to most recent order
-        return $record->buyerOrders()
-            ->with('buyerQuote')
-            ->orderByDesc('created_at')
-            ->first();
-    }
-
-    /**
-     * Get prepayment display value from buyer quote.
-     */
-    private function getPrepaymentDisplay(Request $record): string
-    {
-        $buyerOrder = $this->getPrimaryBuyerOrder($record);
-
-        if ($buyerOrder === null || $buyerOrder->buyerQuote === null) {
-            return '';
-        }
-
-        $quote = $buyerOrder->buyerQuote;
-
-        if ($quote->prepayment_type === PrepaymentType::PERCENT) {
-            return $quote->prepayment_percent.'%';
-        }
-
-        if ($quote->prepayment_type === PrepaymentType::FIXED) {
-            return $this->formatCurrency((float) $quote->prepayment_amount);
-        }
-
-        return '';
-    }
-
-    /**
-     * Render a status pill with reliable inline colors.
-     *
-     * Filament color names are mapped to explicit inline styles rather than
-     * Tailwind utility classes (e.g. `bg-warning-100`), because those class
-     * names are assembled at runtime and are not always emitted by the JIT
-     * build — which left some badges rendering with no background.
-     */
-    private function statusBadge(string $label, string $color): string
-    {
-        $palette = match ($color) {
-            'success' => 'background-color:#dcfce7;color:#166534;',
-            'warning' => 'background-color:#fef3c7;color:#92400e;',
-            'danger' => 'background-color:#fee2e2;color:#991b1b;',
-            'info' => 'background-color:#dbeafe;color:#1e40af;',
-            'primary' => 'background-color:#e0e7ff;color:#3730a3;',
-            default => 'background-color:#f1f5f9;color:#334155;',
-        };
-
-        return sprintf(
-            '<span style="%sdisplay:inline-flex;align-items:center;padding:0.125rem 0.5rem;border-radius:9999px;font-size:0.75rem;font-weight:500;line-height:1.25;white-space:nowrap;">%s</span>',
-            $palette,
-            htmlspecialchars($label)
-        );
-    }
-
-    /**
-     * Get payment terms list as HTML.
-     */
-    private function getPaymentTermsList(Request $record): HtmlString
-    {
-        $buyerOrder = $this->getPrimaryBuyerOrder($record);
-
-        if ($buyerOrder === null || $buyerOrder->buyerQuote === null) {
-            return new HtmlString('<span class="text-gray-400">No payment terms</span>');
-        }
-
-        $quote = $buyerOrder->buyerQuote;
-        $paymentTerms = $quote->paymentTerms;
-
-        if ($paymentTerms->isEmpty()) {
-            return new HtmlString('<span class="text-gray-400">No payment terms</span>');
-        }
-
-        $cell = 'padding:0.5rem 1rem 0.5rem 0;border-top:1px solid rgba(148,163,184,0.25);vertical-align:middle;';
-        $lastCell = 'padding:0.5rem 0 0.5rem 0;border-top:1px solid rgba(148,163,184,0.25);vertical-align:middle;';
-
-        $rows = [];
-        foreach ($paymentTerms as $term) {
-            $status = $this->getPaymentTermStatus($record, $term->due_days, $term->percentage);
-            $statusColor = $status === 'Paid' ? 'success' : 'warning';
-
-            $rows[] = sprintf(
-                '<tr><td style="%swhite-space:nowrap;">%d days</td><td style="%s">%d%%</td><td style="%stext-align:right;">%s</td></tr>',
-                $cell,
-                $term->due_days,
-                $cell,
-                $term->percentage,
-                $lastCell,
-                $this->statusBadge($status, $statusColor)
-            );
-        }
-
-        $head = 'padding:0 1rem 0.5rem 0;font-weight:500;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;';
-        $headLast = 'padding:0 0 0.5rem 0;font-weight:500;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;text-align:right;';
-        $html = sprintf(
-            '<table style="width:100%%;border-collapse:collapse;font-size:0.875rem;"><thead><tr><th style="%stext-align:left;">Due</th><th style="%stext-align:left;">Portion</th><th style="%s">Status</th></tr></thead><tbody>%s</tbody></table>',
-            $head,
-            $head,
-            $headLast,
-            implode('', $rows)
-        );
-
-        return new HtmlString($html);
-    }
-
-    /**
-     * Get payment term status (Paid/Not Paid) based on invoice payments or approved acceptance report.
-     */
-    private function getPaymentTermStatus(Request $record, int $dueDays, int $percentage): string
-    {
-        // If an acceptance report payment document for this term is approved, consider Paid
-        $paymentTermsKey = "{$dueDays}-{$percentage}";
-        $paymentMedia = $record->getMedia('completion_reports')
-            ->filter(fn ($media) => (bool) $media->getCustomProperty('is_payment_document', false)
-                && $media->getCustomProperty('payment_terms') === $paymentTermsKey);
-        $paymentMediaIds = $paymentMedia->pluck('id')->toArray();
-        if ($paymentMediaIds !== [] && $record->team_id !== null) {
-            $hasApprovedDoc = PaymentDocumentApproval::query()
-                ->whereIn('media_id', $paymentMediaIds)
-                ->where('team_id', $record->team_id)
-                ->exists();
-            if ($hasApprovedDoc) {
-                return 'Paid';
-            }
-        }
-
-        // Get invoices for this request with matching net_days
-        $invoices = BuyerInvoice::query()
-            ->where('request_id', $record->getKey())
-            ->where('net_days', $dueDays)
-            ->whereNotIn('status', [InvoiceStatus::CANCELLED, InvoiceStatus::DRAFT])
-            ->get();
-
-        if ($invoices->isEmpty()) {
-            return 'Not Paid';
-        }
-
-        // Calculate expected payment amount based on percentage
-        $buyerTotal = $this->getEffectiveBuyerTotal($record);
-        $expectedAmount = ($buyerTotal * $percentage) / 100;
-
-        // Sum up paid amounts from invoices
-        $paidAmount = 0.0;
-        foreach ($invoices as $invoice) {
-            $paidAmount += (float) $invoice->amount_paid;
-        }
-
-        // Consider paid if paid amount equals or exceeds expected amount (with small tolerance)
-        if ($paidAmount >= ($expectedAmount - 0.01)) {
-            return 'Paid';
-        }
-
-        return 'Not Paid';
     }
 
     /**

@@ -18,9 +18,9 @@ use Livewire\Component;
 
 /**
  * Quote cart summary page: edit quantities, remove lines, and submit the cart
- * as a portal-originated Request. Guests are prompted to sign in (customer
+ * as a portal-originated Request. Guests are prompted to sign in (buyer
  * guard, inline — the cart lives in this session and survives the sign-in)
- * or register; submission requires an active customer portal membership.
+ * or register; submission requires an active buyer portal membership.
  */
 #[Layout('components.layouts.catalog')]
 final class QuoteCartPage extends Component
@@ -83,7 +83,7 @@ final class QuoteCartPage extends Component
             'password' => ['required', 'string'],
         ]);
 
-        $guard = Auth::guard('customer');
+        $guard = Auth::guard('buyer');
 
         if (! $guard->attempt(['email' => $this->email, 'password' => $this->password])) {
             $this->addError('email', 'These credentials do not match our records.');
@@ -95,14 +95,14 @@ final class QuoteCartPage extends Component
 
         if (! $user instanceof User || ! $user->hasVerifiedEmail()) {
             $guard->logout();
-            $this->addError('email', 'Please verify your email address first — sign in to the customer portal to receive a verification link.');
+            $this->addError('email', 'Please verify your email address first — sign in to the buyer portal to receive a verification link.');
 
             return;
         }
 
-        if (! $user->hasActiveCustomerPortalAccess()) {
+        if (! $user->hasActiveBuyerPortalAccess()) {
             $guard->logout();
-            $this->addError('email', 'No active customer portal access found for this account.');
+            $this->addError('email', 'No active buyer portal access found for this account.');
 
             return;
         }
@@ -115,7 +115,7 @@ final class QuoteCartPage extends Component
 
     public function submit(): void
     {
-        $user = Auth::guard('customer')->user();
+        $user = Auth::guard('buyer')->user();
 
         if (! $user instanceof User) {
             $this->addError('cart', 'Please sign in to submit your quote request.');
@@ -152,15 +152,15 @@ final class QuoteCartPage extends Component
             ->pluck('articles.id')
             ->all();
 
-        $customerUser = Auth::guard('customer')->user();
+        $buyerUser = Auth::guard('buyer')->user();
 
         return view('livewire.catalog.quote-cart-page', [
             'items' => $items,
             'articles' => $articles,
             'availableIds' => $availableIds,
             'baseCurrency' => $resolver->team()?->getBaseCurrency(),
-            'isSignedIn' => $customerUser instanceof User && $customerUser->hasActiveCustomerPortalAccess(),
-            'customerName' => $customerUser?->name,
+            'isSignedIn' => $buyerUser instanceof User && $buyerUser->hasActiveBuyerPortalAccess(),
+            'buyerName' => $buyerUser?->name,
         ])->title('Quote Cart — '.config('app.name'));
     }
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Filament\Customer\Pages\Auth\CustomerLogin;
+use App\Filament\Buyer\Pages\Auth\BuyerLogin;
 use App\Filament\Pages\Auth\Login;
 use App\Http\Responses\LoginResponse;
 use App\Models\Company;
@@ -75,7 +75,7 @@ final class AppServiceProvider extends ServiceProvider
         $this->configureModels();
         $this->configureActivityLog();
         $this->configureFilament();
-        $this->configureLegacyCustomerPortalRedirects();
+        $this->configureLegacyBuyerPortalRedirects();
         $this->configureGitHubStars();
         $this->configureLivewire();
     }
@@ -227,30 +227,30 @@ final class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Redirect legacy public-domain customer portal URLs to the app subdomain.
+     * Redirect legacy public-domain buyer portal URLs to the app subdomain.
      */
-    private function configureLegacyCustomerPortalRedirects(): void
+    private function configureLegacyBuyerPortalRedirects(): void
     {
-        if (! config('app.customer_portal_enabled', true)) {
+        if (! config('app.buyer_portal_enabled', true)) {
             return;
         }
 
         $publicHost = PanelDomain::publicHost();
-        $customerHost = PanelDomain::customerHost();
+        $buyerHost = PanelDomain::buyerHost();
 
-        if ($publicHost === $customerHost) {
+        if ($publicHost === $buyerHost) {
             return;
         }
 
-        $prefix = trim((string) config('app.customer_path', 'buyer'), '/');
+        $prefix = trim((string) config('app.buyer_path', 'buyer'), '/');
 
         Route::domain($publicHost)
             ->middleware('web')
             ->group(function () use ($prefix): void {
-                Route::get($prefix, fn () => redirect()->away(url()->getCustomerPortalUrl()));
+                Route::get($prefix, fn () => redirect()->away(url()->getBuyerPortalUrl()));
 
                 Route::get($prefix.'/{path}', fn (string $path) => redirect()->away(
-                    url()->getCustomerPortalUrl($path),
+                    url()->getBuyerPortalUrl($path),
                 ))->where('path', '.*');
             });
     }
@@ -282,7 +282,7 @@ final class AppServiceProvider extends ServiceProvider
             fn (): string => view('filament.hooks.login-autofill-sync')->render(),
             scopes: [
                 Login::class,
-                CustomerLogin::class,
+                BuyerLogin::class,
             ],
         );
     }

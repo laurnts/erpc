@@ -14,9 +14,9 @@ final readonly class BuyerInvoicePolicy
 {
     use HandlesAuthorization;
 
-    private function isCustomerPanel(): bool
+    private function isBuyerPanel(): bool
     {
-        return Filament::getCurrentPanel()?->getId() === 'customer';
+        return Filament::getCurrentPanel()?->getId() === 'buyer';
     }
 
     private function userCanAccessPortalInvoice(User $user, BuyerInvoice $invoice): bool
@@ -27,13 +27,13 @@ final readonly class BuyerInvoicePolicy
             return false;
         }
 
-        return in_array($buyerId, $user->activeCustomerPortalCompanyIds(), true);
+        return in_array($buyerId, $user->activeBuyerPortalCompanyIds(), true);
     }
 
     public function viewAny(User $user): bool
     {
-        if ($this->isCustomerPanel()) {
-            return $user->hasActiveCustomerPortalAccess();
+        if ($this->isBuyerPanel()) {
+            return $user->hasActiveBuyerPortalAccess();
         }
 
         return $user->hasVerifiedEmail()
@@ -43,7 +43,7 @@ final readonly class BuyerInvoicePolicy
 
     public function view(User $user, BuyerInvoice $invoice): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return $this->userCanAccessPortalInvoice($user, $invoice)
                 && $invoice->status !== InvoiceStatus::DRAFT;
         }
@@ -54,7 +54,7 @@ final readonly class BuyerInvoicePolicy
 
     public function create(User $user): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -65,7 +65,7 @@ final readonly class BuyerInvoicePolicy
 
     public function update(User $user, BuyerInvoice $invoice): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -75,7 +75,7 @@ final readonly class BuyerInvoicePolicy
 
     public function delete(User $user, BuyerInvoice $invoice): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -85,7 +85,7 @@ final readonly class BuyerInvoicePolicy
 
     public function deleteAny(User $user): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -96,7 +96,7 @@ final readonly class BuyerInvoicePolicy
 
     public function restore(User $user, BuyerInvoice $invoice): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -106,7 +106,7 @@ final readonly class BuyerInvoicePolicy
 
     public function restoreAny(User $user): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -117,7 +117,7 @@ final readonly class BuyerInvoicePolicy
 
     public function forceDelete(User $user, BuyerInvoice $invoice): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -127,7 +127,7 @@ final readonly class BuyerInvoicePolicy
 
     public function forceDeleteAny(User $user): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 

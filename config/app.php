@@ -74,18 +74,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Customer Portal Configuration
+    | Buyer Portal Configuration
     |--------------------------------------------------------------------------
     |
-    | Path-based customer portal on the app subdomain (e.g. app.example.com/customer/login).
-    | Optional CUSTOMER_DOMAIN overrides the host; defaults to the app panel domain.
+    | Path-based buyer portal on the app subdomain (e.g. app.example.com/buyer/login).
+    | Optional BUYER_DOMAIN overrides the host; defaults to the app panel domain.
     |
     */
 
-    'customer_path' => env('CUSTOMER_PATH', 'buyer'),
-    'customer_domain' => env('CUSTOMER_DOMAIN'),
-    'customer_session_cookie' => $customerSessionCookie = env('CUSTOMER_SESSION_COOKIE', 'erpc_customer_session'),
-    'customer_portal_enabled' => (bool) env('CUSTOMER_PORTAL_ENABLED', true),
+    'buyer_path' => env('BUYER_PATH', 'buyer'),
+    'buyer_domain' => env('BUYER_DOMAIN'),
+    'buyer_session_cookie' => $buyerSessionCookie = env('BUYER_SESSION_COOKIE', 'erpc_buyer_session'),
+    'buyer_portal_enabled' => (bool) env('BUYER_PORTAL_ENABLED', true),
 
     /*
     |--------------------------------------------------------------------------
@@ -114,7 +114,7 @@ return [
     */
 
     'panel_session_cookies' => [
-        env('CUSTOMER_PATH', 'buyer') => $customerSessionCookie,
+        env('BUYER_PATH', 'buyer') => $buyerSessionCookie,
         env('SUPPLIER_PATH', 'supplier') => $supplierSessionCookie,
     ],
 

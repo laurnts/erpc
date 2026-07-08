@@ -122,7 +122,7 @@ final class PortalUsersRelationManager extends RelationManager
     }
 
     /**
-     * The buyer view manages customer-portal people; the supplier view
+     * The buyer view manages buyer-portal people; the supplier view
      * manages supplier-portal people. Derived from the mounting page so one
      * class serves both resources.
      */
@@ -130,6 +130,6 @@ final class PortalUsersRelationManager extends RelationManager
     {
         return str_contains($this->getPageClass(), 'Supplier')
             ? PortalType::Supplier
-            : PortalType::Customer;
+            : PortalType::Buyer;
     }
 }

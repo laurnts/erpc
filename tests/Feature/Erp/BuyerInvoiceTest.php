@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Models\Company;
-
 use App\Enums\InvoiceStatus;
 use App\Enums\InvoiceType;
 use App\Models\BuyerInvoice;
@@ -302,12 +300,12 @@ describe('BuyerInvoice Credit Note Creation', function (): void {
             ],
         ];
 
-        $creditNote = $originalInvoice->createCreditNote($creditNoteItems, 'Items returned by customer');
+        $creditNote = $originalInvoice->createCreditNote($creditNoteItems, 'Items returned by buyer');
 
         expect($creditNote)->toBeInstanceOf(BuyerInvoice::class)
             ->and($creditNote->type)->toBe(InvoiceType::CREDIT_NOTE)
             ->and($creditNote->original_invoice_id)->toBe($originalInvoice->getKey())
-            ->and($creditNote->credit_reason)->toBe('Items returned by customer')
+            ->and($creditNote->credit_reason)->toBe('Items returned by buyer')
             ->and($creditNote->items)->toHaveCount(1)
             ->and((float) $creditNote->subtotal)->toBe(200.0)
             ->and((float) $creditNote->tax_total)->toBe(20.0)

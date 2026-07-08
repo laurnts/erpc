@@ -24,7 +24,7 @@ use App\Enums\ActorType;
  * precise actor via {@see \App\Actions\Media\AttachUploadedFiles}; this map
  * only backfills provenance that was never stamped.
  */
-final class UploaderProvenance
+final readonly class UploaderProvenance
 {
     /**
      * Collection name => the actor most likely to have uploaded it.

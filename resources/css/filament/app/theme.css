@@ -86,7 +86,7 @@
 
 
 /* Portal panels — horizontal header navigation */
-.fi-panel-customer,
+.fi-panel-buyer,
 .fi-panel-supplier {
     .fi-topbar-start {
         @apply flex;
@@ -428,16 +428,16 @@ input[type='radio']:not(:disabled) {
     @apply rounded-xl;
 }
 
-/* Customer portal login */
-.fi-panel-customer.fi-customer-login .fi-simple-header .fi-logo {
+/* Buyer portal login */
+.fi-panel-buyer.fi-buyer-login .fi-simple-header .fi-logo {
     @apply mb-4;
 }
 
-.fi-panel-customer.fi-customer-login .fi-simple-header-heading {
+.fi-panel-buyer.fi-buyer-login .fi-simple-header-heading {
     @apply text-2xl font-bold tracking-tight text-gray-950 dark:text-white;
 }
 
-/* Customer request detail — sticky metadata sidebar */
-.fi-panel-customer .customer-request-sidebar {
+/* Buyer request detail — sticky metadata sidebar */
+.fi-panel-buyer .buyer-request-sidebar {
     @apply lg:sticky lg:top-6 lg:self-start;
 }

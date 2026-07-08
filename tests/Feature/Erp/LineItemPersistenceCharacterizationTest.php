@@ -17,7 +17,7 @@ declare(strict_types=1);
  * explicitly as "current behavior".
  *
  * Covered surfaces:
- *   1. Customer request edit  — EditCustomerRequest::afterSave (items()->delete())
+ *   1. Buyer request edit  — EditBuyerRequest::afterSave (items()->delete())
  *   2. Request items RM edit  — ItemsRelationManager edit action (children()->delete())
  *   3. Quote cart submit      — SubmitQuoteCart (create-only items()->create())
  *
@@ -33,7 +33,7 @@ use App\Enums\ItemType;
 use App\Enums\PortalType;
 use App\Enums\RequestStage;
 use App\Enums\RequestSubmissionMethod;
-use App\Filament\Customer\Resources\CustomerRequestResource\Pages\EditCustomerRequest;
+use App\Filament\Buyer\Resources\BuyerRequestResource\Pages\EditBuyerRequest;
 use App\Filament\Resources\RequestResource\Pages\ViewRequest;
 use App\Filament\Resources\RequestResource\RelationManagers\ItemsRelationManager;
 use App\Models\Article;
@@ -44,7 +44,7 @@ use App\Models\RequestItem;
 use App\Models\Team;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
-use App\Services\Portal\CustomerPortalContext;
+use App\Services\Portal\BuyerPortalContext;
 use Filament\Facades\Filament;
 
 use function Pest\Livewire\livewire;
@@ -57,14 +57,14 @@ beforeEach(function (): void {
 });
 
 /**
- * Surface 1 — Customer request edit (EditCustomerRequest::afterSave).
+ * Surface 1 — Buyer request edit (EditBuyerRequest::afterSave).
  *
  * Current persistence: $record->items()->delete() (query builder, bypasses
  * Eloquent events) then RequestItem::create() for every submitted row.
  */
-describe('Customer request edit (items mass delete + recreate)', function (): void {
+describe('Buyer request edit (items mass delete + recreate)', function (): void {
     beforeEach(function (): void {
-        config(['app.customer_portal_enabled' => true]);
+        config(['app.buyer_portal_enabled' => true]);
 
         $this->portalUser = User::factory()->create(['email' => 'char.portal@buyer.test']);
 
@@ -72,7 +72,7 @@ describe('Customer request edit (items mass delete + recreate)', function (): vo
             'team_id' => $this->team->getKey(),
             'company_id' => $this->buyer->getKey(),
             'user_id' => $this->portalUser->getKey(),
-            'portal' => PortalType::Customer,
+            'portal' => PortalType::Buyer,
             'is_active' => true,
         ]);
 
@@ -108,13 +108,13 @@ describe('Customer request edit (items mass delete + recreate)', function (): vo
             'sort_order' => 2,
         ]);
 
-        $this->actingAs($this->portalUser, 'customer');
-        Filament::setCurrentPanel('customer');
-        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
+        $this->actingAs($this->portalUser, 'buyer');
+        Filament::setCurrentPanel('buyer');
+        app(BuyerPortalContext::class)->setCompany($this->buyer->getKey());
     });
 
     it('pins the resulting item set after a change / remove / add edit', function (): void {
-        $component = livewire(EditCustomerRequest::class, ['record' => $this->request->getKey()]);
+        $component = livewire(EditBuyerRequest::class, ['record' => $this->request->getKey()]);
 
         /** @var array<string, array<string, mixed>> $items */
         $items = $component->get('data.items');
@@ -178,7 +178,7 @@ describe('Customer request edit (items mass delete + recreate)', function (): vo
         // (the form carries item_type per row).
         $this->itemB->update(['item_type' => ItemType::SERVICE]);
 
-        $component = livewire(EditCustomerRequest::class, ['record' => $this->request->getKey()]);
+        $component = livewire(EditBuyerRequest::class, ['record' => $this->request->getKey()]);
         $items = $component->get('data.items');
 
         $component
@@ -326,7 +326,7 @@ describe('Quote cart submit (create-only line mapping)', function (): void {
             'team_id' => $this->team->getKey(),
             'company_id' => $this->buyer->getKey(),
             'user_id' => $this->cartUser->getKey(),
-            'portal' => PortalType::Customer,
+            'portal' => PortalType::Buyer,
             'is_active' => true,
         ]);
 

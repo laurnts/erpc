@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Observers;
 
+use App\Actions\BuyerPortal\NotifyPortalUsers;
 use App\Data\TeamErpSettings;
 use App\Enums\BuyerQuoteStatus;
 use App\Enums\RequestStage;
@@ -11,7 +12,6 @@ use App\Models\BuyerQuote;
 use App\Models\Request;
 use App\Models\Team;
 use App\Models\User;
-use App\Actions\CustomerPortal\NotifyPortalUsers;
 use App\Notifications\PortalBuyerQuoteSentNotification;
 
 final readonly class BuyerQuoteObserver

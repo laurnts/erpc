@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Catalog;
 
-use App\Actions\CustomerPortal\SubmitPortalRegistration;
+use App\Actions\BuyerPortal\SubmitPortalRegistration;
 use App\Services\Catalog\CatalogTeamResolver;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use DanHarrin\LivewireRateLimiting\WithRateLimiting;

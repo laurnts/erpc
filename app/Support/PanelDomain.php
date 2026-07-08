@@ -26,9 +26,9 @@ final readonly class PanelDomain
         return $parsed['host'] ?? 'app.'.self::publicHost();
     }
 
-    public static function customerHost(): string
+    public static function buyerHost(): string
     {
-        $configured = config('app.customer_domain');
+        $configured = config('app.buyer_domain');
 
         if (is_string($configured) && $configured !== '') {
             $parsed = parse_url(str_contains($configured, '://') ? $configured : 'https://'.$configured);

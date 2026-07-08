@@ -28,7 +28,7 @@ final class ViewBuyer extends ViewRecord
                 ->icon('heroicon-o-envelope')
                 ->color('primary')
                 ->visible(function (): bool {
-                    if (! config('app.customer_portal_enabled', true)) {
+                    if (! config('app.buyer_portal_enabled', true)) {
                         return false;
                     }
 
@@ -42,7 +42,7 @@ final class ViewBuyer extends ViewRecord
                         return false;
                     }
 
-                    return ! $record->hasActivePortalMembership(PortalType::Customer, $team->getKey());
+                    return ! $record->hasActivePortalMembership(PortalType::Buyer, $team->getKey());
                 })
                 ->schema([
                     TextInput::make('name')
@@ -65,7 +65,7 @@ final class ViewBuyer extends ViewRecord
                     app(InvitePortalUser::class)->execute(
                         team: $team,
                         company: $record,
-                        portal: PortalType::Customer,
+                        portal: PortalType::Buyer,
                         email: $data['email'],
                         name: $data['name'],
                         invitedBy: $invitedBy,

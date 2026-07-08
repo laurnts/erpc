@@ -38,7 +38,7 @@ final readonly class RequestNotePolicy
         return match (ActivityLogContext::currentActorType()) {
             ActorType::Staff, ActorType::Admin => $user->belongsToTeam($note->team),
             ActorType::Buyer => $note->visibility === NoteVisibility::Buyer
-                && in_array((int) $note->request->buyer_id, $user->activeCustomerPortalCompanyIds(), true),
+                && in_array((int) $note->request->buyer_id, $user->activeBuyerPortalCompanyIds(), true),
             ActorType::Supplier => $note->visibility === NoteVisibility::Supplier
                 && $note->audience_company_id !== null
                 && in_array((int) $note->audience_company_id, $user->activeSupplierPortalCompanyIds(), true),
@@ -69,7 +69,7 @@ final readonly class RequestNotePolicy
             ActorType::Staff, ActorType::Admin => $user->belongsToTeam($request->team),
             ActorType::Buyer => $visibility === NoteVisibility::Buyer
                 && $audienceCompanyId === null
-                && in_array((int) $request->buyer_id, $user->activeCustomerPortalCompanyIds(), true),
+                && in_array((int) $request->buyer_id, $user->activeBuyerPortalCompanyIds(), true),
             ActorType::Supplier => $visibility === NoteVisibility::Supplier
                 && $audienceCompanyId !== null
                 && in_array($audienceCompanyId, $user->activeSupplierPortalCompanyIds(), true),

@@ -125,7 +125,7 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
     }
 
     /**
-     * Buyer companies this user can access via the customer portal.
+     * Buyer companies this user can access via the buyer portal.
      *
      * @return BelongsToMany<Company, $this>
      */
@@ -144,9 +144,9 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
         return $this->hasMany(CompanyPortalUser::class);
     }
 
-    public function hasActiveCustomerPortalAccess(): bool
+    public function hasActiveBuyerPortalAccess(): bool
     {
-        return $this->activeCustomerPortalMembershipsQuery()->exists();
+        return $this->activeBuyerPortalMembershipsQuery()->exists();
     }
 
     public function hasActiveSupplierPortalAccess(): bool
@@ -162,9 +162,9 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
     /**
      * @return list<int>
      */
-    public function activeCustomerPortalCompanyIds(): array
+    public function activeBuyerPortalCompanyIds(): array
     {
-        return $this->activeCustomerPortalMembershipsQuery()
+        return $this->activeBuyerPortalMembershipsQuery()
             ->pluck('company_id')
             ->all();
     }
@@ -183,23 +183,23 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
     }
 
     /**
-     * Customer portal capability requires an explicit customer-typed membership
+     * Buyer portal capability requires an explicit buyer-typed membership
      * AND the company actually being a buyer — a supplier-only membership must
-     * never grant customer panel access.
+     * never grant buyer panel access.
      *
      * @return HasMany<CompanyPortalUser, $this>
      */
-    private function activeCustomerPortalMembershipsQuery(): HasMany
+    private function activeBuyerPortalMembershipsQuery(): HasMany
     {
         return $this->portalMemberships()
             ->where('is_active', true)
-            ->where('portal', PortalType::Customer)
+            ->where('portal', PortalType::Buyer)
             ->whereHas('company', fn ($query) => $query->where('is_buyer', true));
     }
 
     /**
      * Supplier portal capability requires an explicit supplier-typed membership
-     * AND the company actually being a supplier — a customer-only membership
+     * AND the company actually being a supplier — a buyer-only membership
      * must never grant supplier panel access, including at dual-role companies.
      *
      * @return HasMany<CompanyPortalUser, $this>
@@ -224,7 +224,7 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
     {
         return match ($panel->getId()) {
             'app' => $this->belongsToAnyInternalTeam(),
-            'customer' => $this->hasActiveCustomerPortalAccess(),
+            'buyer' => $this->hasActiveBuyerPortalAccess(),
             'supplier' => $this->hasActiveSupplierPortalAccess(),
             default => false,
         };

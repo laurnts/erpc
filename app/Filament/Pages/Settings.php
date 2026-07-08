@@ -12,6 +12,7 @@ use DanHarrin\LivewireRateLimiting\WithRateLimiting;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -21,6 +22,7 @@ use Filament\Schemas\Schema;
 
 /**
  * @property Schema $erpForm
+ * @property Schema $paymentForm
  * @property Schema $prefixForm
  */
 final class Settings extends Page implements HasForms
@@ -43,6 +45,9 @@ final class Settings extends Page implements HasForms
 
     /** @var array<string, mixed>|null */
     public ?array $prefixData = [];
+
+    /** @var array<string, mixed>|null */
+    public ?array $paymentData = [];
 
     public function getTitle(): string
     {
@@ -81,6 +86,13 @@ final class Settings extends Page implements HasForms
             'default_margin_percent' => $settings->default_margin_percent,
         ]);
 
+        $this->paymentForm->fill([
+            'payment_bank_name' => $settings->payment_bank_name,
+            'payment_bank_account_number' => $settings->payment_bank_account_number,
+            'payment_account_holder' => $settings->payment_account_holder,
+            'payment_instructions' => $settings->payment_instructions,
+        ]);
+
         $this->prefixForm->fill([
             'request_number_prefix' => $settings->request_number_prefix,
             'project_number_prefix' => $settings->project_number_prefix,
@@ -102,6 +114,7 @@ final class Settings extends Page implements HasForms
     {
         return [
             'erpForm',
+            'paymentForm',
             'prefixForm',
         ];
     }
@@ -122,7 +135,7 @@ final class Settings extends Page implements HasForms
                         ])
                         ->all()
                     )
-                    
+
                     ->required(),
                 TextInput::make('quote_validity_days')
                     ->label('Quote Validity (Days)')
@@ -147,6 +160,30 @@ final class Settings extends Page implements HasForms
                     ->helperText('Applied to buyer quotes based on supplier cost price'),
             ])
             ->statePath('erpData');
+    }
+
+    public function paymentForm(Schema $schema): Schema
+    {
+        return $schema
+            ->schema([
+                TextInput::make('payment_bank_name')
+                    ->label('Bank Name')
+                    ->maxLength(255),
+                TextInput::make('payment_account_holder')
+                    ->label('Account Holder')
+                    ->maxLength(255),
+                TextInput::make('payment_bank_account_number')
+                    ->label('Account Number')
+                    ->maxLength(255),
+                Textarea::make('payment_instructions')
+                    ->label('Payment Instructions')
+                    ->rows(3)
+                    ->maxLength(2000)
+                    ->helperText('Shown to buyers and staff when submitting a payment (e.g. reference format, SWIFT code).')
+                    ->columnSpanFull(),
+            ])
+            ->columns(2)
+            ->statePath('paymentData');
     }
 
     public function prefixForm(Schema $schema): Schema
@@ -226,6 +263,10 @@ final class Settings extends Page implements HasForms
             quote_validity_days: (int) ($erpData['quote_validity_days'] ?? 30),
             default_payment_terms_days: (int) ($erpData['default_payment_terms_days'] ?? 30),
             default_margin_percent: (float) ($erpData['default_margin_percent'] ?? 3.0),
+            payment_bank_name: $currentSettings->payment_bank_name,
+            payment_bank_account_number: $currentSettings->payment_bank_account_number,
+            payment_account_holder: $currentSettings->payment_account_holder,
+            payment_instructions: $currentSettings->payment_instructions,
             request_number_prefix: $currentSettings->request_number_prefix,
             project_number_prefix: $currentSettings->project_number_prefix,
             buyer_quote_number_prefix: $currentSettings->buyer_quote_number_prefix,
@@ -257,6 +298,71 @@ final class Settings extends Page implements HasForms
         $this->sendNotification('Settings Saved', 'Default settings have been updated successfully.');
     }
 
+    public function savePaymentSettings(): void
+    {
+        try {
+            $this->rateLimit(5);
+        } catch (TooManyRequestsException $exception) {
+            Notification::make()
+                ->title('Too many requests')
+                ->body("Please wait {$exception->secondsUntilAvailable} seconds before trying again.")
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        /** @var Team $team */
+        $team = Filament::getTenant();
+        $currentSettings = $team->getErpSettings();
+        $paymentData = $this->paymentForm->getState();
+
+        $settings = new TeamErpSettings(
+            company_name: $currentSettings->company_name,
+            company_address: $currentSettings->company_address,
+            company_phone: $currentSettings->company_phone,
+            company_email: $currentSettings->company_email,
+            default_currency: $currentSettings->default_currency,
+            default_tax_percent: $currentSettings->default_tax_percent,
+            quote_validity_days: $currentSettings->quote_validity_days,
+            default_payment_terms_days: $currentSettings->default_payment_terms_days,
+            prices_include_tax: $currentSettings->prices_include_tax,
+            default_margin_percent: $currentSettings->default_margin_percent,
+            payment_bank_name: (string) ($paymentData['payment_bank_name'] ?? ''),
+            payment_bank_account_number: (string) ($paymentData['payment_bank_account_number'] ?? ''),
+            payment_account_holder: (string) ($paymentData['payment_account_holder'] ?? ''),
+            payment_instructions: (string) ($paymentData['payment_instructions'] ?? ''),
+            request_number_prefix: $currentSettings->request_number_prefix,
+            project_number_prefix: $currentSettings->project_number_prefix,
+            buyer_quote_number_prefix: $currentSettings->buyer_quote_number_prefix,
+            buyer_order_number_prefix: $currentSettings->buyer_order_number_prefix,
+            supplier_order_number_prefix: $currentSettings->supplier_order_number_prefix,
+            shipment_number_prefix: $currentSettings->shipment_number_prefix,
+            buyer_invoice_number_prefix: $currentSettings->buyer_invoice_number_prefix,
+            supplier_invoice_number_prefix: $currentSettings->supplier_invoice_number_prefix,
+            buyer_payment_number_prefix: $currentSettings->buyer_payment_number_prefix,
+            supplier_payment_number_prefix: $currentSettings->supplier_payment_number_prefix,
+            email_from_address: $currentSettings->email_from_address,
+            email_from_name: $currentSettings->email_from_name,
+            email_logo_media_id: $currentSettings->email_logo_media_id,
+            email_signature: $currentSettings->email_signature,
+            smtp_host: $currentSettings->smtp_host,
+            smtp_port: $currentSettings->smtp_port,
+            smtp_username: $currentSettings->smtp_username,
+            smtp_password: $currentSettings->smtp_password,
+            smtp_encryption: $currentSettings->smtp_encryption,
+            email_template_buyer_quote: $currentSettings->email_template_buyer_quote,
+            email_template_buyer_order: $currentSettings->email_template_buyer_order,
+            email_template_supplier_order: $currentSettings->email_template_supplier_order,
+            email_template_delivery_order: $currentSettings->email_template_delivery_order,
+        );
+
+        $team->erp_settings = $settings;
+        $team->save();
+
+        $this->sendNotification('Bank Details Saved', 'Payment bank details have been updated successfully.');
+    }
+
     public function savePrefixSettings(): void
     {
         try {
@@ -285,6 +391,10 @@ final class Settings extends Page implements HasForms
             quote_validity_days: $currentSettings->quote_validity_days,
             default_payment_terms_days: $currentSettings->default_payment_terms_days,
             default_margin_percent: $currentSettings->default_margin_percent,
+            payment_bank_name: $currentSettings->payment_bank_name,
+            payment_bank_account_number: $currentSettings->payment_bank_account_number,
+            payment_account_holder: $currentSettings->payment_account_holder,
+            payment_instructions: $currentSettings->payment_instructions,
             request_number_prefix: $prefixData['request_number_prefix'] ?? 'REQ',
             project_number_prefix: $prefixData['project_number_prefix'] ?? 'PRJ',
             buyer_quote_number_prefix: $prefixData['buyer_quote_number_prefix'] ?? 'BQ',

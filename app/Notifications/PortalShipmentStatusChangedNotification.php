@@ -59,6 +59,6 @@ final class PortalShipmentStatusChangedNotification extends Notification impleme
 
     private function portalRequestUrl(): string
     {
-        return url()->getCustomerPortalUrl('requests/'.$this->shipment->request_id);
+        return url()->getBuyerPortalUrl('requests/'.$this->shipment->request_id);
     }
 }

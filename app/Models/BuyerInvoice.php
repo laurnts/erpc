@@ -8,6 +8,7 @@ use App\Data\TeamErpSettings;
 use App\Enums\InvoiceStatus;
 use App\Enums\InvoiceType;
 use App\Enums\OrderStatus;
+use App\Enums\PaymentStatus;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use App\Models\Concerns\LogsErpActivity;
@@ -447,8 +448,11 @@ final class BuyerInvoice extends Model implements HasMedia
      */
     public function recalculateAmountPaid(): void
     {
-        // Use fresh query to ensure we get current state (excluding soft-deleted payments)
-        $amountPaid = $this->payments()->sum('amount');
+        // Only CONFIRMED payments reduce the outstanding balance. Pending
+        // (buyer-submitted, awaiting staff confirmation) entries do not count.
+        $amountPaid = $this->payments()
+            ->where('status', PaymentStatus::Confirmed->value)
+            ->sum('amount');
 
         $this->amount_paid = (string) round((float) $amountPaid, 4);
         $this->saveQuietly();

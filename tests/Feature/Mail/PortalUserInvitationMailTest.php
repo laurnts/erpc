@@ -22,7 +22,7 @@ function invitationFor(object $testCase, string $email): PortalInvitation
         'company_id' => $testCase->buyer->getKey(),
         'email' => $email,
         'name' => 'Invitee',
-        'portal' => PortalType::Customer,
+        'portal' => PortalType::Buyer,
         'invited_by' => $testCase->admin->getKey(),
         'token' => PortalInvitation::generateToken(),
     ]);

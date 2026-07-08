@@ -86,7 +86,7 @@ final readonly class InvitePortalUser
         $acceptPath = 'invitation/'.$invitation->token;
         $acceptUrl = $portal === PortalType::Supplier
             ? url()->getSupplierPortalUrl($acceptPath)
-            : url()->getCustomerPortalUrl($acceptPath);
+            : url()->getBuyerPortalUrl($acceptPath);
 
         Mail::to($email)->send(new PortalUserInvitationMail($invitation, $acceptUrl));
 
@@ -133,9 +133,9 @@ final readonly class InvitePortalUser
             ]);
         }
 
-        if ($portal === PortalType::Customer && ! $company->is_buyer) {
+        if ($portal === PortalType::Buyer && ! $company->is_buyer) {
             throw ValidationException::withMessages([
-                'email' => ['Customer portal invitations can only be issued for buyer companies.'],
+                'email' => ['Buyer portal invitations can only be issued for buyer companies.'],
             ]);
         }
     }

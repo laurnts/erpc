@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
-use App\Actions\CustomerPortal\ApprovePortalRegistration;
-use App\Actions\CustomerPortal\RejectPortalRegistration;
+use App\Actions\BuyerPortal\ApprovePortalRegistration;
+use App\Actions\BuyerPortal\RejectPortalRegistration;
 use App\Enums\PortalRegistrationStatus;
 use App\Filament\Resources\PortalRegistrationRequestResource\Pages\ListPortalRegistrationRequests;
 use App\Models\PortalRegistrationRequest;
@@ -101,7 +101,7 @@ final class PortalRegistrationRequestResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('Approve registration')
-                    ->modalDescription('This creates a buyer company, a user account, and active customer portal access, and notifies the applicant by email.')
+                    ->modalDescription('This creates a buyer company, a user account, and active buyer portal access, and notifies the applicant by email.')
                     ->visible(fn (PortalRegistrationRequest $record): bool => $record->isPending())
                     ->action(function (PortalRegistrationRequest $record): void {
                         /** @var User $approver */

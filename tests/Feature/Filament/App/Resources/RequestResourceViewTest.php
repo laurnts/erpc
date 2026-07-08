@@ -76,6 +76,7 @@ describe('Payment Terms section', function (): void {
             'buyer_quote_id' => $quote->getKey(),
             'status' => OrderStatus::CONFIRMED,
             'confirmed_at' => now(),
+            'total' => '1000',
         ]);
 
         livewire(ViewRequest::class, ['record' => $record->getKey()])
@@ -104,7 +105,7 @@ describe('Payment Terms section', function (): void {
             ->assertSee('1,500');
     });
 
-    it('lists payment terms with due days, percentage and a Not Paid status', function (): void {
+    it('lists payment terms with due days, percentage and an Unpaid status', function (): void {
         $record = viewTestRequest($this);
 
         $quote = BuyerQuote::factory()->for($this->team)->create([
@@ -123,13 +124,14 @@ describe('Payment Terms section', function (): void {
             'buyer_quote_id' => $quote->getKey(),
             'status' => OrderStatus::CONFIRMED,
             'confirmed_at' => now(),
+            'total' => '1000',
         ]);
 
         livewire(ViewRequest::class, ['record' => $record->getKey()])
             ->assertOk()
             ->assertSee('30 days')
             ->assertSee('70%')
-            ->assertSee('Not Paid');
+            ->assertSee('Unpaid');
     });
 
     it('shows an empty state when there is no buyer order or quote', function (): void {
@@ -275,6 +277,60 @@ describe('Proof of Request section', function (): void {
         livewire(ViewRequest::class, ['record' => $record->getKey()])
             ->assertOk()
             ->assertDontSee('Proof of Request');
+    });
+});
+
+describe('Internal Notes and Description sections', function (): void {
+    it('renders both cards when the request has internal notes and a description', function (): void {
+        $record = viewTestRequest($this);
+        $record->update([
+            'internal_notes' => 'Handle-with-care-note',
+            'description' => 'Full-project-description-text',
+        ]);
+
+        livewire(ViewRequest::class, ['record' => $record->getKey()])
+            ->assertOk()
+            ->assertSee('Handle-with-care-note')
+            ->assertSee('Full-project-description-text');
+    });
+
+    it('renders only the internal notes card when there is no description', function (): void {
+        $record = viewTestRequest($this);
+        $record->update([
+            'internal_notes' => 'Handle-with-care-note',
+            'description' => null,
+        ]);
+
+        livewire(ViewRequest::class, ['record' => $record->getKey()])
+            ->assertOk()
+            ->assertSee('Handle-with-care-note')
+            ->assertDontSee('Full-project-description-text');
+    });
+
+    it('renders only the description card when there are no internal notes', function (): void {
+        $record = viewTestRequest($this);
+        $record->update([
+            'internal_notes' => null,
+            'description' => 'Full-project-description-text',
+        ]);
+
+        livewire(ViewRequest::class, ['record' => $record->getKey()])
+            ->assertOk()
+            ->assertSee('Full-project-description-text')
+            ->assertDontSee('Handle-with-care-note');
+    });
+
+    it('hides both cards when the request has neither internal notes nor a description', function (): void {
+        $record = viewTestRequest($this);
+        $record->update([
+            'internal_notes' => null,
+            'description' => null,
+        ]);
+
+        livewire(ViewRequest::class, ['record' => $record->getKey()])
+            ->assertOk()
+            ->assertDontSee('Handle-with-care-note')
+            ->assertDontSee('Full-project-description-text');
     });
 });
 

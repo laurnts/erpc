@@ -6,12 +6,14 @@ namespace App\Models;
 
 use App\Data\TeamErpSettings;
 use App\Enums\PaymentMethod;
+use App\Enums\PaymentStatus;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use App\Models\Concerns\LogsErpActivity;
 use App\Observers\BuyerPaymentObserver;
 use Database\Factories\BuyerPaymentFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,6 +30,11 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string $payment_number
  * @property PaymentMethod $payment_method
  * @property string $amount
+ * @property PaymentStatus $status
+ * @property string|null $submitted_actor_type
+ * @property int|null $submitted_by_id
+ * @property int|null $confirmed_by_id
+ * @property Carbon|null $confirmed_at
  * @property Carbon|null $payment_date
  * @property string|null $reference_number
  * @property string|null $notes
@@ -36,6 +43,8 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property Carbon|null $deleted_at
  * @property-read string $created_by
  * @property-read BuyerInvoice $buyerInvoice
+ * @property-read User|null $submittedBy
+ * @property-read User|null $confirmedBy
  */
 #[ObservedBy(BuyerPaymentObserver::class)]
 final class BuyerPayment extends Model implements HasMedia
@@ -58,6 +67,11 @@ final class BuyerPayment extends Model implements HasMedia
         'payment_number',
         'payment_method',
         'amount',
+        'status',
+        'submitted_actor_type',
+        'submitted_by_id',
+        'confirmed_by_id',
+        'confirmed_at',
         'payment_date',
         'reference_number',
         'notes',
@@ -69,6 +83,7 @@ final class BuyerPayment extends Model implements HasMedia
     protected $attributes = [
         'payment_method' => PaymentMethod::BANK_TRANSFER,
         'amount' => '0.0000',
+        'status' => PaymentStatus::Confirmed->value,
     ];
 
     /**
@@ -79,6 +94,8 @@ final class BuyerPayment extends Model implements HasMedia
         return [
             'payment_method' => PaymentMethod::class,
             'amount' => 'decimal:4',
+            'status' => PaymentStatus::class,
+            'confirmed_at' => 'datetime',
             'payment_date' => 'date',
         ];
     }
@@ -92,9 +109,20 @@ final class BuyerPayment extends Model implements HasMedia
             'payment_number',
             'payment_method',
             'amount',
+            'status',
             'payment_date',
             'reference_number',
         ];
+    }
+
+    /**
+     * Scope to only confirmed payments.
+     *
+     * @param  Builder<BuyerPayment>  $query
+     */
+    public function scopeConfirmed(Builder $query): void
+    {
+        $query->where('status', PaymentStatus::Confirmed->value);
     }
 
     /**
@@ -114,6 +142,37 @@ final class BuyerPayment extends Model implements HasMedia
     public function buyerInvoice(): BelongsTo
     {
         return $this->belongsTo(BuyerInvoice::class);
+    }
+
+    /**
+     * The user who submitted this payment entry.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function submittedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'submitted_by_id');
+    }
+
+    /**
+     * The staff user who confirmed this payment entry.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function confirmedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'confirmed_by_id');
+    }
+
+    /**
+     * Confirm a pending payment entry, releasing it against the invoice balance.
+     */
+    public function confirm(User $staff): void
+    {
+        $this->status = PaymentStatus::Confirmed;
+        $this->confirmed_by_id = $staff->getKey();
+        $this->confirmed_at = now();
+        $this->save();
     }
 
     /**

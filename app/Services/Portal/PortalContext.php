@@ -11,7 +11,7 @@ use App\Models\User;
 use Illuminate\Support\Collection;
 
 /**
- * Contract shared by the per-portal context facades (customer, supplier) so
+ * Contract shared by the per-portal context facades (buyer, supplier) so
  * portal-agnostic plumbing — the shared panel shell, policies, widgets — can
  * type against one seam while each facade keeps its own guard, portal type,
  * company-role column, and session prefix.

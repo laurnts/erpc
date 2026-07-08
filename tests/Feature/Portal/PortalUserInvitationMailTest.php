@@ -35,8 +35,8 @@ function invitationForMail(PortalType $portal): PortalInvitation
     ]);
 }
 
-it('uses buyer portal copy for customer invitations', function (): void {
-    $mail = new PortalUserInvitationMail(invitationForMail(PortalType::Customer), 'https://example.test/accept');
+it('uses buyer portal copy for buyer invitations', function (): void {
+    $mail = new PortalUserInvitationMail(invitationForMail(PortalType::Buyer), 'https://example.test/accept');
 
     expect($mail->envelope()->subject)->toBe('Buyer Portal Access Invitation');
 

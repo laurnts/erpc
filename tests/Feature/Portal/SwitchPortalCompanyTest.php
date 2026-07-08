@@ -7,14 +7,14 @@ use App\Models\Company;
 use App\Models\CompanyPortalUser;
 use App\Models\Team;
 use App\Models\User;
-use App\Services\Portal\CustomerPortalContext;
+use App\Services\Portal\BuyerPortalContext;
 use App\Services\Portal\SupplierPortalContext;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 
 beforeEach(function (): void {
     config([
-        'app.customer_portal_enabled' => true,
+        'app.buyer_portal_enabled' => true,
         'app.supplier_portal_enabled' => true,
     ]);
 
@@ -44,38 +44,38 @@ function findSwitchCompanyAction(string $panelId): ?Action
         ->first(fn (Action $item): bool => $item->getName() === 'switchPortalCompany');
 }
 
-it('hides the switch-company menu for a single-membership customer user', function (): void {
+it('hides the switch-company menu for a single-membership buyer user', function (): void {
     $buyer = Company::factory()->buyer()->for($this->team)->create();
     $user = User::factory()->create();
     $user->teams()->detach();
-    grantMembership($this, $user, $buyer, PortalType::Customer);
+    grantMembership($this, $user, $buyer, PortalType::Buyer);
 
-    $this->actingAs($user, 'customer');
-    Filament::setCurrentPanel('customer');
-    app(CustomerPortalContext::class)->setCompany($buyer->getKey());
+    $this->actingAs($user, 'buyer');
+    Filament::setCurrentPanel('buyer');
+    app(BuyerPortalContext::class)->setCompany($buyer->getKey());
 
-    expect(findSwitchCompanyAction('customer'))->toBeNull();
+    expect(findSwitchCompanyAction('buyer'))->toBeNull();
 });
 
-it('shows the switch-company menu and switches the active company for a multi-membership customer user', function (): void {
+it('shows the switch-company menu and switches the active company for a multi-membership buyer user', function (): void {
     $first = Company::factory()->buyer()->for($this->team)->create();
     $second = Company::factory()->buyer()->for($this->team)->create();
     $user = User::factory()->create();
     $user->teams()->detach();
-    grantMembership($this, $user, $first, PortalType::Customer);
-    grantMembership($this, $user, $second, PortalType::Customer);
+    grantMembership($this, $user, $first, PortalType::Buyer);
+    grantMembership($this, $user, $second, PortalType::Buyer);
 
-    $this->actingAs($user, 'customer');
-    Filament::setCurrentPanel('customer');
-    app(CustomerPortalContext::class)->setCompany($first->getKey());
+    $this->actingAs($user, 'buyer');
+    Filament::setCurrentPanel('buyer');
+    app(BuyerPortalContext::class)->setCompany($first->getKey());
 
-    $action = findSwitchCompanyAction('customer');
+    $action = findSwitchCompanyAction('buyer');
 
     expect($action)->not->toBeNull();
 
     $action->call(['data' => ['company_id' => $second->getKey()]]);
 
-    expect(app(CustomerPortalContext::class)->companyId())->toBe($second->getKey());
+    expect(app(BuyerPortalContext::class)->companyId())->toBe($second->getKey());
 });
 
 it('gates the supplier panel switch-company menu on supplier memberships', function (): void {

@@ -340,7 +340,7 @@ final class Company extends Model implements HasCustomFields, HasMedia
     }
 
     /**
-     * Portal users who can access this buyer company in the customer portal.
+     * Portal users who can access this buyer company in the buyer portal.
      *
      * @return BelongsToMany<User, $this>
      */

@@ -31,7 +31,7 @@ enum CreationSource: string implements HasLabel
     case IMPORT = 'import';
 
     /**
-     * Created by a buyer contact through the customer portal.
+     * Created by a buyer contact through the buyer portal.
      */
     case PORTAL = 'portal';
 
@@ -44,7 +44,7 @@ enum CreationSource: string implements HasLabel
             self::WEB => 'Web Interface',
             self::SYSTEM => 'System Process',
             self::IMPORT => 'Data Import',
-            self::PORTAL => 'Customer Portal',
+            self::PORTAL => 'Buyer Portal',
         };
     }
 }

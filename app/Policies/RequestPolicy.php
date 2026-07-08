@@ -32,8 +32,8 @@ final readonly class RequestPolicy
 
     public function viewAny(User $user): bool
     {
-        if ($this->isCustomerPanel()) {
-            return $user->hasActiveCustomerPortalAccess();
+        if ($this->isBuyerPanel()) {
+            return $user->hasActiveBuyerPortalAccess();
         }
 
         return $user->hasVerifiedEmail()
@@ -43,7 +43,7 @@ final readonly class RequestPolicy
 
     public function view(User $user, Request $request): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return $this->userCanAccessPortalRequest($user, $request);
         }
 
@@ -57,8 +57,8 @@ final readonly class RequestPolicy
 
     public function create(User $user): bool
     {
-        if ($this->isCustomerPanel()) {
-            return $user->hasActiveCustomerPortalAccess();
+        if ($this->isBuyerPanel()) {
+            return $user->hasActiveBuyerPortalAccess();
         }
 
         if ($this->isAdmin($user)) {
@@ -72,9 +72,9 @@ final readonly class RequestPolicy
 
     public function update(User $user, Request $request): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return $this->userCanAccessPortalRequest($user, $request)
-                && $request->isEditableByCustomer();
+                && $request->isEditableByBuyer();
         }
 
         if ($this->isAdmin($user)) {
@@ -87,7 +87,7 @@ final readonly class RequestPolicy
 
     public function delete(User $user, Request $request): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -101,7 +101,7 @@ final readonly class RequestPolicy
 
     public function deleteAny(User $user): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -116,7 +116,7 @@ final readonly class RequestPolicy
 
     public function restore(User $user, Request $request): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -130,7 +130,7 @@ final readonly class RequestPolicy
 
     public function restoreAny(User $user): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -145,7 +145,7 @@ final readonly class RequestPolicy
 
     public function forceDelete(User $user, Request $request): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
@@ -159,7 +159,7 @@ final readonly class RequestPolicy
 
     public function forceDeleteAny(User $user): bool
     {
-        if ($this->isCustomerPanel()) {
+        if ($this->isBuyerPanel()) {
             return false;
         }
 
