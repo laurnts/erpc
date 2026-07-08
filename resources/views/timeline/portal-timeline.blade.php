@@ -10,8 +10,10 @@
                 : (\Illuminate\Support\Carbon::parse($date)->isYesterday()
                     ? 'Yesterday'
                     : \Illuminate\Support\Carbon::parse($date)->format('j M Y')),
-            'entries' => $group,
+            // Oldest-first within the day so the latest entry sits at the bottom.
+            'entries' => $group->reverse()->values(),
         ])
+        ->reverse()
         ->values();
 
     $actorTone = fn (\App\Enums\ActorType $actorType): string => match ($actorType->getColor()) {
@@ -34,7 +36,10 @@
             <ul class="space-y-3">
                 @foreach ($group['entries'] as $entry)
                     <li
-                        class="flex items-start gap-3"
+                        @class([
+                            'flex items-start gap-3',
+                            'rounded-lg border border-gray-200 bg-gray-50/60 p-3 dark:border-white/10 dark:bg-white/5' => $entry->entryType === \App\Services\Timeline\TimelineAudience::ENTRY_NOTE,
+                        ])
                         wire:key="portal-entry-{{ $entry->subjectType }}-{{ $entry->subjectId }}-{{ $entry->occurredAt->getTimestamp() }}-{{ $loop->index }}"
                     >
                         <span class="mt-0.5 shrink-0 {{ $actorTone($entry->actorType) }}">

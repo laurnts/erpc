@@ -14,7 +14,10 @@
             <ul class="space-y-2">
                 @foreach ($group['entries'] as $entry)
                     <li
-                        class="flex flex-wrap items-start gap-x-3 gap-y-1"
+                        @class([
+                            'flex flex-wrap items-start gap-x-3 gap-y-1',
+                            'rounded-lg border border-gray-200 bg-gray-50/60 p-3 dark:border-white/10 dark:bg-white/5' => $entry->entryType === \App\Services\Timeline\TimelineAudience::ENTRY_NOTE,
+                        ])
                         wire:key="entry-{{ $entry->entryType }}-{{ $entry->subjectType }}-{{ $entry->subjectId }}-{{ $entry->occurredAt->getTimestamp() }}-{{ $loop->index }}"
                     >
                         @if ($entry->lane === 'credit')
@@ -24,6 +27,16 @@
                         @else
                             <x-filament::badge :color="$entry->actorType->getColor()" :icon="$entry->actorType->getIcon()">
                                 {{ $entry->actorLabel }} ({{ $entry->actorType->getLabel() }})
+                            </x-filament::badge>
+                        @endif
+
+                        @if ($entry->entryType === \App\Services\Timeline\TimelineAudience::ENTRY_NOTE)
+                            @php $noteVisibility = $entry->properties['visibility'] ?? 'internal'; @endphp
+                            <x-filament::badge
+                                :color="match ($noteVisibility) { 'buyer' => 'success', 'supplier' => 'warning', default => 'gray' }"
+                                icon="heroicon-o-user-group"
+                            >
+                                Share: {{ ucfirst($noteVisibility) }}
                             </x-filament::badge>
                         @endif
 

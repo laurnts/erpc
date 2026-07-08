@@ -115,8 +115,11 @@ final class RequestHistoryTimeline extends BaseLivewireComponent
             ->groupBy(fn (TimelineEntry $entry): string => $entry->occurredAt->toDateString())
             ->map(fn (Collection $dayEntries, string $day): array => [
                 'label' => $this->dayLabel($day),
-                'entries' => $dayEntries->values(),
+                // Oldest-first within the day so the latest entry sits at the
+                // bottom of the feed, directly above the note composer.
+                'entries' => $dayEntries->reverse()->values(),
             ])
+            ->reverse()
             ->values();
     }
 

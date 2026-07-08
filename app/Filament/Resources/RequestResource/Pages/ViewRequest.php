@@ -398,18 +398,8 @@ final class ViewRequest extends ViewRecord
             // Custom Fields
             CustomFields::infolist()->forSchema($schema)->build()->columnSpanFull(),
 
-            // History — per-request activity timeline (audit lane + uploads + credit ledger)
-            Section::make('History')
-                ->icon('heroicon-o-clock')
-                ->collapsible()
-                ->collapsed()
-                ->schema([
-                    Livewire::make(
-                        \App\Livewire\RequestHistoryTimeline::class,
-                        fn (Request $record): array => ['request' => $record],
-                    )->key('request-history-timeline'),
-                ])
-                ->columnSpanFull(),
+            // History renders at the very bottom as an always-open footer widget
+            // (see getFooterWidgets + RequestHistoryWidget), below the guide.
         ]);
     }
 
@@ -484,6 +474,7 @@ final class ViewRequest extends ViewRecord
     {
         return [
             \App\Filament\Widgets\RequestInformationFlowWidget::class,
+            \App\Filament\Widgets\RequestHistoryWidget::class,
         ];
     }
 
