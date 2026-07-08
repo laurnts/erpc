@@ -131,6 +131,10 @@ describe('Buyer quote fallback seeding uses the sell-based margin convention', f
         expect($sellMargin)->toBeGreaterThan(2.99)
             ->and($sellMargin)->toBeLessThan(3.0);
         expect(round($sellMargin, 1))->toBe(3.0);
+
+        // The persisted margin_percent must be the same sell-based figure —
+        // not the cost-based ~3.09 the legacy read-back formula produced.
+        expect((float) $item->margin_percent)->toBe(round($sellMargin, 4));
     });
 
     it('seeds a unit price equal to cost when the target margin is zero', function (): void {
