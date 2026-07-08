@@ -9,6 +9,7 @@ use App\Enums\CentralPurchasingRole;
 use App\Enums\PNLStatus;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
+use App\Models\Concerns\LogsErpActivity;
 use App\Observers\ProfitAndLossObserver;
 use App\Services\TeamMemberService;
 use App\Support\RomanNumerals;
@@ -60,6 +61,7 @@ final class ProfitAndLoss extends Model implements HasMedia
 
     use HasTeam;
     use InteractsWithMedia;
+    use LogsErpActivity;
 
     /**
      * Upload directory for profit and loss documents. The FileUpload
@@ -102,6 +104,26 @@ final class ProfitAndLoss extends Model implements HasMedia
             'director_approved_at' => 'datetime',
             'data' => 'array',
             'financial_snapshot' => 'array',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'pnl_number',
+            'buyer_quote_id',
+            'status',
+            'pnl_date',
+            'prepared_by_id',
+            'dept_head_sales_id',
+            'deputy_director_id',
+            'approved_by_id',
+            'dept_head_sales_approved_at',
+            'deputy_director_approved_at',
+            'director_approved_at',
         ];
     }
 

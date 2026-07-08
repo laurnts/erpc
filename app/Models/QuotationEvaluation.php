@@ -9,6 +9,7 @@ use App\Enums\QEStatus;
 use App\Enums\SupplierQuoteStatus;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
+use App\Models\Concerns\LogsErpActivity;
 use App\Observers\QuotationEvaluationObserver;
 use App\Services\TeamMemberService;
 use App\Support\RomanNumerals;
@@ -55,6 +56,7 @@ final class QuotationEvaluation extends Model implements HasMedia
 
     use HasTeam;
     use InteractsWithMedia;
+    use LogsErpActivity;
 
     /**
      * Upload directory for quotation evaluation documents. The FileUpload
@@ -94,6 +96,25 @@ final class QuotationEvaluation extends Model implements HasMedia
             'deputy_director_approved_at' => 'datetime',
             'director_approved_at' => 'datetime',
             'data' => 'array',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'qe_number',
+            'status',
+            'qe_date',
+            'prepared_by_id',
+            'dept_head_sales_id',
+            'deputy_director_id',
+            'approved_by_id',
+            'dept_head_sales_approved_at',
+            'deputy_director_approved_at',
+            'director_approved_at',
         ];
     }
 

@@ -1,48 +1,48 @@
 ## 0. Dependency & cleanup (do first)
 
-- [ ] 0.1 Decoupled from `add-line-item-activity-logging` (ships first — see design D7): the interim subject enumeration is the primary scoping mechanism, and this change owns retention. No precondition to confirm; note the accepted header-rollup granularity limitation in the internal UI's empty-state/help copy if practical.
-- [ ] 0.2 Delete the dormant `RequestActivity` cluster: `RequestActivity` model, `ActivityType` + `RequestActivityType` enums, `RequestActivityPolicy`, `RequestActivityFactory`, `RequestActivitiesRelationManager`, the `create_request_activities_table` migration, `Request::activities()`; reconcile/remove `tests/Feature/Erp/RequestActivityTest.php`. Grep-verify zero writers before deletion; suite green after.
+- [x] 0.1 Decoupled from `add-line-item-activity-logging` (ships first — see design D7): the interim subject enumeration is the primary scoping mechanism, and this change owns retention. No precondition to confirm; note the accepted header-rollup granularity limitation in the internal UI's empty-state/help copy if practical.
+- [x] 0.2 Delete the dormant `RequestActivity` cluster: model, `ActivityType` + `RequestActivityType` enums, policy, factory, RelationManager, `Request::activities()`, and `RequestActivityTest`; historical create migration kept + new drop migration added (repo precedent). Grep-verified zero writers; suite green.
 
 ## 1. Capture gaps (Phase 1 prerequisites)
 
-- [ ] 1.1 Stamp `uploader_id` + `actor_type` into media `custom_properties` inside `AttachUploadedFiles::execute()` (resolve from `ActivityLogContext::currentCauser()`/`currentActorType()`); remove per-caller duplication.
-- [ ] 1.2 Add a capture path (`LogsErpActivity` + `activityAttributes()`, or an explicit milestone log in the creating Action) to `Shipment`, `QuotationEvaluation`, `ProfitAndLoss`, `AcceptanceReport`, `GoodsReceiveBatch`.
-- [ ] 1.3 Add an explicit `activity()->performedOn($quote)->log('sent')` in `StampSupplierQuoteSent` (the column-less action that logs nothing today).
-- [ ] 1.4 Add `goods_receive_batch` (and any other unmapped child) to `Relation::enforceMorphMap`.
-- [ ] 1.5 Add `Request::supplierInvoices()` hasMany so the enumerator can reach supplier invoices; collect payment subject ids via invoices→payments.
-- [ ] 1.6 Architecture/Pest test: every request-scoped child model in the internal source has a capture path — an unlogged branch fails CI instead of rendering empty.
-- [ ] 1.7 Set `config/activitylog.php` `delete_records_older_than_days` to `null` and document that `activitylog:clean` must never be scheduled for financial records (ownership moved here from the line-item change; a no-op there if this lands first).
-- [ ] 1.8 Evaluate trimming `credit_used`/`credit_limit` from `Company::activityAttributes()` (the credit ledger already records before/after balances): verify every credit writer goes through `BuyerCreditUsageHistory` first; trim only if no direct edit path bypasses the ledger.
+- [x] 1.1 Stamp `uploader_id` + `uploader_actor_type` into media `custom_properties` inside `AttachUploadedFiles::execute()` (resolved from `ActivityLogContext`). Tests: MediaUploaderStampTest (4).
+- [x] 1.2 Add `LogsErpActivity` + `activityAttributes()` to `Shipment`, `QuotationEvaluation`, `ProfitAndLoss`, `AcceptanceReport`, `GoodsReceiveBatch`. Tests: ChildModelActivityLoggingTest (9).
+- [x] 1.3 Explicit `activity()->performedOn($quote)->event('sent')->log()` in `StampSupplierQuoteSent`. Tests: SupplierQuoteSentActivityTest (3).
+- [x] 1.4 Add `goods_receive_batch` to `Relation::enforceMorphMap` (the one unmapped child).
+- [x] 1.5 Add `Request::supplierInvoices()` hasMany; payments reached via invoices→payments. Tests: RequestTest.
+- [x] 1.6 Architecture/Pest guard: every request-scoped child model in the internal source has a capture path — an unlogged branch fails CI.
+- [x] 1.7 `config/activitylog.php` `delete_records_older_than_days` → `null`, documented never to schedule `activitylog:clean`. Tests: ActivityRetentionTest.
+- [x] 1.8 Evaluated credit-field overlap. VERDICT: **keep** the `Company` activity-log coverage as a backstop — a staff credit-limit edit path does not route through `BuyerCreditUsageHistory`, so trimming would drop coverage. `Company::activityAttributes()` left unchanged; rationale recorded.
 
 ## 2. Audience-scoped visibility helper (first-class)
 
-- [ ] 2.1 Build a `final readonly` audience helper that resolves a viewer **party** (`staff`/`admin`, `buyer:{companyId}`, `supplier:{companyId}`) to: the **additive** allow-list of subject types + entry types that party may load, and the redaction rules. Staff/admin → full internal set; buyer/supplier → fixed identity-scoped allow-list.
-- [ ] 2.2 Redaction pass (narrow — subject selection is the real boundary, see design D2): collapse causer to a generic label for non-staff parties, re-map stage values to party-facing labels, allow-list links, and drop any entry whose resolved `actor_type` is disallowed for the party. Do NOT rely on a field denylist for supplier cost/margin — those attributes are never present in a buyer-allow-listed subject's `properties` (per-model `logOnly`); the leak test must prove the *subject* is absent, not a field name.
-- [ ] 2.3 Route every timeline surface (internal, buyer, later supplier) through this helper — no surface queries `activity_log`/media directly.
-- [ ] 2.4 Architecture test: the `buyer` and `supplier` subject sets are strict subsets of, and structurally distinct from, the internal set; a supplier party's set excludes every other supplier's subjects.
+- [x] 2.1 `TimelineAudience` (`final readonly`) resolves a `TimelineParty` (staff/admin, buyer:{companyId}, supplier:{companyId}) to additive subject rules + entry-type lanes + redaction rules. Supporting: `TimelineParty`, `SubjectRule`, `MediaRule`, `RedactionRules`.
+- [x] 2.2 Narrow redaction (causer collapse, stage re-map, link allow-list) — subject selection is the boundary, no field denylist.
+- [x] 2.3 Surfaces resolve through the helper (internal source consumes it; buyer/supplier rules present for their phases).
+- [x] 2.4 Architecture test: buyer/supplier subject sets are strict subsets of the internal set; supplier party excludes other suppliers' subjects. Tests: TimelineAudienceTest (10).
 
 ## 3. Internal timeline surface
 
-- [ ] 3.1 Timeline entry DTO (`spatie/laravel-data`) + a day-grouping renderer reusing `ActorType` `HasIcon`/`HasColor`.
-- [ ] 3.2 Internal read source: one `whereIn` over `(subject_type, subject_id)` across the request + logged child tree (via the helper's staff allow-list, interim enumeration), eager-load causer, merge request+child media (with uploader), derive milestones from logged status + timestamp columns.
-- [ ] 3.2a Credit-ledger lane: merge `BuyerCreditUsageHistory` rows reachable via the request's buyer orders (and limit-change approvals for the request's buyer) into the internal feed, rendering amount + before→after balances + causing record link. Read-only; internal surface only in v1.
-- [ ] 3.3 Render as a collapsible infolist Section (or tab) on `ViewRequest`, paginated, summarizing per save inline ("Buyer quote BQ-123 updated — 4 fields"), drilling into the shared `event-log-detail` modal. Never raw inline old→new diffs.
-- [ ] 3.4 Pest tests: price/quantity edit appears attributed to actor+time; upload appears with uploader; unlogged-branch guard; pagination/day-grouping smoke.
+- [x] 3.1 `TimelineEntry` DTO (`spatie/laravel-data`) + day-grouping renderer reusing `ActorType` icons/colors.
+- [x] 3.2 `RequestTimelineSource` (`final readonly`): one whereIn over (subject_type, subject_id) across request + logged child tree, eager-loaded causer, media lane with uploader.
+- [x] 3.2a Credit-ledger lane: `BuyerCreditUsageHistory` merged via the request's buyer orders, amount + before→after balances + causing link. Internal-only v1.
+- [x] 3.3 Collapsible `History` Section on `ViewRequest` via `RequestHistoryTimeline` Livewire component + blade: day-grouped, summarized per-save lines, credit lane, pagination, ⓘ granularity note, detail modal reusing `event-log-detail`. No filter bar (v1).
+- [x] 3.4 Pest tests: attribution, upload w/ uploader, credit balances, unlogged-branch guard, page smoke. Tests: RequestTimelineTest + RequestResourceViewTest.
 
-## 4. Buyer timeline (Phase 2)
+## 4. Buyer timeline (Phase 2 — NOT YET IMPLEMENTED)
 
-- [ ] 4.1 Build the buyer source as an independent hard-scoped additive query from the fixed allow-list — Request(self), BuyerQuote(status != draft), Shipment(type=OUTBOUND), BuyerInvoice, BuyerPayment, buyer-uploaded `attachments` (custom_properties.actor_type === buyer), BuyerQuote `buyer_po` — resolved from a `scopeForBuyer`-authorized Request (never `ActivityLogPolicy`, never team_id alone). Explicitly classify every buyer-owned logged model include/exclude: `BuyerOrder` is EXCLUDED (carries internal credit mechanics `credit_released`/`payment_terms_days`); document the reason inline so it is not a silent drop.
-- [ ] 4.1a Architecture test: the buyer allow-list is an exhaustive, intentional enumeration — every model using `LogsErpActivity` is either in the buyer set or explicitly excluded-with-reason, so a future buyer-owned logged model cannot be silently omitted (mirrors the internal completeness guard 1.6).
-- [ ] 4.2 Buyer redaction: re-map stage via `CustomerRequestStagePresenter::labelForStage()` + de-duplicate; collapse causer to 'You'/'Your team'; drop any entry resolving to `actor_type` Supplier/Admin; buyer links resolve only to `CustomerRequestResource` routes (default null).
-- [ ] 4.3 Extend the existing `CustomerRequestStagePresenter` timeline component on `ViewCustomerRequest` (additive to the shipped stepper), not a second competing widget.
-- [ ] 4.4 Pre-stamp/unstamped media is deny-by-default (fail-closed) for buyers.
-- [ ] 4.5 Dedicated leak test (assert the SUBJECT is absent, not a field name — a field-name assertion passes trivially because those attributes are never logged): seed supplier quotes/orders/invoices/payments, P&L, QE, inbound shipment, goods_receive, a `BuyerOrder`, and staff-proof uploads in `attachments`. Assert the buyer timeline contains ZERO entries whose `subject_type` is any of `supplier_quote`/`supplier_order`/`supplier_invoice`/`supplier_payment`/`quotation_evaluation`/`profit_and_loss`/`buyer_order` or an inbound/goods-receive record; ZERO staff-proof uploads (non-buyer `actor_type` media); every stage entry uses the buyer-facing `CustomerRequestStagePresenter` label (never the raw `stage` enum value); every causer renders as 'You'/'Your team' (assert no seeded staff user name appears); and no entry link contains an app-panel or sysadmin path segment. Additionally assert the buyer subject-type set is a strict subset of the internal set.
+- [x] 4.1a Buyer allow-list is an exhaustive intentional enumeration (helper's `BUYER_EXCLUDED_SUBJECT_TYPES` with per-subject reasons + guard test) — a future logged model cannot be silently omitted.
+- [ ] 4.1 Build the buyer source as an independent hard-scoped additive query from the fixed allow-list, resolved from a `scopeForBuyer`-authorized Request (never `ActivityLogPolicy`/team_id alone). BuyerOrder EXCLUDED (documented in helper).
+- [ ] 4.2 Buyer redaction: stage re-map via `CustomerRequestStagePresenter` + de-dup; causer → 'You'/'Your team'; drop Supplier/Admin entries; links only to `CustomerRequestResource` routes.
+- [ ] 4.3 Extend the existing `CustomerRequestStagePresenter` timeline component on `ViewCustomerRequest` (additive to the stepper).
+- [ ] 4.4 Pre-stamp/unstamped media deny-by-default (fail-closed) for buyers.
+- [ ] 4.5 Dedicated leak test (assert SUBJECT absence, not field names): zero supplier/QE/P&L/buyer_order/inbound/goods-receive entries, zero staff-proof uploads, presenter-mapped stage labels only, generic causer only, no app-panel/sysadmin links; buyer subject set ⊂ internal set.
 
-## 5. Finalize
+## 5. Finalize (Phase 1)
 
-- [ ] 5.1 Run affected tests + `vendor/bin/pint --dirty`; then offer the full suite.
+- [x] 5.1 Full suite green (3 pre-existing ArchTest/ResetPassword failures aside) + `vendor/bin/pint --dirty` applied. Phase 1: 36 new tests, 338 assertions.
 
 ## 6. Supplier timeline surface (Phase 3 — later, out of this change's shipping scope)
 
-- [ ] 6.1 Reuse the audience helper's `supplier:{companyId}` party to build the supplier-portal timeline (that supplier's own RFQs/quotes/POs only); mirror the buyer leak test asserting Supplier A cannot see Supplier B.
+- [ ] 6.1 Reuse the audience helper's `supplier:{companyId}` party to build the supplier-portal timeline (that supplier's own RFQs/quotes/POs only); mirror the buyer leak test asserting Supplier A cannot see Supplier B. (Allow-list rules already present in `TimelineAudience`; UI pending.)
 - [ ] 6.2 When `add-line-item-activity-logging` lands: swap the interim subject enumeration for its `parent_type`/`parent_id` predicate; line-level price/quantity entries then appear with no further timeline changes.

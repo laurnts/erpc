@@ -37,6 +37,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Resources\RelationManagers\RelationGroup;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Livewire;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
@@ -396,6 +397,19 @@ final class ViewRequest extends ViewRecord
 
             // Custom Fields
             CustomFields::infolist()->forSchema($schema)->build()->columnSpanFull(),
+
+            // History — per-request activity timeline (audit lane + uploads + credit ledger)
+            Section::make('History')
+                ->icon('heroicon-o-clock')
+                ->collapsible()
+                ->collapsed()
+                ->schema([
+                    Livewire::make(
+                        \App\Livewire\RequestHistoryTimeline::class,
+                        fn (Request $record): array => ['request' => $record],
+                    )->key('request-history-timeline'),
+                ])
+                ->columnSpanFull(),
         ]);
     }
 

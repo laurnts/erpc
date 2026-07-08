@@ -362,6 +362,16 @@ final class Request extends Model implements HasCustomFields, HasMedia
     }
 
     /**
+     * The supplier invoices for this request.
+     *
+     * @return HasMany<SupplierInvoice, $this>
+     */
+    public function supplierInvoices(): HasMany
+    {
+        return $this->hasMany(SupplierInvoice::class);
+    }
+
+    /**
      * The quotation evaluations for this request.
      *
      * @return HasMany<QuotationEvaluation, $this>
@@ -389,16 +399,6 @@ final class Request extends Model implements HasCustomFields, HasMedia
     public function profitAndLosses(): HasMany
     {
         return $this->hasMany(ProfitAndLoss::class);
-    }
-
-    /**
-     * The activity log for this request.
-     *
-     * @return HasMany<RequestActivity, $this>
-     */
-    public function activities(): HasMany
-    {
-        return $this->hasMany(RequestActivity::class)->orderByDesc('created_at');
     }
 
     /**

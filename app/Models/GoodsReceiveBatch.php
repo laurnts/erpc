@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsErpActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -22,6 +23,8 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
  */
 final class GoodsReceiveBatch extends Model
 {
+    use LogsErpActivity;
+
     protected $fillable = [
         'request_id',
         'supplier_order_id',
@@ -33,6 +36,18 @@ final class GoodsReceiveBatch extends Model
     {
         return [
             'media_ids' => 'array',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'supplier_order_id',
+            'user_id',
+            'media_ids',
         ];
     }
 

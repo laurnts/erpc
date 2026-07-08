@@ -17,7 +17,8 @@ final readonly class StampSupplierQuoteSent
 {
     public function execute(SupplierQuote $quote): void
     {
-        $updates = ['sent_to_supplier_at' => now()];
+        $sentAt = now();
+        $updates = ['sent_to_supplier_at' => $sentAt];
 
         if ($quote->declined_at !== null) {
             $updates['declined_at'] = null;
@@ -27,5 +28,17 @@ final readonly class StampSupplierQuoteSent
         }
 
         $quote->forceFill($updates)->saveQuietly();
+
+        /*
+         * saveQuietly() bypasses model events, and the visibility gate is not
+         * an audited attribute, so the send would otherwise leave no trace.
+         * Every execution is a real dispatch (a re-send to a declined supplier
+         * is a fresh RFQ by staff intent), so each send is logged explicitly.
+         */
+        activity()
+            ->performedOn($quote)
+            ->event('sent')
+            ->withProperties(['sent_to_supplier_at' => $sentAt->toDateTimeString()])
+            ->log('sent');
     }
 }

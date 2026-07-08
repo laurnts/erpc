@@ -200,6 +200,7 @@ final class AppServiceProvider extends ServiceProvider
             'buyer_order' => \App\Models\BuyerOrder::class,
             'supplier_order' => \App\Models\SupplierOrder::class,
             'shipment' => \App\Models\Shipment::class,
+            'goods_receive_batch' => \App\Models\GoodsReceiveBatch::class,
             'buyer_invoice' => \App\Models\BuyerInvoice::class,
             'supplier_invoice' => \App\Models\SupplierInvoice::class,
             'buyer_payment' => \App\Models\BuyerPayment::class,

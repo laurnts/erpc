@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Media;
 
+use App\Support\ActivityLogContext;
 use App\Support\Media\DocumentPathGenerator;
 use App\Support\Media\DocumentPathResolver;
 use Illuminate\Support\Facades\Log;
@@ -33,6 +34,12 @@ final readonly class AttachUploadedFiles
      * properties, but the path stamps always win: callers can never override
      * path_prefix / path_version.
      *
+     * Each media is also stamped with the uploader's identity (uploader_id /
+     * uploader_actor_type from {@see ActivityLogContext}) so downstream views
+     * can attribute uploads; media without a stamp is treated as System /
+     * Unknown. Unlike the path stamps, a caller-supplied uploader_id or
+     * uploader_actor_type in $customProperties wins over the resolved value.
+     *
      * @param  array<string, mixed>  $customProperties
      * @return list<Media> the created media, ordered, one per successfully attached file
      */
@@ -51,6 +58,7 @@ final readonly class AttachUploadedFiles
 
         $attached = [];
         $stamps = null;
+        $uploaderStamps = $this->uploaderStamps();
 
         foreach ($files as $file) {
             if (! is_string($file)) {
@@ -67,6 +75,7 @@ final readonly class AttachUploadedFiles
 
             $attached[] = $record->addMedia($realPath)
                 ->withCustomProperties([
+                    ...$uploaderStamps,
                     ...$customProperties,
                     ...$stamps,
                 ])
@@ -74,6 +83,20 @@ final readonly class AttachUploadedFiles
         }
 
         return $attached;
+    }
+
+    /**
+     * Identity of the current actor at attach time; uploader_id stays null
+     * when no causer resolves (System uploads).
+     *
+     * @return array{uploader_id: int|string|null, uploader_actor_type: string}
+     */
+    private function uploaderStamps(): array
+    {
+        return [
+            'uploader_id' => ActivityLogContext::currentCauser()?->getKey(),
+            'uploader_actor_type' => ActivityLogContext::currentActorType()->value,
+        ];
     }
 
     /**
