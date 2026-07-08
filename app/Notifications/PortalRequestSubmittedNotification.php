@@ -6,7 +6,6 @@ namespace App\Notifications;
 
 use App\Enums\RequestSubmissionMethod;
 use App\Models\Request;
-use App\Services\CustomerPortal\CustomerRequestStagePresenter;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;

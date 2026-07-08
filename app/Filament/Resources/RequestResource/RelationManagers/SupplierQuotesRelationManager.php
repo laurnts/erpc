@@ -295,14 +295,13 @@ final class SupplierQuotesRelationManager extends RelationManager
                                 TextInput::make('prepayment_amount')
                                     ->label('Prepayment')
                                     ->numeric()
-                                    ->default(0)
+                                    ->default(fn (?SupplierQuote $record): int|float => $this->resolvePrepaymentFormAmount($record))
                                     ->minValue(0)
                                     ->maxValue(fn (Get $get): ?int => $get('prepayment_type') === PrepaymentType::PERCENT->value ? 100 : null)
                                     ->suffix(fn (Get $get): string => $get('prepayment_type') === PrepaymentType::PERCENT->value ? '%' : ''),
                             ]),
                         Repeater::make('paymentTerms')
                             ->relationship()
-                            ->live()
                             ->schema([
                                 Grid::make(3)
                                     ->schema([
@@ -1258,6 +1257,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                             return $record->getMedia('quotation')->isNotEmpty();
                         })
                         ->mutateFormDataUsing(function (array $data, SupplierQuote $record): array {
+                            $data = $this->normalizePrepaymentFormData($data);
+
                             $request = $record->request;
                             if ($request === null) {
                                 return $data;
@@ -1591,6 +1592,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                 $data['items'] = $newItems;
                             }
 
+                            $data['prepayment_amount'] = $this->resolvePrepaymentFormAmount($record);
+
                             return $data;
                         }),
                     Action::make('quotation')
@@ -1808,5 +1811,44 @@ final class SupplierQuotesRelationManager extends RelationManager
         $supplier = Company::query()->find($record->supplier_id);
 
         return $supplier->is_taxable ?? true;
+    }
+
+    private function resolvePrepaymentFormAmount(?SupplierQuote $record): int|float
+    {
+        if ($record === null) {
+            return 0;
+        }
+
+        if ($record->prepayment_type === PrepaymentType::PERCENT) {
+            return (int) $record->prepayment_percent > 0
+                ? (int) $record->prepayment_percent
+                : (int) round((float) $record->prepayment_amount);
+        }
+
+        return (float) $record->prepayment_amount;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function normalizePrepaymentFormData(array $data): array
+    {
+        $prepaymentType = $data['prepayment_type'] ?? null;
+        if ($prepaymentType instanceof \BackedEnum) {
+            $prepaymentType = $prepaymentType->value;
+        }
+
+        $prepaymentAmount = (float) ($data['prepayment_amount'] ?? 0);
+
+        if ($prepaymentType === PrepaymentType::PERCENT->value) {
+            $data['prepayment_percent'] = (int) round($prepaymentAmount);
+            $data['prepayment_amount'] = '0.0000';
+        } else {
+            $data['prepayment_amount'] = (string) $prepaymentAmount;
+            $data['prepayment_percent'] = 0;
+        }
+
+        return $data;
     }
 }

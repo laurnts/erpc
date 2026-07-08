@@ -561,6 +561,47 @@ describe('Customer Request Submission', function (): void {
             ->and($request->item_type_summary)->toBe('Mixed');
     });
 
+    it('notifies staff and buyer portal users when a request is submitted', function (): void {
+        \Illuminate\Support\Facades\Notification::fake();
+
+        $uom = UnitOfMeasure::factory()->for($this->team)->create();
+
+        $this->actingAs($this->portalUser, 'customer');
+        Filament::setCurrentPanel('customer');
+        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
+
+        $component = livewire(\App\Filament\Customer\Resources\CustomerRequestResource\Pages\CreateCustomerRequest::class);
+
+        $itemKey = array_key_first($component->get('data.items') ?? []) ?? (string) \Illuminate\Support\Str::uuid();
+
+        $component
+            ->fillForm([
+                'submission_method_choice' => RequestSubmissionMethod::MANUAL->value,
+                'title' => 'Notification Test Request',
+                'required_by' => now()->addWeek()->toDateString(),
+                'items' => [
+                    $itemKey => [
+                        'description' => 'Test item',
+                        'item_type' => 'goods',
+                        'quantity' => 1,
+                        'unit_of_measure_id' => $uom->getKey(),
+                    ],
+                ],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        \Illuminate\Support\Facades\Notification::assertSentTo(
+            $this->admin,
+            \App\Notifications\PortalRequestSubmittedNotification::class,
+        );
+
+        \Illuminate\Support\Facades\Notification::assertSentTo(
+            $this->portalUser,
+            \App\Notifications\PortalRequestReceivedConfirmationNotification::class,
+        );
+    });
+
     it('preserves item types when a customer edits a draft request', function (): void {
         $request = Request::factory()->for($this->team)->for($this->buyer, 'buyer')->create([
             'submission_method' => RequestSubmissionMethod::MANUAL,

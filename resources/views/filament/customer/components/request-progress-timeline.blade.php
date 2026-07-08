@@ -11,7 +11,7 @@
     <div class="overflow-x-auto pb-1">
         <ol class="m-0 flex min-w-[44rem] list-none items-start p-0">
             @foreach ($timeline as $step)
-                <li class="flex min-w-0 flex-1 flex-col items-center px-1 text-center first:pl-0 last:pr-0">
+                <li class="flex min-w-0 flex-1 flex-col items-center text-center first:pl-0 last:pr-0">
                     <div class="flex w-full items-center">
                         @if ($loop->first)
                             <span class="flex-1" aria-hidden="true"></span>
@@ -27,7 +27,7 @@
                         @endif
 
                         <span @class([
-                            'mx-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold leading-none',
+                            'my-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold leading-none',
                             'border-primary-600 bg-primary-600 text-white shadow-sm ring-4 ring-primary-100 dark:ring-primary-900/40' => $step['current'],
                             'border-success-600 bg-success-600 text-white' => $step['completed'] && ! $step['current'],
                             'border-gray-300 bg-white text-gray-400 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-500' => ! $step['completed'] && ! $step['current'],
