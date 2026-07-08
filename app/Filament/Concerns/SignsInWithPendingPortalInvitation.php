@@ -21,9 +21,18 @@ use Illuminate\Validation\ValidationException;
  * AuthenticatePanelUser force-logs-out on every route except the acceptance
  * page itself.
  *
- * Runs strictly inside the parent's failure path, so its rate limiting and
- * multi-factor challenge (both of which return null instead of throwing)
- * can never be bypassed here.
+ * Runs strictly inside the parent's failure path. Rate limiting cannot be
+ * bypassed (the parent catches its own TooManyRequestsException and returns
+ * null), and only the parent's generic credential failure — keyed data.email
+ * by throwFailureValidationException() — reaches the fallback: a failed
+ * multi-factor challenge throws under its own form's error keys and is
+ * rethrown untouched, so a wrong second factor can never be converted into
+ * a password-only sign-in.
+ *
+ * Audit note: the parent fires a Failed auth event before throwing, so a
+ * successful fallback sign-in leaves a Failed+Login event pair — that pair
+ * is the signature of an invitation-fallback login, not a compromised
+ * account.
  */
 trait SignsInWithPendingPortalInvitation
 {
@@ -36,6 +45,10 @@ trait SignsInWithPendingPortalInvitation
         try {
             return parent::authenticate();
         } catch (ValidationException $exception) {
+            if (! array_key_exists('data.email', $exception->errors())) {
+                throw $exception;
+            }
+
             if ($this->signInForPendingInvitation()) {
                 return null;
             }
@@ -49,8 +62,8 @@ trait SignsInWithPendingPortalInvitation
         /** @var array<string, mixed> $data */
         $data = $this->form->getRawState();
 
-        $email = (string) ($data['email'] ?? '');
-        $password = (string) ($data['password'] ?? '');
+        $email = is_string($data['email'] ?? null) ? $data['email'] : '';
+        $password = is_string($data['password'] ?? null) ? $data['password'] : '';
 
         if ($email === '' || $password === '') {
             return false;

@@ -127,6 +127,41 @@ it('still rejects a user whose only invitation has expired', function (): void {
     $this->assertGuest('supplier');
 });
 
+it('signs in normally once the invitation has been accepted', function (): void {
+    $invitation = invitePortalUser(PortalType::Supplier);
+
+    app(App\Actions\Portal\AcceptPortalInvitation::class)
+        ->acceptAsExistingUser($invitation, $this->invitee);
+
+    Filament::setCurrentPanel('supplier');
+
+    livewire(SupplierLogin::class)
+        ->fillForm([
+            'email' => 'invited@dual.test',
+            'password' => 'password',
+        ])
+        ->call('authenticate')
+        ->assertHasNoErrors();
+
+    $this->assertAuthenticatedAs($this->invitee, 'supplier');
+});
+
+it('declines the fallback for form-validation failures instead of attempting a sign-in', function (): void {
+    invitePortalUser(PortalType::Supplier);
+
+    Filament::setCurrentPanel('supplier');
+
+    livewire(SupplierLogin::class)
+        ->fillForm([
+            'email' => 'invited@dual.test',
+            'password' => '',
+        ])
+        ->call('authenticate')
+        ->assertHasErrors();
+
+    $this->assertGuest('supplier');
+});
+
 it('does not let a buyer-portal invitation unlock the supplier portal', function (): void {
     invitePortalUser(PortalType::Buyer);
 
