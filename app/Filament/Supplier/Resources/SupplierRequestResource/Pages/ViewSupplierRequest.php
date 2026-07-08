@@ -93,6 +93,8 @@ final class ViewSupplierRequest extends ViewRecord
                     ->columns(4)
                     ->columnSpanFull(),
                 Section::make('Requested Items')
+                    ->collapsible()
+                    ->collapsed()
                     ->schema([
                         RepeatableEntry::make('items')
                             ->label('')
@@ -132,6 +134,8 @@ final class ViewSupplierRequest extends ViewRecord
                     ]),
                 Section::make('Activities')
                     ->description('Your interactions on this quotation, most recent first.')
+                    ->collapsible()
+                    ->collapsed()
                     ->schema([
                         ViewEntry::make('activity_timeline')
                             ->label('')
