@@ -35,6 +35,16 @@ final class TeamErpSettings extends Data
         #[Min(0), Max(100)]
         public float $default_margin_percent = 3.0,
 
+        // Payment / Bank Details (shown to buyers when submitting a payment entry)
+        #[Max(255)]
+        public string $payment_bank_name = '',
+        #[Max(255)]
+        public string $payment_bank_account_number = '',
+        #[Max(255)]
+        public string $payment_account_holder = '',
+        #[Max(2000)]
+        public string $payment_instructions = '',
+
         // Document Number Prefixes
         #[Max(10)]
         public string $request_number_prefix = 'REQ',

@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\RequestResource\Pages;
 
+use App\Actions\Media\AttachUploadedFiles;
 use App\Enums\InvoiceStatus;
+use App\Enums\InvoiceType;
+use App\Enums\PaymentMethod;
+use App\Enums\PaymentStatus;
 use App\Enums\PrepaymentType;
 use App\Enums\QEStatus;
 use App\Enums\RequestStage;
@@ -25,13 +29,22 @@ use App\Filament\Resources\RequestResource\RelationManagers\SupplierOrdersRelati
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierQuotesRelationManager;
 use App\Models\BuyerInvoice;
 use App\Models\BuyerOrder;
+use App\Models\BuyerPayment;
 use App\Models\Currency;
 use App\Models\PaymentDocumentApproval;
 use App\Models\Request;
+use App\Support\DocumentUpload;
+use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
@@ -64,6 +77,12 @@ final class ViewRequest extends ViewRecord
         'fulfillment' => 6,
         'completionReports' => 7,
     ];
+
+    /**
+     * Temporary upload directory for staff-recorded payment proof files
+     * (mirrors BuyerOrdersRelationManager so both surfaces stage into the same place).
+     */
+    private const string PAYMENT_PROOF_UPLOAD_DIRECTORY = 'uploads-tmp/buyer-payment-proof';
 
     public function getMaxWidth(): \Filament\Support\Enums\Width
     {
@@ -265,19 +284,33 @@ final class ViewRequest extends ViewRecord
                 ])
                 ->columns(4)
                 ->columnSpanFull(),
-            // Internal Notes
-            Section::make('Internal Notes')
-                ->icon('heroicon-o-document-text')
+            // Internal Notes + Description
+            // Side by side when both exist; either one alone spans full width.
+            Grid::make(2)
                 ->schema([
-                    TextEntry::make('internal_notes')
-                        ->label('')
-                        ->placeholder('No internal notes')
-                        ->markdown()
-                        ->columnSpanFull(),
+                    Section::make('Internal Notes')
+                        ->icon('heroicon-o-document-text')
+                        ->schema([
+                            TextEntry::make('internal_notes')
+                                ->label('')
+                                ->placeholder('No internal notes')
+                                ->markdown()
+                                ->columnSpanFull(),
+                        ])
+                        ->collapsible()
+                        ->visible(fn (Request $record): bool => $this->hasInternalNotes($record))
+                        ->columnSpan(fn (Request $record): int => $this->hasInternalNotes($record) && $this->hasDescription($record) ? 1 : 2),
+                    Section::make('Description')
+                        ->schema([
+                            TextEntry::make('description')
+                                ->label('')
+                                ->markdown()
+                                ->columnSpanFull(),
+                        ])
+                        ->collapsible()
+                        ->visible(fn (Request $record): bool => $this->hasDescription($record))
+                        ->columnSpan(fn (Request $record): int => $this->hasInternalNotes($record) && $this->hasDescription($record) ? 1 : 2),
                 ])
-                ->collapsible()
-                ->collapsed()
-                ->visible(fn (Request $record): bool => $record->internal_notes !== null && $record->internal_notes !== '')
                 ->columnSpanFull(),
 
             // Proof of Request (buyer uploads + staff proof documents)
@@ -326,6 +359,9 @@ final class ViewRequest extends ViewRecord
                 ->schema([
                     Section::make('Payments')
                         ->icon('heroicon-o-credit-card')
+                        ->headerActions([
+                            $this->recordPaymentAction(),
+                        ])
                         ->extraAttributes(['class' => 'three-column-section'])
                         ->schema([
                             TextEntry::make('payment_terms_list')
@@ -333,10 +369,9 @@ final class ViewRequest extends ViewRecord
                                 ->state(fn (Request $record): HtmlString => $this->getPaymentTermsList($record))
                                 ->placeholder('No payment terms')
                                 ->columnSpanFull(),
-                            TextEntry::make('prepayment_display')
-                                ->label('Prepayment')
-                                ->state(fn (Request $record): string => $this->getPrepaymentDisplay($record))
-                                ->placeholder('No prepayment')
+                            TextEntry::make('payment_summary')
+                                ->hiddenLabel()
+                                ->state(fn (Request $record): HtmlString => $this->getPaymentSummary($record))
                                 ->columnSpanFull(),
                         ]),
                     Section::make('Fulfillment')
@@ -380,19 +415,6 @@ final class ViewRequest extends ViewRecord
                                 ->placeholder('No supplier order'),
                         ]),
                 ])
-                ->columnSpanFull(),
-
-            // Description (if exists)
-            Section::make('Description')
-                ->schema([
-                    TextEntry::make('description')
-                        ->label('')
-                        ->markdown()
-                        ->columnSpanFull(),
-                ])
-                ->collapsible()
-                ->collapsed()
-                ->visible(fn (Request $record): bool => $record->description !== null)
                 ->columnSpanFull(),
 
             // Custom Fields
@@ -476,6 +498,22 @@ final class ViewRequest extends ViewRecord
             \App\Filament\Widgets\RequestInformationFlowWidget::class,
             \App\Filament\Widgets\RequestHistoryWidget::class,
         ];
+    }
+
+    /**
+     * Whether the request has internal notes worth displaying.
+     */
+    private function hasInternalNotes(Request $record): bool
+    {
+        return $record->internal_notes !== null && $record->internal_notes !== '';
+    }
+
+    /**
+     * Whether the request has a description worth displaying.
+     */
+    private function hasDescription(Request $record): bool
+    {
+        return $record->description !== null && $record->description !== '';
     }
 
     /**
@@ -734,27 +772,229 @@ final class ViewRequest extends ViewRecord
     }
 
     /**
-     * Get prepayment display value from buyer quote.
+     * Get the active (non-cancelled) standard buyer invoice for the request, if any.
+     * This is the invoice buyer payments are recorded against.
      */
-    private function getPrepaymentDisplay(Request $record): string
+    private function getActiveStandardInvoice(Request $record): ?BuyerInvoice
     {
-        $buyerOrder = $this->getPrimaryBuyerOrder($record);
+        return BuyerInvoice::query()
+            ->where('request_id', $record->getKey())
+            ->where('type', InvoiceType::STANDARD)
+            ->whereNot('status', InvoiceStatus::CANCELLED)
+            ->orderByDesc('id')
+            ->first();
+    }
 
-        if ($buyerOrder === null || $buyerOrder->buyerQuote === null) {
-            return '';
+    /**
+     * Get the paid / total / outstanding summary line for the request's invoice.
+     * Only confirmed payments count towards amount_paid (enforced by the invoice model).
+     */
+    private function getPaymentSummary(Request $record): HtmlString
+    {
+        $invoice = $this->getActiveStandardInvoice($record);
+
+        if ($invoice === null) {
+            return new HtmlString('<span class="text-gray-400">No invoice issued yet</span>');
         }
 
-        $quote = $buyerOrder->buyerQuote;
+        $paid = (float) $invoice->amount_paid;
+        // The invoice total may be unset (0) while the deal total lives on the
+        // buyer order/quote — fall back to the effective buyer total so the
+        // summary stays coherent with the terms table above it.
+        $total = (float) $invoice->total;
+        if ($total <= 0.0) {
+            $total = $this->getEffectiveBuyerTotal($record);
+        }
+        $outstanding = max(0.0, $total - $paid);
 
-        if ($quote->prepayment_type === PrepaymentType::PERCENT) {
-            return $quote->prepayment_percent.'%';
+        // Format through the base currency directly (formatCurrency renders 0 as
+        // a dash, but "Paid Rp 0,-" reads better in this summary).
+        $currency = $record->team?->getBaseCurrency();
+        $fmt = fn (float $value): string => $currency !== null ? $currency->format($value) : number_format($value, 2);
+
+        return new HtmlString(sprintf(
+            '<div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:0.5rem;font-size:0.875rem;">'
+            .'<span style="color:#64748b;">Paid <span style="font-weight:600;color:#166534;">%s</span> of <span style="font-weight:600;color:#0f172a;">%s</span></span>'
+            .'<span style="color:#64748b;">Outstanding <span style="font-weight:600;color:#92400e;">%s</span></span>'
+            .'</div>',
+            htmlspecialchars($fmt($paid)),
+            htmlspecialchars($fmt($total)),
+            htmlspecialchars($fmt($outstanding)),
+        ));
+    }
+
+    /**
+     * Render the team's bank / payment details (from ERP settings) as HTML.
+     */
+    private function getBankDetailsHtml(): HtmlString
+    {
+        /** @var \App\Models\Team|null $team */
+        $team = filament()->getTenant();
+        $settings = $team?->getErpSettings();
+
+        if ($settings === null) {
+            return new HtmlString('<span class="text-gray-400">No bank details configured</span>');
         }
 
-        if ($quote->prepayment_type === PrepaymentType::FIXED) {
-            return $this->formatCurrency((float) $quote->prepayment_amount);
+        $rows = [];
+        if ($settings->payment_bank_name !== '') {
+            $rows[] = ['Bank', $settings->payment_bank_name];
+        }
+        if ($settings->payment_account_holder !== '') {
+            $rows[] = ['Account holder', $settings->payment_account_holder];
+        }
+        if ($settings->payment_bank_account_number !== '') {
+            $rows[] = ['Account number', $settings->payment_bank_account_number];
         }
 
-        return '';
+        if ($rows === [] && $settings->payment_instructions === '') {
+            return new HtmlString('<span class="text-gray-400">No bank details configured. Add them under Settings → General.</span>');
+        }
+
+        $lines = [];
+        foreach ($rows as [$label, $value]) {
+            $lines[] = sprintf(
+                '<div style="display:flex;justify-content:space-between;gap:1rem;"><span style="color:#64748b;">%s</span><span style="font-weight:500;text-align:right;">%s</span></div>',
+                htmlspecialchars($label),
+                htmlspecialchars($value),
+            );
+        }
+
+        if ($settings->payment_instructions !== '') {
+            $lines[] = sprintf(
+                '<p style="margin-top:0.25rem;font-size:0.75rem;color:#64748b;">%s</p>',
+                htmlspecialchars($settings->payment_instructions),
+            );
+        }
+
+        return new HtmlString(
+            '<div style="display:flex;flex-direction:column;gap:0.25rem;font-size:0.875rem;">'.implode('', $lines).'</div>'
+        );
+    }
+
+    /**
+     * Staff "Record Payment" action for the Payments card.
+     *
+     * Shows the outstanding balance and where-to-pay bank details, then records a
+     * CONFIRMED payment (staff entries are trusted immediately) against the active
+     * standard invoice, optionally attaching a proof-of-transfer file.
+     */
+    private function recordPaymentAction(): Action
+    {
+        return Action::make('recordPayment')
+            ->label('Record Payment')
+            ->icon('heroicon-o-banknotes')
+            ->color('success')
+            ->visible(function (): bool {
+                /** @var Request $record */
+                $record = $this->getRecord();
+                $invoice = $this->getActiveStandardInvoice($record);
+
+                return $invoice !== null && $invoice->status->canRecordPayment();
+            })
+            ->modalHeading('Record Payment')
+            ->modalDescription('Transfer to the bank account below, then record the payment and attach the proof of transfer.')
+            ->modalSubmitActionLabel('Record Payment')
+            ->form(function (): array {
+                /** @var Request $record */
+                $record = $this->getRecord();
+                $invoice = $this->getActiveStandardInvoice($record);
+
+                return [
+                    Placeholder::make('amount_outstanding')
+                        ->label('Amount outstanding')
+                        ->content($this->formatCurrency((float) ($invoice?->amount_outstanding ?? 0))),
+                    Placeholder::make('bank_details')
+                        ->label('Where to pay')
+                        ->content($this->getBankDetailsHtml()),
+                    TextInput::make('amount')
+                        ->label('Amount')
+                        ->numeric()
+                        ->required()
+                        ->default((string) ($invoice?->amount_outstanding ?? 0)),
+                    Select::make('payment_method')
+                        ->label('Payment Method')
+                        ->options(PaymentMethod::class)
+                        ->default(PaymentMethod::BANK_TRANSFER->value)
+                        ->required(),
+                    DatePicker::make('payment_date')
+                        ->label('Payment Date')
+                        ->default(now())
+                        ->required(),
+                    TextInput::make('reference_number')
+                        ->label('Reference')
+                        ->maxLength(255),
+                    FileUpload::make('proof')
+                        ->label('Proof of Transfer')
+                        ->helperText(DocumentUpload::helperText(10240))
+                        ->acceptedFileTypes(DocumentUpload::ACCEPTED_MIME_TYPES)
+                        ->disk('local')
+                        ->directory(self::PAYMENT_PROOF_UPLOAD_DIRECTORY)
+                        ->visibility('private')
+                        ->downloadable()
+                        ->openable()
+                        ->previewable()
+                        ->maxSize(10240)
+                        ->validationMessages([
+                            'max' => DocumentUpload::maxSizeMessage(10240),
+                        ]),
+                    Textarea::make('note')
+                        ->label('Note')
+                        ->rows(2)
+                        ->maxLength(1000),
+                ];
+            })
+            ->action(function (array $data): void {
+                /** @var Request $record */
+                $record = $this->getRecord();
+                $invoice = $this->getActiveStandardInvoice($record);
+
+                if ($invoice === null || ! $invoice->status->canRecordPayment()) {
+                    Notification::make()
+                        ->title('Cannot record payment')
+                        ->body('There is no open invoice to record a payment against.')
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                /** @var int|null $staffId */
+                $staffId = auth()->id();
+
+                $payment = BuyerPayment::create([
+                    'team_id' => $invoice->team_id,
+                    'buyer_invoice_id' => $invoice->getKey(),
+                    'payment_method' => $data['payment_method'],
+                    'amount' => $data['amount'],
+                    'payment_date' => $data['payment_date'],
+                    'reference_number' => $data['reference_number'] ?? null,
+                    'notes' => $data['note'] ?? null,
+                    'status' => PaymentStatus::Confirmed,
+                    'submitted_actor_type' => 'staff',
+                    'submitted_by_id' => $staffId,
+                    'confirmed_by_id' => $staffId,
+                    'confirmed_at' => now(),
+                ]);
+
+                $files = $data['proof'] ?? null;
+                $files = is_array($files) ? $files : ($files !== null ? [$files] : []);
+
+                if ($files !== []) {
+                    app(AttachUploadedFiles::class)->execute(
+                        $payment,
+                        $files,
+                        'payment_proof',
+                        self::PAYMENT_PROOF_UPLOAD_DIRECTORY,
+                    );
+                }
+
+                Notification::make()
+                    ->title('Payment recorded')
+                    ->body('The payment has been recorded and the invoice updated.')
+                    ->success()
+                    ->send();
+            });
     }
 
     /**
@@ -784,7 +1024,10 @@ final class ViewRequest extends ViewRecord
     }
 
     /**
-     * Get payment terms list as HTML.
+     * Get payment terms list as HTML, including per-installment amounts.
+     *
+     * Amounts are derived from the accepted buyer quote applied to the effective
+     * buyer total: an optional prepayment installment followed by each payment term.
      */
     private function getPaymentTermsList(Request $record): HtmlString
     {
@@ -796,41 +1039,86 @@ final class ViewRequest extends ViewRecord
 
         $quote = $buyerOrder->buyerQuote;
         $paymentTerms = $quote->paymentTerms;
-
-        if ($paymentTerms->isEmpty()) {
-            return new HtmlString('<span class="text-gray-400">No payment terms</span>');
-        }
+        $buyerTotal = $this->getEffectiveBuyerTotal($record);
+        $invoice = $this->getActiveStandardInvoice($record);
+        $paid = (float) ($invoice?->amount_paid ?? 0);
 
         $cell = 'padding:0.5rem 1rem 0.5rem 0;border-top:1px solid rgba(148,163,184,0.25);vertical-align:middle;';
-        $lastCell = 'padding:0.5rem 0 0.5rem 0;border-top:1px solid rgba(148,163,184,0.25);vertical-align:middle;';
+        $amountCell = 'padding:0.5rem 1rem 0.5rem 0;border-top:1px solid rgba(148,163,184,0.25);vertical-align:middle;text-align:right;white-space:nowrap;';
+        $lastCell = 'padding:0.5rem 0 0.5rem 0;border-top:1px solid rgba(148,163,184,0.25);vertical-align:middle;text-align:right;';
 
         $rows = [];
+
+        $prepaymentAmount = $this->getPrepaymentAmount($quote, $buyerTotal);
+        if ($prepaymentAmount > 0.0) {
+            $status = $paid >= ($prepaymentAmount - 0.01) ? 'Paid' : 'Not Paid';
+            $portion = $quote->prepayment_type === PrepaymentType::PERCENT
+                ? $quote->prepayment_percent.'%'
+                : '—';
+
+            $rows[] = sprintf(
+                '<tr><td style="%swhite-space:nowrap;font-weight:500;">Prepayment</td><td style="%s">%s</td><td style="%s">%s</td><td style="%s">%s</td></tr>',
+                $cell,
+                $cell,
+                htmlspecialchars($portion),
+                $amountCell,
+                htmlspecialchars($this->formatCurrency($prepaymentAmount)),
+                $lastCell,
+                $this->statusBadge($status, $status === 'Paid' ? 'success' : 'warning'),
+            );
+        }
+
         foreach ($paymentTerms as $term) {
             $status = $this->getPaymentTermStatus($record, $term->due_days, $term->percentage);
             $statusColor = $status === 'Paid' ? 'success' : 'warning';
+            $amount = $buyerTotal * (float) $term->percentage / 100;
 
             $rows[] = sprintf(
-                '<tr><td style="%swhite-space:nowrap;">%d days</td><td style="%s">%d%%</td><td style="%stext-align:right;">%s</td></tr>',
+                '<tr><td style="%swhite-space:nowrap;font-weight:500;">Settlement <span style="color:#94a3b8;font-weight:400;">· net %d days</span></td><td style="%s">%d%%</td><td style="%s">%s</td><td style="%s">%s</td></tr>',
                 $cell,
                 $term->due_days,
                 $cell,
                 $term->percentage,
+                $amountCell,
+                htmlspecialchars($this->formatCurrency($amount)),
                 $lastCell,
                 $this->statusBadge($status, $statusColor)
             );
         }
 
+        if ($rows === []) {
+            return new HtmlString('<span class="text-gray-400">No payment terms</span>');
+        }
+
         $head = 'padding:0 1rem 0.5rem 0;font-weight:500;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;';
+        $headAmount = 'padding:0 1rem 0.5rem 0;font-weight:500;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;text-align:right;';
         $headLast = 'padding:0 0 0.5rem 0;font-weight:500;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;text-align:right;';
         $html = sprintf(
-            '<table style="width:100%%;border-collapse:collapse;font-size:0.875rem;"><thead><tr><th style="%stext-align:left;">Due</th><th style="%stext-align:left;">Portion</th><th style="%s">Status</th></tr></thead><tbody>%s</tbody></table>',
+            '<table style="width:100%%;border-collapse:collapse;font-size:0.875rem;"><thead><tr><th style="%stext-align:left;">Term</th><th style="%stext-align:left;">Portion</th><th style="%s">Amount</th><th style="%s">Status</th></tr></thead><tbody>%s</tbody></table>',
             $head,
             $head,
+            $headAmount,
             $headLast,
             implode('', $rows)
         );
 
         return new HtmlString($html);
+    }
+
+    /**
+     * Compute the prepayment installment amount from the quote and buyer total.
+     */
+    private function getPrepaymentAmount(\App\Models\BuyerQuote $quote, float $buyerTotal): float
+    {
+        if ($quote->prepayment_type === PrepaymentType::PERCENT) {
+            return $buyerTotal * (float) $quote->prepayment_percent / 100;
+        }
+
+        if ($quote->prepayment_type === PrepaymentType::FIXED) {
+            return (float) $quote->prepayment_amount;
+        }
+
+        return 0.0;
     }
 
     /**
