@@ -96,6 +96,14 @@
 
 /* Cards & Sections */
 
+/* Consistent island-card radius: infolist sections default to a smaller radius
+   (8px) than tables/widgets/tabs (12px) — normalise every top-level card to
+   rounded-xl (12px) so the detail page reads as one system. */
+.fi-section,
+.fi-sc-section {
+    @apply rounded-xl;
+}
+
 /* Form Components */
 .fi-fo-component-ctn {
     @apply rounded-xl;
