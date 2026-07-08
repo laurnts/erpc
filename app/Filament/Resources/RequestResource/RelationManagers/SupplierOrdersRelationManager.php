@@ -982,7 +982,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                         // Prompt at PO issuance: if suppliers participated via
                         // the portal and outcomes were never announced, remind
                         // staff — suppliers otherwise stay "under review" forever.
-                        $hasUnannouncedPortalRound = ! $request->rfqOutcomesAnnounced()
+                        $hasUnannouncedPortalRound = ! $request->supplierRequestOutcomesAnnounced()
                             && $request->supplierQuotes()
                                 ->whereIn('status', [SupplierQuoteStatus::RECEIVED, SupplierQuoteStatus::SELECTED])
                                 ->whereNull('declined_at')
@@ -991,7 +991,7 @@ final class SupplierOrdersRelationManager extends RelationManager
 
                         if ($hasUnannouncedPortalRound) {
                             Notification::make()
-                                ->title('RFQ outcomes not announced yet')
+                                ->title('Request outcomes not announced yet')
                                 ->body('Suppliers have not been informed of the outcome of this request. Announce outcomes from the supplier quote comparison or the approved Quotation Evaluation.')
                                 ->warning()
                                 ->persistent()

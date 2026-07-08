@@ -64,15 +64,15 @@ The system SHALL let supplier portal users view the articles assigned to their c
 - **WHEN** a supplier user attempts to view or update another company's supplier-article row
 - **THEN** the attempt is denied (query scope excludes it; policy denies it under strict authorization)
 
-### Requirement: Supplier RFQ Participation
-The system SHALL let supplier portal users see RFQs that were actually sent to them, submit their quotation per item, or decline — per the erp-quoting requirements RFQ Send Visibility Gate, Supplier Quote Portal Submission, and Supplier Quote Decline.
+### Requirement: Supplier Request Participation
+The system SHALL let supplier portal users see requests that were actually sent to them, submit their quotation per item, or decline — per the erp-quoting requirements Supplier Request Send Visibility Gate, Supplier Quote Portal Submission, and Supplier Quote Decline.
 
-#### Scenario: Open RFQs list
+#### Scenario: Open requests list
 - **WHEN** a supplier user opens "Quote Requests"
 - **THEN** tabs show Open (sent, pending, undeclined), Submitted, Won, and Lost quotes — all scoped to their own company and to quotes with `sent_to_supplier_at` set
 
-#### Scenario: View RFQ items
-- **WHEN** a supplier user opens an RFQ
+#### Scenario: View request items
+- **WHEN** a supplier user opens a request
 - **THEN** they see item descriptions, quantities, units, and notes (including read-only child rows of service quotes)
 - **AND** no buyer identity, request context beyond the items, or other suppliers' data is shown
 
@@ -81,8 +81,8 @@ The system SHALL let supplier portal users see RFQs that were actually sent to t
 - **THEN** the user can submit per-item prices with validity, notes, and a quotation document, or decline
 - **AND** after submitting, the quote renders as "Submitted — under review" regardless of internal evaluation state
 
-### Requirement: Supplier RFQ Outcome Visibility
-The system SHALL reveal quote outcomes to suppliers only after the internal announcement (per erp-quoting RFQ Outcome Announcement), showing each supplier only their own result.
+### Requirement: Supplier Request Outcome Visibility
+The system SHALL reveal quote outcomes to suppliers only after the internal announcement (per erp-quoting Supplier Request Outcome Announcement), showing each supplier only their own result.
 
 #### Scenario: Outcome after announcement
 - **WHEN** outcomes are announced
@@ -102,7 +102,7 @@ The system SHALL ensure the supplier portal exposes no buyer data, no other supp
 
 #### Scenario: Confidential data never renders
 - **WHEN** a supplier user browses any portal view or receives any portal response
-- **THEN** none of the following are present: buyer identity or request context, other suppliers' quotes/prices/existence, the comparison matrix or evaluation snapshots, margins or article `list_price` linkage, profit-and-loss data, internal notes and notification metadata, and RFQs without `sent_to_supplier_at`
+- **THEN** none of the following are present: buyer identity or request context, other suppliers' quotes/prices/existence, the comparison matrix or evaluation snapshots, margins or article `list_price` linkage, profit-and-loss data, internal notes and notification metadata, and requests without `sent_to_supplier_at`
 
 #### Scenario: Session and portal isolation
 - **WHEN** a user holds sessions on multiple panels

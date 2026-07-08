@@ -20,7 +20,7 @@ beforeEach(function (): void {
     Filament::setTenant($this->team);
 });
 
-it('logs a sent activity when the RFQ is dispatched to the supplier', function (): void {
+it('logs a sent activity when the request is dispatched to the supplier', function (): void {
     $quote = SupplierQuote::factory()->recycle($this->team)->pending()->create();
 
     ActivityLog::query()->delete();
@@ -42,7 +42,7 @@ it('logs a sent activity when the RFQ is dispatched to the supplier', function (
         ->and($activity->properties->get('sent_to_supplier_at'))->toBe($quote->refresh()->sent_to_supplier_at->toDateTimeString());
 });
 
-it('logs each dispatch separately because every send is a fresh RFQ', function (): void {
+it('logs each dispatch separately because every send is a fresh request', function (): void {
     $quote = SupplierQuote::factory()->recycle($this->team)->pending()->create();
 
     ActivityLog::query()->delete();

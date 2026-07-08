@@ -22,7 +22,7 @@ declare(strict_types=1);
  *   3. Quote cart submit      — SubmitQuoteCart (create-only items()->create())
  *
  * NOT covered here (see final report): BuyerQuotesRelationManager /
- * SupplierQuotesRelationManager edit actions. Their save closures are RFQ
+ * SupplierQuotesRelationManager edit actions. Their save closures are request
  * auto-generation + child-item-via-request-attributes pipelines that are not
  * reliably drivable at the Livewire level in a safety-net test; their
  * mass-delete pattern (items()->whereNull('request_item_id')->delete()) is

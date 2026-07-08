@@ -14,7 +14,7 @@ use Illuminate\Support\Carbon;
 /**
  * Supplier-article link. `supplier_price` (+ currency) is the supplier-owned,
  * forward-looking standing offer; `last_quoted_*` is the staff-owned,
- * backward-looking RFQ history — they are deliberately separate fields.
+ * backward-looking request history — they are deliberately separate fields.
  *
  * @property int $id
  * @property int $article_id

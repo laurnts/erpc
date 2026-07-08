@@ -19,7 +19,7 @@ It unifies what trading firms typically run in separate tools:
 | Fragmented approach | ERPC approach |
 |---------------------|---------------|
 | Buyer/supplier email back-and-forth | **Buyer & supplier portals** + internal app on one platform |
-| Public RFQ via phone/email | **Public catalog** with quote cart → request |
+| Public quote requests via phone/email | **Public catalog** with quote cart → request |
 | Spreadsheets for margin / PNL | Built-in PNL with approval workflow |
 | Email chains for QE & PO sign-off | Structured QE, PNL, and dual-approval supplier orders |
 | Shared drives for documents | Generate PDF → re-upload for official records + Credit Limit Acceptances |
@@ -44,7 +44,7 @@ It unifies what trading firms typically run in separate tools:
 - **Key Account managers** responsible for buyer relationships and document acceptance
 - **Senior management** (Dept Head, Deputy Director, Director) who approve QE, PNL, and supplier orders
 - **Finance** teams approving payment / completion documents
-- **Buyers and suppliers** using self-service portals for requests, quotes, RFQs, and article pricing
+- **Buyers and suppliers** using self-service portals for requests, quotes, and article pricing
 - **Multi-team organizations** needing isolated workspaces with shared patterns
 
 ### One-Line Value Proposition
@@ -184,7 +184,7 @@ flowchart LR
 | Step | Business term | ERPC capability |
 |------|---------------|-----------------|
 | 1 | Inquiry | Request + matched items |
-| 2 | Tender / RFQ | Auto-generated supplier quotes (multi-vendor per item) |
+| 2 | Tender / Quote Request | Auto-generated supplier quotes (multi-vendor per item) |
 | 3 | Internal evaluation | Quotation Evaluation (QE) + senior approval |
 | 4 | Offer to buyer | Buyer quote + margin |
 | 5 | Margin sign-off | PNL + approval |
@@ -270,7 +270,7 @@ Key Accounts approve QE, PNL, and supplier order documents via **Credit Limit Ac
 
 > *"Buyers and suppliers need self-service without losing control."*
 
-**Buyer portal** for request tracking, quotes, invoices, and shipments. **Supplier portal** for RFQ response and article pricing. **Public catalog** for published articles and quote-cart submissions. **People** and **AI summaries** provide contact context across buyers, suppliers, quotes, and shipments.
+**Buyer portal** for request tracking, quotes, invoices, and shipments. **Supplier portal** for quote-request response and article pricing. **Public catalog** for published articles and quote-cart submissions. **People** and **AI summaries** provide contact context across buyers, suppliers, quotes, and shipments.
 
 ---
 
@@ -315,7 +315,7 @@ When a request advances to **Awaiting Supplier Response**, ERPC automatically:
 3. Pre-fills pricing hints from last quoted price on the pivot
 4. Can notify suppliers (email) for quote response
 
-**Single item inquiry → multi-vendor tender** without manual RFQ duplication.
+**Single item inquiry → multi-vendor tender** without manual quote-request duplication.
 
 ```mermaid
 flowchart TB
@@ -557,7 +557,6 @@ Two different “acceptance” concepts:
 ### 5.17 Buyer Portal
 
 - Filament **customer** panel at `CUSTOMER_PATH` (default `buyer`); separate session cookie (`CUSTOMER_PORTAL_ENABLED` kill switch)
-- **Dashboard** — action items, request overview, active shipments, recent requests
 - **Requests** — `CustomerRequestResource` with buyer quotes, invoices, shipments relation managers
 - **Portal users** — invite/manage from **Master Data → Buyers → Portal Users** (`PortalUsersRelationManager`)
 - **Registration approval** — **Approval → Registrations** (`PortalRegistrationRequestResource`)
@@ -565,8 +564,7 @@ Two different “acceptance” concepts:
 ### 5.18 Supplier Portal
 
 - Filament **supplier** panel at `SUPPLIER_PATH` (default `supplier`); separate session cookie (`SUPPLIER_PORTAL_ENABLED` kill switch)
-- **Dashboard** — stale prices, open RFQs, RFQ outcome widgets
-- **Quote Requests** — `SupplierRfqResource`; confidentiality via query scope, policy, and column projection
+- **Requests** — `SupplierRequestResource`; confidentiality via query scope, policy, and column projection
 - **My Articles** — `SupplierArticleResource` for offer pricing on linked articles
 - **Portal users** — invite/manage from **Master Data → Suppliers → Portal Users**
 
@@ -586,7 +584,7 @@ Proactive notifications so quotes, supplier responses, invoices, and catalog pri
 
 | Schedule | Job | Who is notified |
 |----------|-----|-----------------|
-| 07:00 daily | Catalog price review (`articles:refresh-price-review`) | Flags articles needing list-price review (supplier stale-prices widget) |
+| 07:00 daily | Catalog price review (`articles:refresh-price-review`) | Flags articles needing list-price review |
 | 08:00 daily | Expiring buyer quotes (7 / 3 / 1 days) | Quote creator |
 | 08:30 daily | Expired buyer quotes (previous day) | Buyer + key accounts (email + in-app) |
 | 09:00 daily | Overdue invoices | Invoice creator (`InvoiceOverdueNotification`) |
@@ -613,7 +611,7 @@ Proactive notifications so quotes, supplier responses, invoices, and catalog pri
 |-------|---------------|---------|
 | App | `app.{domain}` | Internal team workspace (default Filament tenant panel) |
 | Buyer portal | `CUSTOMER_PATH` (default `buyer`) | Buyer self-service |
-| Supplier portal | `SUPPLIER_PATH` (default `supplier`) | Supplier RFQs and article pricing |
+| Supplier portal | `SUPPLIER_PATH` (default `supplier`) | Supplier requests and article pricing |
 | Public catalog | `APP_URL` `/` | Published articles and quote cart |
 | System Admin | `SYSADMIN_PATH` (default `sysadmin`) | Cross-tenant administration module |
 
@@ -752,7 +750,7 @@ Export uses `ExportCompletion` job for reliable download links when queued.
 |---------|-----|------|-----|-----|
 | **People** | Sales, CP | Contact management | Who to call (also **PIC** on shipments) | Add contact; link to buyers/suppliers |
 | **Buyer portal** | Buyer users | After invitation | Self-service requests, quotes, shipments | Log in at buyer portal; create/track requests |
-| **Supplier portal** | Supplier users | After invitation | Respond to RFQs; maintain article prices | Log in at supplier portal; submit quotes |
+| **Supplier portal** | Supplier users | After invitation | Respond to quote requests; maintain article prices | Log in at supplier portal; submit quotes |
 | **Public catalog** | Prospective buyers | Pre-deal | Browse published articles | Add to quote cart; submit request or register |
 | **Members** | Admin | Onboarding | Who can access internal team | Invite user; set role + CP sub-role |
 
@@ -848,7 +846,7 @@ flowchart LR
 ### Where ERPC Is Stronger (for trading firms)
 
 - **SAP bridge / middleware** — run procurement here; post to SAP when ready
-- **Auto tender** — one inquiry, many vendors, no duplicate RFQ entry
+- **Auto tender** — one inquiry, many vendors, no duplicate quote-request entry
 - **Request as single operational hub** — not spreading a deal across SAP transaction codes
 - **Trading-native approvals** — QE, PNL, supplier PO dual approval without a workflow project
 - **Quote-to-margin path** — supplier quotes → QE → buyer quote → PNL in one UI
@@ -892,7 +890,7 @@ flowchart LR
 |------------|---------|
 | Procurement B2B middleware (SAP bridge) | Daily ops without SAP complexity |
 | End-to-end quote → purchase flow | Tender through completion on one Request |
-| Auto tender (1 item, multi-vendor) | Faster sourcing, less manual RFQ |
+| Auto tender (1 item, multi-vendor) | Faster sourcing, less manual quote-request entry |
 | QE · PNL · dual supplier PO approval | Financial and commercial control |
 | PKP / non-PKP · multi-currency | Tax-aware trading documents |
 | Generate PDF + re-upload | Audit trail for signed documents |
@@ -973,7 +971,7 @@ Cross-check of marketing claims vs codebase (honest gaps for stakeholders).
 | Standalone supplier invoice / payment UI | ⚠️ | Models exist; **no dedicated Filament resources** |
 | “Invoices” tab | ✅ | UI label for **Buyer Orders** tab — not separate AR module |
 | Buyer portal | ✅ | `CustomerPanelProvider`, `CustomerRequestResource` |
-| Supplier portal | ✅ | `SupplierPanelProvider`, `SupplierRfqResource`, `SupplierArticleResource` |
+| Supplier portal | ✅ | `SupplierPanelProvider`, `SupplierRequestResource`, `SupplierArticleResource` |
 | Public catalog + quote cart | ✅ | `CatalogHome`, `SubmitQuoteCart`, `CATALOG_ENABLED` |
 | Portal registration approval | ✅ | `PortalRegistrationRequestResource` |
 | Service acceptance reports on View | ✅ | `AcceptanceReportsRelationManager` inside Fulfillment `RelationGroup` |

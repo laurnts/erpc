@@ -190,7 +190,7 @@ final class SupplierQuoteFactory extends Factory
     }
 
     /**
-     * The RFQ has actually been sent to the supplier (portal visibility gate).
+     * The request has actually been sent to the supplier (portal visibility gate).
      */
     public function sentToSupplier(): static
     {

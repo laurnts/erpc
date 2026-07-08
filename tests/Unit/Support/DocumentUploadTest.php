@@ -51,9 +51,9 @@ it('builds a max-size validation message whose limit matches the KB value', func
 ]);
 
 it('prepends context notes as leading bullets and escapes HTML', function () {
-    $html = DocumentUpload::helperText(10240, notes: ["Buyer's email, letter, RFQ, or PO"])->toHtml();
+    $html = DocumentUpload::helperText(10240, notes: ["Buyer's email, letter, quote request, or PO"])->toHtml();
 
-    expect($html)->toContain('<li>Buyer&#039;s email, letter, RFQ, or PO</li>');
+    expect($html)->toContain('<li>Buyer&#039;s email, letter, quote request, or PO</li>');
 
     $noteIndex = strpos($html, 'Buyer');
     $formatsIndex = strpos($html, 'Accepted formats');

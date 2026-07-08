@@ -191,13 +191,13 @@ final class RequestResource extends Resource
         }
 
         // Staff-created requests must carry proof of the buyer's actual request
-        // (email/letter/RFQ/PO). Only shown on create; the edit form is untouched.
+        // (email/letter/quote request/PO). Only shown on create; the edit form is untouched.
         if ($isCreate) {
             $fields[] = Section::make('Proof of Request')
                 ->schema([
                     FileUpload::make('proof_files')
                         ->label('Proof of Request')
-                        ->helperText(DocumentUpload::helperText(10240, notes: ["Buyer's email, letter, RFQ, or PO"]))
+                        ->helperText(DocumentUpload::helperText(10240, notes: ["Buyer's email, letter, quote request, or PO"]))
                         ->acceptedFileTypes(DocumentUpload::ACCEPTED_MIME_TYPES)
                         ->disk('local')
                         ->directory(Request::PROOF_UPLOAD_DIRECTORY)

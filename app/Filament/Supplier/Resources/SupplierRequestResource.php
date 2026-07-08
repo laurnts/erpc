@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Supplier-facing RFQ resource. Confidentiality is enforced in three layers:
+ * Supplier-facing request resource. Confidentiality is enforced in three layers:
  * the query scope (own company + sent gate), the panel-branched policy, and
  * the column projection below — internal notes, notification metadata, the
  * request/buyer linkage, and anything about other suppliers are never

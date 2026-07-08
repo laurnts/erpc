@@ -10,7 +10,7 @@ The system of record is the *deal*, not the product catalog and not the order. E
 
 | Demand side (customer) | | Supply side (supplier) |
 |---|---|---|
-| Request | → sourcing → | Supplier RFQ |
+| Request | → sourcing → | Supplier quote request |
 | Buyer Quote | ← evaluation ← | Supplier Quote |
 | Buyer Order | back-to-back | Supplier Order |
 | Buyer Invoice | | Supplier Invoice |
@@ -20,7 +20,7 @@ The system of record is the *deal*, not the product catalog and not the order. E
 
 A trading intermediary stacks three margins on every deal, and the domain model reflects all three:
 
-1. **Sourcing margin** — win a customer request, run competitive supplier RFQs, and construct the sell price from evaluated supplier bids (`QuotationEvaluation`, sell-based margin convention).
+1. **Sourcing margin** — win a customer request, run competitive supplier quote requests, and construct the sell price from evaluated supplier bids (`QuotationEvaluation`, sell-based margin convention).
 2. **Fulfillment orchestration** — shipments, goods receipt, acceptance reports, and mixed deals where items within one deal are fulfilled through different routes.
 3. **Working-capital management** — credit limits with approval workflows, prepayment/balance invoice splitting, payment terms on both sides, multi-currency with FX rates, and the float between buyer and supplier payment timing.
 
@@ -31,7 +31,7 @@ The third pillar is currently defensive (risk management on receivables). It is 
 Magento B2B offers negotiable quotes, company accounts, and credit balances — but the fit fails structurally, not on features:
 
 - **Its quote is a discount on a catalog; ours is price discovery.** A Magento negotiable quote starts from a cart of posted prices. In this business the sell price often does not exist until supplier bids have been collected and evaluated.
-- **It has no supply side.** No supplier entity, no RFQ, no purchase order *to* a supplier, no supplier invoice or payment, no goods receipt. Half the domain model has zero counterpart — Magento would be a login screen in front of a fully custom ERP.
+- **It has no supply side.** No supplier entity, no supplier quote request, no purchase order *to* a supplier, no supplier invoice or payment, no goods receipt. Half the domain model has zero counterpart — Magento would be a login screen in front of a fully custom ERP.
 - **No deal-level economics.** Magento knows order revenue and a static cost attribute; it cannot express per-deal margin built from an actual supplier quote in a different currency with different payment terms.
 - **Wrong funnel.** Deals here start as CRM requests with stages, activities, and contacts — not at a product page.
 
@@ -39,11 +39,11 @@ Magento B2B offers negotiable quotes, company accounts, and credit balances — 
 
 ## Why Not a Generic ERP (e.g. Odoo)
 
-Odoo could operate this business — it has sales, purchase, invoicing, CRM, and RFQ comparison. The trade-offs argue against it:
+Odoo could operate this business — it has sales, purchase, invoicing, CRM, and supplier-quote comparison. The trade-offs argue against it:
 
 - **Module-centric, not deal-centric.** In Odoo, sale orders and purchase orders are independent documents in separate modules, stitched together by procurement routes and analytic accounts. Deal P&L is a reporting overlay, not a first-class object. Mixed deals — core to this business — would live in Odoo's periphery.
-- **The differentiated 30% is custom either way.** Quotation evaluation, sell-based margin conventions, credit-limit approval workflows, prepayment/balance splitting, acceptance reports, RFQ terminal events — none are stock Odoo. That development would happen inside an inheritance-heavy framework with a notorious major-version upgrade treadmill, plus per-user Enterprise licensing.
-- **Portals are product surface.** Three tailored experiences (internal team, customer portal, supplier RFQ portal) are a competitive moat for an intermediary. Odoo's generic portal skin resists this.
+- **The differentiated 30% is custom either way.** Quotation evaluation, sell-based margin conventions, credit-limit approval workflows, prepayment/balance splitting, acceptance reports, quote-request terminal events — none are stock Odoo. That development would happen inside an inheritance-heavy framework with a notorious major-version upgrade treadmill, plus per-user Enterprise licensing.
+- **Portals are product surface.** Three tailored experiences (internal team, customer portal, supplier request portal) are a competitive moat for an intermediary. Odoo's generic portal skin resists this.
 - **The build-vs-buy calculus has shifted.** Laravel + Filament + a forked CRM skeleton collapse the generic 70% (admin CRUD, auth, teams) to near-zero cost. Effort concentrates on the differentiated 30% — the part that *is* the business.
 
 **Where bought software still wins:** statutory double-entry accounting, warehousing/inventory valuation, HR. Deliberately out of scope — the in-app `ProfitAndLoss` is operational deal economics, not bookkeeping. Accounting stays in dedicated software fed by exports; that boundary is intentional.

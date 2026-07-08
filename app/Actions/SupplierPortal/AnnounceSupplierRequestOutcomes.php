@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Notification;
  * won/lost notification — only for quotes actually sent to the supplier, so
  * internally-entered quotes never trigger supplier-facing mail.
  */
-final readonly class AnnounceRfqOutcomes
+final readonly class AnnounceSupplierRequestOutcomes
 {
     /**
      * @return array{winners: int, losers: int}|null null when the round is
@@ -33,7 +33,7 @@ final readonly class AnnounceRfqOutcomes
      */
     public function execute(Request $request): ?array
     {
-        if ($request->rfqOutcomesAnnounced()) {
+        if ($request->supplierRequestOutcomesAnnounced()) {
             return null;
         }
 

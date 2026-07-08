@@ -262,13 +262,13 @@ describe('Proof of Request section', function (): void {
     it('renders the proof of request section with a download link when the request has an attachment', function (): void {
         $record = viewTestRequest($this);
         $record->addMediaFromString('dummy')
-            ->usingFileName('buyer-rfq.pdf')
+            ->usingFileName('buyer-request.pdf')
             ->toMediaCollection('attachments');
 
         livewire(ViewRequest::class, ['record' => $record->getKey()])
             ->assertOk()
             ->assertSee('Proof of Request')
-            ->assertSee('buyer-rfq.pdf');
+            ->assertSee('buyer-request.pdf');
     });
 
     it('hides the proof of request section when there are no attachments', function (): void {

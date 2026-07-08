@@ -116,7 +116,7 @@ final readonly class BuyerRequestForm
                         ->maxLength(2000)
                         ->columnSpanFull(),
                     FileUpload::make('attachment_files')
-                        ->label('Upload RFQ/PR Documents')
+                        ->label('Upload Request/PR Documents')
                         ->helperText(DocumentUpload::helperText(10240))
                         ->acceptedFileTypes(DocumentUpload::ACCEPTED_MIME_TYPES)
                         ->disk('local')

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire;
 
-use App\Actions\SupplierPortal\AnnounceRfqOutcomes;
+use App\Actions\SupplierPortal\AnnounceSupplierRequestOutcomes;
 use App\Enums\SupplierQuoteStatus;
 use App\Filament\Resources\QuotationEvaluationResource;
 use App\Livewire\Concerns\AuthorizesLivewireActions;
@@ -170,7 +170,7 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
 
         // Once outcomes are announced the round is closed: losers were marked
         // rejected and suppliers were notified, so selections must not move.
-        if ($this->request->rfqOutcomesAnnounced()) {
+        if ($this->request->supplierRequestOutcomesAnnounced()) {
             Notification::make()
                 ->title('Outcomes already announced')
                 ->body('Supplier outcomes for this request have been announced — selections are locked and can no longer be re-applied.')
@@ -239,7 +239,7 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
     {
         Gate::authorize('update', $this->request);
 
-        $result = app(AnnounceRfqOutcomes::class)->execute($this->request);
+        $result = app(AnnounceSupplierRequestOutcomes::class)->execute($this->request);
 
         if ($result === null) {
             Notification::make()
@@ -270,7 +270,7 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
     #[Computed]
     public function outcomesAnnounced(): bool
     {
-        return $this->request->rfqOutcomesAnnounced();
+        return $this->request->supplierRequestOutcomesAnnounced();
     }
 
     /**

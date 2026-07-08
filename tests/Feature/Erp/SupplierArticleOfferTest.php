@@ -122,7 +122,7 @@ describe('Preferred supplier enforcement', function (): void {
     });
 });
 
-describe('RFQ prefill from supplier offer', function (): void {
+describe('Request prefill from supplier offer', function (): void {
     function makeMatchedRequest(object $context): Request
     {
         $request = Request::factory()->for($context->team)->create([

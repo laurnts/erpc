@@ -49,7 +49,7 @@ beforeEach(function (): void {
         'email' => 'sales@own-supplier.test',
     ]);
 
-    $this->portalUser = User::factory()->create(['email' => 'rfq@supplier.test']);
+    $this->portalUser = User::factory()->create(['email' => 'requests@supplier.test']);
 
     CompanyPortalUser::query()->create([
         'team_id' => $this->team->getKey(),
@@ -106,7 +106,7 @@ beforeEach(function (): void {
     app(SupplierPortalContext::class)->setCompany($this->supplier->getKey());
 });
 
-describe('RFQ visibility', function (): void {
+describe('Request visibility', function (): void {
     it('lists only own sent quotes — unsent and foreign quotes never surface', function (): void {
         $unsent = SupplierQuote::factory()
             ->recycle($this->team)
@@ -391,7 +391,7 @@ describe('Declining a quote', function (): void {
             ->and(app(SupplierRequestStatusPresenter::class)->label($expiring))->toBe('Expired');
     });
 
-    it('resets a decline when staff re-send the RFQ', function (): void {
+    it('resets a decline when staff re-send the request', function (): void {
         $declined = SupplierQuote::factory()
             ->recycle($this->team)
             ->forRequest($this->request)

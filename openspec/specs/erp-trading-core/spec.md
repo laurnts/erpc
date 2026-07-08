@@ -303,7 +303,7 @@ The system SHALL manage a many-to-many relationship between Articles and Supplie
 #### Scenario: Maintain supplier standing price
 - **WHEN** a supplier (via the supplier portal) or staff (via the relation managers) set `supplier_price` with its currency on a supplier-article link
 - **THEN** the value is stored on the pivot with `supplier_price_updated_at` stamped
-- **AND** `supplier_price` (forward-looking standing offer, supplier-owned) remains distinct from `last_quoted_price` (backward-looking RFQ history, staff-owned)
+- **AND** `supplier_price` (forward-looking standing offer, supplier-owned) remains distinct from `last_quoted_price` (backward-looking request history, staff-owned)
 
 #### Scenario: Maintain available quantity
 - **WHEN** a supplier or staff set `available_quantity` on a supplier-article link

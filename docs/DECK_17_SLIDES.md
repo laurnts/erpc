@@ -147,7 +147,7 @@ Rules:
 - One product line matched to catalog
 - System finds **all linked suppliers**
 - **Auto-creates** a quote request per vendor
-- No copy-paste RFQ to 5 vendors manually
+- No copy-paste quote requests to 5 vendors manually
 
 **Visual:** 1 item in center → arrows to Supplier A, B, C
 

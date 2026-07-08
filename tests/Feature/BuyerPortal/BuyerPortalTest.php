@@ -695,7 +695,7 @@ describe('Buyer Request Submission', function (): void {
 
 describe('Buyer Portal Phase 2', function (): void {
     it('creates document-based portal request with attachments', function (): void {
-        $pdfPath = BuyerRequestForm::ATTACHMENTS_UPLOAD_DIRECTORY.'/test-rfq.pdf';
+        $pdfPath = BuyerRequestForm::ATTACHMENTS_UPLOAD_DIRECTORY.'/test-request.pdf';
         $absolutePath = storage_path('app/'.$pdfPath);
 
         if (! is_dir(dirname($absolutePath))) {
@@ -711,14 +711,14 @@ describe('Buyer Portal Phase 2', function (): void {
         livewire(\App\Filament\Buyer\Resources\BuyerRequestResource\Pages\CreateBuyerRequest::class)
             ->fillForm([
                 'submission_method_choice' => RequestSubmissionMethod::DOCUMENT->value,
-                'title' => 'RFQ via Dokumen',
-                'description' => 'Lihat lampiran RFQ',
+                'title' => 'Request via Dokumen',
+                'description' => 'Lihat lampiran request',
                 'attachment_files' => [$pdfPath],
             ])
             ->call('create')
             ->assertHasNoFormErrors();
 
-        $request = Request::query()->where('title', 'RFQ via Dokumen')->first();
+        $request = Request::query()->where('title', 'Request via Dokumen')->first();
 
         expect($request)->not->toBeNull()
             ->and($request->submission_method)->toBe(RequestSubmissionMethod::DOCUMENT)
