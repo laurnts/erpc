@@ -9,6 +9,7 @@ use App\Filament\Actions\DownloadPdfAction;
 use App\Models\Request;
 use App\Models\Shipment;
 use Filament\Actions\ViewAction;
+use Filament\Facades\Filament;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Section;
@@ -77,7 +78,7 @@ final class ShipmentsRelationManager extends RelationManager
             ->recordActions([
                 DownloadPdfAction::make()
                     ->label('DO PDF')
-                    ->authorize(fn (Shipment $record): bool => auth()->user()?->can('view', $record) ?? false),
+                    ->authorize(fn (Shipment $record): bool => ($user = Filament::auth()->user()) !== null && $user->can('view', $record)),
                 ViewAction::make()
                     ->modalHeading('Shipment Details')
                     ->schema(fn (Shipment $record): array => $this->getShipmentDetailSchema($record)),

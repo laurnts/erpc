@@ -63,7 +63,7 @@ final class CustomerRequestResource extends Resource
                     ->label('Status')
                     ->badge()
                     ->formatStateUsing(fn (Request $record): string => $presenter->label($record))
-                    ->color(fn (Request $record): string => $presenter->color($record->stage)),
+                    ->color(fn (Request $record): string => $presenter->color($presenter->effectiveStage($record))),
                 TextColumn::make('item_type_summary')
                     ->label('Type')
                     ->badge()

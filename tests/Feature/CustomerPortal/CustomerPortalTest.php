@@ -1119,8 +1119,136 @@ describe('Customer Portal Phase 4', function (): void {
         )
             ->assertOk()
             ->assertSee('Request Progress')
-            ->assertSee('In Transit')
-            ->assertSee('Current stage');
+            ->assertSee('In transit');
+    });
+
+    it('shows awaiting confirmation for sent quotes even when request stage is stale', function (): void {
+        $request = Request::factory()->for($this->team)->for($this->buyer, 'buyer')->create([
+            'submission_method' => RequestSubmissionMethod::MANUAL,
+            'submitted_at' => now(),
+            'stage' => RequestStage::PREPARING_BUYER_QUOTE,
+        ]);
+
+        \App\Models\BuyerQuote::factory()
+            ->for($this->team)
+            ->for($request)
+            ->for($this->buyer, 'buyer')
+            ->sent()
+            ->withTotals(15894, 0, 15894)
+            ->create([
+                'quote_number' => 'BQ-2026-0067',
+            ]);
+
+        $this->actingAs($this->portalUser, 'customer');
+        Filament::setCurrentPanel('customer');
+        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
+
+        livewire(
+            \App\Filament\Customer\Resources\CustomerRequestResource\Pages\ViewCustomerRequest::class,
+            ['record' => $request->getRouteKey()],
+        )
+            ->assertOk()
+            ->assertSee('Awaiting Your Confirmation')
+            ->assertSee('Quote awaiting your confirmation')
+            ->assertSee('BQ-2026-0067 · v1');
+
+        livewire(
+            \App\Filament\Customer\Resources\CustomerRequestResource\RelationManagers\BuyerQuotesRelationManager::class,
+            [
+                'ownerRecord' => $request,
+                'pageClass' => \App\Filament\Customer\Resources\CustomerRequestResource\Pages\ViewCustomerRequest::class,
+            ],
+        )
+            ->assertOk()
+            ->assertSee('BQ-2026-0067')
+            ->assertSee('Actions')
+            ->assertActionVisible(\Filament\Actions\Testing\TestAction::make('downloadPdf')->table($request->buyerQuotes()->first()));
+    });
+
+    it('shows accept reject and upload po actions for sent buyer quotes', function (): void {
+        $request = Request::factory()->for($this->team)->for($this->buyer, 'buyer')->create([
+            'submission_method' => RequestSubmissionMethod::MANUAL,
+            'submitted_at' => now(),
+            'stage' => RequestStage::AWAITING_BUYER_CONFIRMATION,
+        ]);
+
+        $quote = \App\Models\BuyerQuote::factory()
+            ->for($this->team)
+            ->for($request)
+            ->for($this->buyer, 'buyer')
+            ->sent()
+            ->withTotals(15894, 0, 15894)
+            ->create();
+
+        $this->actingAs($this->portalUser, 'customer');
+        Filament::setCurrentPanel('customer');
+        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
+
+        // Simulate portal session where the default web guard has no user.
+        auth()->shouldUse('web');
+
+        livewire(\App\Livewire\CustomerPendingQuoteActions::class, ['request' => $request])
+            ->assertOk()
+            ->assertSee($quote->quote_number)
+            ->assertSee('Accept')
+            ->assertSee('Reject')
+            ->assertDontSee('Upload PO');
+    });
+
+    it('opens upload po modal after buyer confirms quote acceptance', function (): void {
+        $request = Request::factory()->for($this->team)->for($this->buyer, 'buyer')->create([
+            'submission_method' => RequestSubmissionMethod::MANUAL,
+            'submitted_at' => now(),
+            'stage' => RequestStage::AWAITING_BUYER_CONFIRMATION,
+        ]);
+
+        $quote = \App\Models\BuyerQuote::factory()
+            ->for($this->team)
+            ->for($request)
+            ->for($this->buyer, 'buyer')
+            ->sent()
+            ->withTotals(15894, 0, 15894)
+            ->create();
+
+        $this->actingAs($this->portalUser, 'customer');
+        Filament::setCurrentPanel('customer');
+        app(CustomerPortalContext::class)->setCompany($this->buyer->getKey());
+
+        livewire(\App\Livewire\CustomerPendingQuoteActions::class, ['request' => $request])
+            ->callAction(\Filament\Actions\Testing\TestAction::make('accept')->arguments(['quote' => $quote->getKey()]))
+            ->assertActionMounted('uploadPo');
+    });
+
+    it('does not send duplicate stage notification when quote send advances request stage', function (): void {
+        \Illuminate\Support\Facades\Notification::fake();
+
+        $request = Request::factory()->for($this->team)->for($this->buyer, 'buyer')->create([
+            'submission_method' => RequestSubmissionMethod::MANUAL,
+            'submitted_at' => now(),
+            'stage' => RequestStage::PREPARING_BUYER_QUOTE,
+        ]);
+
+        $quote = \App\Models\BuyerQuote::factory()
+            ->for($this->team)
+            ->for($request)
+            ->for($this->buyer, 'buyer')
+            ->draft()
+            ->withTotals(1000, 100, 1100)
+            ->create();
+
+        $quote->markAsSent();
+
+        \Illuminate\Support\Facades\Notification::assertSentTo(
+            $this->portalUser,
+            \App\Notifications\PortalBuyerQuoteSentNotification::class,
+        );
+
+        \Illuminate\Support\Facades\Notification::assertNotSentTo(
+            $this->portalUser,
+            \App\Notifications\PortalRequestStageChangedNotification::class,
+        );
+
+        expect($request->fresh()->stage)->toBe(RequestStage::AWAITING_BUYER_CONFIRMATION);
     });
 
     it('filters customer requests by status group', function (): void {

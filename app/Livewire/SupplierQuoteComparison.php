@@ -220,14 +220,13 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
             $qe->syncSnapshotData();
         }
 
+        unset($this->hasAppliedSelections, $this->quotes, $this->priceMatrix, $this->bestPricesByItem);
+
         Notification::make()
             ->title('Selections applied')
             ->body('Quote statuses have been updated.')
             ->success()
             ->send();
-
-        // Trigger a Livewire event that Alpine.js can listen to
-        $this->dispatch('selections-applied');
     }
 
     /**

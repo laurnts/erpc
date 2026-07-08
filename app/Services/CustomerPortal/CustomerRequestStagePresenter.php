@@ -4,14 +4,29 @@ declare(strict_types=1);
 
 namespace App\Services\CustomerPortal;
 
+use App\Enums\BuyerQuoteStatus;
 use App\Enums\RequestStage;
+use App\Models\BuyerQuote;
 use App\Models\Request;
 
 final readonly class CustomerRequestStagePresenter
 {
     public function label(Request $request): string
     {
-        return $this->labelForStage($request->stage);
+        return $this->labelForStage($this->effectiveStage($request));
+    }
+
+    public function effectiveStage(Request $request): RequestStage
+    {
+        if ($request->stage !== RequestStage::PREPARING_BUYER_QUOTE) {
+            return $request->stage;
+        }
+
+        if ($this->requestHasSentBuyerQuote($request)) {
+            return RequestStage::AWAITING_BUYER_CONFIRMATION;
+        }
+
+        return $request->stage;
     }
 
     public function labelForStage(RequestStage $stage): string
@@ -30,6 +45,22 @@ final readonly class CustomerRequestStagePresenter
             RequestStage::PAID,
             RequestStage::COMPLETED => 'Completed',
             RequestStage::CANCELLED => 'Cancelled',
+        };
+    }
+
+    public function timelineLabelForStage(RequestStage $stage): string
+    {
+        return match ($stage) {
+            RequestStage::DRAFT => 'Received',
+            RequestStage::AWAITING_SUPPLIER_RESPONSE => 'Sourcing quotes',
+            RequestStage::PREPARING_BUYER_QUOTE => 'Quote prepared',
+            RequestStage::AWAITING_BUYER_CONFIRMATION => 'Awaiting confirmation',
+            RequestStage::PREPARING_SUPPLIER_ORDER,
+            RequestStage::GOODS_RECEIVE => 'Processed',
+            RequestStage::SHIPPED => 'In transit',
+            RequestStage::COMPLETED => 'Completed',
+            RequestStage::CANCELLED => 'Cancelled',
+            default => $this->labelForStage($stage),
         };
     }
 
@@ -76,18 +107,30 @@ final readonly class CustomerRequestStagePresenter
             RequestStage::COMPLETED,
         ];
 
-        $currentOrder = $request->stage->getOrder();
-        $activeMilestone = $this->resolveActiveMilestone($request->stage);
+        $activeMilestone = $this->resolveActiveMilestone($this->effectiveStage($request));
 
         return array_map(
             fn (RequestStage $stage): array => [
                 'stage' => $stage,
-                'label' => $this->labelForStage($stage),
+                'label' => $this->timelineLabelForStage($stage),
                 'completed' => $stage->getOrder() < $activeMilestone->getOrder(),
                 'current' => $stage === $activeMilestone,
             ],
             $milestones,
         );
+    }
+
+    private function requestHasSentBuyerQuote(Request $request): bool
+    {
+        if ($request->relationLoaded('buyerQuotes')) {
+            return $request->buyerQuotes->contains(
+                fn (BuyerQuote $quote): bool => $quote->status === BuyerQuoteStatus::SENT,
+            );
+        }
+
+        return $request->buyerQuotes()
+            ->where('status', BuyerQuoteStatus::SENT)
+            ->exists();
     }
 
     private function resolveActiveMilestone(RequestStage $stage): RequestStage

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\BuyerQuoteStatus;
+use App\Enums\RequestStage;
 use App\Models\BuyerQuote;
 use App\Models\BuyerQuoteExtension;
 use App\Models\BuyerQuoteItem;
@@ -189,6 +190,22 @@ describe('BuyerQuote Status Transitions', function (): void {
 
         expect($quote->status)->toBe(BuyerQuoteStatus::SENT)
             ->and($quote->issued_at)->not->toBeNull();
+    });
+
+    it('advances request stage to awaiting buyer confirmation when quote is sent', function (): void {
+        $this->request->update(['stage' => RequestStage::PREPARING_BUYER_QUOTE]);
+
+        $quote = BuyerQuote::factory()
+            ->recycle($this->team)
+            ->recycle($this->buyer)
+            ->forRequest($this->request)
+            ->withCurrency($this->currency)
+            ->draft()
+            ->create();
+
+        $quote->markAsSent();
+
+        expect($this->request->fresh()->stage)->toBe(RequestStage::AWAITING_BUYER_CONFIRMATION);
     });
 
     it('marks quote as accepted correctly', function (): void {
