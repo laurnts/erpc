@@ -15,7 +15,37 @@
     ];
     $currency = ($activity->team ?? \Filament\Facades\Filament::getTenant())?->getBaseCurrency();
 
-    $format = function ($value, ?string $key = null) use ($currency, $moneyFields): string {
+    // Foreign-key fields resolve to a human label (e.g. currency_id 16 -> "IDR")
+    // instead of a raw id. Value: [model class, preferred label attribute].
+    $fkFields = [
+        'currency_id' => [\App\Models\Currency::class, 'code'],
+        'default_currency_id' => [\App\Models\Currency::class, 'code'],
+        'article_id' => [\App\Models\Article::class, 'name'],
+        'tax_code_id' => [\App\Models\TaxCode::class, 'code'],
+        'supplier_id' => [\App\Models\Company::class, 'name'],
+        'buyer_id' => [\App\Models\Company::class, 'name'],
+        'unit_of_measure_id' => [\App\Models\UnitOfMeasure::class, 'name'],
+        'project_id' => [\App\Models\Project::class, 'name'],
+        'approver_1_id' => [\App\Models\User::class, 'name'],
+        'approver_2_id' => [\App\Models\User::class, 'name'],
+        'approved_by_id' => [\App\Models\User::class, 'name'],
+        'created_by_id' => [\App\Models\User::class, 'name'],
+        'creator_id' => [\App\Models\User::class, 'name'],
+        'user_id' => [\App\Models\User::class, 'name'],
+    ];
+
+    $labelOf = function ($model, string $preferred): string {
+        foreach ([$preferred, 'code', 'name', 'label', 'title', 'number'] as $attr) {
+            $val = $model->{$attr} ?? null;
+            if ($val !== null && $val !== '') {
+                return (string) $val;
+            }
+        }
+
+        return '#' . $model->getKey();
+    };
+
+    $format = function ($value, ?string $key = null) use ($currency, $moneyFields, $fkFields, $labelOf): string {
         if (is_null($value)) {
             return '—';
         }
@@ -30,6 +60,13 @@
         }
         if ($currency !== null && $key !== null && in_array($key, $moneyFields, true) && is_numeric($value)) {
             return $currency->format((float) $value);
+        }
+        // Resolve foreign-key ids to a human label (currency_id 16 -> "IDR").
+        if ($key !== null && isset($fkFields[$key]) && is_numeric($value)) {
+            [$class, $attr] = $fkFields[$key];
+            $model = $class::find((int) $value);
+
+            return $model !== null ? $labelOf($model, $attr) : '#' . $value;
         }
         // Format ISO date/datetime strings (e.g. "2026-07-10T00:00:00.000000Z").
         if (is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/', $value)) {
