@@ -233,6 +233,12 @@ final readonly class RequestTimelineSource
             ->pluck('name', 'id');
 
         return $media->map(function (Media $item) use ($subjectNumbers, $uploaderNames): TimelineEntry {
+            // System is reserved for genuine automation (scheduled jobs,
+            // outbound emails/reminders) and for legacy uploads that predate
+            // uploader stamping and have not yet been run through
+            // `timeline:backfill-attribution`. A stamped upload always carries
+            // its real actor, so a person-driven history should not read as
+            // System once the backfill has run.
             $actorType = ActorType::tryFrom((string) $item->getCustomProperty('uploader_actor_type')) ?? ActorType::System;
             $uploaderId = $item->getCustomProperty('uploader_id');
             $actorLabel = $uploaderId !== null
