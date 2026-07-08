@@ -69,8 +69,14 @@ final class BuyerInvoiceFactory extends Factory
     public function sent(): static
     {
         return $this->state(function (array $attributes): array {
-            $issuedAt = $this->faker->dateTimeBetween('-30 days', 'now');
-            $dueAt = (clone $issuedAt)->modify('+'.($attributes['net_days'] ?? 30).' days');
+            $netDays = (int) ($attributes['net_days'] ?? 30);
+
+            // Keep due_at strictly in the future: a SENT invoice whose due
+            // date has passed is internally inconsistent (the payment recalc
+            // flips it to OVERDUE), which made tests flaky. Past-due state is
+            // the overdue() state's job, or an explicit due_at override.
+            $issuedAt = $this->faker->dateTimeBetween('-'.($netDays - 1).' days', 'now');
+            $dueAt = (clone $issuedAt)->modify('+'.$netDays.' days');
 
             return [
                 'status' => InvoiceStatus::SENT,

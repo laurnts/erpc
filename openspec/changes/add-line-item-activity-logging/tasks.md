@@ -1,6 +1,6 @@
 ## 1. Persistence blocker fix (land first, independently verifiable)
 
-- [ ] 1.1 Convert `EditCustomerRequest.php:59` from `items()->delete()` + per-line `RequestItem::create()` to in-place reconciliation (match by id: update changed via `save()`, remove missing via model `delete()`, create genuinely new).
+- [ ] 1.1 Convert `EditBuyerRequest.php:59` from `items()->delete()` + per-line `RequestItem::create()` to in-place reconciliation (match by id: update changed via `save()`, remove missing via model `delete()`, create genuinely new).
 - [ ] 1.2 Same conversion for `BuyerQuotesRelationManager.php:1690` and `:2105` (`items()->whereNull('request_item_id')->delete()`).
 - [ ] 1.3 Same conversion for `SupplierQuotesRelationManager.php:1510`.
 - [ ] 1.4 Same conversion for `SubmitQuoteCart.php:104` and `ItemsRelationManager.php:781`.
@@ -38,10 +38,14 @@
 - [ ] 6.3 Unchanged / loop re-save → zero rows (`wasChanged` gating).
 - [ ] 6.4 Cosmetic `notes` edit on a legacy-priced item → no money-change row.
 - [ ] 6.5 Fresh quote build + quote→order + order→invoice conversion → baseline creates logged, no spurious churn.
-- [ ] 6.6 `EditCustomerRequest` quantity edit → diff row, not N recreates (blocker regression).
+- [ ] 6.6 `EditBuyerRequest` quantity edit → diff row, not N recreates (blocker regression).
 - [ ] 6.7 Child/service sub-line removal from an existing quote → deletion logged with snapshot.
 - [ ] 6.8 Whole-document delete → one header `deleted` row, zero item rows.
 - [ ] 6.9 `article_id` / `tax_code_id` / `is_selected` swap → logged as a labeled diff.
 - [ ] 6.10 Console / no-tenant item creation → zero rows.
 - [ ] 6.11 EventLog detail page renders item property shape.
 - [ ] 6.12 Run affected tests + `vendor/bin/pint --dirty`; then offer the full suite.
+
+## 7. Timeline hookup (moved from add-request-activity-timeline task 6.2)
+
+- [ ] 7.1 Swap the timeline's interim subject enumeration for this change's `parent_type`/`parent_id` predicate in `TimelineAudience`/`RequestTimelineSource`; line-level price/quantity entries then appear on the internal timeline with no further timeline changes.

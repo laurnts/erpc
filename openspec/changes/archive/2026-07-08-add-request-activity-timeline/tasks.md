@@ -29,20 +29,20 @@
 - [x] 3.3 Collapsible `History` Section on `ViewRequest` via `RequestHistoryTimeline` Livewire component + blade: day-grouped, summarized per-save lines, credit lane, pagination, ⓘ granularity note, detail modal reusing `event-log-detail`. No filter bar (v1).
 - [x] 3.4 Pest tests: attribution, upload w/ uploader, credit balances, unlogged-branch guard, page smoke. Tests: RequestTimelineTest + RequestResourceViewTest.
 
-## 4. Buyer timeline (Phase 2 — NOT YET IMPLEMENTED)
+## 4. Buyer timeline (Phase 2)
 
 - [x] 4.1a Buyer allow-list is an exhaustive intentional enumeration (helper's `BUYER_EXCLUDED_SUBJECT_TYPES` with per-subject reasons + guard test) — a future logged model cannot be silently omitted.
-- [ ] 4.1 Build the buyer source as an independent hard-scoped additive query from the fixed allow-list, resolved from a `scopeForBuyer`-authorized Request (never `ActivityLogPolicy`/team_id alone). BuyerOrder EXCLUDED (documented in helper).
-- [ ] 4.2 Buyer redaction: stage re-map via `CustomerRequestStagePresenter` + de-dup; causer → 'You'/'Your team'; drop Supplier/Admin entries; links only to `CustomerRequestResource` routes.
-- [ ] 4.3 Extend the existing `CustomerRequestStagePresenter` timeline component on `ViewCustomerRequest` (additive to the stepper).
-- [ ] 4.4 Pre-stamp/unstamped media deny-by-default (fail-closed) for buyers.
-- [ ] 4.5 Dedicated leak test (assert SUBJECT absence, not field names): zero supplier/QE/P&L/buyer_order/inbound/goods-receive entries, zero staff-proof uploads, presenter-mapped stage labels only, generic causer only, no app-panel/sysadmin links; buyer subject set ⊂ internal set.
+- [x] 4.1 `PortalTimelineSource` (final readonly): independent hard-scoped additive query from the fixed allow-list, resolved from a `forBuyer`-scoped Request (never `ActivityLogPolicy`/team_id alone). BuyerOrder EXCLUDED (documented in helper).
+- [x] 4.2 Buyer redaction: stage re-map via `BuyerRequestStagePresenter::labelForStage` + de-dup; causer → 'You'/'Your team'; drop Supplier/Admin entries; links only to `filament.buyer.resources.requests.*` routes (`RedactionRules`). (Names post customer→buyer rename.)
+- [x] 4.3 Activity section on `ViewBuyerRequest` (additive to the stepper), rendered via `filament.buyer.components.request-activity-timeline`.
+- [x] 4.4 Pre-stamp/unstamped media deny-by-default (fail-closed) for buyers — only collections with a `MediaRule` are considered; unstamped rows dropped.
+- [x] 4.5 Dedicated leak test (`PortalTimelineLeakTest`, 4 tests): zero supplier/internal/inbound subjects, staff-proof + unstamped uploads dropped, presenter-mapped stage labels + generic causer only, buyer subject set ⊂ internal set. Plus BuyerRequestActivityTimelineTest.
 
 ## 5. Finalize (Phase 1)
 
 - [x] 5.1 Full suite green (3 pre-existing ArchTest/ResetPassword failures aside) + `vendor/bin/pint --dirty` applied. Phase 1: 36 new tests, 338 assertions.
 
-## 6. Supplier timeline surface (Phase 3 — later, out of this change's shipping scope)
+## 6. Supplier timeline surface (Phase 3)
 
-- [ ] 6.1 Reuse the audience helper's `supplier:{companyId}` party to build the supplier-portal timeline (that supplier's own RFQs/quotes/POs only); mirror the buyer leak test asserting Supplier A cannot see Supplier B. (Allow-list rules already present in `TimelineAudience`; UI pending.)
-- [ ] 6.2 When `add-line-item-activity-logging` lands: swap the interim subject enumeration for its `parent_type`/`parent_id` predicate; line-level price/quantity entries then appear with no further timeline changes.
+- [x] 6.1 Supplier-portal timeline on `ViewSupplierRfq` via `PortalTimelineSource::forParty` with the `supplier:{companyId}` party (that supplier's own RFQs/quotes/POs only); mirror leak test in `PortalTimelineSourceTest` asserts Supplier A cannot see Supplier B's quotes.
+- [x] 6.2 MOVED to `add-line-item-activity-logging` (its task 30): swapping the interim subject enumeration for the `parent_type`/`parent_id` predicate is that change's landing step, not deliverable here.

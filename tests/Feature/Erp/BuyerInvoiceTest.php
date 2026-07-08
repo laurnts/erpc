@@ -279,6 +279,23 @@ describe('BuyerInvoice Status Transitions', function (): void {
 
         expect($invoice->status)->toBe(InvoiceStatus::CANCELLED);
     });
+
+    it('sent factory state never produces an already-overdue invoice', function (): void {
+        // A SENT invoice with a past due_at is internally inconsistent:
+        // updatePaymentStatus() flips it to OVERDUE on the next recalc, which
+        // made every test asserting SENT after a pending payment flaky.
+        // Tests that want past-due state use overdue() or set due_at explicitly.
+        foreach (range(1, 50) as $i) {
+            $invoice = BuyerInvoice::factory()->sent()->make([
+                'team_id' => $this->team->getKey(),
+                'request_id' => $this->request->getKey(),
+                'currency_id' => $this->currency->getKey(),
+            ]);
+
+            expect($invoice->due_at->isFuture())
+                ->toBeTrue("sent() produced a past due_at ({$invoice->due_at}) on iteration {$i}");
+        }
+    });
 });
 
 describe('BuyerInvoice Credit Note Creation', function (): void {
