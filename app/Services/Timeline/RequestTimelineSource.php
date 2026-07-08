@@ -11,6 +11,7 @@ use App\Models\BuyerCreditUsageHistory;
 use App\Models\BuyerOrder;
 use App\Models\BuyerPayment;
 use App\Models\Request;
+use App\Models\RequestNote;
 use App\Models\SupplierPayment;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -61,6 +62,7 @@ final readonly class RequestTimelineSource
             ->concat(in_array(TimelineAudience::ENTRY_ACTIVITY, $entryTypes, true) ? $this->activityEntries($subjectNumbers) : [])
             ->concat(in_array(TimelineAudience::ENTRY_MEDIA, $entryTypes, true) ? $this->mediaEntries($subjectNumbers) : [])
             ->concat(in_array(TimelineAudience::ENTRY_CREDIT, $entryTypes, true) ? $this->creditEntries($request, $subjectNumbers) : [])
+            ->concat(in_array(TimelineAudience::ENTRY_NOTE, $entryTypes, true) ? $this->noteEntries($request) : [])
             ->sortByDesc(fn (TimelineEntry $entry): string => $entry->occurredAt->format('Y-m-d H:i:s.u'))
             ->values();
 
@@ -349,6 +351,70 @@ final readonly class RequestTimelineSource
             number_format((float) $row->available_credit_before, 2),
             number_format((float) $row->available_credit_after, 2),
         );
+    }
+
+    /**
+     * Note lane (design D2): every note pinned to the request, newest handled
+     * by the shared sort. Staff/admin see all notes regardless of visibility,
+     * with the author's real name attributed.
+     *
+     * @return Collection<int, TimelineEntry>
+     */
+    private function noteEntries(Request $request): Collection
+    {
+        return RequestNote::query()
+            ->with(['author', 'media'])
+            ->where('request_id', $request->getKey())
+            ->get()
+            ->map(function (RequestNote $note) use ($request): TimelineEntry {
+                $attachments = $note->getMedia(RequestNote::ATTACHMENTS_COLLECTION)
+                    ->map(fn ($media): string => (string) $media->file_name)
+                    ->values()
+                    ->all();
+
+                return new TimelineEntry(
+                    actorLabel: $note->author?->getAttribute('name') ?? $note->author_actor_type->getLabel(),
+                    actorType: $note->author_actor_type,
+                    entryType: TimelineAudience::ENTRY_NOTE,
+                    event: 'note',
+                    headline: $this->noteHeadline($note->body, $attachments),
+                    subjectType: 'request',
+                    subjectId: (int) $note->request_id,
+                    subjectNumber: $request->request_number,
+                    changedFieldCount: 0,
+                    occurredAt: $note->created_at->toImmutable(),
+                    properties: ['visibility' => $note->visibility->value],
+                    lane: 'note',
+                    body: ($note->body === null || $note->body === '') ? null : $note->body,
+                    attachments: $attachments,
+                );
+            });
+    }
+
+    /**
+     * Build a note's rendered headline from its body and attachment names so
+     * both surface through views that render only the headline. An
+     * attachment-only note falls back to describing its files.
+     *
+     * @param  list<string>  $attachments
+     */
+    private function noteHeadline(?string $body, array $attachments): string
+    {
+        $body = trim((string) $body);
+
+        if ($body === '') {
+            return $attachments === []
+                ? 'Note'
+                : 'Note attachment: '.implode(', ', $attachments);
+        }
+
+        $headline = 'Note: '.$body;
+
+        if ($attachments !== []) {
+            $headline .= ' (attachment: '.implode(', ', $attachments).')';
+        }
+
+        return $headline;
     }
 
     private function guardInternal(TimelineParty $party): void

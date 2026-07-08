@@ -27,10 +27,18 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Livewire\Attributes\On;
 
 final class ViewSupplierRfq extends ViewRecord
 {
     protected static string $resource = SupplierRfqResource::class;
+
+    /**
+     * Re-render the page (and its activity infolist) after the pinned composer
+     * posts a note so the supplier's new note surfaces immediately.
+     */
+    #[On('note-posted')]
+    public function refreshAfterNote(): void {}
 
     public function infolist(Schema $schema): Schema
     {
@@ -114,7 +122,10 @@ final class ViewSupplierRfq extends ViewRecord
                     ->schema([
                         ViewEntry::make('activity_timeline')
                             ->label('')
-                            ->state(fn (): array => $this->activityTimeline())
+                            ->state(fn (): array => [
+                                'entries' => $this->activityTimeline(),
+                                'request' => $this->parentRequest(),
+                            ])
                             ->view('filament.supplier.components.request-activity-timeline'),
                     ])
                     ->columnSpanFull(),

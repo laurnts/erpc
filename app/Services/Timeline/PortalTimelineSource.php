@@ -10,6 +10,7 @@ use App\Enums\RequestStage;
 use App\Models\ActivityLog;
 use App\Models\BuyerPayment;
 use App\Models\Request;
+use App\Models\RequestNote;
 use App\Models\SupplierPayment;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -58,6 +59,7 @@ final readonly class PortalTimelineSource
         $entries = collect()
             ->concat(in_array(TimelineAudience::ENTRY_ACTIVITY, $entryTypes, true) ? $this->activityEntries($subjects) : [])
             ->concat(in_array(TimelineAudience::ENTRY_MEDIA, $entryTypes, true) ? $this->mediaEntries($subjects, $party) : [])
+            ->concat(in_array(TimelineAudience::ENTRY_NOTE, $entryTypes, true) ? $this->noteEntries($request, $party) : [])
             ->reject(fn (TimelineEntry $entry): bool => in_array($entry->actorType, $disallowedActors, true))
             ->map(fn (TimelineEntry $entry): TimelineEntry => $this->redact($entry, $party, $redaction))
             ->sortByDesc(fn (TimelineEntry $entry): string => $entry->occurredAt->format('Y-m-d H:i:s.u'))
@@ -298,6 +300,91 @@ final readonly class PortalTimelineSource
     }
 
     /**
+     * Note lane, hard-scoped by the audience helper's note-visibility scope
+     * (design D2). Only notes matching the party's visibility AND identity are
+     * ever SELECTED — an Internal note is never queried for a portal, and a
+     * supplier-shared note is pinned to a single supplier company so a shared
+     * request cannot leak one supplier's note to another. A System-style empty
+     * scope selects nothing.
+     *
+     * @return Collection<int, TimelineEntry>
+     */
+    private function noteEntries(Request $request, TimelineParty $party): Collection
+    {
+        $scope = $this->audience->noteVisibilityScope($party);
+
+        if ($scope['all'] === false && $scope['visibility'] === null) {
+            return collect();
+        }
+
+        $query = RequestNote::query()
+            ->with(['author', 'media'])
+            ->where('request_id', $request->getKey());
+
+        if ($scope['visibility'] !== null) {
+            $query->where('visibility', $scope['visibility']->value);
+        }
+
+        if ($scope['buyerCompanyId'] !== null) {
+            $query->whereHas('request', function (Builder $sub) use ($scope): void {
+                $sub->where('buyer_id', $scope['buyerCompanyId']);
+            });
+        }
+
+        if ($scope['supplierCompanyId'] !== null) {
+            $query->where('audience_company_id', $scope['supplierCompanyId']);
+        }
+
+        return $query->get()->map(function (RequestNote $note) use ($request): TimelineEntry {
+            $attachments = $note->getMedia(RequestNote::ATTACHMENTS_COLLECTION)
+                ->map(fn ($media): string => (string) $media->file_name)
+                ->values()
+                ->all();
+
+            return new TimelineEntry(
+                actorLabel: $note->author?->getAttribute('name') ?? $note->author_actor_type->getLabel(),
+                actorType: $note->author_actor_type,
+                entryType: TimelineAudience::ENTRY_NOTE,
+                event: 'note',
+                headline: $this->noteHeadline($note->body, $attachments),
+                subjectType: 'request',
+                subjectId: (int) $note->request_id,
+                subjectNumber: $request->request_number,
+                changedFieldCount: 0,
+                occurredAt: $note->created_at->toImmutable(),
+                lane: 'note',
+                body: ($note->body === null || $note->body === '') ? null : $note->body,
+                attachments: $attachments,
+            );
+        });
+    }
+
+    /**
+     * Build a note's rendered headline from its body and attachment names so
+     * both surface through views that render only the headline.
+     *
+     * @param  list<string>  $attachments
+     */
+    private function noteHeadline(?string $body, array $attachments): string
+    {
+        $body = trim((string) $body);
+
+        if ($body === '') {
+            return $attachments === []
+                ? 'Note'
+                : 'Note attachment: '.implode(', ', $attachments);
+        }
+
+        $headline = 'Note: '.$body;
+
+        if ($attachments !== []) {
+            $headline .= ' (attachment: '.implode(', ', $attachments).')';
+        }
+
+        return $headline;
+    }
+
+    /**
      * Apply the party's presentation redaction to one entry: collapse the
      * causer to the generic party-facing label (never a staff name), re-map
      * any stage value through the customer presenter, rewrite a stage-change
@@ -332,6 +419,8 @@ final readonly class PortalTimelineSource
             url: $url,
             properties: $properties,
             lane: $entry->lane,
+            body: $entry->body,
+            attachments: $entry->attachments,
         );
     }
 

@@ -19,10 +19,18 @@ use Filament\Infolists\Components\ViewEntry;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Livewire\Attributes\On;
 
 final class ViewCustomerRequest extends ViewRecord
 {
     protected static string $resource = CustomerRequestResource::class;
+
+    /**
+     * Re-render the page (and its activity infolist) after the pinned composer
+     * posts a note so the buyer's new note surfaces immediately.
+     */
+    #[On('note-posted')]
+    public function refreshAfterNote(): void {}
 
     public function infolist(Schema $schema): Schema
     {
