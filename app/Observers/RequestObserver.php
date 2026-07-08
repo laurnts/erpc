@@ -109,7 +109,7 @@ final readonly class RequestObserver
     public function updated(Request $request): void
     {
         if ($request->wasChanged('stage')) {
-            $this->notifyPortalUsersOfStageChange($request);
+            $this->notifyPortalUsersOfStageChange($request, $request->getOriginal('stage'));
         }
 
         // Check if stage changed to AWAITING_SUPPLIER_RESPONSE
@@ -141,9 +141,18 @@ final readonly class RequestObserver
         $action->execute($request);
     }
 
-    private function notifyPortalUsersOfStageChange(Request $request): void
+    private function notifyPortalUsersOfStageChange(Request $request, mixed $previousStage): void
     {
         if ($request->buyer_id === null) {
+            return;
+        }
+
+        $previous = $previousStage instanceof RequestStage
+            ? $previousStage
+            : RequestStage::tryFrom((string) $previousStage);
+
+        if ($previous === RequestStage::PREPARING_BUYER_QUOTE
+            && $request->stage === RequestStage::AWAITING_BUYER_CONFIRMATION) {
             return;
         }
 

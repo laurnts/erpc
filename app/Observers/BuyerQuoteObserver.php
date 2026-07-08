@@ -7,7 +7,9 @@ namespace App\Observers;
 use App\Actions\BuyerPortal\NotifyPortalUsers;
 use App\Data\TeamErpSettings;
 use App\Enums\BuyerQuoteStatus;
+use App\Enums\RequestStage;
 use App\Models\BuyerQuote;
+use App\Models\Request;
 use App\Models\Team;
 use App\Models\User;
 use App\Notifications\PortalBuyerQuoteSentNotification;
@@ -60,6 +62,8 @@ final readonly class BuyerQuoteObserver
 
         $buyerQuote->loadMissing('request');
 
+        $this->advanceRequestStageForSentQuote($buyerQuote->request);
+
         if ($buyerQuote->buyer_id === null) {
             return;
         }
@@ -68,5 +72,18 @@ final readonly class BuyerQuoteObserver
             $buyerQuote->buyer_id,
             new PortalBuyerQuoteSentNotification($buyerQuote),
         );
+    }
+
+    private function advanceRequestStageForSentQuote(?Request $request): void
+    {
+        if ($request === null || $request->stage !== RequestStage::PREPARING_BUYER_QUOTE) {
+            return;
+        }
+
+        if (! $request->stage->canTransitionTo(RequestStage::AWAITING_BUYER_CONFIRMATION)) {
+            return;
+        }
+
+        $request->transitionTo(RequestStage::AWAITING_BUYER_CONFIRMATION);
     }
 }

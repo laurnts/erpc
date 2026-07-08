@@ -8,6 +8,7 @@ use App\Enums\InvoiceStatus;
 use App\Filament\Actions\DownloadPdfAction;
 use App\Models\BuyerInvoice;
 use App\Models\Request;
+use Filament\Facades\Filament;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -74,7 +75,7 @@ final class InvoicesRelationManager extends RelationManager
             ->recordActions([
                 DownloadPdfAction::make()
                     ->label('PDF')
-                    ->authorize(fn (BuyerInvoice $record): bool => auth()->user()?->can('view', $record) ?? false),
+                    ->authorize(fn (BuyerInvoice $record): bool => ($user = Filament::auth()->user()) !== null && $user->can('view', $record)),
             ])
             ->emptyStateHeading('No invoices yet')
             ->emptyStateDescription('Invoices will appear here once they are issued.');
