@@ -896,14 +896,25 @@ final class ViewRequest extends ViewRecord
             ->modalHeading('Record Payment')
             ->modalDescription('Transfer to the bank account below, then record the payment and attach the proof of transfer.')
             ->modalSubmitActionLabel('Record Payment')
-            ->form(function (): array {
+            ->form(function (array $arguments): array {
                 /** @var Request $record */
                 $record = $this->getRecord();
                 $invoice = $this->getActiveStandardInvoice($record);
 
+                // Default to the clicked installment's amount, not the whole balance.
+                $installmentAmount = isset($arguments['amount'])
+                    ? (float) $arguments['amount']
+                    : (float) ($invoice?->amount_outstanding ?? 0);
+                /** @var string|null $term */
+                $term = $arguments['term'] ?? null;
+
                 return [
+                    Placeholder::make('installment')
+                        ->label('Installment')
+                        ->content($term.' — '.$this->formatCurrency($installmentAmount))
+                        ->visible($term !== null),
                     Placeholder::make('amount_outstanding')
-                        ->label('Amount outstanding')
+                        ->label('Total outstanding')
                         ->content($this->formatCurrency((float) ($invoice?->amount_outstanding ?? 0))),
                     Placeholder::make('bank_details')
                         ->label('Where to pay')
@@ -912,7 +923,7 @@ final class ViewRequest extends ViewRecord
                         ->label('Amount')
                         ->numeric()
                         ->required()
-                        ->default((string) ($invoice?->amount_outstanding ?? 0)),
+                        ->default((string) $installmentAmount),
                     Select::make('payment_method')
                         ->label('Payment Method')
                         ->options(PaymentMethod::class)
@@ -1029,7 +1040,7 @@ final class ViewRequest extends ViewRecord
      * covered, otherwise a grey button that opens the Record Payment modal
      * (or a plain "Unpaid" badge when no invoice can take a payment yet).
      */
-    private function paymentStatusCell(string $status, bool $canRecord): string
+    private function paymentStatusCell(string $status, bool $canRecord, float $amount, string $term): string
     {
         if ($status === 'Paid') {
             return $this->statusBadge('Paid', 'success');
@@ -1039,11 +1050,18 @@ final class ViewRequest extends ViewRecord
             return $this->statusBadge('Unpaid', 'gray');
         }
 
-        return '<button type="button" wire:click="mountAction(\'recordPayment\')" '
+        // The installment amount + label ride along as mountAction() arguments so
+        // the modal records only this portion, not the whole outstanding balance.
+        $termArg = htmlspecialchars($term, ENT_QUOTES);
+
+        return sprintf(
+            '<button type="button" wire:click="mountAction(\'recordPayment\', {amount: %d, term: \'%s\'})" '
             .'style="display:inline-flex;align-items:center;gap:0.25rem;padding:0.25rem 0.625rem;'
             .'border-radius:0.5rem;font-size:0.75rem;font-weight:500;line-height:1.25;white-space:nowrap;'
-            .'cursor:pointer;background-color:#f1f5f9;color:#334155;border:1px solid #e2e8f0;">'
-            .'Record payment</button>';
+            .'cursor:pointer;background-color:#f1f5f9;color:#334155;border:1px solid #e2e8f0;">Record payment</button>',
+            (int) round($amount),
+            $termArg,
+        );
     }
 
     /**
@@ -1088,7 +1106,7 @@ final class ViewRequest extends ViewRecord
                 $amountCell,
                 htmlspecialchars($this->formatCurrency($prepaymentAmount)),
                 $lastCell,
-                $this->paymentStatusCell($status, $canRecord),
+                $this->paymentStatusCell($status, $canRecord, $prepaymentAmount, 'Prepayment'),
             );
         }
 
@@ -1105,7 +1123,7 @@ final class ViewRequest extends ViewRecord
                 $amountCell,
                 htmlspecialchars($this->formatCurrency($amount)),
                 $lastCell,
-                $this->paymentStatusCell($status, $canRecord)
+                $this->paymentStatusCell($status, $canRecord, $amount, 'Settlement')
             );
         }
 

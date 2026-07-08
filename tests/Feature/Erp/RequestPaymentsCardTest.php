@@ -99,10 +99,12 @@ describe('payments card', function (): void {
             ->assertSee('Outstanding');
     });
 
-    it('renders the Record Payment action in the card header while the invoice is open', function (): void {
+    it('renders per-installment Record payment buttons that record each portion', function (): void {
         livewire(ViewRequest::class, ['record' => $this->request->getKey()])
             ->assertOk()
-            ->assertSee('Record Payment');
+            // Each button records only its own installment amount, not the whole balance.
+            ->assertSee("mountAction('recordPayment', {amount: 200", false)
+            ->assertSee("mountAction('recordPayment', {amount: 800", false);
     });
 });
 
