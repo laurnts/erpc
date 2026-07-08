@@ -8,6 +8,7 @@ use App\Enums\InvoiceStatus;
 use App\Enums\InvoiceType;
 use App\Enums\RequestSubmissionMethod;
 use App\Filament\Buyer\Resources\BuyerRequestResource;
+use App\Filament\Concerns\InteractsWithPaymentCard;
 use App\Models\BuyerInvoice;
 use App\Models\Request;
 use App\Models\RequestItem;
@@ -26,7 +27,18 @@ use Livewire\Attributes\On;
 
 final class ViewBuyerRequest extends ViewRecord
 {
+    use InteractsWithPaymentCard;
+
     protected static string $resource = BuyerRequestResource::class;
+
+    /**
+     * Buyer-submitted payments are recorded as PENDING (awaiting staff
+     * confirmation) rather than trusted immediately like staff entries.
+     */
+    protected function paymentActorType(): string
+    {
+        return 'buyer';
+    }
 
     /**
      * Re-render the page (and its activity infolist) after the pinned composer
@@ -114,12 +126,9 @@ final class ViewBuyerRequest extends ViewRecord
                     ])
                     ->columnSpanFull(),
                 Section::make('Payments')
+                    ->icon('heroicon-o-credit-card')
                     ->visible(fn (Request $record): bool => $this->hasPayableInvoice($record))
-                    ->schema([
-                        ViewEntry::make('payment_entry')
-                            ->label('')
-                            ->view('filament.buyer.components.request-payment-entry'),
-                    ])
+                    ->schema($this->paymentCardEntries())
                     ->columnSpanFull(),
                 Section::make('Activities')
                     ->schema([
@@ -152,6 +161,10 @@ final class ViewBuyerRequest extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            // Registered so its modal renders and the per-installment "Record
+            // payment" buttons can open it via mountAction(); the header button
+            // itself is hidden — the payment table rows are the trigger.
+            $this->recordPaymentAction()->extraAttributes(['class' => 'hidden']),
             EditAction::make()
                 ->visible(fn (Request $record): bool => $record->isEditableByBuyer()),
         ];
