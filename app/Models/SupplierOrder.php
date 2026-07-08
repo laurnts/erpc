@@ -167,6 +167,8 @@ final class SupplierOrder extends Model implements HasMedia
             'approver_1_id',
             'approver_2_id',
             'approved_at',
+            'exchange_rate',
+            'currency_id',
         ];
     }
 

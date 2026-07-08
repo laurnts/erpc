@@ -1507,8 +1507,9 @@ final class SupplierQuotesRelationManager extends RelationManager
 
                             $this->storedChildItemsData = null;
 
-                            // Remove orphan line items (no request_item_id) on service requests
-                            $record->items()->whereNull('request_item_id')->delete();
+                            // Remove orphan line items (no request_item_id) on service requests.
+                            // Model-level delete so removals fire `deleted` events (D2).
+                            $record->items()->whereNull('request_item_id')->get()->each->delete();
                             $record->recalculateTotals();
 
                             // Update quote status when prices are present: SELECTED if obtained, otherwise RECEIVED

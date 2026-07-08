@@ -11,6 +11,7 @@ use App\Models\BuyerCreditUsageHistory;
 use App\Models\BuyerOrder;
 use App\Models\BuyerPayment;
 use App\Models\Request;
+use App\Models\RequestNote;
 use App\Models\SupplierPayment;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -42,6 +43,25 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
  */
 final readonly class RequestTimelineSource
 {
+    /**
+     * Line-item subject type => its parent header morph alias. Line rows are
+     * matched to the request through the parent pointer their activity stamps
+     * (App\Models\Concerns\StampsParentOnActivity), so a hard-deleted line
+     * still resolves against its surviving header (design D7).
+     *
+     * @var array<string, string>
+     */
+    private const ITEM_PARENT_ALIASES = [
+        'request_item' => 'request',
+        'buyer_quote_item' => 'buyer_quote',
+        'supplier_quote_item' => 'supplier_quote',
+        'buyer_order_item' => 'buyer_order',
+        'supplier_order_item' => 'supplier_order',
+        'buyer_invoice_item' => 'buyer_invoice',
+        'supplier_invoice_item' => 'supplier_invoice',
+        'shipment_item' => 'shipment',
+    ];
+
     public function __construct(private TimelineAudience $audience) {}
 
     /**
@@ -61,6 +81,7 @@ final readonly class RequestTimelineSource
             ->concat(in_array(TimelineAudience::ENTRY_ACTIVITY, $entryTypes, true) ? $this->activityEntries($subjectNumbers) : [])
             ->concat(in_array(TimelineAudience::ENTRY_MEDIA, $entryTypes, true) ? $this->mediaEntries($subjectNumbers) : [])
             ->concat(in_array(TimelineAudience::ENTRY_CREDIT, $entryTypes, true) ? $this->creditEntries($request, $subjectNumbers) : [])
+            ->concat(in_array(TimelineAudience::ENTRY_NOTE, $entryTypes, true) ? $this->noteEntries($request) : [])
             ->sortByDesc(fn (TimelineEntry $entry): string => $entry->occurredAt->format('Y-m-d H:i:s.u'))
             ->values();
 
@@ -86,7 +107,18 @@ final readonly class RequestTimelineSource
             return false;
         }
 
-        $numbers = $this->subjectNumbers($request, $party)[$activity->subject_type] ?? [];
+        $subjectType = (string) $activity->subject_type;
+
+        // A line-item row is in-tree when its stamped parent points at one of
+        // this request's headers — resilient to the line having been deleted.
+        if (array_key_exists($subjectType, self::ITEM_PARENT_ALIASES)) {
+            $parentNumbers = $this->subjectNumbersFor($request, self::ITEM_PARENT_ALIASES[$subjectType]);
+            $parentId = (int) $activity->properties->get('parent_id');
+
+            return array_key_exists($parentId, $parentNumbers);
+        }
+
+        $numbers = $this->subjectNumbers($request, $party)[$subjectType] ?? [];
 
         return array_key_exists((int) $activity->subject_id, $numbers);
     }
@@ -119,6 +151,13 @@ final readonly class RequestTimelineSource
      */
     private function subjectNumbersFor(Request $request, string $subjectType): array
     {
+        // Line-item rows are surfaced by matching their stamped parent pointer
+        // (see itemActivityEntries), so their ids are not enumerated here; the
+        // key is still present for the allow-list completeness guard.
+        if (array_key_exists($subjectType, self::ITEM_PARENT_ALIASES)) {
+            return [];
+        }
+
         return match ($subjectType) {
             'request' => [(int) $request->getKey() => $request->request_number],
             'buyer_quote' => $request->buyerQuotes()->withTrashed()->pluck('quote_number', 'id')->all(),
@@ -151,6 +190,20 @@ final readonly class RequestTimelineSource
      * @return Collection<int, TimelineEntry>
      */
     private function activityEntries(array $subjectNumbers): Collection
+    {
+        return $this->headerActivityEntries($subjectNumbers)
+            ->concat($this->itemActivityEntries($subjectNumbers));
+    }
+
+    /**
+     * Header/document activity rows via the (subject_type, subject_id) tuples.
+     * Item subject types enumerate to empty (design D7) and drop out here; they
+     * are handled by itemActivityEntries.
+     *
+     * @param  array<string, array<int, string|null>>  $subjectNumbers
+     * @return Collection<int, TimelineEntry>
+     */
+    private function headerActivityEntries(array $subjectNumbers): Collection
     {
         $subjectNumbers = array_filter($subjectNumbers, fn (array $numbers): bool => $numbers !== []);
 
@@ -202,6 +255,178 @@ final readonly class RequestTimelineSource
     }
 
     /**
+     * Line-item activity rows, matched to the request through the parent
+     * pointer each item stamps into properties, then grouped under (and
+     * numbered by) their parent header. Matching by parent — not by the line's
+     * own id — keeps a hard-deleted line's deletion snapshot visible.
+     *
+     * @param  array<string, array<int, string|null>>  $subjectNumbers
+     * @return Collection<int, TimelineEntry>
+     */
+    private function itemActivityEntries(array $subjectNumbers): Collection
+    {
+        /** @var array<string, array<int, string|null>> $parentNumbersByAlias */
+        $parentNumbersByAlias = [];
+
+        foreach (self::ITEM_PARENT_ALIASES as $parentAlias) {
+            $parentNumbersByAlias[$parentAlias] = $subjectNumbers[$parentAlias] ?? [];
+        }
+
+        $itemTypesWithParents = array_filter(
+            self::ITEM_PARENT_ALIASES,
+            fn (string $parentAlias): bool => ($parentNumbersByAlias[$parentAlias] ?? []) !== [],
+        );
+
+        if ($itemTypesWithParents === []) {
+            return collect();
+        }
+
+        return ActivityLog::query()
+            ->with('causer')
+            ->where(function (Builder $query) use ($itemTypesWithParents, $parentNumbersByAlias): void {
+                foreach ($itemTypesWithParents as $itemType => $parentAlias) {
+                    $query->orWhere(function (Builder $tuple) use ($itemType, $parentAlias, $parentNumbersByAlias): void {
+                        $tuple->where('subject_type', $itemType)
+                            ->where('properties->parent_type', $parentAlias)
+                            ->whereIn('properties->parent_id', array_keys($parentNumbersByAlias[$parentAlias]));
+                    });
+                }
+            })
+            ->get()
+            ->map(function (ActivityLog $activity) use ($parentNumbersByAlias): TimelineEntry {
+                $parentAlias = self::ITEM_PARENT_ALIASES[(string) $activity->subject_type];
+
+                return $this->itemEntry($activity, $parentAlias, $parentNumbersByAlias[$parentAlias]);
+            });
+    }
+
+    /**
+     * @param  array<int, string|null>  $parentNumbers
+     */
+    private function itemEntry(ActivityLog $activity, string $parentAlias, array $parentNumbers): TimelineEntry
+    {
+        $properties = $activity->properties;
+        $parentId = (int) $properties->get('parent_id');
+        $parentNumber = $parentNumbers[$parentId] ?? null;
+        $lineLabel = (string) ($properties->get('line_label') ?? 'line');
+        $attributes = (array) $properties->get('attributes', []);
+        $old = (array) $properties->get('old', []);
+        $labels = (array) $properties->get('labels', []);
+        $event = $activity->event ?? 'logged';
+        $changedFields = $event === 'deleted' ? $old : $attributes;
+
+        return new TimelineEntry(
+            actorLabel: $activity->causer?->getAttribute('name') ?? 'System',
+            actorType: $activity->actor_type ?? ActorType::System,
+            entryType: TimelineAudience::ENTRY_ACTIVITY,
+            event: $event,
+            headline: $this->itemHeadline($event, $parentAlias, $parentNumber, $lineLabel, $attributes, $old, $labels),
+            subjectType: (string) $activity->subject_type,
+            subjectId: (int) $activity->subject_id,
+            subjectNumber: $parentNumber,
+            changedFieldCount: count($changedFields),
+            occurredAt: $activity->created_at->toImmutable(),
+            properties: [
+                'activity_id' => (int) $activity->getKey(),
+                'attributes' => $attributes,
+                'old' => $old,
+                'parent_type' => $parentAlias,
+                'parent_id' => $parentId,
+                'line_label' => $lineLabel,
+                'labels' => $labels,
+            ],
+        );
+    }
+
+    /**
+     * "Buyer Quote BQ-123 — line "Steel pipe" unit_price 100 → 50", with the
+     * field changes (FK ids already resolved to labels) inlined for updates and
+     * a plain added/removed verb for creations and deletions.
+     *
+     * @param  array<string, mixed>  $attributes
+     * @param  array<string, mixed>  $old
+     * @param  array<string, array{old?: string|null, new?: string|null}>  $labels
+     */
+    private function itemHeadline(
+        string $event,
+        string $parentAlias,
+        ?string $parentNumber,
+        string $lineLabel,
+        array $attributes,
+        array $old,
+        array $labels,
+    ): string {
+        $context = trim(sprintf(
+            '%s %s — line "%s"',
+            Str::headline($parentAlias),
+            $parentNumber ?? '',
+            $lineLabel,
+        ));
+        $context = (string) preg_replace('/\s{2,}/', ' ', $context);
+
+        if ($event === 'created') {
+            return $context.' added';
+        }
+
+        if ($event === 'deleted') {
+            return $context.' removed';
+        }
+
+        $changes = $this->formatFieldChanges($attributes, $old, $labels);
+
+        return $changes === '' ? $context.' updated' : $context.' '.$changes;
+    }
+
+    /**
+     * Compact "field old → new" summary (first three fields), FK fields shown
+     * through their resolved labels.
+     *
+     * @param  array<string, mixed>  $attributes
+     * @param  array<string, mixed>  $old
+     * @param  array<string, array{old?: string|null, new?: string|null}>  $labels
+     */
+    private function formatFieldChanges(array $attributes, array $old, array $labels): string
+    {
+        $parts = [];
+
+        foreach ($attributes as $field => $newValue) {
+            if (array_key_exists($field, $labels)) {
+                $oldLabel = $labels[$field]['old'] ?? $this->scalar($old[$field] ?? null);
+                $newLabel = $labels[$field]['new'] ?? $this->scalar($newValue);
+                $parts[] = sprintf('%s %s → %s', $field, $oldLabel ?? '—', $newLabel ?? '—');
+
+                continue;
+            }
+
+            $parts[] = sprintf(
+                '%s %s → %s',
+                $field,
+                $this->scalar($old[$field] ?? null),
+                $this->scalar($newValue),
+            );
+        }
+
+        if ($parts === []) {
+            return '';
+        }
+
+        return implode(', ', array_slice($parts, 0, 3)).(count($parts) > 3 ? ', …' : '');
+    }
+
+    private function scalar(mixed $value): string
+    {
+        if ($value === null) {
+            return '—';
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'yes' : 'no';
+        }
+
+        return (string) $value;
+    }
+
+    /**
      * Uploads on the request and its child documents, attributed from the
      * attach-time uploader stamp; unstamped media renders as System/Unknown
      * for internal parties (staff media rules allow unstamped, fail-open).
@@ -233,6 +458,12 @@ final readonly class RequestTimelineSource
             ->pluck('name', 'id');
 
         return $media->map(function (Media $item) use ($subjectNumbers, $uploaderNames): TimelineEntry {
+            // System is reserved for genuine automation (scheduled jobs,
+            // outbound emails/reminders) and for legacy uploads that predate
+            // uploader stamping and have not yet been run through
+            // `timeline:backfill-attribution`. A stamped upload always carries
+            // its real actor, so a person-driven history should not read as
+            // System once the backfill has run.
             $actorType = ActorType::tryFrom((string) $item->getCustomProperty('uploader_actor_type')) ?? ActorType::System;
             $uploaderId = $item->getCustomProperty('uploader_id');
             $actorLabel = $uploaderId !== null
@@ -343,6 +574,70 @@ final readonly class RequestTimelineSource
             number_format((float) $row->available_credit_before, 2),
             number_format((float) $row->available_credit_after, 2),
         );
+    }
+
+    /**
+     * Note lane (design D2): every note pinned to the request, newest handled
+     * by the shared sort. Staff/admin see all notes regardless of visibility,
+     * with the author's real name attributed.
+     *
+     * @return Collection<int, TimelineEntry>
+     */
+    private function noteEntries(Request $request): Collection
+    {
+        return RequestNote::query()
+            ->with(['author', 'media'])
+            ->where('request_id', $request->getKey())
+            ->get()
+            ->map(function (RequestNote $note) use ($request): TimelineEntry {
+                $attachments = $note->getMedia(RequestNote::ATTACHMENTS_COLLECTION)
+                    ->map(fn ($media): string => (string) $media->file_name)
+                    ->values()
+                    ->all();
+
+                return new TimelineEntry(
+                    actorLabel: $note->author?->getAttribute('name') ?? $note->author_actor_type->getLabel(),
+                    actorType: $note->author_actor_type,
+                    entryType: TimelineAudience::ENTRY_NOTE,
+                    event: 'note',
+                    headline: $this->noteHeadline($note->body, $attachments),
+                    subjectType: 'request',
+                    subjectId: (int) $note->request_id,
+                    subjectNumber: $request->request_number,
+                    changedFieldCount: 0,
+                    occurredAt: $note->created_at->toImmutable(),
+                    properties: ['visibility' => $note->visibility->value],
+                    lane: 'note',
+                    body: ($note->body === null || $note->body === '') ? null : $note->body,
+                    attachments: $attachments,
+                );
+            });
+    }
+
+    /**
+     * Build a note's rendered headline from its body and attachment names so
+     * both surface through views that render only the headline. An
+     * attachment-only note falls back to describing its files.
+     *
+     * @param  list<string>  $attachments
+     */
+    private function noteHeadline(?string $body, array $attachments): string
+    {
+        $body = trim((string) $body);
+
+        if ($body === '') {
+            return $attachments === []
+                ? 'Note'
+                : 'Note attachment: '.implode(', ', $attachments);
+        }
+
+        $headline = 'Note: '.$body;
+
+        if ($attachments !== []) {
+            $headline .= ' (attachment: '.implode(', ', $attachments).')';
+        }
+
+        return $headline;
     }
 
     private function guardInternal(TimelineParty $party): void

@@ -102,5 +102,7 @@
         </div>
     @endif
 
+    <livewire:request-note-composer :request="$request" wire:key="internal-note-composer-{{ $request->getKey() }}" />
+
     <x-filament-actions::modals />
 </div>

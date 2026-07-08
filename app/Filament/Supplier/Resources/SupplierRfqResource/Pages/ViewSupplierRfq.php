@@ -8,23 +8,37 @@ use App\Actions\SupplierPortal\DeclineSupplierRfq;
 use App\Actions\SupplierPortal\SubmitSupplierRfqResponse;
 use App\Filament\Supplier\Resources\SupplierRfqResource;
 use App\Filament\Supplier\Resources\SupplierRfqResource\Schemas\SupplierRfqSubmissionForm;
+use App\Models\Request;
 use App\Models\SupplierQuote;
 use App\Models\SupplierQuoteItem;
 use App\Models\User;
+use App\Services\Portal\SupplierPortalContext;
 use App\Services\SupplierPortal\SupplierRfqStatusPresenter;
+use App\Services\Timeline\PortalTimelineSource;
+use App\Services\Timeline\TimelineParty;
 use App\Support\SafeCast;
 use Filament\Actions\Action;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\ViewEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Livewire\Attributes\On;
 
 final class ViewSupplierRfq extends ViewRecord
 {
     protected static string $resource = SupplierRfqResource::class;
+
+    /**
+     * Re-render the page (and its activity infolist) after the pinned composer
+     * posts a note so the supplier's new note surfaces immediately.
+     */
+    #[On('note-posted')]
+    public function refreshAfterNote(): void {}
 
     public function infolist(Schema $schema): Schema
     {
@@ -103,7 +117,53 @@ final class ViewSupplierRfq extends ViewRecord
                             ])
                             ->columns($this->quoteRecord()->outcomes_announced_at !== null ? 7 : 6),
                     ]),
+                Section::make('Activity')
+                    ->description('Your interactions on this quotation, most recent first.')
+                    ->schema([
+                        ViewEntry::make('activity_timeline')
+                            ->label('')
+                            ->state(fn (): array => [
+                                'entries' => $this->activityTimeline(),
+                                'request' => $this->parentRequest(),
+                            ])
+                            ->view('filament.supplier.components.request-activity-timeline'),
+                    ])
+                    ->columnSpanFull(),
             ]);
+    }
+
+    /**
+     * The supplier-scoped, redacted portal timeline for the request behind
+     * this quotation. The audience helper keys every subject rule to the
+     * authenticated supplier's company id, so only this supplier's own
+     * documents on the (possibly shared) request are ever enumerated.
+     *
+     * @return list<\App\Data\TimelineEntry>
+     */
+    private function activityTimeline(): array
+    {
+        $request = $this->parentRequest();
+
+        if ($request === null) {
+            return [];
+        }
+
+        $companyId = app(SupplierPortalContext::class)->companyId();
+
+        return app(PortalTimelineSource::class)
+            ->forParty($request, TimelineParty::supplier($companyId));
+    }
+
+    /**
+     * Resolve the parent Request from the quotation without trusting the
+     * narrow portal projection (which deliberately omits request_id): the
+     * request is reached through this quote's own key via the relationship.
+     */
+    private function parentRequest(): ?Request
+    {
+        return Request::query()
+            ->whereHas('supplierQuotes', fn (Builder $query): Builder => $query->whereKey($this->quoteRecord()->getKey()))
+            ->first();
     }
 
     protected function getHeaderActions(): array

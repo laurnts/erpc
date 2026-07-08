@@ -28,6 +28,8 @@ final class TimelineEntry extends Data
      * @param  string|null  $url  allow-listed link for the audience, null when denied
      * @param  array<string, mixed>|null  $properties  diff payload for the detail modal (attributes/old)
      * @param  string|null  $lane  visual lane marker (e.g. 'credit' for the credit-ledger lane)
+     * @param  string|null  $body  full note body for ENTRY_NOTE rows (null for non-note lanes)
+     * @param  list<string>  $attachments  note attachment file names for ENTRY_NOTE rows
      */
     public function __construct(
         public string $actorLabel,
@@ -43,5 +45,7 @@ final class TimelineEntry extends Data
         public ?string $url = null,
         public ?array $properties = null,
         public ?string $lane = null,
+        public ?string $body = null,
+        public array $attachments = [],
     ) {}
 }

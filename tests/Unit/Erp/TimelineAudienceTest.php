@@ -112,7 +112,7 @@ it('classifies every model using LogsErpActivity as buyer-visible or explicitly 
 it('reserves the credit-ledger lane for internal parties only', function (): void {
     expect($this->audience->entryTypes(TimelineParty::staff()))->toContain(TimelineAudience::ENTRY_CREDIT)
         ->and($this->audience->entryTypes(TimelineParty::admin()))->toContain(TimelineAudience::ENTRY_CREDIT)
-        ->and($this->audience->entryTypes(TimelineParty::buyer(42)))->toEqualCanonicalizing([TimelineAudience::ENTRY_ACTIVITY, TimelineAudience::ENTRY_MEDIA])
+        ->and($this->audience->entryTypes(TimelineParty::buyer(42)))->toEqualCanonicalizing([TimelineAudience::ENTRY_ACTIVITY, TimelineAudience::ENTRY_MEDIA, TimelineAudience::ENTRY_NOTE])
         ->and($this->audience->entryTypes(TimelineParty::supplier(42)))->not->toContain(TimelineAudience::ENTRY_CREDIT);
 });
 

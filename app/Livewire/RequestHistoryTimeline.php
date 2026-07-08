@@ -14,6 +14,7 @@ use Filament\Actions\Action;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Livewire\Attributes\On;
 
 /**
  * Collapsible History timeline on the internal request view (design D6):
@@ -45,6 +46,16 @@ final class RequestHistoryTimeline extends BaseLivewireComponent
     public function nextPage(): void
     {
         $this->page++;
+    }
+
+    /**
+     * Re-render the timeline after the pinned composer posts a note so the new
+     * entry appears without a full page reload.
+     */
+    #[On('note-posted')]
+    public function refreshAfterNote(): void
+    {
+        $this->page = 1;
     }
 
     /**

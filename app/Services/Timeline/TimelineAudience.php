@@ -6,6 +6,7 @@ namespace App\Services\Timeline;
 
 use App\Enums\ActorType;
 use App\Enums\BuyerQuoteStatus;
+use App\Enums\NoteVisibility;
 use App\Enums\ShipmentType;
 use InvalidArgumentException;
 
@@ -27,6 +28,8 @@ final readonly class TimelineAudience
     public const ENTRY_MEDIA = 'media';
 
     public const ENTRY_CREDIT = 'credit';
+
+    public const ENTRY_NOTE = 'note';
 
     /**
      * Full internal subject set: the request plus every logged request
@@ -50,6 +53,14 @@ final readonly class TimelineAudience
         'profit_and_loss',
         'acceptance_report',
         'goods_receive_batch',
+        'request_item',
+        'buyer_quote_item',
+        'supplier_quote_item',
+        'buyer_order_item',
+        'supplier_order_item',
+        'buyer_invoice_item',
+        'supplier_invoice_item',
+        'shipment_item',
     ];
 
     /**
@@ -76,6 +87,14 @@ final readonly class TimelineAudience
         'acceptance_report' => 'Internal fulfillment record; not classified buyer-facing in v1.',
         'goods_receive_batch' => 'Internal inbound goods handling.',
         'company' => 'Team master data whose audited attributes include internal credit fields (credit_used, credit_limit).',
+        'request_item' => 'Line-level change surfaced only on the internal timeline, grouped under its parent request.',
+        'buyer_quote_item' => 'Line-level change surfaced only on the internal timeline, grouped under its parent buyer quote.',
+        'supplier_quote_item' => 'Supplier cost line; internal-only, never buyer-facing.',
+        'buyer_order_item' => 'Line-level change surfaced only on the internal timeline, grouped under its parent buyer order.',
+        'supplier_order_item' => 'Supplier-side purchasing line; internal cost data.',
+        'buyer_invoice_item' => 'Line-level change surfaced only on the internal timeline, grouped under its parent buyer invoice.',
+        'supplier_invoice_item' => 'Supplier-side billing line; internal cost data.',
+        'shipment_item' => 'Internal fulfillment line; not classified buyer-facing in v1.',
     ];
 
     /**
@@ -103,14 +122,58 @@ final readonly class TimelineAudience
     public function entryTypes(TimelineParty $party): array
     {
         if ($party->isInternal()) {
-            return [self::ENTRY_ACTIVITY, self::ENTRY_MEDIA, self::ENTRY_CREDIT];
+            return [self::ENTRY_ACTIVITY, self::ENTRY_MEDIA, self::ENTRY_CREDIT, self::ENTRY_NOTE];
         }
 
         if ($party->actorType === ActorType::System) {
             return [];
         }
 
-        return [self::ENTRY_ACTIVITY, self::ENTRY_MEDIA];
+        return [self::ENTRY_ACTIVITY, self::ENTRY_MEDIA, self::ENTRY_NOTE];
+    }
+
+    /**
+     * Which RequestNotes a party may load, as a declarative scope the timeline
+     * sources translate into a query (never Internal notes to a portal; never
+     * one supplier's notes to another).
+     *
+     *  - staff/admin: every note on the request ('all' => true);
+     *  - buyer:{companyId}: notes with visibility=Buyer, further pinned to a
+     *    request the company owns (request.buyer_id = companyId);
+     *  - supplier:{companyId}: notes with visibility=Supplier pinned to that
+     *    supplier (audience_company_id = companyId);
+     *  - system: no notes.
+     *
+     * @return array{all: bool, visibility: NoteVisibility|null, buyerCompanyId: int|null, supplierCompanyId: int|null}
+     */
+    public function noteVisibilityScope(TimelineParty $party): array
+    {
+        return match ($party->actorType) {
+            ActorType::Staff, ActorType::Admin => [
+                'all' => true,
+                'visibility' => null,
+                'buyerCompanyId' => null,
+                'supplierCompanyId' => null,
+            ],
+            ActorType::Buyer => [
+                'all' => false,
+                'visibility' => NoteVisibility::Buyer,
+                'buyerCompanyId' => $this->requireCompanyId($party),
+                'supplierCompanyId' => null,
+            ],
+            ActorType::Supplier => [
+                'all' => false,
+                'visibility' => NoteVisibility::Supplier,
+                'buyerCompanyId' => null,
+                'supplierCompanyId' => $this->requireCompanyId($party),
+            ],
+            ActorType::System => [
+                'all' => false,
+                'visibility' => null,
+                'buyerCompanyId' => null,
+                'supplierCompanyId' => null,
+            ],
+        };
     }
 
     /**

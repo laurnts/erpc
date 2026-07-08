@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsErpActivity;
+use App\Models\Concerns\StampsParentOnActivity;
 use Database\Factories\SupplierInvoiceItemFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -44,6 +46,10 @@ final class SupplierInvoiceItem extends Model
 {
     /** @use HasFactory<SupplierInvoiceItemFactory> */
     use HasFactory;
+
+    use LogsErpActivity, StampsParentOnActivity {
+        StampsParentOnActivity::isLogEmpty insteadof LogsErpActivity;
+    }
 
     /**
      * @var list<string>
@@ -97,6 +103,34 @@ final class SupplierInvoiceItem extends Model
             'line_total' => 'decimal:4',
             'sort_order' => 'integer',
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'quantity',
+            'unit_price',
+            'tax_rate',
+            'tax_code_id',
+            'tax_inclusive',
+            'unit_of_measure_id',
+            'unit',
+            'article_id',
+            'line_total',
+        ];
+    }
+
+    protected function activityParentAlias(): string
+    {
+        return 'supplier_invoice';
+    }
+
+    protected function activityParentIdColumn(): string
+    {
+        return 'supplier_invoice_id';
     }
 
     /**

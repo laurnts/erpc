@@ -13,6 +13,7 @@ use App\Models\Request;
 use App\Models\SupplierOrder;
 use App\Models\SupplierQuote;
 use App\Models\User;
+use App\Support\Media\UploaderProvenance;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -90,7 +91,7 @@ final class SeedRequestDocumentsCommand extends Command
         $media = $this->seedMedia($order->request, 'goods_receive', 'Placeholder Goods Receive Document', [
             'uploaded_by' => $user->id,
             'supplier_order_id' => $order->id,
-        ]);
+        ], $user);
 
         $batch = GoodsReceiveBatch::create([
             'request_id' => $order->request->id,
@@ -120,7 +121,7 @@ final class SeedRequestDocumentsCommand extends Command
             'uploaded_by' => $user->id,
             'is_payment_document' => true,
             'payment_terms' => (string) $this->option('payment-terms'),
-        ]);
+        ], $user);
         $this->info("Seeded completion report media {$media->id} for request {$request->request_number}.");
 
         if ((bool) $this->option('approve')) {
@@ -141,7 +142,7 @@ final class SeedRequestDocumentsCommand extends Command
 
         $media = $this->seedMedia($model, 'documents', 'Placeholder Approval Document', [
             'uploaded_by' => $user->id,
-        ]);
+        ], $user);
         $this->info('Seeded documents media '.$media->id.' for '.class_basename($model).' #'.$model->id.'.');
 
         if ((bool) $this->option('approve')) {
@@ -172,7 +173,7 @@ final class SeedRequestDocumentsCommand extends Command
         foreach ($pending as $quote) {
             $media = $this->seedMedia($quote, 'quotation', 'Placeholder Supplier Quotation', [
                 'uploaded_by' => $user->id,
-            ]);
+            ], $user);
             $this->info("Seeded quotation media {$media->id} for supplier quote {$quote->quote_number}.");
         }
 
@@ -215,9 +216,15 @@ final class SeedRequestDocumentsCommand extends Command
     }
 
     /**
+     * Attach a placeholder document, stamping the uploader identity from the
+     * resolved seed user and the actor kind implied by the collection so the
+     * seeded history reads as a person (never System). Caller-supplied
+     * uploader stamps win inside {@see AttachUploadedFiles}, so these override
+     * the runtime (unauthenticated) System default the command runs under.
+     *
      * @param  array<string, mixed>  $customProperties
      */
-    private function seedMedia(HasMedia $model, string $collection, string $name, array $customProperties): Media
+    private function seedMedia(HasMedia $model, string $collection, string $name, array $customProperties, User $user): Media
     {
         $fileName = 'placeholder-'.str_replace('_', '-', $collection).'.pdf';
         $relativePath = self::STAGING_DIRECTORY.'/'.Str::uuid().'/'.$fileName;
@@ -228,7 +235,11 @@ final class SeedRequestDocumentsCommand extends Command
             [$relativePath],
             $collection,
             self::STAGING_DIRECTORY,
-            $customProperties,
+            [
+                'uploader_id' => $user->id,
+                'uploader_actor_type' => UploaderProvenance::actorTypeFor($collection)->value,
+                ...$customProperties,
+            ],
         );
 
         $media = $attached[0] ?? null;

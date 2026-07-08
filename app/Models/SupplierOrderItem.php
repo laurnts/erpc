@@ -6,6 +6,8 @@ namespace App\Models;
 
 use App\Casts\SafeUnitCast;
 use App\Enums\Unit;
+use App\Models\Concerns\LogsErpActivity;
+use App\Models\Concerns\StampsParentOnActivity;
 use Database\Factories\SupplierOrderItemFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -47,6 +49,10 @@ final class SupplierOrderItem extends Model
     /** @use HasFactory<SupplierOrderItemFactory> */
     use HasFactory;
 
+    use LogsErpActivity, StampsParentOnActivity {
+        StampsParentOnActivity::isLogEmpty insteadof LogsErpActivity;
+    }
+
     /**
      * Boot the model.
      */
@@ -55,7 +61,7 @@ final class SupplierOrderItem extends Model
         parent::boot();
 
         // Recalculate line total when saving if supplier is taxable and tax rate is set
-        static::saving(function (SupplierOrderItem $item): void {
+        self::saving(function (SupplierOrderItem $item): void {
             $supplierOrder = $item->supplierOrder;
             if ($supplierOrder !== null) {
                 $supplier = $supplierOrder->supplier;
@@ -66,7 +72,7 @@ final class SupplierOrderItem extends Model
         });
 
         // Recalculate order totals after item is saved
-        static::saved(function (SupplierOrderItem $item): void {
+        self::saved(function (SupplierOrderItem $item): void {
             $supplierOrder = $item->supplierOrder;
             if ($supplierOrder !== null) {
                 $supplierOrder->recalculateTotals();
@@ -74,7 +80,7 @@ final class SupplierOrderItem extends Model
         });
 
         // Recalculate order totals after item is deleted
-        static::deleted(function (SupplierOrderItem $item): void {
+        self::deleted(function (SupplierOrderItem $item): void {
             $supplierOrder = $item->supplierOrder;
             if ($supplierOrder !== null) {
                 $supplierOrder->recalculateTotals();
@@ -136,6 +142,34 @@ final class SupplierOrderItem extends Model
             'tax_rate' => 'decimal:4',
             'sort_order' => 'integer',
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'quantity',
+            'unit_price',
+            'tax_rate',
+            'tax_code_id',
+            'is_tax_inclusive',
+            'unit_of_measure_id',
+            'unit',
+            'article_id',
+            'line_total',
+        ];
+    }
+
+    protected function activityParentAlias(): string
+    {
+        return 'supplier_order';
+    }
+
+    protected function activityParentIdColumn(): string
+    {
+        return 'supplier_order_id';
     }
 
     /**

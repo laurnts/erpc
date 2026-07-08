@@ -7,6 +7,8 @@ namespace App\Models;
 use App\Casts\SafeUnitCast;
 use App\Enums\ItemType;
 use App\Enums\Unit;
+use App\Models\Concerns\LogsErpActivity;
+use App\Models\Concerns\StampsParentOnActivity;
 use App\Observers\RequestItemObserver;
 use Database\Factories\RequestItemFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -41,6 +43,10 @@ final class RequestItem extends Model
 {
     /** @use HasFactory<RequestItemFactory> */
     use HasFactory;
+
+    use LogsErpActivity, StampsParentOnActivity {
+        StampsParentOnActivity::isLogEmpty insteadof LogsErpActivity;
+    }
 
     /**
      * @var list<string>
@@ -83,6 +89,31 @@ final class RequestItem extends Model
             'sort_order' => 'integer',
             'is_matched' => 'boolean',
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'quantity',
+            'unit_of_measure_id',
+            'unit',
+            'article_id',
+            'supplier_id',
+            'item_type',
+        ];
+    }
+
+    protected function activityParentAlias(): string
+    {
+        return 'request';
+    }
+
+    protected function activityParentIdColumn(): string
+    {
+        return 'request_id';
     }
 
     /**

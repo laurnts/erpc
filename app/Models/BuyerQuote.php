@@ -168,6 +168,8 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
             'prepayment_percent',
             'issued_at',
             'valid_until',
+            'exchange_rate',
+            'currency_id',
         ];
     }
 

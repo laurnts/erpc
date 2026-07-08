@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsErpActivity;
+use App\Models\Concerns\StampsParentOnActivity;
 use Database\Factories\BuyerInvoiceItemFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -42,6 +44,10 @@ final class BuyerInvoiceItem extends Model
 {
     /** @use HasFactory<BuyerInvoiceItemFactory> */
     use HasFactory;
+
+    use LogsErpActivity, StampsParentOnActivity {
+        StampsParentOnActivity::isLogEmpty insteadof LogsErpActivity;
+    }
 
     /**
      * @var list<string>
@@ -94,6 +100,34 @@ final class BuyerInvoiceItem extends Model
             'line_total' => 'decimal:4',
             'sort_order' => 'integer',
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function activityAttributes(): array
+    {
+        return [
+            'quantity',
+            'unit_price',
+            'tax_rate',
+            'tax_code_id',
+            'tax_inclusive',
+            'unit_of_measure_id',
+            'unit',
+            'article_id',
+            'line_total',
+        ];
+    }
+
+    protected function activityParentAlias(): string
+    {
+        return 'buyer_invoice';
+    }
+
+    protected function activityParentIdColumn(): string
+    {
+        return 'buyer_invoice_id';
     }
 
     /**
@@ -263,7 +297,7 @@ final class BuyerInvoiceItem extends Model
         $item->description = $orderItem->description;
         $item->quantity = $orderItem->quantity;
         $item->unit_of_measure_id = $orderItem->unit_of_measure_id;
-        
+
         // Ensure unit is set from unit_of_measure_id or order item's unit
         if ($orderItem->unit_of_measure_id !== null) {
             $unitOfMeasure = \App\Models\UnitOfMeasure::find($orderItem->unit_of_measure_id);

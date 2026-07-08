@@ -8,6 +8,7 @@ use App\Filament\Customer\Resources\CustomerRequestResource;
 use App\Filament\Customer\Resources\CustomerRequestResource\Schemas\CustomerRequestForm;
 use App\Models\RequestItem;
 use App\Models\UnitOfMeasure;
+use App\Support\LineItemReconciler;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Schema;
 
@@ -26,6 +27,7 @@ final class EditCustomerRequest extends EditRecord
         $this->form->fill([
             ...$this->getRecord()->attributesToArray(),
             'items' => $this->getRecord()->items->map(fn (RequestItem $item): array => [
+                'id' => $item->getKey(),
                 'description' => $item->description,
                 'item_type' => $item->item_type->value,
                 'quantity' => $item->quantity,
@@ -54,23 +56,33 @@ final class EditCustomerRequest extends EditRecord
 
     protected function afterSave(): void
     {
-        $items = $this->form->getState()['items'] ?? [];
+        /**
+         * Read the raw component state (not getState()) so each row keeps the
+         * hidden `id` seeded in mount(); getState() dehydrates only the visible
+         * repeater fields and would strip it. The id lets the reconciler match
+         * surviving rows in place so a genuine edit fires `updated`/`deleted`
+         * instead of a full delete-and-recreate (design D2).
+         *
+         * @var array<int|string, array<string, mixed>> $items
+         */
+        $items = $this->data['items'] ?? [];
 
-        $this->getRecord()->items()->delete();
+        LineItemReconciler::reconcile(
+            $this->getRecord()->items(),
+            $items,
+            function (array $item, int $index): array {
+                $uom = UnitOfMeasure::query()->find($item['unit_of_measure_id']);
 
-        foreach ($items as $index => $item) {
-            $uom = UnitOfMeasure::query()->find($item['unit_of_measure_id']);
-
-            RequestItem::query()->create([
-                'request_id' => $this->getRecord()->getKey(),
-                'description' => $item['description'],
-                'item_type' => $item['item_type'] ?? \App\Enums\ItemType::GOODS,
-                'quantity' => $item['quantity'],
-                'unit_of_measure_id' => $item['unit_of_measure_id'],
-                'unit' => $uom?->code ?? 'pcs',
-                'sort_order' => $index,
-            ]);
-        }
+                return [
+                    'description' => $item['description'],
+                    'item_type' => $item['item_type'] ?? \App\Enums\ItemType::GOODS,
+                    'quantity' => $item['quantity'],
+                    'unit_of_measure_id' => $item['unit_of_measure_id'],
+                    'unit' => $uom?->code ?? 'pcs',
+                    'sort_order' => $index,
+                ];
+            },
+        );
     }
 
     protected function getRedirectUrl(): string

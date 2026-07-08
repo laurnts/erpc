@@ -181,6 +181,8 @@ final class SupplierQuote extends Model implements HasMedia
             'quoted_at',
             'valid_until',
             'obtained',
+            'exchange_rate',
+            'currency_id',
         ];
     }
 

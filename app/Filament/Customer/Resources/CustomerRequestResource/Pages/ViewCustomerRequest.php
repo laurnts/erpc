@@ -9,6 +9,9 @@ use App\Filament\Customer\Resources\CustomerRequestResource;
 use App\Models\Request;
 use App\Models\RequestItem;
 use App\Services\CustomerPortal\CustomerRequestStagePresenter;
+use App\Services\Portal\CustomerPortalContext;
+use App\Services\Timeline\PortalTimelineSource;
+use App\Services\Timeline\TimelineParty;
 use Filament\Actions\EditAction;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -16,10 +19,18 @@ use Filament\Infolists\Components\ViewEntry;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Livewire\Attributes\On;
 
 final class ViewCustomerRequest extends ViewRecord
 {
     protected static string $resource = CustomerRequestResource::class;
+
+    /**
+     * Re-render the page (and its activity infolist) after the pinned composer
+     * posts a note so the buyer's new note surfaces immediately.
+     */
+    #[On('note-posted')]
+    public function refreshAfterNote(): void {}
 
     public function infolist(Schema $schema): Schema
     {
@@ -97,6 +108,17 @@ final class ViewCustomerRequest extends ViewRecord
                             ->label('')
                             ->state(fn (Request $record): array => $presenter->timeline($record))
                             ->view('filament.customer.components.request-progress-timeline'),
+                    ])
+                    ->columnSpanFull(),
+                Section::make('Activity')
+                    ->schema([
+                        ViewEntry::make('activity_timeline')
+                            ->label('')
+                            ->state(fn (Request $record): array => app(PortalTimelineSource::class)->forParty(
+                                $record,
+                                TimelineParty::buyer(app(CustomerPortalContext::class)->companyId()),
+                            ))
+                            ->view('filament.customer.components.request-activity-timeline'),
                     ])
                     ->columnSpanFull(),
             ]);
