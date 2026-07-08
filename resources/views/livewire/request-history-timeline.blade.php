@@ -34,9 +34,9 @@
                             @php $noteVisibility = $entry->properties['visibility'] ?? 'internal'; @endphp
                             <x-filament::badge
                                 :color="match ($noteVisibility) { 'buyer' => 'success', 'supplier' => 'warning', default => 'gray' }"
-                                icon="heroicon-o-user-group"
+                                icon="heroicon-o-chat-bubble-left-right"
                             >
-                                Share: {{ ucfirst($noteVisibility) }}
+                                {{ match ($noteVisibility) { 'buyer' => 'Notes: To Buyer', 'supplier' => 'Notes: To Supplier', default => 'Notes: Internal' } }}
                             </x-filament::badge>
                         @endif
 
