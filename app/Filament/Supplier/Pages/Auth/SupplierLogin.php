@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Supplier\Pages\Auth;
 
+use App\Enums\PortalType;
+use App\Filament\Concerns\SignsInWithPendingPortalInvitation;
 use App\Filament\Supplier\Pages\SupplierDashboard;
+use App\Models\PortalInvitation;
 use Filament\Actions\Action;
 use Filament\Auth\Pages\Login as BaseLogin;
 use Filament\Facades\Filament;
@@ -13,6 +16,8 @@ use Filament\Support\Enums\Size;
 
 final class SupplierLogin extends BaseLogin
 {
+    use SignsInWithPendingPortalInvitation;
+
     public function mount(): void
     {
         if (Filament::auth()->check()) {
@@ -71,5 +76,15 @@ final class SupplierLogin extends BaseLogin
         return [
             $this->getAuthenticateFormAction(),
         ];
+    }
+
+    protected function pendingInvitationPortal(): PortalType
+    {
+        return PortalType::Supplier;
+    }
+
+    protected function pendingInvitationAcceptUrl(PortalInvitation $invitation): string
+    {
+        return url()->getSupplierPortalUrl('invitation/'.$invitation->token);
     }
 }
