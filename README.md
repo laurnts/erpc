@@ -9,7 +9,7 @@ ERPC is designed for trading businesses that source products from multiple suppl
 The platform runs as multiple Filament panels on shared infrastructure:
 
 - **App panel** (`app.{domain}`) — internal team workspace for Central Purchasing and operations
-- **Buyer portal** (`CUSTOMER_PATH`, default `buyer`) — buyer self-service for requests, quotes, invoices, and shipments
+- **Buyer portal** (`BUYER_PATH`, default `buyer`) — buyer self-service for requests, quotes, invoices, and shipments
 - **Supplier portal** (`SUPPLIER_PATH`, default `supplier`) — supplier request responses and article pricing
 - **Public catalog** (`/`) — storefront for published articles and quote-cart submissions
 - **System Admin** (`SYSADMIN_PATH`, default `sysadmin`) — cross-tenant administration module
@@ -62,11 +62,11 @@ The platform runs as multiple Filament panels on shared infrastructure:
 - **Configuration** - `config/catalog.php`: `CATALOG_ENABLED`, `CATALOG_TEAM_ID` (defaults to first team when unset)
 
 ### Buyer Portal
-- **Panel** - Filament customer panel at `CUSTOMER_PATH` (default `buyer`) on `CUSTOMER_DOMAIN` or the app subdomain; separate session cookie from the internal panel
-- **Requests** - Buyers create and track requests with relation managers for buyer quotes, invoices, and shipments (`CustomerRequestResource`)
+- **Panel** - Filament buyer panel at `BUYER_PATH` (default `buyer`) on `BUYER_DOMAIN` or the app subdomain; separate session cookie from the internal panel
+- **Requests** - Buyers create and track requests with relation managers for buyer quotes, invoices, and shipments (`BuyerRequestResource`)
 - **Portal users** - Invited and managed from **Master Data > Buyers > Portal Users** (`PortalUsersRelationManager`); invitation lifecycle: Invited, Active, Deactivated
 - **Registration approval** - Public registrations appear in **Approval > Registrations** (`PortalRegistrationRequestResource`) for approve/reject
-- **Kill switch** - `CUSTOMER_PORTAL_ENABLED=false` disables the panel
+- **Kill switch** - `BUYER_PORTAL_ENABLED=false` disables the panel
 
 ### Supplier Portal
 - **Panel** - Filament supplier panel at `SUPPLIER_PATH` (default `supplier`) on `SUPPLIER_DOMAIN` or the app subdomain; separate session cookie
@@ -111,7 +111,7 @@ The platform runs as multiple Filament panels on shared infrastructure:
 
 ### Platform Features
 - **Multi-Team** - Isolated workspaces per team (Jetstream tenancy)
-- **Multi-panel domains** - `APP_PANEL_DOMAIN`, `CUSTOMER_DOMAIN`, `SUPPLIER_DOMAIN`, and `SYSADMIN_DOMAIN`/`SYSADMIN_PATH` configure panel routing; see `App\Support\PanelDomain`
+- **Multi-panel domains** - `APP_PANEL_DOMAIN`, `BUYER_DOMAIN`, `SUPPLIER_DOMAIN`, and `SYSADMIN_DOMAIN`/`SYSADMIN_PATH` configure panel routing; see `App\Support\PanelDomain`
 - **Navigation & menu access** - All team members (verified email + current team) can see sidebar menus in **Workflow**, **Master Data**, **Approval**, **Finance**, and **Settings**. Menu visibility is driven by policies' `viewAny()`, and where applicable by resource `shouldRegisterNavigation()` (e.g. Supplier Order Approvals, QE, P&L) or page `canAccess()`. Record-level permissions (view, create, update, delete on individual records) still follow policies and Spatie/team role permissions.
 - **Team Member Roles** - Three role types:
   - **Administrator** - Full access to all features
@@ -172,9 +172,9 @@ Copy `.env.example` to `.env` and configure database, Redis, mail, and panel dom
 | -------- | ------- | ------- |
 | `APP_URL` | `http://localhost` | Public site URL (catalog, auth redirects) |
 | `APP_PANEL_DOMAIN` | `app.{APP_URL host}` | Internal app panel subdomain |
-| `CUSTOMER_PATH` | `buyer` | Buyer portal path prefix |
-| `CUSTOMER_DOMAIN` | (app domain) | Optional dedicated buyer portal domain |
-| `CUSTOMER_PORTAL_ENABLED` | `true` | Kill switch for buyer portal |
+| `BUYER_PATH` | `buyer` | Buyer portal path prefix |
+| `BUYER_DOMAIN` | (app domain) | Optional dedicated buyer portal domain |
+| `BUYER_PORTAL_ENABLED` | `true` | Kill switch for buyer portal |
 | `SUPPLIER_PATH` | `supplier` | Supplier portal path prefix |
 | `SUPPLIER_DOMAIN` | (app domain) | Optional dedicated supplier portal domain |
 | `SUPPLIER_PORTAL_ENABLED` | `true` | Kill switch for supplier portal |
@@ -213,13 +213,13 @@ composer test:coverage # Code coverage (min 80%)
 app/
 ├── Actions/              # Single-purpose action classes
 │   ├── Catalog/          # Quote cart submission, price review
-│   ├── CustomerPortal/   # Portal registration, request notifications
+│   ├── BuyerPortal/      # Portal registration, request notifications
 │   ├── Portal/           # Portal user invitations
 │   └── SupplierPortal/   # request submit/decline, article offers
 ├── Data/                 # Data transfer objects (Spatie Laravel Data)
 ├── Enums/                # PHP enums
 ├── Filament/             # Admin panel resources
-│   ├── Customer/         # Buyer portal resources, pages, widgets
+│   ├── Buyer/            # Buyer portal resources and pages
 │   ├── Supplier/         # Supplier portal resources, pages, widgets
 │   ├── Exports/          # Exporters; Jobs/ExportCompletion (refresh before notification)
 │   ├── Imports/          # Importers for master data
@@ -238,14 +238,14 @@ app/
 ├── Observers/            # Model observers
 ├── Policies/             # Authorization policies
 ├── Providers/
-│   └── Filament/         # AppPanelProvider, CustomerPanelProvider, SupplierPanelProvider
+│   └── Filament/         # AppPanelProvider, BuyerPanelProvider, SupplierPanelProvider
 ├── Services/
 │   ├── AI/               # Record summary generation
 │   ├── Catalog/          # Quote cart, article cost resolution, team resolver
-│   ├── CustomerPortal/   # Request stage presentation
+│   ├── BuyerPortal/      # Request stage presentation
 │   ├── Email/            # Email template and SMTP services
 │   ├── Erp/              # PDF generation, tax, credit limits, financial totals
-│   ├── Portal/           # Customer and supplier portal context
+│   ├── Portal/           # Buyer and supplier portal context
 │   └── SupplierPortal/   # request status presentation
 └── Support/
     ├── Media/            # DocumentPathGenerator (Spatie Media Library path per feature)

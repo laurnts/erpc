@@ -556,8 +556,8 @@ Two different “acceptance” concepts:
 
 ### 5.17 Buyer Portal
 
-- Filament **customer** panel at `CUSTOMER_PATH` (default `buyer`); separate session cookie (`CUSTOMER_PORTAL_ENABLED` kill switch)
-- **Requests** — `CustomerRequestResource` with buyer quotes, invoices, shipments relation managers
+- Filament **buyer** panel at `BUYER_PATH` (default `buyer`); separate session cookie (`BUYER_PORTAL_ENABLED` kill switch)
+- **Requests** — `BuyerRequestResource` with buyer quotes, invoices, shipments relation managers
 - **Portal users** — invite/manage from **Master Data → Buyers → Portal Users** (`PortalUsersRelationManager`)
 - **Registration approval** — **Approval → Registrations** (`PortalRegistrationRequestResource`)
 
@@ -610,7 +610,7 @@ Proactive notifications so quotes, supplier responses, invoices, and catalog pri
 | Panel | Path / domain | Purpose |
 |-------|---------------|---------|
 | App | `app.{domain}` | Internal team workspace (default Filament tenant panel) |
-| Buyer portal | `CUSTOMER_PATH` (default `buyer`) | Buyer self-service |
+| Buyer portal | `BUYER_PATH` (default `buyer`) | Buyer self-service |
 | Supplier portal | `SUPPLIER_PATH` (default `supplier`) | Supplier requests and article pricing |
 | Public catalog | `APP_URL` `/` | Published articles and quote cart |
 | System Admin | `SYSADMIN_PATH` (default `sysadmin`) | Cross-tenant administration module |
@@ -941,9 +941,9 @@ flowchart LR
 | **Settings** | Email Templates | `EmailTemplateResource` |
 | *(ungrouped)* | Members | `MemberResource` |
 
-**Buyer portal** (`CustomerPanelProvider`, default path `buyer`): Home · Requests
+**Buyer portal** (`BuyerPanelProvider`, default path `buyer`): Requests
 
-**Supplier portal** (`SupplierPanelProvider`, default path `supplier`): Home · Quote Requests · My Articles
+**Supplier portal** (`SupplierPanelProvider`, default path `supplier`): Requests · My Articles
 
 **Public routes** (`routes/web.php`): `/` catalog · `/quote-cart` · `/registration`
 
@@ -970,7 +970,7 @@ Cross-check of marketing claims vs codebase (honest gaps for stakeholders).
 | Standalone buyer invoice UI | ⚠️ | `BuyerInvoice` model + widgets exist; **no Filament invoice resource** |
 | Standalone supplier invoice / payment UI | ⚠️ | Models exist; **no dedicated Filament resources** |
 | “Invoices” tab | ✅ | UI label for **Buyer Orders** tab — not separate AR module |
-| Buyer portal | ✅ | `CustomerPanelProvider`, `CustomerRequestResource` |
+| Buyer portal | ✅ | `BuyerPanelProvider`, `BuyerRequestResource` |
 | Supplier portal | ✅ | `SupplierPanelProvider`, `SupplierRequestResource`, `SupplierArticleResource` |
 | Public catalog + quote cart | ✅ | `CatalogHome`, `SubmitQuoteCart`, `CATALOG_ENABLED` |
 | Portal registration approval | ✅ | `PortalRegistrationRequestResource` |
