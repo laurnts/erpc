@@ -218,6 +218,10 @@ final class ViewRequest extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            // Registered so its modal renders and the per-installment "Record
+            // payment" buttons can open it via mountAction(); the header button
+            // itself is hidden — the payment table rows are the trigger.
+            $this->recordPaymentAction()->extraAttributes(['class' => 'hidden']),
             ActionGroup::make([
                 EditAction::make(),
                 RestoreAction::make(),
@@ -359,9 +363,6 @@ final class ViewRequest extends ViewRecord
                 ->schema([
                     Section::make('Payments')
                         ->icon('heroicon-o-credit-card')
-                        ->headerActions([
-                            $this->recordPaymentAction(),
-                        ])
                         ->extraAttributes(['class' => 'three-column-section'])
                         ->schema([
                             TextEntry::make('payment_terms_list')
@@ -879,7 +880,7 @@ final class ViewRequest extends ViewRecord
      * CONFIRMED payment (staff entries are trusted immediately) against the active
      * standard invoice, optionally attaching a proof-of-transfer file.
      */
-    private function recordPaymentAction(): Action
+    public function recordPaymentAction(): Action
     {
         return Action::make('recordPayment')
             ->label('Record Payment')
@@ -1024,6 +1025,28 @@ final class ViewRequest extends ViewRecord
     }
 
     /**
+     * Render a payment installment's status cell: a green "Paid" badge once
+     * covered, otherwise a grey button that opens the Record Payment modal
+     * (or a plain "Unpaid" badge when no invoice can take a payment yet).
+     */
+    private function paymentStatusCell(string $status, bool $canRecord): string
+    {
+        if ($status === 'Paid') {
+            return $this->statusBadge('Paid', 'success');
+        }
+
+        if (! $canRecord) {
+            return $this->statusBadge('Unpaid', 'gray');
+        }
+
+        return '<button type="button" wire:click="mountAction(\'recordPayment\')" '
+            .'style="display:inline-flex;align-items:center;gap:0.25rem;padding:0.25rem 0.625rem;'
+            .'border-radius:0.5rem;font-size:0.75rem;font-weight:500;line-height:1.25;white-space:nowrap;'
+            .'cursor:pointer;background-color:#f1f5f9;color:#334155;border:1px solid #e2e8f0;">'
+            .'Record payment</button>';
+    }
+
+    /**
      * Get payment terms list as HTML, including per-installment amounts.
      *
      * Amounts are derived from the accepted buyer quote applied to the effective
@@ -1042,6 +1065,7 @@ final class ViewRequest extends ViewRecord
         $buyerTotal = $this->getEffectiveBuyerTotal($record);
         $invoice = $this->getActiveStandardInvoice($record);
         $paid = (float) ($invoice?->amount_paid ?? 0);
+        $canRecord = $invoice !== null && $invoice->status->canRecordPayment();
 
         $cell = 'padding:0.5rem 1rem 0.5rem 0;border-top:1px solid rgba(148,163,184,0.25);vertical-align:middle;';
         $amountCell = 'padding:0.5rem 1rem 0.5rem 0;border-top:1px solid rgba(148,163,184,0.25);vertical-align:middle;text-align:right;white-space:nowrap;';
@@ -1064,13 +1088,12 @@ final class ViewRequest extends ViewRecord
                 $amountCell,
                 htmlspecialchars($this->formatCurrency($prepaymentAmount)),
                 $lastCell,
-                $this->statusBadge($status, $status === 'Paid' ? 'success' : 'warning'),
+                $this->paymentStatusCell($status, $canRecord),
             );
         }
 
         foreach ($paymentTerms as $term) {
             $status = $this->getPaymentTermStatus($record, $term->due_days, $term->percentage);
-            $statusColor = $status === 'Paid' ? 'success' : 'warning';
             $amount = $buyerTotal * (float) $term->percentage / 100;
 
             $rows[] = sprintf(
@@ -1082,7 +1105,7 @@ final class ViewRequest extends ViewRecord
                 $amountCell,
                 htmlspecialchars($this->formatCurrency($amount)),
                 $lastCell,
-                $this->statusBadge($status, $statusColor)
+                $this->paymentStatusCell($status, $canRecord)
             );
         }
 
