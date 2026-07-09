@@ -3,11 +3,13 @@
 declare(strict_types=1);
 
 use App\Actions\Portal\InvitePortalUser;
+use App\Enums\BuyerQuoteStatus;
 use App\Enums\PortalType;
 use App\Enums\RequestStage;
 use App\Enums\RequestSubmissionMethod;
 use App\Filament\Buyer\Pages\Auth\BuyerLogin;
 use App\Filament\Buyer\Resources\BuyerRequestResource;
+use App\Filament\Buyer\Resources\BuyerRequestResource\RelationManagers\BuyerQuotesRelationManager;
 use App\Filament\Buyer\Resources\BuyerRequestResource\Schemas\BuyerRequestForm;
 use App\Filament\Pages\Auth\Login as AppLogin;
 use App\Filament\Resources\RequestResource;
@@ -25,6 +27,7 @@ use App\Services\Portal\BuyerPortalContext;
 use App\Support\Media\DocumentPathGenerator;
 use App\Support\PanelDomain;
 use Filament\Facades\Filament;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 
 use function Pest\Livewire\livewire;
@@ -1205,6 +1208,53 @@ describe('Buyer Portal Phase 4', function (): void {
         livewire(\App\Livewire\BuyerPendingQuoteActions::class, ['request' => $request])
             ->callAction(\Filament\Actions\Testing\TestAction::make('accept')->arguments(['quote' => $quote->getKey()]))
             ->assertActionMounted('uploadPo');
+    });
+
+    it('refreshes the quotes table status after buyer uploads a purchase order', function (): void {
+        $request = Request::factory()->for($this->team)->for($this->buyer, 'buyer')->create([
+            'submission_method' => RequestSubmissionMethod::MANUAL,
+            'submitted_at' => now(),
+            'stage' => RequestStage::AWAITING_BUYER_CONFIRMATION,
+        ]);
+
+        $quote = \App\Models\BuyerQuote::factory()
+            ->for($this->team)
+            ->for($request)
+            ->for($this->buyer, 'buyer')
+            ->sent()
+            ->withTotals(15894, 0, 15894)
+            ->create();
+
+        $this->actingAs($this->portalUser, 'buyer');
+        Filament::setCurrentPanel('buyer');
+        app(BuyerPortalContext::class)->setCompany($this->buyer->getKey());
+
+        $quotesTable = livewire(BuyerQuotesRelationManager::class, [
+            'ownerRecord' => $request,
+            'pageClass' => \App\Filament\Buyer\Resources\BuyerRequestResource\Pages\ViewBuyerRequest::class,
+        ])
+            ->assertOk()
+            ->assertSee('Awaiting Your Confirmation');
+
+        livewire(\App\Livewire\BuyerPendingQuoteActions::class, ['request' => $request])
+            ->callAction(
+                \Filament\Actions\Testing\TestAction::make('uploadPo')->arguments(['quote' => $quote->getKey()]),
+                [
+                    'buyer_po_files' => [UploadedFile::fake()->createWithContent(
+                        'po.pdf',
+                        "%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [] /Count 0 >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n",
+                    )],
+                ],
+            )
+            ->assertHasNoActionErrors()
+            ->assertDispatched('quote-action-taken');
+
+        expect($quote->fresh()?->status)->toBe(BuyerQuoteStatus::ACCEPTED);
+
+        $quotesTable
+            ->dispatch('quote-action-taken')
+            ->assertSee('Accepted')
+            ->assertDontSee('Awaiting Your Confirmation');
     });
 
     it('does not send duplicate stage notification when quote send advances request stage', function (): void {

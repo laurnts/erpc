@@ -15,6 +15,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\HtmlString;
+use Livewire\Attributes\On;
 
 final class BuyerQuotesRelationManager extends RelationManager
 {
@@ -27,6 +28,18 @@ final class BuyerQuotesRelationManager extends RelationManager
     public function isReadOnly(): bool
     {
         return true;
+    }
+
+    /**
+     * Re-query quote rows after the buyer accepts/rejects from the pending-actions
+     * banner so status badges update without a full page reload.
+     */
+    #[On('quote-action-taken')]
+    public function refreshAfterQuoteAction(): void
+    {
+        $this->flushCachedTableRecords();
+        $this->getOwnerRecord()->refresh();
+        $this->getOwnerRecord()->loadMissing(['buyerQuotes']);
     }
 
     public function table(Table $table): Table

@@ -51,7 +51,11 @@ final class ViewBuyerRequest extends ViewRecord
      */
     #[On('note-posted')]
     #[On('quote-action-taken')]
-    public function refreshAfterNote(): void {}
+    public function refreshAfterNote(): void
+    {
+        $this->record->refresh();
+        $this->record->loadMissing(['buyerQuotes']);
+    }
 
     public function mount(int|string $record): void
     {
