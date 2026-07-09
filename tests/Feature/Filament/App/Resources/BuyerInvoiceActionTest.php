@@ -190,3 +190,45 @@ it('shows the invoice status once issued', function (): void {
         ->assertSee('Sent')
         ->assertSee('Not issued');
 });
+
+it('resends the invoice email for an issued invoice', function (): void {
+    Mail::fake();
+
+    $order = invoiceActionOrder($this, OrderStatus::CONFIRMED);
+    $invoice = BuyerInvoice::issueFromOrder($order);
+
+    invoiceActionRelationManager($this)
+        ->assertOk()
+        ->assertActionVisible(TestAction::make('resendInvoice')->table($order->refresh()))
+        ->callAction(TestAction::make('resendInvoice')->table($order->refresh()))
+        ->assertNotified('Email resent');
+
+    Mail::assertSent(
+        InvoiceToBuyerMail::class,
+        fn (InvoiceToBuyerMail $mail): bool => $mail->invoice->is($invoice)
+            && $mail->hasTo('buyer@example.com')
+    );
+});
+
+it('hides resendInvoice when no invoice exists', function (): void {
+    $order = invoiceActionOrder($this, OrderStatus::CONFIRMED);
+
+    invoiceActionRelationManager($this)
+        ->assertOk()
+        ->assertActionHidden(TestAction::make('resendInvoice')->table($order));
+});
+
+it('renders the default invoice email template', function (): void {
+    $order = invoiceActionOrder($this, OrderStatus::CONFIRMED);
+    $invoice = BuyerInvoice::issueFromOrder($order);
+
+    $html = view('emails.invoice-to-buyer', [
+        'invoice' => $invoice->load(['items', 'currency', 'buyerOrder.buyer', 'request']),
+        'content' => '',
+        'team' => $this->team,
+    ])->render();
+
+    expect($html)
+        ->toContain($invoice->invoice_number)
+        ->toContain('Please find below the details of your invoice.');
+});

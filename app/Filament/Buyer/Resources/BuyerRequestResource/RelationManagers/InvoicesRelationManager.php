@@ -7,6 +7,7 @@ namespace App\Filament\Buyer\Resources\BuyerRequestResource\RelationManagers;
 use App\Enums\InvoiceStatus;
 use App\Filament\Actions\DownloadPdfAction;
 use App\Models\BuyerInvoice;
+use App\Services\BuyerPortal\BuyerInvoiceStatusPresenter;
 use App\Models\Request;
 use Filament\Facades\Filament;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -34,6 +35,8 @@ final class InvoicesRelationManager extends RelationManager
 
     public function table(Table $table): Table
     {
+        $invoiceStatusPresenter = app(BuyerInvoiceStatusPresenter::class);
+
         return $table
             ->modifyQueryUsing(fn (Builder $query): Builder => $query
                 ->where('status', '!=', InvoiceStatus::DRAFT)
@@ -70,7 +73,10 @@ final class InvoicesRelationManager extends RelationManager
                     ->placeholder('-'),
                 TextColumn::make('status')
                     ->label('Status')
-                    ->badge(),
+                    ->badge()
+                    ->formatStateUsing(fn (InvoiceStatus $state): string => $invoiceStatusPresenter->label($state))
+                    ->color(fn (InvoiceStatus $state): string => $invoiceStatusPresenter->color($state))
+                    ->icon(fn (InvoiceStatus $state): ?string => $invoiceStatusPresenter->icon($state)),
             ])
             ->recordActions([
                 DownloadPdfAction::make()

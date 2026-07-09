@@ -42,7 +42,7 @@ pest()->extend(Tests\TestCase::class)
         // Seed ERP permissions for all tests
         $this->seed(\Database\Seeders\ErpPermissionSeeder::class);
     })
-    ->in('Feature', 'Unit/Models', 'Unit/Services');
+    ->in('Feature', 'Unit/Models', 'Unit/Services', 'Unit/BuyerPortal');
 
 /*
 |--------------------------------------------------------------------------

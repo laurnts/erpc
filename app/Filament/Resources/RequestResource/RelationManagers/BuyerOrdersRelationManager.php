@@ -256,6 +256,55 @@ final class BuyerOrdersRelationManager extends RelationManager
             ->first();
     }
 
+    private function sendInvoiceEmailToBuyer(
+        BuyerOrder $record,
+        BuyerInvoice $invoice,
+        string $successTitle,
+        string $successBody,
+        string $failureTitle,
+        string $failureBodyPrefix,
+    ): void {
+        $buyerEmail = $record->buyer->email ?? null;
+        $buyerName = $record->buyer->name ?? 'Buyer';
+
+        if (empty($buyerEmail)) {
+            Notification::make()
+                ->title('Cannot send email')
+                ->body("The buyer ({$buyerName}) does not have an email address configured.")
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        try {
+            app(EmailTemplateService::class)->sendWithTeamSettings(
+                $record->team,
+                new InvoiceToBuyerMail($invoice),
+                $buyerEmail,
+            );
+
+            Notification::make()
+                ->title($successTitle)
+                ->body($successBody)
+                ->success()
+                ->send();
+        } catch (\Exception $e) {
+            Log::error('Failed to send buyer invoice email', [
+                'invoice_id' => $invoice->id,
+                'buyer_order_id' => $record->id,
+                'buyer_email' => $buyerEmail,
+                'error' => $e->getMessage(),
+            ]);
+
+            Notification::make()
+                ->title($failureTitle)
+                ->body($failureBodyPrefix.$e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
     public function table(Table $table): Table
     {
         /** @var Request $request */
@@ -605,31 +654,72 @@ final class BuyerOrdersRelationManager extends RelationManager
                                 return;
                             }
 
-                            try {
-                                app(EmailTemplateService::class)->sendWithTeamSettings(
-                                    $record->team,
-                                    new InvoiceToBuyerMail($invoice),
-                                    $buyerEmail,
-                                );
-
-                                Notification::make()
-                                    ->title('Invoice issued')
-                                    ->body("Invoice has been issued and sent to {$buyerEmail}.")
-                                    ->success()
-                                    ->send();
-                            } catch (\Exception $e) {
-                                Log::error('Failed to send buyer invoice email', [
-                                    'invoice_id' => $invoice->id,
-                                    'buyer_email' => $buyerEmail,
-                                    'error' => $e->getMessage(),
-                                ]);
-
-                                Notification::make()
-                                    ->title('Invoice issued (email failed)')
-                                    ->body("Invoice was created, but the email to {$buyerEmail} could not be sent. Error: ".$e->getMessage())
-                                    ->danger()
-                                    ->send();
+                            $this->sendInvoiceEmailToBuyer(
+                                $record,
+                                $invoice,
+                                'Invoice issued',
+                                "Invoice has been issued and sent to {$buyerEmail}.",
+                                'Invoice issued (email failed)',
+                                "Invoice was created, but the email to {$buyerEmail} could not be sent. Error: ",
+                            );
+                        }),
+                    Action::make('resendInvoice')
+                        ->label('Resend Invoice')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('info')
+                        ->authorize(fn (?BuyerOrder $record): bool => $record !== null && auth()->user()?->can('send', $record) === true)
+                        ->visible(function (?BuyerOrder $record): bool {
+                            if ($record === null) {
+                                return false;
                             }
+
+                            $invoice = $this->activeInvoiceFor($record);
+
+                            return $invoice !== null && $invoice->status !== InvoiceStatus::DRAFT;
+                        })
+                        ->requiresConfirmation()
+                        ->modalHeading('Resend invoice email?')
+                        ->modalDescription(function (BuyerOrder $record): string {
+                            $invoice = $this->activeInvoiceFor($record);
+                            $buyerEmail = $record->buyer->email ?? null;
+                            $buyerName = $record->buyer->name ?? 'Unknown';
+                            $description = 'This will resend the invoice email to the buyer without changing the invoice status.';
+
+                            if ($invoice !== null) {
+                                $description .= "\n\nInvoice: {$invoice->invoice_number}";
+                            }
+
+                            if (empty($buyerEmail)) {
+                                $description .= "\n\n⚠️ **Warning:** The buyer ({$buyerName}) does not have an email address configured. No email will be sent.";
+                            } else {
+                                $description .= "\n\n📧 Email will be sent to: {$buyerEmail}";
+                            }
+
+                            return $description;
+                        })
+                        ->action(function (BuyerOrder $record): void {
+                            $invoice = $this->activeInvoiceFor($record);
+
+                            if ($invoice === null) {
+                                Notification::make()
+                                    ->title('Cannot resend invoice')
+                                    ->body('No active invoice was found for this order.')
+                                    ->warning()
+                                    ->send();
+
+                                return;
+                            }
+
+                            $buyerEmail = $record->buyer->email ?? null;
+
+                            $this->sendInvoiceEmailToBuyer(
+                                $record,
+                                $invoice,
+                                'Email resent',
+                                "Invoice email has been resent successfully to {$buyerEmail}.",
+                                'Failed to resend email',
+                                "The invoice email could not be sent to {$buyerEmail}. Error: ",
+                            );
                         }),
                     Action::make('recordPayment')
                         ->label('Record Payment')

@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Portal;
 
 use App\Enums\BuyerQuoteStatus;
+use App\Enums\InvoiceStatus;
 use App\Enums\RequestStage;
+use App\Enums\ShipmentStatus;
+use App\Enums\ShipmentType;
 use App\Models\BuyerQuote;
 use App\Models\Request;
 
@@ -20,15 +23,19 @@ final readonly class RequestStageTimelinePresenter
      * The stage a portal user should perceive as current. A buyer quote that
      * has been SENT means the request is effectively awaiting confirmation
      * even while the internal stage still reads PREPARING_BUYER_QUOTE.
+     * Conversely, a stale `awaiting_buyer_confirmation` internal stage must
+     * not block the buyer once their order or quote acceptance is complete.
      */
     public function effectiveStage(Request $request): RequestStage
     {
-        if ($request->stage !== RequestStage::PREPARING_BUYER_QUOTE) {
-            return $request->stage;
+        if ($request->stage === RequestStage::PREPARING_BUYER_QUOTE
+            && $this->requestHasSentBuyerQuote($request)) {
+            return RequestStage::AWAITING_BUYER_CONFIRMATION;
         }
 
-        if ($this->requestHasSentBuyerQuote($request)) {
-            return RequestStage::AWAITING_BUYER_CONFIRMATION;
+        if ($request->stage->getOrder() <= RequestStage::AWAITING_BUYER_CONFIRMATION->getOrder()
+            && $this->buyerConfirmationIsComplete($request)) {
+            return $this->resolvePostConfirmationStage($request);
         }
 
         return $request->stage;
@@ -100,6 +107,71 @@ final readonly class RequestStageTimelinePresenter
 
         return $request->buyerQuotes()
             ->where('status', BuyerQuoteStatus::SENT)
+            ->exists();
+    }
+
+    private function buyerConfirmationIsComplete(Request $request): bool
+    {
+        if ($request->has_buyer_order_confirmed) {
+            return true;
+        }
+
+        if ($request->relationLoaded('buyerQuotes')) {
+            return $request->buyerQuotes->contains(
+                fn (BuyerQuote $quote): bool => $quote->status === BuyerQuoteStatus::ACCEPTED,
+            );
+        }
+
+        return $request->buyerQuotes()
+            ->where('status', BuyerQuoteStatus::ACCEPTED)
+            ->exists();
+    }
+
+    private function resolvePostConfirmationStage(Request $request): RequestStage
+    {
+        if ($request->stage->getOrder() > RequestStage::AWAITING_BUYER_CONFIRMATION->getOrder()) {
+            return $request->stage;
+        }
+
+        if ($this->requestHasPaidBuyerInvoice($request)) {
+            return RequestStage::PAID;
+        }
+
+        if ($this->requestHasDeliveredOutboundShipment($request)) {
+            return RequestStage::DELIVERED;
+        }
+
+        if ($this->requestHasInTransitOutboundShipment($request)) {
+            return RequestStage::SHIPPED;
+        }
+
+        return RequestStage::PREPARING_SUPPLIER_ORDER;
+    }
+
+    private function requestHasPaidBuyerInvoice(Request $request): bool
+    {
+        return $request->buyerInvoices()
+            ->where('status', InvoiceStatus::PAID)
+            ->exists();
+    }
+
+    private function requestHasDeliveredOutboundShipment(Request $request): bool
+    {
+        return $request->shipments()
+            ->where('type', ShipmentType::OUTBOUND)
+            ->where('status', ShipmentStatus::DELIVERED)
+            ->exists();
+    }
+
+    private function requestHasInTransitOutboundShipment(Request $request): bool
+    {
+        return $request->shipments()
+            ->where('type', ShipmentType::OUTBOUND)
+            ->whereIn('status', [
+                ShipmentStatus::PENDING,
+                ShipmentStatus::IN_TRANSIT,
+                ShipmentStatus::PARTIAL,
+            ])
             ->exists();
     }
 

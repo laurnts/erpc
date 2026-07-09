@@ -10,6 +10,7 @@ use App\Enums\RequestSubmissionMethod;
 use App\Filament\Buyer\Pages\Auth\BuyerLogin;
 use App\Filament\Buyer\Resources\BuyerRequestResource;
 use App\Filament\Buyer\Resources\BuyerRequestResource\RelationManagers\BuyerQuotesRelationManager;
+use App\Filament\Buyer\Resources\BuyerRequestResource\RelationManagers\InvoicesRelationManager;
 use App\Filament\Buyer\Resources\BuyerRequestResource\Schemas\BuyerRequestForm;
 use App\Filament\Pages\Auth\Login as AppLogin;
 use App\Filament\Resources\RequestResource;
@@ -23,6 +24,7 @@ use App\Models\Shipment;
 use App\Models\Team;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
+use App\Services\BuyerPortal\BuyerRequestStagePresenter;
 use App\Services\Portal\BuyerPortalContext;
 use App\Support\Media\DocumentPathGenerator;
 use App\Support\PanelDomain;
@@ -1342,7 +1344,7 @@ describe('Buyer Portal Phase 4', function (): void {
             ->and($this->portalUser->can('view', $draftInvoice))->toBeFalse();
 
         livewire(
-            \App\Filament\Buyer\Resources\BuyerRequestResource\RelationManagers\InvoicesRelationManager::class,
+            InvoicesRelationManager::class,
             [
                 'ownerRecord' => $request,
                 'pageClass' => \App\Filament\Buyer\Resources\BuyerRequestResource\Pages\ViewBuyerRequest::class,
@@ -1350,6 +1352,59 @@ describe('Buyer Portal Phase 4', function (): void {
         )
             ->assertOk()
             ->assertCanSeeTableRecords([$sentInvoice])
-            ->assertCanNotSeeTableRecords([$draftInvoice]);
+            ->assertCanNotSeeTableRecords([$draftInvoice])
+            ->assertSee('Received')
+            ->assertDontSee('Sent');
+    });
+
+    it('shows being processed when buyer confirmation is complete but internal stage is stale', function (): void {
+        $request = Request::factory()->for($this->team)->for($this->buyer, 'buyer')->create([
+            'submission_method' => RequestSubmissionMethod::MANUAL,
+            'submitted_at' => now(),
+            'stage' => RequestStage::AWAITING_BUYER_CONFIRMATION,
+        ]);
+
+        \App\Models\BuyerQuote::factory()
+            ->for($this->team)
+            ->for($request)
+            ->for($this->buyer, 'buyer')
+            ->accepted()
+            ->withTotals(15894, 0, 15894)
+            ->create([
+                'quote_number' => 'BQ-2026-0068',
+            ]);
+
+        \App\Models\BuyerOrder::factory()
+            ->for($this->team)
+            ->for($request)
+            ->for($this->buyer, 'buyer')
+            ->confirmed()
+            ->create([
+                'order_number' => 'BO-2026-0023',
+            ]);
+
+        \App\Models\BuyerInvoice::factory()
+            ->for($this->team)
+            ->for($request)
+            ->sent()
+            ->create([
+                'invoice_number' => 'INV-2026-0001',
+                'total' => '14104.0000',
+            ]);
+
+        $this->actingAs($this->portalUser, 'buyer');
+        Filament::setCurrentPanel('buyer');
+        app(BuyerPortalContext::class)->setCompany($this->buyer->getKey());
+
+        livewire(
+            \App\Filament\Buyer\Resources\BuyerRequestResource\Pages\ViewBuyerRequest::class,
+            ['record' => $request->getRouteKey()],
+        )
+            ->assertOk()
+            ->assertSee('Being Processed')
+            ->assertSee('Processed');
+
+        expect(app(BuyerRequestStagePresenter::class)->label($request->fresh()))
+            ->toBe('Being Processed');
     });
 });
