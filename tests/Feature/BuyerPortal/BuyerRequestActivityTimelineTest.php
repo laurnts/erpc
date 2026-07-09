@@ -69,7 +69,7 @@ it('renders the buyer activity section on the request detail page', function ():
 
     livewire(ViewBuyerRequest::class, ['record' => $request->getRouteKey()])
         ->assertOk()
-        ->assertSee('Activity')
+        ->assertSee('Activities')
         ->assertSee($stageLabel);
 });
 
@@ -97,6 +97,6 @@ it('does not surface supplier activity to the buyer on the request detail page',
 
     livewire(ViewBuyerRequest::class, ['record' => $request->getRouteKey()])
         ->assertOk()
-        ->assertSee('Activity')
+        ->assertSee('Activities')
         ->assertDontSee($supplierQuote->quote_number);
 });
