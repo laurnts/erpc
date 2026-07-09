@@ -65,6 +65,8 @@ It unifies what trading firms typically run in separate tools:
 | **Service sales** | Service request type, child line items, acceptance reports |
 | **Portals & catalog** | Buyer portal, supplier portal, public catalog storefront |
 | **Reminders** | Quote expiry, awaiting supplier quote, overdue invoices, catalog price review |
+| **Buyer invoicing & payments** | Issue invoice from order, record payments, credit release, buyer portal pay flow |
+| **Activity timeline & notes** | Staff audit feed + buyer-scoped timeline; threaded notes with visibility |
 
 ---
 
@@ -191,7 +193,7 @@ flowchart LR
 | 6 | Purchase | Buyer order + supplier PO (dual approval before send) |
 | 7 | Receipt | Goods receive |
 | 8 | Delivery | Fulfillment — inbound shipment + DO PDF (goods) or acceptance report (services) |
-| 9 | Billing | Buyer & supplier invoices, payment tracking |
+| 9 | Billing | Buyer invoices issued from orders; staff/buyer payments; credit release |
 | 10 | Close | Completion report + finance approval |
 
 **Approval end-to-end:** QE · PNL · supplier PO (dual) · Credit Limit Acceptances (documents) · payment/completion (finance) — all on the same Request thread.
@@ -264,7 +266,7 @@ Key Accounts approve QE, PNL, and supplier order documents via **Credit Limit Ac
 
 > *"Credit limits and payment documents need a clear trail."*
 
-**Credit limit requests** use dual finance approval before limits change. **Payment documents** (completion reports) are approved separately in Credit Limit Acceptances. Invoice and payment tracking sit on the same request thread.
+**Credit limit requests** use dual finance approval before limits change. **Payment documents** (completion reports) are approved separately in Credit Limit Acceptances. Buyer invoices are issued from confirmed orders; payments (staff-confirmed or buyer-submitted pending) release reserved credit as they settle.
 
 ### Sales / Commercial
 
@@ -291,6 +293,8 @@ Key Accounts approve QE, PNL, and supplier order documents via **Credit Limit Ac
 - Global search on request number + description
 - Relation managers on resource: items, quotes, orders, shipments, acceptance reports (service)
 - **Submission sources** — internal app, buyer portal, supplier portal, or public catalog (`RequestSubmissionMethod`)
+- **Activity timeline** — footer widget on Request View (`RequestHistoryWidget` → `RequestHistoryTimeline`) shows audit changes, uploads, credit movements, and milestones; paginated with drill-in to change detail
+- **Request notes** — `RequestNoteComposer` below the timeline; staff choose visibility (internal, to buyer, to supplier); portal users post party-scoped notes; supports attachments
 
 ### 5.2 Data Entry & Master Data Flexibility
 
@@ -403,6 +407,8 @@ Projects group related requests for **large or multi-phase deals**:
 - Email buyer (`BuyerOrderToBuyerMail`) with PDF
 - PDF download (`generateBuyerOrderPdf`)
 - Payment terms displayed from source quote (prepayment %, days, description)
+- **Issue Invoice** — row action on confirmed orders creates a `BuyerInvoice` (`BuyerInvoice::issueFromOrder`), emails buyer (`InvoiceToBuyerMail`), and enables PDF download
+- **Record Payment** — staff record full/partial payments with method, date, reference, and proof upload; confirmed payments update invoice status and release buyer credit reserved at order confirmation
 - Custom fields supported
 
 **Supplier orders** (`SupplierOrdersRelationManager` — tab **Purchases**)
@@ -447,17 +453,26 @@ Groups goods and service delivery in one tab:
 - Payment documents approved in **Credit Limit Acceptances** by **Finance** role
 - Request View shows payment-term paid/not-paid matrix (invoices + approved payment docs)
 
-### 5.9b Invoicing & Payments (backend + widgets)
+### 5.9b Invoicing & Payments
 
 | Capability | UI today | Backend |
 |------------|----------|---------|
-| Buyer invoices (`BuyerInvoice`) | Tracked on dashboard widgets; payment status on Request View | Model, observer, overdue job — **no standalone Filament invoice CRUD yet** |
-| Buyer payments (`BuyerPayment`) | — | Model + observer (auto numbering) |
+| Buyer invoices (`BuyerInvoice`) | Issued from **Invoices** tab row actions; listed on buyer portal **Invoices** relation manager; payment card on Request View + buyer request view | `BuyerInvoice::issueFromOrder`, line items, status workflow, PDF, overdue job |
+| Buyer payments (`BuyerPayment`) | Staff **Record Payment** on order row + payment card; buyers submit **Pending** payments from portal | Confirmed payments update invoice status and release buyer credit |
 | Supplier invoices (`SupplierInvoice`) | — | Model + policies |
 | Supplier payments (`SupplierPayment`) | — | Model + observer |
-| Credit limit transactions | **Finance → Credit Limits** (`BuyerCreditLimitOverviewResource`) | Per-buyer limit, used, available, pending requests |
+| Credit limit transactions | **Finance → Credit Limits** (`BuyerCreditLimitOverviewResource`) | Per-buyer limit, used, available, pending requests; credit reserved at order confirm, released on payment |
 
-**Practical invoicing today:** Buyer order tab (“Invoices”) + completion/payment documents + dashboard **Awaiting Payment** / **Monthly Revenue** widgets.
+**Buyer invoice flow (implemented):**
+
+1. Staff confirm buyer order → buyer credit reserved (`available_credit` decreases)
+2. Staff **Issue Invoice** → `BuyerInvoice` created with `issued_at`, `due_at`, line items from order; emailed to buyer; status **Sent**
+3. Staff or buyer records payment → staff payments **Confirmed** immediately; buyer submissions stay **Pending** until staff confirm
+4. Confirmed payment → invoice status partial/paid; buyer credit released proportionally
+
+**Tab naming:** The Request View tab labelled **Invoices** still lists **Buyer Orders**; actual AR invoices are issued from order row actions and surfaced on the buyer portal Invoices tab.
+
+**Not yet in UI:** standalone `BuyerInvoiceResource` CRUD, prepayment/balance split invoices, credit-note issuance from the panel.
 
 ### 5.10 Perpajakan (Tax & Multi-Currency)
 
@@ -557,7 +572,13 @@ Two different “acceptance” concepts:
 ### 5.17 Buyer Portal
 
 - Filament **buyer** panel at `BUYER_PATH` (default `buyer`); separate session cookie (`BUYER_PORTAL_ENABLED` kill switch)
-- **Requests** — `BuyerRequestResource` with buyer quotes, invoices, shipments relation managers
+- **Requests** — `BuyerRequestResource`; request view includes:
+  - **Progress timeline** — seven customer-journey milestones (`RequestStageTimelinePresenter`); effective stage reflects sent quotes and post-confirmation state
+  - **Quotes** — embedded relation manager; accept/reject sent quotes inline
+  - **Payments** — payment-terms card when a standard invoice exists (`InteractsWithPaymentCard`); buyers submit proof as **Pending**
+  - **Activities** — buyer-scoped timeline (`PortalTimelineSource`) with redacted internal/supplier data
+- **Invoices** — `InvoicesRelationManager` lists issued invoices (non-draft) with PDF download; **Sent** status shown as **Received** (`BuyerInvoiceStatusPresenter`)
+- **Shipments** — relation manager for outbound tracking
 - **Portal users** — invite/manage from **Master Data → Buyers → Portal Users** (`PortalUsersRelationManager`)
 - **Registration approval** — **Approval → Registrations** (`PortalRegistrationRequestResource`)
 
@@ -574,7 +595,7 @@ Two different “acceptance” concepts:
 - **Credit limit increase requests** — **Approval → Credit Limit** (`BuyerCreditLimitRequestResource`)
 - **Dual finance approval** (2 approvers) before active limit updates
 - Email to finance approvers on new request (`CreditLimitIncreaseRequestMail`)
-- Available credit reduced on confirmed buyer orders; restored on cancellation
+- Available credit reduced on confirmed buyer orders; restored on cancellation; **released incrementally when invoice payments are confirmed**
 - **Finance → Credit Limits** overview per buyer (`BuyerCreditLimitOverviewResource`)
 - Documented flow: `docs/credit-limit-request-flow.md`
 
@@ -603,7 +624,30 @@ Proactive notifications so quotes, supplier responses, invoices, and catalog pri
 
 > *Invoice, quote, supplier-follow-up, and catalog price reminders — tanpa follow-up manual di email.*
 
-### 5.21 Platform & Automation
+### 5.21a Request Activity Timeline & Notes
+
+**Staff timeline** (`RequestHistoryWidget` on Request View footer)
+
+- Chronological feed of audit changes, uploads, credit movements, and milestones
+- Paginated (`RequestHistoryTimeline` Livewire); drill-in to Spatie activity detail
+- Credit lane shows amount, before→after balances, and causing record
+
+**Audience scoping** (`Services/Timeline/`)
+
+- `TimelineAudience` maps viewer party (staff, `buyer:{id}`, `supplier:{id}`) to additive allow-lists
+- Non-staff feeds are built from allow-listed subjects only — not filtered after load
+- `RedactionRules` strip internal fields (supplier cost, margin, staff names) before render
+
+**Request notes** (`RequestNoteComposer`)
+
+- Pinned below every timeline surface (staff + portal)
+- Staff choose visibility: internal, to buyer, or to supplier (single supplier target)
+- Buyers post buyer-visible notes; suppliers post supplier-scoped notes
+- File attachments via shared `AttachUploadedFiles` action
+
+**Buyer portal timeline** — separate hard-coded allow-list on `ViewBuyerRequest`; shows safe milestones only (quotes sent, shipments, invoices, payments) with buyer-facing labels
+
+### 5.22 Platform & Automation
 
 **Multi-panel architecture**
 
@@ -706,9 +750,11 @@ Export uses `ExportCompletion` job for reliable download links when queued.
 | **Buyer Quotes** | CP, KA | Preparing / awaiting buyer confirmation | Offer price to buyer with margin | Copy from supplier quote or build manually; send PDF/email; upload buyer PO when accepted |
 | **Purchases** (supplier POs) | CP | Preparing supplier order | Order from chosen vendors | Create PO per supplier; confirm → route to senior approval |
 | **Goods Receive** | CP, warehouse | Goods receive | Prove goods arrived from supplier | Upload GR documents; wait for **Approval → Goods Receive** |
-| **Invoices** (buyer orders) | CP | Awaiting buyer confirmation+ | Record customer order / billing basis | Create buyer order from accepted quote; send to buyer; track payment terms |
+| **Invoices** (buyer orders) | CP | Awaiting buyer confirmation+ | Record customer order; issue invoice; record payments | Create buyer order from accepted quote; **Issue Invoice**; **Record Payment** with proof |
 | **Fulfillment** | CP, logistics | Awaiting shipment+ | Deliver goods or sign off services | **Goods:** create shipment, set PIC, DO PDF. **Services:** file acceptance report in same tab |
 | **Completion Report** | CP, Fin | Delivered / closing | Close job; payment evidence | Upload completion docs; mark payment documents for finance approval |
+| **Activity timeline** | CP, KA, Fin | Anytime | Audit trail on the request | Scroll footer **Activities** widget; drill into change detail |
+| **Request notes** | CP, KA; buyer/supplier via portal | Anytime | Threaded communication on the request | Post note at bottom of timeline; staff choose visibility |
 
 ### 6.2 Approval menu (control & sign-off)
 
@@ -749,7 +795,7 @@ Export uses `ExportCompletion` job for reliable download links when queued.
 | Feature | Who | When | Why | How |
 |---------|-----|------|-----|-----|
 | **People** | Sales, CP | Contact management | Who to call (also **PIC** on shipments) | Add contact; link to buyers/suppliers |
-| **Buyer portal** | Buyer users | After invitation | Self-service requests, quotes, shipments | Log in at buyer portal; create/track requests |
+| **Buyer portal** | Buyer users | After invitation | Self-service requests, quotes, invoices, payments, shipments | Log in at buyer portal; track progress; pay invoices; view issued invoices |
 | **Supplier portal** | Supplier users | After invitation | Respond to quote requests; maintain article prices | Log in at supplier portal; submit quotes |
 | **Public catalog** | Prospective buyers | Pre-deal | Browse published articles | Add to quote cart; submit request or register |
 | **Members** | Admin | Onboarding | Who can access internal team | Invite user; set role + CP sub-role |
@@ -783,9 +829,10 @@ Export uses `ExportCompletion` job for reliable download links when queued.
 
 | Feature | Intended use | Current state |
 |---------|--------------|---------------|
-| **Buyer invoice** (standalone) | AR billing separate from buyer order | Model + overdue widgets; **no create/edit screen yet** |
+| **Standalone buyer invoice CRUD** | AR billing separate from buyer order | Issue/resend from order row actions + buyer portal read-only list — **no dedicated `BuyerInvoiceResource`** |
+| **Prepayment / balance split invoices** | Milestone billing per payment term | Model supports types; v1 issues one **standard** invoice per order |
+| **Credit notes (buyer)** | Adjust issued invoices | `BuyerInvoice::createCreditNote()` exists — **no panel UI yet** |
 | **Supplier invoice / payment** | AP tracking | Models only; **use PO + completion docs for now** |
-| **Request activity log** | Audit on request | Exists on resource; **not on Request View tabs** |
 
 ---
 
@@ -897,6 +944,8 @@ flowchart LR
 | Service requests (jual jasa) | Goods and services in one platform |
 | Project grouping | Purchases and spend rolled up per project |
 | Reminders (quote · supplier · invoice · catalog price) | Proactive follow-up |
+| Buyer invoicing & credit release | AR from orders; payments restore buyer credit |
+| Activity timeline & request notes | Audit trail + threaded communication on requests |
 | Buyer & supplier portals + public catalog | Self-service without losing CP control |
 | Credit Limit Acceptances | Central document approval for CP and finance |
 | People + master data | Contacts and catalog beside transactions |
@@ -941,7 +990,7 @@ flowchart LR
 | **Settings** | Email Templates | `EmailTemplateResource` |
 | *(ungrouped)* | Members | `MemberResource` |
 
-**Buyer portal** (`BuyerPanelProvider`, default path `buyer`): Requests
+**Buyer portal** (`BuyerPanelProvider`, default path `buyer`): Requests (with progress timeline, payments, activities) · Invoices · Shipments
 
 **Supplier portal** (`SupplierPanelProvider`, default path `supplier`): Requests · My Articles
 
@@ -967,16 +1016,19 @@ Cross-check of marketing claims vs codebase (honest gaps for stakeholders).
 | Overdue invoice alerts | ✅ | `CheckOverdueInvoicesJob` + widgets (buyer invoices) |
 | Project grouping | ✅ | `project_id` on requests |
 | SAP bridge positioning | 📋 | Architectural / business — not a technical integration |
-| Standalone buyer invoice UI | ⚠️ | `BuyerInvoice` model + widgets exist; **no Filament invoice resource** |
+| Standalone buyer invoice UI | ⚠️ | Issue/resend from **Invoices** tab + buyer portal list; **no `BuyerInvoiceResource`** |
+| Buyer invoice issuance + payments | ✅ | `issueInvoice` / `recordPayment` on `BuyerOrdersRelationManager`; credit release on confirmed payment |
+| Buyer portal invoices + payments | ✅ | `InvoicesRelationManager`, payment card, pending buyer payments |
 | Standalone supplier invoice / payment UI | ⚠️ | Models exist; **no dedicated Filament resources** |
-| “Invoices” tab | ✅ | UI label for **Buyer Orders** tab — not separate AR module |
-| Buyer portal | ✅ | `BuyerPanelProvider`, `BuyerRequestResource` |
+| “Invoices” tab | ✅ | UI label for **Buyer Orders**; AR invoices issued from order row actions |
+| Request activity timeline on View | ✅ | `RequestHistoryWidget` footer + `RequestHistoryTimeline` |
+| Request notes on timeline | ✅ | `RequestNoteComposer` with visibility (internal / buyer / supplier) |
+| Buyer portal | ✅ | `BuyerPanelProvider`, `BuyerRequestResource`, invoices, payments, activity timeline |
 | Supplier portal | ✅ | `SupplierPanelProvider`, `SupplierRequestResource`, `SupplierArticleResource` |
 | Public catalog + quote cart | ✅ | `CatalogHome`, `SubmitQuoteCart`, `CATALOG_ENABLED` |
 | Portal registration approval | ✅ | `PortalRegistrationRequestResource` |
 | Service acceptance reports on View | ✅ | `AcceptanceReportsRelationManager` inside Fulfillment `RelationGroup` |
 | Opportunities / Tasks / Notes CRM | ❌ | Retired July 2026 — deal tracking on Request workflow |
-| Request activity log on View | ⚠️ | `RequestActivitiesRelationManager` exists but not on View page override |
 | Expense module | ❌ | Not implemented — spend tracked via orders + credit limits |
 
 ---
@@ -1019,12 +1071,12 @@ Expanded outline — one feature area per slide; use **§5** (what it does), **�
 | 30 | Public catalog & quote cart | §5.16 · §6.5 |
 | 31 | Buyer & supplier portals | §5.17–5.18 · §6.5 |
 | 32 | Reminders & scheduled jobs | §5.20 · §6.6 |
-| 33 | Dashboard widgets | §5.21 · §6.6 |
+| 33 | Dashboard widgets | §5.22 · §6.6 |
 | 34 | People & AI summaries | §5.15 · §6.5 |
-| 35 | Email templates & SMTP | §5.21 · §6.6 |
-| 36 | Import / export | §5.21 · §6.6 |
-| 37 | Roles & CP sub-roles | §5.21 |
-| 38 | Team settings & prefixes | §5.21 · §6.6 |
+| 35 | Email templates & SMTP | §5.22 · §6.6 |
+| 36 | Import / export | §5.22 · §6.6 |
+| 37 | Roles & CP sub-roles | §5.22 |
+| 38 | Team settings & prefixes | §5.22 · §6.6 |
 | 39 | ERPC vs SAP (bridge) | §7 |
 | 40 | Summary & Q&A | §9 |
 

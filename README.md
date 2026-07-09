@@ -32,6 +32,8 @@ The platform runs as multiple Filament panels on shared infrastructure:
   - **Request View page** - Single request view (`RequestResource::view`) with tabbed relation managers: Requested Items, Supplier Quotes, Buyer Quotes, Purchases (Supplier Orders), Goods Receive, Invoices (Buyer Orders), Fulfillment (Shipments + Acceptance Reports), Completion Report. Stage advancement and tab access follow `RequestStage` and approval rules (QE, P&L, supplier order approval).
   - **Information Flow widget** - Step-by-step guide shown at the **bottom of the Request View page** (footer widget). Content is **per-tab**: when a tab is selected, the widget shows that step's flow as a **bulleted list**. Steps 1–8: (1) Requested Items, (2) Supplier Quotes, (3) Buyer Quotes, (4) Purchases, (5) Goods Receive, (6) Invoices, (7) Fulfillment (goods shipments and service acceptance reports), (8) Completion Report. Implemented in `App\Filament\Widgets\RequestInformationFlowWidget` and view `resources/views/filament/widgets/request-information-flow-widget.blade.php`; registered via `ViewRequest::getFooterWidgets()`.
   - **Submission sources** - Requests can originate from the internal app, buyer portal, supplier portal, or public catalog (`RequestSubmissionMethod`).
+  - **Activity timeline** - Footer widget on Request View (`RequestHistoryWidget` → `RequestHistoryTimeline` Livewire) shows chronological audit changes, uploads, credit movements, and milestones; paginated with drill-in to change detail
+  - **Request notes** - `RequestNoteComposer` pinned below the timeline; staff choose visibility (internal, to buyer, to supplier); buyers and suppliers post notes scoped to their party; supports file attachments
 - **Supplier Quoting** - Collect and compare quotes from multiple suppliers; send quote requests to suppliers via email and the supplier portal
 - **Quotation Evaluation** - Generate internal QE documents with item comparison, supplier info, and approval workflow
   - **Document upload** - Upload supporting documents on the QE view page (action group: Edit, Download PDF, Upload Document). Documents appear in a Documents section and in **Credit Limit Acceptances** for key account approval; once approved there, the QE status is set to Approved.
@@ -46,7 +48,11 @@ The platform runs as multiple Filament panels on shared infrastructure:
   - **Supplier Order Approval** - Dual-approval workflow requiring minimum 2 approvals from senior roles (Dept Head of Sales, Deputy Director, Director) before supplier orders can be sent
   - **Document upload** - Upload supporting documents from the Supplier Order Approval list (row action: Upload Document) or from the order view page (action group: Edit, Download PDF, Upload Document). Documents appear in a Documents section on the view page and in **Credit Limit Acceptances**; when a key account approves a document there, the supplier order status is set to Approved.
 - **Goods Receive** - Upload delivery documents per supplier order; all documents must be approved via **Approval > Goods Receive** before fulfillment unlocks
-- **Invoicing** - Handle buyer and supplier invoices with payment tracking and overdue status updates
+- **Invoicing** - Issue real buyer invoices from confirmed orders, record payments, and track overdue status:
+  - **Issue Invoice** — On the Request View **Invoices** tab (`BuyerOrdersRelationManager`), staff issue a `BuyerInvoice` from a confirmed buyer order via row action; copies order line items, sets `issued_at` / `due_at` (net days from order), emails the buyer (`InvoiceToBuyerMail`, template `resources/views/emails/invoice-to-buyer.blade.php`), and exposes PDF download
+  - **Record Payment** — Staff record full or partial payments against the active invoice (amount, method, date, reference, proof upload); confirmed payments update invoice status and **release buyer credit** reserved at order confirmation
+  - **Payments card** — Request View and buyer portal request pages show a payment-terms matrix with per-term pay buttons (`InteractsWithPaymentCard`); buyers submit payments as **Pending** until staff confirm
+  - **Overdue tracking** — `CheckOverdueInvoicesJob` (09:00) marks overdue invoices and notifies the creator
 - **Fulfillment** - Combined tab for goods and services:
   - **Shipments** - Monitor delivery status and logistics with Delivery Order (DO) PDF generation for inbound shipments
     - **PIC Contact** - On Create Shipment (Additional Info section): select a Person In Charge from the buyer's People/Contacts, or add a new person via the + button (reuses the full Create Person form: name, phone, email, Companies). New persons are attached to the buyer and shown in the PIC list. Shipment stores `pic_contact_id`. The Delivery Order PDF (`resources/views/pdf/shipment-delivery-order.blade.php`) displays PIC name and phone under the delivery address; `PdfGenerationService::generateShipmentDeliveryOrderPdf()` eager-loads `picContact`.
@@ -63,7 +69,13 @@ The platform runs as multiple Filament panels on shared infrastructure:
 
 ### Buyer Portal
 - **Panel** - Filament buyer panel at `BUYER_PATH` (default `buyer`) on `BUYER_DOMAIN` or the app subdomain; separate session cookie from the internal panel
-- **Requests** - Buyers create and track requests with relation managers for buyer quotes, invoices, and shipments (`BuyerRequestResource`)
+- **Requests** - Buyers create and track requests (`BuyerRequestResource`); request view includes:
+  - **Progress timeline** — Seven customer-journey milestones via `RequestStageTimelinePresenter` (effective stage reflects sent quotes and post-confirmation progress)
+  - **Quotes** — Embedded buyer quotes relation manager; accept/reject sent quotes inline
+  - **Payments** — Payment-terms card when a standard invoice exists; buyers submit payment proof as **Pending** for staff confirmation
+  - **Activities** — Buyer-scoped activity timeline (`PortalTimelineSource`) with redacted milestones (no supplier costs, P&L, or internal staff names)
+- **Invoices** - `InvoicesRelationManager` lists issued (non-draft) invoices with totals, paid amount, due date, and PDF download; `BuyerInvoiceStatusPresenter` maps **Sent** to buyer-facing label **Received**
+- **Shipments** - Relation manager for outbound shipment tracking
 - **Portal users** - Invited and managed from **Master Data > Buyers > Portal Users** (`PortalUsersRelationManager`); invitation lifecycle: Invited, Active, Deactivated
 - **Registration approval** - Public registrations appear in **Approval > Registrations** (`PortalRegistrationRequestResource`) for approve/reject
 - **Kill switch** - `BUYER_PORTAL_ENABLED=false` disables the panel
@@ -79,6 +91,7 @@ The platform runs as multiple Filament panels on shared infrastructure:
 - **Credit Limits** - **Finance > Credit Limits** overview per buyer: max credit limit, available credit, credit used, and usage history (`BuyerCreditLimitOverviewResource`)
 - **Credit Limit Requests** - Buyers (or key accounts) can request limit increases; dual-approval workflow in **Approval > Credit Limit Requests** (`BuyerCreditLimitRequestResource`)
 - **Credit warnings** - `CreditLimitWarningService` warns when new orders would exceed a buyer's available credit during order creation
+- **Credit lifecycle** - Credit is reserved when a buyer order is confirmed; released incrementally when invoice payments are confirmed (not only on order cancellation)
 
 ### Document storage (uploads)
 - Uploaded documents (supplier quotes, buyer quotes, supplier orders, goods receive, completion reports, quotation evaluation, profit and loss) are stored in **dedicated folders per feature** under `storage/app/` (local disk).
@@ -220,18 +233,21 @@ app/
 ├── Enums/                # PHP enums
 ├── Filament/             # Admin panel resources
 │   ├── Buyer/            # Buyer portal resources and pages
+│   ├── Concerns/         # InteractsWithPaymentCard (shared payment UI)
 │   ├── Supplier/         # Supplier portal resources, pages, widgets
 │   ├── Exports/          # Exporters; Jobs/ExportCompletion (refresh before notification)
 │   ├── Imports/          # Importers for master data
 │   ├── Pages/            # Custom pages (EmailSettings, Settings, ApiTokens)
 │   ├── Resources/        # App panel resources (Requests, Buyers, Approval, Finance, etc.)
-│   └── Widgets/          # Widgets (e.g. RequestInformationFlowWidget)
+│   └── Widgets/          # RequestInformationFlowWidget, RequestHistoryWidget
 ├── Http/
 │   ├── Controllers/      # Document downloads, PDFs, auth callbacks
 │   └── Middleware/       # Tenant scopes, panel sessions, portal context
 ├── Jobs/                 # Background jobs (Erp alerts, favicon fetch, email subscribers)
 ├── Livewire/
-│   └── Catalog/          # Public catalog, quote cart, registration
+│   ├── Catalog/          # Public catalog, quote cart, registration
+│   ├── RequestHistoryTimeline.php  # Per-request activity feed
+│   └── RequestNoteComposer.php     # Timeline note + attachment composer
 ├── Mail/                 # Laravel Mailables (Erp/, portal invitations)
 ├── Notifications/        # Laravel Notifications (Erp/)
 ├── Models/               # Eloquent models
@@ -242,10 +258,11 @@ app/
 ├── Services/
 │   ├── AI/               # Record summary generation
 │   ├── Catalog/          # Quote cart, article cost resolution, team resolver
-│   ├── BuyerPortal/      # Request stage presentation
+│   ├── BuyerPortal/      # Request stage + invoice status presentation
 │   ├── Email/            # Email template and SMTP services
 │   ├── Erp/              # PDF generation, tax, credit limits, financial totals
-│   ├── Portal/           # Buyer and supplier portal context
+│   ├── Portal/           # Buyer/supplier portal context, stage timeline presenter
+│   ├── Timeline/         # Audience-scoped activity feed, redaction rules
 │   └── SupplierPortal/   # request status presentation
 └── Support/
     ├── Media/            # DocumentPathGenerator (Spatie Media Library path per feature)
