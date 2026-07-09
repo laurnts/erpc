@@ -65,7 +65,7 @@ it('renders the buyer activity section on the request detail page', function ():
     app(BuyerPortalContext::class)->setCompany($this->buyer->getKey());
 
     $stageLabel = app(BuyerRequestStagePresenter::class)
-        ->labelForStage(RequestStage::PREPARING_BUYER_QUOTE);
+        ->partyFacingLabel(RequestStage::PREPARING_BUYER_QUOTE);
 
     livewire(ViewBuyerRequest::class, ['record' => $request->getRouteKey()])
         ->assertOk()

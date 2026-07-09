@@ -248,6 +248,14 @@ final class BuyerOrdersRelationManager extends RelationManager
 
     private function activeInvoiceFor(BuyerOrder $order): ?BuyerInvoice
     {
+        if ($order->relationLoaded('buyerInvoices')) {
+            return $order->buyerInvoices
+                ->filter(fn (BuyerInvoice $invoice): bool => $invoice->type === InvoiceType::STANDARD
+                    && $invoice->status !== InvoiceStatus::CANCELLED)
+                ->sortByDesc('id')
+                ->first();
+        }
+
         return BuyerInvoice::query()
             ->where('buyer_order_id', $order->getKey())
             ->where('type', InvoiceType::STANDARD)

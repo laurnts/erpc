@@ -41,7 +41,7 @@ final readonly class RedactionRules
             return $stage->getLabel();
         }
 
-        return app(BuyerRequestStagePresenter::class)->labelForStage($stage);
+        return app(BuyerRequestStagePresenter::class)->partyFacingLabel($stage);
     }
 
     /**

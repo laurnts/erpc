@@ -157,16 +157,27 @@ final class ViewSupplierRequest extends ViewRecord
             ->forParty($request, TimelineParty::supplier($companyId));
     }
 
+    private ?Request $memoizedParentRequest = null;
+
+    private bool $parentRequestResolved = false;
+
     /**
      * Resolve the parent Request from the quotation without trusting the
      * narrow portal projection (which deliberately omits request_id): the
      * request is reached through this quote's own key via the relationship.
+     * Memoized per render — several infolist closures call this on every
+     * Livewire round-trip.
      */
     private function parentRequest(): ?Request
     {
-        return Request::query()
-            ->whereHas('supplierQuotes', fn (Builder $query): Builder => $query->whereKey($this->quoteRecord()->getKey()))
-            ->first();
+        if (! $this->parentRequestResolved) {
+            $this->memoizedParentRequest = Request::query()
+                ->whereHas('supplierQuotes', fn (Builder $query): Builder => $query->whereKey($this->quoteRecord()->getKey()))
+                ->first();
+            $this->parentRequestResolved = true;
+        }
+
+        return $this->memoizedParentRequest;
     }
 
     protected function getHeaderActions(): array

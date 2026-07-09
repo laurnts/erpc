@@ -8,8 +8,9 @@ use App\Enums\RequestStage;
 use App\Models\Request;
 
 /**
- * Eight-step operator workflow progress bar shared by the buyer and supplier
- * portals. Uses the same tab order and labels as the staff request view.
+ * Eight-step workflow progress bar shared by the buyer and supplier portals.
+ * Uses the staff tab labels but renders milestones in chronological workflow
+ * order (RequestStage::getOrder), which differs from the staff tab order.
  */
 final readonly class RequestWorkflowTimelinePresenter
 {
@@ -27,24 +28,27 @@ final readonly class RequestWorkflowTimelinePresenter
             ]];
         }
 
+        // Chronological workflow order (RequestStage::getOrder), not staff tab
+        // order: buyer confirmation happens BEFORE purchasing, so comparing tab
+        // steps would tick "Supplier Orders"/"Goods Receive" as done while the
+        // buyer is still confirming.
         $milestones = [
             RequestStage::DRAFT,
             RequestStage::AWAITING_SUPPLIER_RESPONSE,
             RequestStage::PREPARING_BUYER_QUOTE,
+            RequestStage::AWAITING_BUYER_CONFIRMATION,
             RequestStage::PREPARING_SUPPLIER_ORDER,
             RequestStage::GOODS_RECEIVE,
-            RequestStage::AWAITING_BUYER_CONFIRMATION,
             RequestStage::AWAITING_SHIPMENT,
             RequestStage::DELIVERED,
         ];
         $resolvedActive = $this->resolveActiveTimelineStage($activeStage);
-        $activeStep = $resolvedActive->getTabStep();
 
         return array_map(
             fn (RequestStage $stage): array => [
                 'stage' => $stage,
                 'label' => $stage->getTabLabel(),
-                'completed' => $activeStep !== null && $stage->getTabStep() < $activeStep,
+                'completed' => $stage->getOrder() < $resolvedActive->getOrder(),
                 'current' => $stage === $resolvedActive,
             ],
             $milestones,

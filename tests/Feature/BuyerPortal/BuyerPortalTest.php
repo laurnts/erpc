@@ -1401,10 +1401,9 @@ describe('Buyer Portal Phase 4', function (): void {
             ['record' => $request->getRouteKey()],
         )
             ->assertOk()
-            ->assertSee('Invoices (6/8)')
-            ->assertSee('Invoices');
+            ->assertSee('Supplier Orders (4/8)');
 
         expect(app(BuyerRequestStagePresenter::class)->label($request->fresh()))
-            ->toBe('Invoices (6/8)');
+            ->toBe('Supplier Orders (4/8)');
     });
 });

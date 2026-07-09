@@ -230,7 +230,7 @@ final class SupplierRequestResource extends Resource
                 fn (string $column): string => 'supplier_quotes.'.$column,
                 self::PORTAL_COLUMNS,
             ))
-            ->with(['currency', 'items.requestItem']);
+            ->with(['currency', 'items.requestItem', 'items.unitOfMeasure']);
     }
 
     public static function canCreate(): bool

@@ -12,12 +12,12 @@ use App\Models\Company;
 use App\Models\Request;
 use App\Models\Team;
 use App\Services\BuyerPortal\BuyerInvoiceStatusPresenter;
-use App\Services\Portal\RequestStageTimelinePresenter;
+use App\Services\BuyerPortal\BuyerRequestStagePresenter;
 
 beforeEach(function (): void {
     $this->team = Team::factory()->create();
     $this->buyer = Company::factory()->buyer()->for($this->team)->create();
-    $this->presenter = app(RequestStageTimelinePresenter::class);
+    $this->presenter = app(BuyerRequestStagePresenter::class);
 });
 
 it('maps sent invoice status to received for the buyer portal', function (): void {
@@ -98,4 +98,19 @@ it('treats accepted quote without a confirmed order as post-confirmation', funct
         ->create();
 
     expect($this->presenter->effectiveStage($request))->toBe(RequestStage::PREPARING_SUPPLIER_ORDER);
+});
+
+it('does not demote a request whose internal stage already moved past confirmation', function (): void {
+    $request = Request::factory()->for($this->team)->for($this->buyer, 'buyer')->create([
+        'stage' => RequestStage::GOODS_RECEIVE,
+    ]);
+
+    BuyerQuote::factory()
+        ->for($this->team)
+        ->for($request)
+        ->for($this->buyer, 'buyer')
+        ->accepted()
+        ->create();
+
+    expect($this->presenter->effectiveStage($request))->toBe(RequestStage::GOODS_RECEIVE);
 });

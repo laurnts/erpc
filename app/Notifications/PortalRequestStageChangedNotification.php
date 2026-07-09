@@ -30,7 +30,7 @@ final class PortalRequestStageChangedNotification extends Notification implement
     public function toMail(object $notifiable): MailMessage
     {
         $presenter = app(BuyerRequestStagePresenter::class);
-        $statusLabel = $presenter->label($this->request);
+        $statusLabel = $presenter->partyFacingLabel($presenter->effectiveStage($this->request));
 
         return (new MailMessage)
             ->subject('Request Update: '.$this->request->request_number)
@@ -53,7 +53,7 @@ final class PortalRequestStageChangedNotification extends Notification implement
             'body' => sprintf(
                 '%s — %s',
                 $this->request->request_number,
-                $presenter->label($this->request),
+                $presenter->partyFacingLabel($presenter->effectiveStage($this->request)),
             ),
             'request_id' => $this->request->getKey(),
         ];

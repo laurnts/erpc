@@ -85,3 +85,22 @@ it('isolates one supplier from another supplier on a shared request', function (
     expect($subjectIds)->toContain($quoteA->getKey())
         ->and($subjectIds)->not->toContain($quoteB->getKey());
 });
+
+it('carries the note visibility on portal note entries so the badge can render', function (): void {
+    $request = Request::factory()->recycle($this->team)->create();
+
+    \App\Models\RequestNote::factory()
+        ->recycle($this->team)
+        ->for($request)
+        ->sharedWithBuyer()
+        ->authoredByStaff($this->admin)
+        ->create(['body' => 'Visible to the buyer']);
+
+    $entries = $this->source->forParty($request, TimelineParty::buyer($request->buyer_id));
+
+    $note = collect($entries)->firstWhere('entryType', TimelineAudience::ENTRY_NOTE);
+
+    expect($note)->not->toBeNull()
+        ->and($note->properties)->toHaveKey('visibility')
+        ->and($note->properties['visibility'])->toBe('buyer');
+});

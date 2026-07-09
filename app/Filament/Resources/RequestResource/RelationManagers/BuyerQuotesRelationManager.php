@@ -638,6 +638,21 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->suffix('%')
                                         ->columnSpan(2)
                                         ->live(onBlur: true)
+                                        ->afterStateHydrated(function (Set $set, Get $get): void {
+                                            $current = $get('margin_percent_input');
+                                            if ($current === null || $current === '' || (float) $current === 0.0) {
+                                                /** @var \App\Models\Team|null $team */
+                                                $team = Filament::getTenant();
+                                                $defaultMargin = ceil($team?->getErpSettings()->default_margin_percent ?? 3.0);
+                                                $stored = $get('margin_percent');
+                                                $prefill = ($stored !== null && $stored !== '' && (float) $stored > 0)
+                                                    ? (int) round((float) $stored)
+                                                    : (int) $defaultMargin;
+                                                $set('margin_percent_input', $prefill);
+                                            }
+
+                                            $this->calculateItemTotals($set, $get);
+                                        })
                                         ->afterStateUpdated(function (Set $set, Get $get, ?float $state): void {
                                             $marginPercent = $state ?? 0;
                                             $costPrice = (float) ($get('cost_price') ?? 0);
@@ -645,12 +660,12 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                 $unitPriceExcTax = round(MarginConvention::netUnitPrice($costPrice, $marginPercent), 0);
                                                 $set('unit_price', $unitPriceExcTax);
                                                 $set('unit_price_exc_tax', $unitPriceExcTax);
-                                                $this->calculateItemTotals($set, $get, null, $unitPriceExcTax);
+                                                $this->calculateItemTotals($set, $get, null, $unitPriceExcTax, syncMarginInput: false);
 
                                                 return;
                                             }
 
-                                            $this->calculateItemTotals($set, $get);
+                                            $this->calculateItemTotals($set, $get, syncMarginInput: false);
                                         })
                                         ->dehydrated(false),
                                     Hidden::make('line_total')->dehydrated(),
@@ -2713,7 +2728,7 @@ final class BuyerQuotesRelationManager extends RelationManager
      *
      * @param  bool|null  $isTaxInclusiveOverride  Optional override for is_tax_inclusive value (useful for nested Repeaters)
      */
-    private function calculateItemTotals(Set $set, Get $get, ?bool $isTaxInclusiveOverride = null, ?float $unitPriceOverride = null): void
+    private function calculateItemTotals(Set $set, Get $get, ?bool $isTaxInclusiveOverride = null, ?float $unitPriceOverride = null, bool $syncMarginInput = true): void
     {
         $quantity = (float) ($get('quantity') ?? 0);
         $unitPrice = $unitPriceOverride ?? (float) ($get('unit_price') ?? 0);
@@ -2758,7 +2773,13 @@ final class BuyerQuotesRelationManager extends RelationManager
         $set('line_total', $amounts->lineTotal);
         $set('margin_amount', round($marginAmount, 4));
         $set('margin_percent', round($marginPercent, 4));
-        $set('margin_percent_input', (int) round($marginPercent));
+
+        // The visible Margin % input is only re-derived when both sides of the
+        // formula are real: a zero cost ("No supplier quote") or empty price
+        // would snap it to 100/0 and clobber the seeded default or typed value.
+        if ($syncMarginInput && $costPrice > 0 && $unitPriceExcTax > 0) {
+            $set('margin_percent_input', (int) round($marginPercent));
+        }
     }
 
     /**

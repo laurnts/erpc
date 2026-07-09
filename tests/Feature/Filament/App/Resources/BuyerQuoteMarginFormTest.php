@@ -147,4 +147,76 @@ describe('buyer quote edit margin persistence', function (): void {
         expect((float) $item->unit_price_exc_tax)->toBe(6890.0)
             ->and((float) $item->margin_percent)->toBe(0.0);
     });
+
+    it('keeps the default margin visible when a selling price is entered on a zero-cost line', function (): void {
+        $requestItem = RequestItem::factory()->recycle($this->request)->create();
+        $quote = BuyerQuote::factory()
+            ->recycle($this->team)
+            ->recycle($this->request)
+            ->recycle($this->buyer)
+            ->recycle($this->currency)
+            ->recycle($this->user)
+            ->create(['status' => BuyerQuoteStatus::DRAFT]);
+
+        BuyerQuoteItem::factory()
+            ->forBuyerQuote($quote)
+            ->forRequestItem($requestItem)
+            ->withPricing(costPrice: 0, unitPrice: 0, quantity: 1)
+            ->create([
+                'margin_percent' => '0.0000',
+                'is_tax_inclusive' => true,
+                'tax_rate' => '11',
+            ]);
+
+        $component = livewire(BuyerQuotesRelationManager::class, [
+            'ownerRecord' => $this->request,
+            'pageClass' => ViewRequest::class,
+        ])->mountAction(TestAction::make('edit')->table($quote));
+
+        /** @var array<string, array<string, mixed>> $items */
+        $items = $component->get('mountedActions.0.data.items');
+        $rowKey = array_key_first($items);
+
+        $component->set("mountedActions.0.data.items.{$rowKey}.unit_price", '5000');
+
+        expect((int) round((float) $component->get("mountedActions.0.data.items.{$rowKey}.margin_percent_input")))
+            ->toBe(3);
+    });
+
+    it('keeps a typed margin on a low-cost line instead of snapping it to the rounded-price margin', function (): void {
+        $requestItem = RequestItem::factory()->recycle($this->request)->create();
+        $quote = BuyerQuote::factory()
+            ->recycle($this->team)
+            ->recycle($this->request)
+            ->recycle($this->buyer)
+            ->recycle($this->currency)
+            ->recycle($this->user)
+            ->create(['status' => BuyerQuoteStatus::DRAFT]);
+
+        BuyerQuoteItem::factory()
+            ->forBuyerQuote($quote)
+            ->forRequestItem($requestItem)
+            ->withPricing(costPrice: 10, unitPrice: 10, quantity: 1)
+            ->create([
+                'margin_percent' => '0.0000',
+                'is_tax_inclusive' => true,
+                'tax_rate' => '11',
+            ]);
+
+        $component = livewire(BuyerQuotesRelationManager::class, [
+            'ownerRecord' => $this->request,
+            'pageClass' => ViewRequest::class,
+        ])->mountAction(TestAction::make('edit')->table($quote));
+
+        /** @var array<string, array<string, mixed>> $items */
+        $items = $component->get('mountedActions.0.data.items');
+        $rowKey = array_key_first($items);
+
+        $component->set("mountedActions.0.data.items.{$rowKey}.margin_percent_input", '3');
+
+        expect((int) round((float) $component->get("mountedActions.0.data.items.{$rowKey}.margin_percent_input")))
+            ->toBe(3)
+            ->and((float) $component->get("mountedActions.0.data.items.{$rowKey}.unit_price"))
+            ->toBe(10.0);
+    });
 });

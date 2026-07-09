@@ -352,6 +352,7 @@ final readonly class PortalTimelineSource
                 subjectNumber: $request->request_number,
                 changedFieldCount: 0,
                 occurredAt: $note->created_at->toImmutable(),
+                properties: ['visibility' => $note->visibility->value],
                 lane: 'note',
                 body: ($note->body === null || $note->body === '') ? null : $note->body,
                 attachments: $attachments,
