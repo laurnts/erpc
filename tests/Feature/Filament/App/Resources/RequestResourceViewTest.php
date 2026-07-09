@@ -192,7 +192,18 @@ describe('Request status header', function (): void {
         livewire(ViewRequest::class, ['record' => $record->getKey()])
             ->assertOk()
             ->assertSee('Status')
-            ->assertSee(RequestStage::PREPARING_SUPPLIER_ORDER->getLabelWithStep());
+            ->assertSee(RequestStage::PREPARING_SUPPLIER_ORDER->getTabLabelWithStep());
+    });
+
+    it('shows invoice stage using the same eight-step workflow label as the request list', function (): void {
+        $record = viewTestRequest($this)->fresh();
+        $record->update(['stage' => RequestStage::AWAITING_BUYER_CONFIRMATION]);
+
+        livewire(ViewRequest::class, ['record' => $record->getKey()])
+            ->assertOk()
+            ->assertSee('Status')
+            ->assertSee('Invoices (6/8)')
+            ->assertDontSee('Awaiting Buyer Confirmation (4/6)');
     });
 
     it('no longer renders the per-channel fulfillment and item-type badges in the header', function (): void {

@@ -11,8 +11,8 @@ use App\Filament\Supplier\Resources\SupplierRequestResource\Schemas\SupplierRequ
 use App\Models\Request;
 use App\Models\SupplierQuote;
 use App\Models\User;
-use App\Services\Portal\RequestStageTimelinePresenter;
 use App\Services\Portal\SupplierPortalContext;
+use App\Services\SupplierPortal\SupplierRequestStagePresenter;
 use App\Services\SupplierPortal\SupplierRequestStatusPresenter;
 use App\Services\Timeline\PortalTimelineSource;
 use App\Services\Timeline\TimelineParty;
@@ -100,7 +100,7 @@ final class ViewSupplierRequest extends ViewRecord
                                 $request = $this->parentRequest();
 
                                 return $request instanceof Request
-                                    ? app(RequestStageTimelinePresenter::class)->timeline($request)
+                                    ? app(SupplierRequestStagePresenter::class)->timeline($request)
                                     : [];
                             })
                             ->view('filament.portal.components.request-progress-timeline'),

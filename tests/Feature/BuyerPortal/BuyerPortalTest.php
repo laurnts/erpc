@@ -1112,7 +1112,7 @@ describe('Buyer Portal Phase 4', function (): void {
         )
             ->assertOk()
             ->assertSee('Request Progress')
-            ->assertSee('In transit');
+            ->assertSee('Completion Report');
     });
 
     it('shows awaiting confirmation for sent quotes even when request stage is stale', function (): void {
@@ -1141,7 +1141,7 @@ describe('Buyer Portal Phase 4', function (): void {
             ['record' => $request->getRouteKey()],
         )
             ->assertOk()
-            ->assertSee('Awaiting Your Confirmation')
+            ->assertSee('Invoices (6/8)')
             ->assertSee('Quote awaiting your confirmation')
             ->assertSee('BQ-2026-0067 · v1');
 
@@ -1401,10 +1401,10 @@ describe('Buyer Portal Phase 4', function (): void {
             ['record' => $request->getRouteKey()],
         )
             ->assertOk()
-            ->assertSee('Being Processed')
-            ->assertSee('Processed');
+            ->assertSee('Invoices (6/8)')
+            ->assertSee('Invoices');
 
         expect(app(BuyerRequestStagePresenter::class)->label($request->fresh()))
-            ->toBe('Being Processed');
+            ->toBe('Invoices (6/8)');
     });
 });

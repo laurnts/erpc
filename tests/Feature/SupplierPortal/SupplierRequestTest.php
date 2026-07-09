@@ -157,8 +157,8 @@ describe('Request visibility', function (): void {
         livewire(ViewSupplierRequest::class, ['record' => $this->quote->getKey()])
             ->assertOk()
             ->assertSee('Request Progress')
-            ->assertSee('In transit')
-            ->assertSee('Sourcing quotes');
+            ->assertSee('Completion Report')
+            ->assertSee('Supplier Quotes');
     });
 
     it('renders a single cancelled step in the progress timeline when the request is cancelled', function (): void {
@@ -168,7 +168,7 @@ describe('Request visibility', function (): void {
             ->assertOk()
             ->assertSee('Request Progress')
             ->assertSee('Cancelled')
-            ->assertDontSee('Sourcing quotes');
+            ->assertDontSee('Supplier Quotes');
     });
 
     it('denies unsent quotes by policy and resolves them as not found on the view page', function (): void {

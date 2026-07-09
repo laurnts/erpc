@@ -227,7 +227,7 @@ final class ViewRequest extends ViewRecord
                     TextEntry::make('stage')
                         ->label('Status')
                         ->badge()
-                        ->formatStateUsing(fn (RequestStage $state): string => $state->getLabelWithStep())
+                        ->formatStateUsing(fn (RequestStage $state): string => $state->getTabLabelWithStep())
                         ->color(fn (RequestStage $state): string => $state->getColor())
                         ->icon(fn (RequestStage $state): string => $state->getIcon()),
                     TextEntry::make('priority')
