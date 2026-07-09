@@ -5,97 +5,37 @@ declare(strict_types=1);
 namespace App\Livewire;
 
 use App\Data\TimelineEntry;
-use App\Enums\TimelineHistoryFilter;
 use App\Livewire\Concerns\AuthorizesLivewireActions;
 use App\Models\ActivityLog;
 use App\Models\Request;
 use App\Services\Timeline\RequestTimelineSource;
-use App\Services\Timeline\TimelineFeedPresenter;
 use App\Services\Timeline\TimelineParty;
 use Filament\Actions\Action;
-use Filament\Support\Enums\Width;
 use Illuminate\Contracts\View\View;
-use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Livewire\Attributes\On;
 
 /**
- * Per-request history feed: compact glanceable sidebar or full searchable log.
+ * Collapsible History timeline on the internal request view (design D6):
+ * day-grouped, paginated, per-save summary lines only — exact field diffs
+ * live in the shared event-log detail modal, never inline.
  */
 final class RequestHistoryTimeline extends BaseLivewireComponent
 {
     use AuthorizesLivewireActions;
 
-    public const int COMPACT_LIMIT = 20;
-
     public Request $request;
-
-    public bool $compact = false;
-
-    public bool $showComposer = true;
-
-    public string $filter = 'all';
-
-    public string $search = '';
 
     public int $page = 1;
 
     public int $perPage = 25;
 
-    /** @var list<string> */
-    public array $expandedDays = [];
-
-    /** @var list<string> */
-    public array $expandedClusters = [];
-
-    public function mount(Request $request, bool $compact = false, bool $showComposer = true): void
+    public function mount(Request $request): void
     {
         $this->ensureTeamOwnership($request);
 
         $this->request = $request;
-        $this->compact = $compact;
-        $this->showComposer = $showComposer;
-
-        if ($compact) {
-            $this->perPage = self::COMPACT_LIMIT;
-        }
-
-        $this->expandedDays = [now()->toDateString()];
-    }
-
-    public function setFilter(string $filter): void
-    {
-        $this->filter = $filter;
-        $this->page = 1;
-        $this->expandedClusters = [];
-    }
-
-    public function updatedSearch(): void
-    {
-        $this->page = 1;
-    }
-
-    public function toggleDay(string $dayKey): void
-    {
-        if (in_array($dayKey, $this->expandedDays, true)) {
-            $this->expandedDays = array_values(array_filter(
-                $this->expandedDays,
-                fn (string $day): bool => $day !== $dayKey,
-            ));
-        } else {
-            $this->expandedDays[] = $dayKey;
-        }
-    }
-
-    public function toggleCluster(string $clusterKey): void
-    {
-        if (in_array($clusterKey, $this->expandedClusters, true)) {
-            $this->expandedClusters = array_values(array_filter(
-                $this->expandedClusters,
-                fn (string $key): bool => $key !== $clusterKey,
-            ));
-        } else {
-            $this->expandedClusters[] = $clusterKey;
-        }
     }
 
     public function previousPage(): void
@@ -108,27 +48,21 @@ final class RequestHistoryTimeline extends BaseLivewireComponent
         $this->page++;
     }
 
+    /**
+     * Re-render the timeline after the pinned composer posts a note so the new
+     * entry appears without a full page reload.
+     */
     #[On('note-posted')]
     public function refreshAfterNote(): void
     {
         $this->page = 1;
     }
 
-    public function viewFullLogAction(): Action
-    {
-        return Action::make('viewFullLog')
-            ->label('View full activity log')
-            ->link()
-            ->slideOver()
-            ->modalHeading('Activities · '.$this->request->request_number)
-            ->modalWidth(Width::SevenExtraLarge)
-            ->modalSubmitAction(false)
-            ->modalCancelActionLabel('Close')
-            ->modalContent(fn (): View => view('livewire.request-activity-log-full', [
-                'request' => $this->request,
-            ]));
-    }
-
+    /**
+     * Shared event-log detail modal (reuses the Event Logs resource view),
+     * guarded so a tampered activity id outside this request's subject tree
+     * is rejected.
+     */
     public function detailsAction(): Action
     {
         return Action::make('details')
@@ -145,43 +79,16 @@ final class RequestHistoryTimeline extends BaseLivewireComponent
     public function render(): View
     {
         $source = app(RequestTimelineSource::class);
-        $presenter = app(TimelineFeedPresenter::class);
-        $filter = TimelineHistoryFilter::tryFrom($this->filter) ?? TimelineHistoryFilter::All;
+        $paginator = $source->entries($this->request, TimelineParty::staff(), $this->page, $this->perPage);
 
-        $allEntries = collect($source->entries($this->request, TimelineParty::staff(), 1, PHP_INT_MAX)->items());
-        $filtered = $presenter->filter(
-            $allEntries,
-            $filter,
-            ! $this->compact && $this->search !== '' ? $this->search : null,
-        );
-
-        $totalCount = $filtered->count();
-
-        if ($this->compact) {
-            $pageEntries = $filtered->take(self::COMPACT_LIMIT);
-            $paginator = null;
-            $hasMore = $totalCount > self::COMPACT_LIMIT;
-        } else {
-            $page = max(1, $this->page);
-            $lastPage = max(1, (int) ceil($totalCount / $this->perPage));
-
-            if ($page > $lastPage) {
-                $page = $lastPage;
-                $this->page = $page;
-            }
-
-            $pageEntries = $filtered->forPage($page, $this->perPage)->values();
-            $paginator = new LengthAwarePaginator($pageEntries, $totalCount, $this->perPage, $page);
-            $hasMore = false;
+        if ($this->page > 1 && $this->page > $paginator->lastPage()) {
+            $this->page = max(1, $paginator->lastPage());
+            $paginator = $source->entries($this->request, TimelineParty::staff(), $this->page, $this->perPage);
         }
 
         return view('livewire.request-history-timeline', [
-            'dayGroups' => $presenter->groupByDay($pageEntries),
+            'dayGroups' => $this->groupByDay(collect($paginator->items())),
             'paginator' => $paginator,
-            'hasMore' => $hasMore,
-            'totalCount' => $totalCount,
-            'filters' => TimelineHistoryFilter::chips(),
-            'activeFilter' => $filter,
         ]);
     }
 
@@ -196,5 +103,38 @@ final class RequestHistoryTimeline extends BaseLivewireComponent
         );
 
         return $activity;
+    }
+
+    /**
+     * @param  Collection<int, TimelineEntry>  $entries
+     * @return Collection<int, array{label: string, entries: Collection<int, TimelineEntry>}>
+     */
+    private function groupByDay(Collection $entries): Collection
+    {
+        return $entries
+            ->groupBy(fn (TimelineEntry $entry): string => $entry->occurredAt->toDateString())
+            ->map(fn (Collection $dayEntries, string $day): array => [
+                'label' => $this->dayLabel($day),
+                // Oldest-first within the day so the latest entry sits at the
+                // bottom of the feed, directly above the note composer.
+                'entries' => $dayEntries->reverse()->values(),
+            ])
+            ->reverse()
+            ->values();
+    }
+
+    private function dayLabel(string $day): string
+    {
+        $date = Carbon::parse($day);
+
+        if ($date->isToday()) {
+            return 'Today';
+        }
+
+        if ($date->isYesterday()) {
+            return 'Yesterday';
+        }
+
+        return $date->format('j M Y');
     }
 }

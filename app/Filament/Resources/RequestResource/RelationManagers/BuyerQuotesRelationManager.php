@@ -530,7 +530,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             $set('unit_price_exc_tax', $unitPriceExcTax);
 
                                             if ($costPrice > 0 && $unitPriceExcTax > 0) {
-                                                $marginPercent = (($unitPriceExcTax - $costPrice) / $costPrice) * 100;
+                                                $marginPercent = MarginConvention::marginPercent($costPrice, $unitPriceExcTax);
                                                 $set('margin_percent_input', (int) round($marginPercent));
                                             }
 
@@ -556,7 +556,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             $set('unit_price_exc_tax', $unitPriceExcTax);
 
                                             if ($costPrice > 0 && $unitPriceExcTax > 0) {
-                                                $marginPercent = (($unitPriceExcTax - $costPrice) / $costPrice) * 100;
+                                                $marginPercent = MarginConvention::marginPercent($costPrice, $unitPriceExcTax);
                                                 $set('margin_percent_input', (int) ceil($marginPercent));
                                             }
 
@@ -688,7 +688,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                 $unitPriceExcTax = 0;
                                             }
                                             if ($costPrice > 0 && $unitPriceExcTax > 0) {
-                                                $marginPercent = (($unitPriceExcTax - $costPrice) / $costPrice) * 100;
+                                                $marginPercent = MarginConvention::marginPercent($costPrice, $unitPriceExcTax);
                                                 $set('margin_percent_input', (int) round($marginPercent));
                                             }
                                             $this->calculateItemTotals($set, $get);
@@ -779,18 +779,10 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                         ->columnSpan(4)
                                                         ->live(onBlur: true)
                                                         ->afterStateUpdated(function (Set $set, Get $get): void {
-                                                            $costPrice = (float) ($get('cost_price') ?? 0);
                                                             $unitPrice = (float) ($get('unit_price') ?? 0);
 
                                                             // unit_price always represents the net price (Selling Price Net)
-                                                            $unitPriceExcTax = round($unitPrice, 0);
-
-                                                            // Update unit_price_exc_tax to match
-                                                            $set('unit_price_exc_tax', $unitPriceExcTax);
-
-                                                            if ($costPrice > 0 && $unitPriceExcTax > 0) {
-                                                                $marginPercent = (($unitPriceExcTax - $costPrice) / $costPrice) * 100;
-                                                            }
+                                                            $set('unit_price_exc_tax', round($unitPrice, 0));
 
                                                             $this->calculateItemTotals($set, $get);
                                                         }),
@@ -806,15 +798,9 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                         ->columnSpan(3)
                                                         ->live(onBlur: true)
                                                         ->afterStateUpdated(function (Set $set, Get $get): void {
-                                                            $costPrice = (float) ($get('cost_price') ?? 0);
                                                             $unitPrice = (float) ($get('unit_price') ?? 0);
 
-                                                            $unitPriceExcTax = round($unitPrice, 0);
-                                                            $set('unit_price_exc_tax', $unitPriceExcTax);
-
-                                                            if ($costPrice > 0 && $unitPriceExcTax > 0) {
-                                                                $marginPercent = (($unitPriceExcTax - $costPrice) / $costPrice) * 100;
-                                                            }
+                                                            $set('unit_price_exc_tax', round($unitPrice, 0));
 
                                                             $this->calculateItemTotals($set, $get);
                                                         }),
@@ -1656,9 +1642,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     $lineTotal = $lineSubtotal;
                                 }
 
-                                // Margin on cost: (selling - cost) / cost * 100
                                 $marginAmount = $unitPriceExcTax - $costPrice;
-                                $marginPercent = $costPrice > 0 ? ($marginAmount / $costPrice) * 100 : 0;
+                                $marginPercent = MarginConvention::marginPercent($costPrice, $unitPriceExcTax);
 
                                 $record->items()->create([
                                     'request_item_id' => $requestItem->getKey(),
@@ -2813,10 +2798,10 @@ final class BuyerQuotesRelationManager extends RelationManager
             currencyDecimals: 0,
         );
 
-        // Margin shown in the quote form is markup-on-cost (the quoting convention),
-        // distinct from the P&L's gross-margin-on-selling.
+        // Margin shown in the quote form follows the canonical on-selling
+        // convention, so the form, P&L, PDF and margin warning all agree.
         $marginAmount = $unitPriceExcTax - $costPrice;
-        $marginPercent = $costPrice > 0 ? ($marginAmount / $costPrice) * 100 : 0;
+        $marginPercent = MarginConvention::marginPercent($costPrice, $unitPriceExcTax);
 
         $set('unit_price_exc_tax', round($unitPriceExcTax, 0));
         $set('line_subtotal', $amounts->lineSubtotal);

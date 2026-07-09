@@ -528,7 +528,7 @@ final class ItemsRelationManager extends RelationManager
                                         } elseif ($metadata['email_sent'] === false) {
                                             $needsResend = true; // Email failed previously
                                         } elseif ($existingQuote->declined_at !== null) {
-                                            $needsResend = true; // Supplier declined — staff re-send is a fresh RFQ
+                                            $needsResend = true; // Supplier declined — staff re-send is a fresh request
                                         }
 
                                         if ($needsResend) {
@@ -575,7 +575,7 @@ final class ItemsRelationManager extends RelationManager
                                 } elseif ($metadata['email_sent'] === false) {
                                     $needsResend = true; // Email failed previously
                                 } elseif ($quote->declined_at !== null) {
-                                    $needsResend = true; // Supplier declined — staff re-send is a fresh RFQ
+                                    $needsResend = true; // Supplier declined — staff re-send is a fresh request
                                 }
 
                                 if ($needsResend) {
@@ -883,7 +883,7 @@ final class ItemsRelationManager extends RelationManager
                                     } elseif ($metadata['email_sent'] === false) {
                                         $needsResend = true; // Email failed previously
                                     } elseif ($existingQuote->declined_at !== null) {
-                                        $needsResend = true; // Supplier declined — staff re-send is a fresh RFQ
+                                        $needsResend = true; // Supplier declined — staff re-send is a fresh request
                                     }
 
                                     if ($needsResend) {
@@ -952,7 +952,7 @@ final class ItemsRelationManager extends RelationManager
                                 } elseif ($metadata['email_sent'] === false) {
                                     $needsResend = true; // Email failed previously
                                 } elseif ($quote->declined_at !== null) {
-                                    $needsResend = true; // Supplier declined — staff re-send is a fresh RFQ
+                                    $needsResend = true; // Supplier declined — staff re-send is a fresh request
                                 }
 
                                 if ($needsResend) {

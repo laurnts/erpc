@@ -7,7 +7,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Outcome announcement stamp (per-quote): set by AnnounceRfqOutcomes on every
+ * Outcome announcement stamp (per-quote): set by AnnounceSupplierRequestOutcomes on every
  * quote participating in the announced round. Any non-null value on a
  * request's quotes marks the evaluation round as closed (selection re-apply
  * locked), and drives the supplier-portal Won / "Not selected" rendering —

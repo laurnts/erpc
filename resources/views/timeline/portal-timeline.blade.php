@@ -15,36 +15,38 @@
         ])
         ->reverse()
         ->values();
-
-    $actorTone = fn (\App\Enums\ActorType $actorType): string => match ($actorType->getColor()) {
-        'success' => 'text-green-600 dark:text-green-400',
-        'warning' => 'text-amber-600 dark:text-amber-400',
-        'danger' => 'text-red-600 dark:text-red-400',
-        'primary', 'info' => 'text-primary-600 dark:text-primary-400',
-        default => 'text-gray-500 dark:text-gray-400',
-    };
 @endphp
 
-<div class="space-y-6 text-sm">
+<div class="space-y-4 text-sm">
     @forelse ($dayGroups as $group)
-        <div class="space-y-3" wire:key="portal-day-{{ $group['entries']->first()->occurredAt->toDateString() }}">
+        <div class="space-y-2" wire:key="portal-day-{{ $group['entries']->first()->occurredAt->toDateString() }}">
             <div class="flex items-center gap-3">
                 <span class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ $group['label'] }}</span>
                 <div class="h-px flex-1 bg-gray-200 dark:bg-white/10"></div>
             </div>
 
-            <ul class="space-y-3">
+            <ul class="space-y-2">
                 @foreach ($group['entries'] as $entry)
                     <li
                         @class([
-                            'flex items-start gap-3',
+                            'flex flex-wrap items-start gap-x-3 gap-y-1',
                             'rounded-lg border border-gray-200 bg-gray-50/60 p-3 dark:border-white/10 dark:bg-white/5' => $entry->entryType === \App\Services\Timeline\TimelineAudience::ENTRY_NOTE,
                         ])
                         wire:key="portal-entry-{{ $entry->subjectType }}-{{ $entry->subjectId }}-{{ $entry->occurredAt->getTimestamp() }}-{{ $loop->index }}"
                     >
-                        <span class="mt-0.5 shrink-0 {{ $actorTone($entry->actorType) }}">
-                            @svg($entry->actorType->getIcon(), 'h-5 w-5')
-                        </span>
+                        <x-filament::badge :color="$entry->actorType->getColor()" :icon="$entry->actorType->getIcon()">
+                            {{ $entry->actorLabel }} ({{ $entry->actorType->getLabel() }})
+                        </x-filament::badge>
+
+                        @if ($entry->entryType === \App\Services\Timeline\TimelineAudience::ENTRY_NOTE)
+                            @php $noteVisibility = $entry->properties['visibility'] ?? null; @endphp
+                            <x-filament::badge
+                                :color="match ($noteVisibility) { 'buyer' => 'success', 'supplier' => 'warning', default => 'gray' }"
+                                icon="heroicon-o-chat-bubble-left-right"
+                            >
+                                {{ match ($noteVisibility) { 'buyer' => 'Notes: To Buyer', 'supplier' => 'Notes: To Supplier', default => 'Note' } }}
+                            </x-filament::badge>
+                        @endif
 
                         <div class="min-w-0 flex-1">
                             <div class="flex flex-wrap items-baseline gap-x-2">
@@ -57,13 +59,9 @@
                                 @endif
 
                                 @if ($entry->changedFieldCount > 0 && $entry->event === 'updated')
-                                    <span class="text-xs text-gray-500 dark:text-gray-400">· {{ $entry->changedFieldCount }} {{ \Illuminate\Support\Str::plural('field', $entry->changedFieldCount) }}</span>
+                                    <span class="text-gray-500 dark:text-gray-400">· {{ $entry->changedFieldCount }} {{ \Illuminate\Support\Str::plural('field', $entry->changedFieldCount) }}</span>
                                 @endif
                             </div>
-
-                            <p class="text-xs text-gray-500 dark:text-gray-400">
-                                {{ $entry->actorLabel }}
-                            </p>
                         </div>
 
                         <span class="whitespace-nowrap text-xs tabular-nums text-gray-400 dark:text-gray-500">

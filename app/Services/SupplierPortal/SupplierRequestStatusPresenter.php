@@ -15,7 +15,7 @@ use App\Models\SupplierQuote;
  * uniformly as "Submitted — under review" so internal selection state never
  * leaks before the explicit outcome announcement.
  */
-final readonly class SupplierRfqStatusPresenter
+final readonly class SupplierRequestStatusPresenter
 {
     public function label(SupplierQuote $quote): string
     {

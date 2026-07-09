@@ -6,7 +6,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Buyer\Pages\AcceptPortalInvitation;
 use App\Filament\Buyer\Pages\Auth\BuyerLogin;
-use App\Filament\Buyer\Pages\BuyerDashboard;
+use App\Filament\Buyer\Resources\BuyerRequestResource;
 use App\Http\Middleware\AuthenticatePanelUser;
 use App\Http\Middleware\EnsureBuyerPortalEnabled;
 use App\Http\Middleware\InitializeBuyerPortalContext;
@@ -30,7 +30,6 @@ final class BuyerPanelProvider extends PanelProvider
             ->path(config('app.buyer_path', 'buyer'))
             ->login(BuyerLogin::class)
             ->authGuard('buyer')
-            ->homeUrl(fn (): string => BuyerDashboard::getUrl(panel: 'buyer'))
             ->discoverResources(
                 in: app_path('Filament/Buyer/Resources'),
                 for: 'App\\Filament\\Buyer\\Resources',
@@ -39,12 +38,7 @@ final class BuyerPanelProvider extends PanelProvider
                 in: app_path('Filament/Buyer/Pages'),
                 for: 'App\\Filament\\Buyer\\Pages',
             )
-            ->discoverWidgets(
-                in: app_path('Filament/Buyer/Widgets'),
-                for: 'App\\Filament\\Buyer\\Widgets',
-            )
             ->pages([
-                BuyerDashboard::class,
                 AcceptPortalInvitation::class,
             ])
             ->middleware([
@@ -59,7 +53,7 @@ final class BuyerPanelProvider extends PanelProvider
         return PortalPanelConfigurator::apply(
             $panel,
             context: BuyerPortalContext::class,
-            dashboard: BuyerDashboard::class,
+            homeResource: BuyerRequestResource::class,
             guestBrandName: 'Buyer Portal',
         );
     }

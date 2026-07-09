@@ -2008,7 +2008,7 @@ or tooltips alongside the friendly names used throughout the system.
 
   Buyer Invoice           Accounts Receivable       AR
 
-  Supplier Quote          Purchase Quotation        PQ / RFQ
+  Supplier Quote          Purchase Quotation        PQ / Quote Request
 
   Supplier Order          Purchase Order            PO
 

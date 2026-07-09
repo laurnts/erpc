@@ -18,7 +18,7 @@ it('does not treat buyer-quotes media routes as the buyer panel', function (): v
 });
 
 it('still resolves the supplier panel cookie for supplier panel paths', function (): void {
-    expect(UsePanelSession::cookieForRequest(Request::create('/supplier/rfqs', 'GET')))
+    expect(UsePanelSession::cookieForRequest(Request::create('/supplier/requests', 'GET')))
         ->toBe((string) config('app.supplier_session_cookie'))
         ->and(UsePanelSession::cookieForRequest(Request::create('/supplier', 'GET')))
         ->toBe((string) config('app.supplier_session_cookie'));

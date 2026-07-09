@@ -23,7 +23,6 @@ use App\Filament\Resources\RequestResource\RelationManagers\ShipmentsRelationMan
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierOrdersRelationManager;
 use App\Filament\Resources\RequestResource\RelationManagers\SupplierQuotesRelationManager;
 use App\Livewire\RequestGuideColumn;
-use App\Livewire\RequestHistorySidebar;
 use App\Models\Request;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -91,7 +90,7 @@ final class ViewRequest extends ViewRecord
                                 ])->key(fn (): string => 'request-guide-column-'.$this->getRecord()->getKey().'-'.$this->activeRelationManager),
                             ]),
                         Group::make()
-                            ->columnSpan(['default' => 'full', 'xl' => 6])
+                            ->columnSpan(['default' => 'full', 'xl' => 9])
                             ->extraAttributes(['class' => 'admin-request-detail-main'])
                             ->schema([
                                 $this->hasInfolist()
@@ -102,16 +101,6 @@ final class ViewRequest extends ViewRecord
                                     ->schema([
                                         $this->getRelationManagersContentComponent(),
                                     ]),
-                            ]),
-                        Group::make()
-                            ->columnSpan(['default' => 'full', 'xl' => 3])
-                            ->extraAttributes([
-                                'class' => 'admin-request-detail-sidebar admin-request-detail-sidebar--history xl:sticky xl:top-5 xl:z-10 xl:self-start',
-                            ])
-                            ->schema([
-                                Livewire::make(RequestHistorySidebar::class, fn (): array => [
-                                    'request' => $this->getRecord(),
-                                ])->key(fn (): string => 'request-history-sidebar-'.$this->getRecord()->getKey()),
                             ]),
                     ]),
             ]);
@@ -383,7 +372,6 @@ final class ViewRequest extends ViewRecord
                         ->columnSpanFull(),
                 ])
                 ->collapsible()
-                ->collapsed()
                 ->visible(fn (Request $record): bool => $record->getMedia('attachments')->isNotEmpty())
                 ->columnSpanFull(),
 
@@ -535,7 +523,9 @@ final class ViewRequest extends ViewRecord
 
     protected function getFooterWidgets(): array
     {
-        return [];
+        return [
+            \App\Filament\Widgets\RequestHistoryWidget::class,
+        ];
     }
 
     /**

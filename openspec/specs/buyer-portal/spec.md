@@ -89,7 +89,7 @@ The system SHALL allow portal users to submit goods or service requests by manua
 - **AND** it is visible to internal staff in the admin panel
 
 ### Requirement: Buyer Request Submission — Document Upload
-The system SHALL allow portal users to submit requests by uploading RFQ/PR documents instead of manual item entry.
+The system SHALL allow portal users to submit requests by uploading request/PR documents instead of manual item entry.
 
 #### Scenario: Create document-based request
 - **WHEN** a portal user selects document submission and uploads at least one file (PDF, Excel, Word, or image)

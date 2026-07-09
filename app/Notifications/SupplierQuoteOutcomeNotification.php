@@ -11,7 +11,7 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 /**
- * Supplier-facing won/lost notification, fired ONLY from AnnounceRfqOutcomes —
+ * Supplier-facing won/lost notification, fired ONLY from AnnounceSupplierRequestOutcomes —
  * never from raw status transitions, so internal selection churn and the
  * staff "obtained" data-entry shortcut can neither leak nor spam. The message
  * discloses the recipient's own result only: no winner identity, no winning
@@ -48,7 +48,7 @@ final class SupplierQuoteOutcomeNotification extends Notification implements Sho
                 ->line('Quote: '.$this->quote->quote_number);
         }
 
-        return $mail->action('View Quote Request', url()->getSupplierPortalUrl('rfqs/'.$this->quote->getKey()));
+        return $mail->action('View Quote Request', url()->getSupplierPortalUrl('requests/'.$this->quote->getKey()));
     }
 
     /**

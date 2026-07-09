@@ -9,8 +9,8 @@ ERPC is designed for trading businesses that source products from multiple suppl
 The platform runs as multiple Filament panels on shared infrastructure:
 
 - **App panel** (`app.{domain}`) — internal team workspace for Central Purchasing and operations
-- **Buyer portal** (`CUSTOMER_PATH`, default `buyer`) — buyer self-service for requests, quotes, invoices, and shipments
-- **Supplier portal** (`SUPPLIER_PATH`, default `supplier`) — supplier RFQ responses and article pricing
+- **Buyer portal** (`BUYER_PATH`, default `buyer`) — buyer self-service for requests, quotes, invoices, and shipments
+- **Supplier portal** (`SUPPLIER_PATH`, default `supplier`) — supplier request responses and article pricing
 - **Public catalog** (`/`) — storefront for published articles and quote-cart submissions
 - **System Admin** (`SYSADMIN_PATH`, default `sysadmin`) — cross-tenant administration module
 
@@ -32,7 +32,7 @@ The platform runs as multiple Filament panels on shared infrastructure:
   - **Request View page** - Single request view (`RequestResource::view`) with tabbed relation managers: Requested Items, Supplier Quotes, Buyer Quotes, Purchases (Supplier Orders), Goods Receive, Invoices (Buyer Orders), Fulfillment (Shipments + Acceptance Reports), Completion Report. Stage advancement and tab access follow `RequestStage` and approval rules (QE, P&L, supplier order approval).
   - **Information Flow widget** - Step-by-step guide shown at the **bottom of the Request View page** (footer widget). Content is **per-tab**: when a tab is selected, the widget shows that step's flow as a **bulleted list**. Steps 1–8: (1) Requested Items, (2) Supplier Quotes, (3) Buyer Quotes, (4) Purchases, (5) Goods Receive, (6) Invoices, (7) Fulfillment (goods shipments and service acceptance reports), (8) Completion Report. Implemented in `App\Filament\Widgets\RequestInformationFlowWidget` and view `resources/views/filament/widgets/request-information-flow-widget.blade.php`; registered via `ViewRequest::getFooterWidgets()`.
   - **Submission sources** - Requests can originate from the internal app, buyer portal, supplier portal, or public catalog (`RequestSubmissionMethod`).
-- **Supplier Quoting** - Collect and compare quotes from multiple suppliers; send RFQs to suppliers via email and the supplier portal
+- **Supplier Quoting** - Collect and compare quotes from multiple suppliers; send quote requests to suppliers via email and the supplier portal
 - **Quotation Evaluation** - Generate internal QE documents with item comparison, supplier info, and approval workflow
   - **Document upload** - Upload supporting documents on the QE view page (action group: Edit, Download PDF, Upload Document). Documents appear in a Documents section and in **Credit Limit Acceptances** for key account approval; once approved there, the QE status is set to Approved.
 - **Buyer Quoting** - Generate consolidated quotes with margin analysis
@@ -56,23 +56,21 @@ The platform runs as multiple Filament panels on shared infrastructure:
 ### Public Catalog
 - **Storefront** - When `CATALOG_ENABLED=true` (default), the marketing homepage is replaced by a public article catalog at `/` (`CatalogHome` Livewire component)
 - **Article publishing** - Articles can be published to the catalog via **Show in Catalog** and **List Price** on the article form (`ArticleResource`); only active, published articles appear in the grid
-- **Price review** - Daily `articles:refresh-price-review` job (07:00) flags articles whose list price may need review after FX drift or supplier cost changes; suppliers see stale prices in the supplier portal dashboard widget
+- **Price review** - Daily `articles:refresh-price-review` job (07:00) flags articles whose list price may need review after FX drift or supplier cost changes; flagged articles surface for suppliers in the portal article list
 - **Quote cart** - Buyers add catalog articles to a session quote cart (`/quote-cart`) and submit to create a portal-originated request (`SubmitQuoteCart`)
 - **Registration** - Public registration form (`/registration`) creates pending portal registration requests for team approval
 - **Configuration** - `config/catalog.php`: `CATALOG_ENABLED`, `CATALOG_TEAM_ID` (defaults to first team when unset)
 
 ### Buyer Portal
-- **Panel** - Filament customer panel at `CUSTOMER_PATH` (default `buyer`) on `CUSTOMER_DOMAIN` or the app subdomain; separate session cookie from the internal panel
-- **Dashboard** - Action items, request overview, active shipments, and recent requests widgets
-- **Requests** - Buyers create and track requests with relation managers for buyer quotes, invoices, and shipments (`CustomerRequestResource`)
+- **Panel** - Filament buyer panel at `BUYER_PATH` (default `buyer`) on `BUYER_DOMAIN` or the app subdomain; separate session cookie from the internal panel
+- **Requests** - Buyers create and track requests with relation managers for buyer quotes, invoices, and shipments (`BuyerRequestResource`)
 - **Portal users** - Invited and managed from **Master Data > Buyers > Portal Users** (`PortalUsersRelationManager`); invitation lifecycle: Invited, Active, Deactivated
 - **Registration approval** - Public registrations appear in **Approval > Registrations** (`PortalRegistrationRequestResource`) for approve/reject
-- **Kill switch** - `CUSTOMER_PORTAL_ENABLED=false` disables the panel
+- **Kill switch** - `BUYER_PORTAL_ENABLED=false` disables the panel
 
 ### Supplier Portal
 - **Panel** - Filament supplier panel at `SUPPLIER_PATH` (default `supplier`) on `SUPPLIER_DOMAIN` or the app subdomain; separate session cookie
-- **Dashboard** - Stale prices, open RFQs, and RFQ outcome widgets
-- **Quote Requests** - Suppliers view and respond to RFQs sent by the team (`SupplierRfqResource`); confidentiality enforced via query scope, policy, and column projection
+- **Requests** - Suppliers view and respond to quote requests sent by the team (`SupplierRequestResource`); confidentiality enforced via query scope, policy, and column projection
 - **My Articles** - Suppliers maintain offer pricing for articles linked to their company (`SupplierArticleResource`)
 - **Portal users** - Invited and managed from **Master Data > Suppliers > Portal Users**
 - **Kill switch** - `SUPPLIER_PORTAL_ENABLED=false` disables the panel
@@ -113,7 +111,7 @@ The platform runs as multiple Filament panels on shared infrastructure:
 
 ### Platform Features
 - **Multi-Team** - Isolated workspaces per team (Jetstream tenancy)
-- **Multi-panel domains** - `APP_PANEL_DOMAIN`, `CUSTOMER_DOMAIN`, `SUPPLIER_DOMAIN`, and `SYSADMIN_DOMAIN`/`SYSADMIN_PATH` configure panel routing; see `App\Support\PanelDomain`
+- **Multi-panel domains** - `APP_PANEL_DOMAIN`, `BUYER_DOMAIN`, `SUPPLIER_DOMAIN`, and `SYSADMIN_DOMAIN`/`SYSADMIN_PATH` configure panel routing; see `App\Support\PanelDomain`
 - **Navigation & menu access** - All team members (verified email + current team) can see sidebar menus in **Workflow**, **Master Data**, **Approval**, **Finance**, and **Settings**. Menu visibility is driven by policies' `viewAny()`, and where applicable by resource `shouldRegisterNavigation()` (e.g. Supplier Order Approvals, QE, P&L) or page `canAccess()`. Record-level permissions (view, create, update, delete on individual records) still follow policies and Spatie/team role permissions.
 - **Team Member Roles** - Three role types:
   - **Administrator** - Full access to all features
@@ -174,9 +172,9 @@ Copy `.env.example` to `.env` and configure database, Redis, mail, and panel dom
 | -------- | ------- | ------- |
 | `APP_URL` | `http://localhost` | Public site URL (catalog, auth redirects) |
 | `APP_PANEL_DOMAIN` | `app.{APP_URL host}` | Internal app panel subdomain |
-| `CUSTOMER_PATH` | `buyer` | Buyer portal path prefix |
-| `CUSTOMER_DOMAIN` | (app domain) | Optional dedicated buyer portal domain |
-| `CUSTOMER_PORTAL_ENABLED` | `true` | Kill switch for buyer portal |
+| `BUYER_PATH` | `buyer` | Buyer portal path prefix |
+| `BUYER_DOMAIN` | (app domain) | Optional dedicated buyer portal domain |
+| `BUYER_PORTAL_ENABLED` | `true` | Kill switch for buyer portal |
 | `SUPPLIER_PATH` | `supplier` | Supplier portal path prefix |
 | `SUPPLIER_DOMAIN` | (app domain) | Optional dedicated supplier portal domain |
 | `SUPPLIER_PORTAL_ENABLED` | `true` | Kill switch for supplier portal |
@@ -215,13 +213,13 @@ composer test:coverage # Code coverage (min 80%)
 app/
 ├── Actions/              # Single-purpose action classes
 │   ├── Catalog/          # Quote cart submission, price review
-│   ├── CustomerPortal/   # Portal registration, request notifications
+│   ├── BuyerPortal/      # Portal registration, request notifications
 │   ├── Portal/           # Portal user invitations
-│   └── SupplierPortal/   # RFQ submit/decline, article offers
+│   └── SupplierPortal/   # request submit/decline, article offers
 ├── Data/                 # Data transfer objects (Spatie Laravel Data)
 ├── Enums/                # PHP enums
 ├── Filament/             # Admin panel resources
-│   ├── Customer/         # Buyer portal resources, pages, widgets
+│   ├── Buyer/            # Buyer portal resources and pages
 │   ├── Supplier/         # Supplier portal resources, pages, widgets
 │   ├── Exports/          # Exporters; Jobs/ExportCompletion (refresh before notification)
 │   ├── Imports/          # Importers for master data
@@ -240,15 +238,15 @@ app/
 ├── Observers/            # Model observers
 ├── Policies/             # Authorization policies
 ├── Providers/
-│   └── Filament/         # AppPanelProvider, CustomerPanelProvider, SupplierPanelProvider
+│   └── Filament/         # AppPanelProvider, BuyerPanelProvider, SupplierPanelProvider
 ├── Services/
 │   ├── AI/               # Record summary generation
 │   ├── Catalog/          # Quote cart, article cost resolution, team resolver
-│   ├── CustomerPortal/   # Request stage presentation
+│   ├── BuyerPortal/      # Request stage presentation
 │   ├── Email/            # Email template and SMTP services
 │   ├── Erp/              # PDF generation, tax, credit limits, financial totals
-│   ├── Portal/           # Customer and supplier portal context
-│   └── SupplierPortal/   # RFQ status presentation
+│   ├── Portal/           # Buyer and supplier portal context
+│   └── SupplierPortal/   # request status presentation
 └── Support/
     ├── Media/            # DocumentPathGenerator (Spatie Media Library path per feature)
     └── PanelDomain.php   # Multi-panel host resolution

@@ -102,6 +102,34 @@ it('rejects inviting a user whose access to this company was deactivated', funct
     ))->toThrow(ValidationException::class);
 });
 
+it('allows inviting the same email to both portals of a dual-role company', function (): void {
+    $dualRole = Company::factory()->buyerAndSupplier()->for($this->team)->create();
+
+    app(InvitePortalUser::class)->execute(
+        team: $this->team,
+        company: $dualRole,
+        portal: PortalType::Buyer,
+        email: 'both@dual.test',
+        name: 'Dual Portal Person',
+        invitedBy: $this->admin,
+    );
+
+    $supplierInvitation = app(InvitePortalUser::class)->execute(
+        team: $this->team,
+        company: $dualRole,
+        portal: PortalType::Supplier,
+        email: 'both@dual.test',
+        name: 'Dual Portal Person',
+        invitedBy: $this->admin,
+    );
+
+    expect($supplierInvitation->portal)->toBe(PortalType::Supplier)
+        ->and(PortalInvitation::query()
+            ->where('company_id', $dualRole->getKey())
+            ->where('email', 'both@dual.test')
+            ->count())->toBe(2);
+});
+
 it('allows inviting an existing member of one company to a different company', function (): void {
     $user = User::factory()->create(['email' => 'multi@buyer.test']);
     $otherBuyer = Company::factory()->buyer()->for($this->team)->create();

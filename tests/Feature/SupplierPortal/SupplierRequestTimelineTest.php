@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\PortalType;
-use App\Filament\Supplier\Resources\SupplierRfqResource\Pages\ViewSupplierRfq;
+use App\Filament\Supplier\Resources\SupplierRequestResource\Pages\ViewSupplierRequest;
 use App\Models\Company;
 use App\Models\CompanyPortalUser;
 use App\Models\Currency;
@@ -66,7 +66,7 @@ beforeEach(function (): void {
 });
 
 it('renders the activity section with the supplier\'s own quotation activity', function (): void {
-    livewire(ViewSupplierRfq::class, ['record' => $this->quote->getKey()])
+    livewire(ViewSupplierRequest::class, ['record' => $this->quote->getKey()])
         ->assertSee('Activities')
         ->assertSee($this->quote->quote_number)
         ->assertDontSee('No activity recorded for this request yet.');
@@ -95,7 +95,7 @@ it('never surfaces another supplier\'s activity on a shared request', function (
         ->validFor(30)
         ->create(['creator_id' => $this->admin->getKey()]);
 
-    livewire(ViewSupplierRfq::class, ['record' => $this->quote->getKey()])
+    livewire(ViewSupplierRequest::class, ['record' => $this->quote->getKey()])
         ->assertSee('Activities')
         ->assertDontSee($rivalQuote->quote_number)
         ->assertDontSee('Rival Supplier Co');

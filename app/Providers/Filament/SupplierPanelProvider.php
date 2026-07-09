@@ -6,7 +6,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Supplier\Pages\AcceptPortalInvitation;
 use App\Filament\Supplier\Pages\Auth\SupplierLogin;
-use App\Filament\Supplier\Pages\SupplierDashboard;
+use App\Filament\Supplier\Resources\SupplierRequestResource;
 use App\Http\Middleware\AuthenticatePanelUser;
 use App\Http\Middleware\EnsureSupplierPortalEnabled;
 use App\Http\Middleware\InitializeSupplierPortalContext;
@@ -30,7 +30,6 @@ final class SupplierPanelProvider extends PanelProvider
             ->path(config('app.supplier_path', 'supplier'))
             ->login(SupplierLogin::class)
             ->authGuard('supplier')
-            ->homeUrl(fn (): string => SupplierDashboard::getUrl(panel: 'supplier'))
             ->discoverResources(
                 in: app_path('Filament/Supplier/Resources'),
                 for: 'App\\Filament\\Supplier\\Resources',
@@ -39,12 +38,7 @@ final class SupplierPanelProvider extends PanelProvider
                 in: app_path('Filament/Supplier/Pages'),
                 for: 'App\\Filament\\Supplier\\Pages',
             )
-            ->discoverWidgets(
-                in: app_path('Filament/Supplier/Widgets'),
-                for: 'App\\Filament\\Supplier\\Widgets',
-            )
             ->pages([
-                SupplierDashboard::class,
                 AcceptPortalInvitation::class,
             ])
             ->middleware([
@@ -58,7 +52,7 @@ final class SupplierPanelProvider extends PanelProvider
         return PortalPanelConfigurator::apply(
             $panel,
             context: SupplierPortalContext::class,
-            dashboard: SupplierDashboard::class,
+            homeResource: SupplierRequestResource::class,
             guestBrandName: 'Supplier Portal',
         );
     }

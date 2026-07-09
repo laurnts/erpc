@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\QuotationEvaluationResource\Pages;
 
 use App\Actions\Media\AttachUploadedFiles;
-use App\Actions\SupplierPortal\AnnounceRfqOutcomes;
+use App\Actions\SupplierPortal\AnnounceSupplierRequestOutcomes;
 use App\Enums\CentralPurchasingRole;
 use App\Enums\QEStatus;
 use App\Enums\SupplierQuoteStatus;
@@ -75,9 +75,9 @@ final class ViewQuotationEvaluation extends ViewRecord
                             ->success()
                             ->send();
 
-                        if ($record->status === QEStatus::APPROVED && $this->canAnnounceRfqOutcomes($record)) {
+                        if ($record->status === QEStatus::APPROVED && $this->canAnnounceSupplierRequestOutcomes($record)) {
                             Notification::make()
-                                ->title('Announce RFQ outcomes?')
+                                ->title('Announce request outcomes?')
                                 ->body('The evaluation is fully approved. You can now announce won/lost outcomes to the suppliers from this page.')
                                 ->info()
                                 ->send();
@@ -95,16 +95,16 @@ final class ViewQuotationEvaluation extends ViewRecord
                 })
                 ->visible(fn (QuotationEvaluation $record): bool => $record->canBeApprovedBy(auth()->user())),
             Action::make('announceOutcomes')
-                ->label('Announce RFQ Outcomes')
+                ->label('Announce Request Outcomes')
                 ->icon('heroicon-o-megaphone')
                 ->color('warning')
                 ->requiresConfirmation()
-                ->modalHeading('Announce RFQ outcomes to suppliers?')
+                ->modalHeading('Announce request outcomes to suppliers?')
                 ->modalDescription('Losing quotes will be marked as rejected, suppliers will be notified of their result, and supplier selections will be locked for this request. This cannot be undone.')
-                ->visible(fn (QuotationEvaluation $record): bool => $this->canAnnounceRfqOutcomes($record))
+                ->visible(fn (QuotationEvaluation $record): bool => $this->canAnnounceSupplierRequestOutcomes($record))
                 ->action(function (QuotationEvaluation $record): void {
                     $request = $record->request;
-                    $result = $request === null ? null : app(AnnounceRfqOutcomes::class)->execute($request);
+                    $result = $request === null ? null : app(AnnounceSupplierRequestOutcomes::class)->execute($request);
 
                     if ($result === null) {
                         Notification::make()
@@ -207,7 +207,7 @@ final class ViewQuotationEvaluation extends ViewRecord
      * must be fully approved, the round not yet announced, and evaluated
      * quotes must exist to announce.
      */
-    private function canAnnounceRfqOutcomes(QuotationEvaluation $record): bool
+    private function canAnnounceSupplierRequestOutcomes(QuotationEvaluation $record): bool
     {
         if ($record->status !== QEStatus::APPROVED) {
             return false;
@@ -215,7 +215,7 @@ final class ViewQuotationEvaluation extends ViewRecord
 
         $request = $record->request;
 
-        if ($request === null || $request->rfqOutcomesAnnounced()) {
+        if ($request === null || $request->supplierRequestOutcomesAnnounced()) {
             return false;
         }
 

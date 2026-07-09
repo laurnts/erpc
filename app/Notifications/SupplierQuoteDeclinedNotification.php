@@ -11,7 +11,7 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 /**
- * Internal-team notification when a supplier declines a sent RFQ from the
+ * Internal-team notification when a supplier declines a sent request from the
  * supplier portal.
  */
 final class SupplierQuoteDeclinedNotification extends Notification implements ShouldQueue

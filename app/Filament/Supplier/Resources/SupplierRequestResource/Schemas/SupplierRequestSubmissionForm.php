@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Filament\Supplier\Resources\SupplierRfqResource\Schemas;
+namespace App\Filament\Supplier\Resources\SupplierRequestResource\Schemas;
 
 use App\Models\Currency;
 use App\Models\SupplierQuote;
@@ -22,7 +22,7 @@ use Filament\Schemas\Components\Section;
  * drives base-currency comparison ranking). Child/detail rows of service
  * quotes are read-only and never priced here.
  */
-final readonly class SupplierRfqSubmissionForm
+final readonly class SupplierRequestSubmissionForm
 {
     /**
      * @return array<int, \Filament\Schemas\Components\Component>

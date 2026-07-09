@@ -8,9 +8,8 @@ use App\Enums\SupplierQuoteStatus;
 use App\Enums\SupplierQuoteSubmissionMethod;
 use App\Filament\Resources\RequestResource\Pages\EditRequest;
 use App\Filament\Resources\RequestResource\RelationManagers\ItemsRelationManager;
-use App\Filament\Supplier\Resources\SupplierRfqResource\Pages\ListSupplierRfqs;
-use App\Filament\Supplier\Resources\SupplierRfqResource\Pages\ViewSupplierRfq;
-use App\Filament\Supplier\Widgets\SupplierOpenRfqsWidget;
+use App\Filament\Supplier\Resources\SupplierRequestResource\Pages\ListSupplierRequests;
+use App\Filament\Supplier\Resources\SupplierRequestResource\Pages\ViewSupplierRequest;
 use App\Jobs\Erp\CheckAwaitingSupplierQuotesJob;
 use App\Mail\Erp\QuoteToSupplierMail;
 use App\Models\Article;
@@ -28,7 +27,7 @@ use App\Notifications\Erp\AwaitingSupplierQuoteNotification;
 use App\Notifications\SupplierQuoteDeclinedNotification;
 use App\Notifications\SupplierQuoteSubmittedNotification;
 use App\Services\Portal\SupplierPortalContext;
-use App\Services\SupplierPortal\SupplierRfqStatusPresenter;
+use App\Services\SupplierPortal\SupplierRequestStatusPresenter;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -50,7 +49,7 @@ beforeEach(function (): void {
         'email' => 'sales@own-supplier.test',
     ]);
 
-    $this->portalUser = User::factory()->create(['email' => 'rfq@supplier.test']);
+    $this->portalUser = User::factory()->create(['email' => 'requests@supplier.test']);
 
     CompanyPortalUser::query()->create([
         'team_id' => $this->team->getKey(),
@@ -107,7 +106,7 @@ beforeEach(function (): void {
     app(SupplierPortalContext::class)->setCompany($this->supplier->getKey());
 });
 
-describe('RFQ visibility', function (): void {
+describe('Request visibility', function (): void {
     it('lists only own sent quotes — unsent and foreign quotes never surface', function (): void {
         $unsent = SupplierQuote::factory()
             ->recycle($this->team)
@@ -129,7 +128,7 @@ describe('RFQ visibility', function (): void {
             ->validFor(30)
             ->create(['creator_id' => $this->admin->getKey()]);
 
-        livewire(ListSupplierRfqs::class)
+        livewire(ListSupplierRequests::class)
             ->assertCanSeeTableRecords([$this->quote])
             ->assertCanNotSeeTableRecords([$unsent, $foreign]);
 
@@ -141,6 +140,14 @@ describe('RFQ visibility', function (): void {
         expect($scopedIds)->toContain($this->quote->getKey())
             ->not->toContain($unsent->getKey())
             ->not->toContain($foreign->getKey());
+    });
+
+    it('renders the staff-style header on the quote request detail page', function (): void {
+        livewire(ViewSupplierRequest::class, ['record' => $this->quote->getKey()])
+            ->assertOk()
+            ->assertSee('Reference')
+            ->assertSee($this->quote->quote_number)
+            ->assertSee('Valid Until');
     });
 
     it('denies unsent quotes by policy and resolves them as not found on the view page', function (): void {
@@ -156,11 +163,11 @@ describe('RFQ visibility', function (): void {
         expect($this->portalUser->can('view', $this->quote))->toBeTrue()
             ->and($this->portalUser->can('view', $unsent))->toBeFalse();
 
-        expect(fn () => livewire(ViewSupplierRfq::class, ['record' => $unsent->getKey()]))
+        expect(fn () => livewire(ViewSupplierRequest::class, ['record' => $unsent->getKey()]))
             ->toThrow(ModelNotFoundException::class);
     });
 
-    it('shows open sent quotes in the dashboard widget, excluding unsent and declined ones', function (): void {
+    it('shows only open sent quotes under the Open status filter, excluding unsent and declined ones', function (): void {
         $unsent = SupplierQuote::factory()
             ->recycle($this->team)
             ->forRequest($this->request)
@@ -181,21 +188,22 @@ describe('RFQ visibility', function (): void {
             ->validFor(30)
             ->create(['creator_id' => $this->admin->getKey()]);
 
-        livewire(SupplierOpenRfqsWidget::class)
+        livewire(ListSupplierRequests::class)
+            ->filterTable('status_group', 'open')
             ->assertCanSeeTableRecords([$this->quote])
             ->assertCanNotSeeTableRecords([$unsent, $declined]);
     });
 
-    it('shows count badges on tabs that have matching quotes', function (): void {
+    it('treats a received quote as submitted, not open', function (): void {
         $this->quote->forceFill(['status' => SupplierQuoteStatus::RECEIVED])->saveQuietly();
 
-        $tabs = livewire(ListSupplierRfqs::class)->instance()->getCachedTabs();
+        livewire(ListSupplierRequests::class)
+            ->filterTable('status_group', 'submitted')
+            ->assertCanSeeTableRecords([$this->quote]);
 
-        expect($tabs['open']->getBadge())->toBeNull()
-            ->and($tabs['submitted']->getBadge())->toBe(1)
-            ->and($tabs['won']->getBadge())->toBeNull()
-            ->and($tabs['lost']->getBadge())->toBeNull()
-            ->and($tabs['declined']->getBadge())->toBeNull();
+        livewire(ListSupplierRequests::class)
+            ->filterTable('status_group', 'open')
+            ->assertCanNotSeeTableRecords([$this->quote]);
     });
 });
 
@@ -203,7 +211,7 @@ describe('Submitting a quote', function (): void {
     it('submits prices with a server-resolved exchange rate and fires the standard machinery', function (): void {
         Notification::fake();
 
-        livewire(ViewSupplierRfq::class, ['record' => $this->quote->getKey()])
+        livewire(ViewSupplierRequest::class, ['record' => $this->quote->getKey()])
             ->callAction('submit', data: [
                 'item_prices' => [$this->quoteItem->getKey() => '100'],
                 'currency_id' => $this->eur->getKey(),
@@ -232,7 +240,7 @@ describe('Submitting a quote', function (): void {
     it('stamps the submitted quotation document with a v3 document path', function (): void {
         Notification::fake();
 
-        livewire(ViewSupplierRfq::class, ['record' => $this->quote->getKey()])
+        livewire(ViewSupplierRequest::class, ['record' => $this->quote->getKey()])
             ->callAction('submit', data: [
                 'item_prices' => [$this->quoteItem->getKey() => '100'],
                 'currency_id' => $this->eur->getKey(),
@@ -253,7 +261,7 @@ describe('Submitting a quote', function (): void {
     it('ignores a tampered client-supplied exchange rate', function (): void {
         Notification::fake();
 
-        livewire(ViewSupplierRfq::class, ['record' => $this->quote->getKey()])
+        livewire(ViewSupplierRequest::class, ['record' => $this->quote->getKey()])
             ->callAction('submit', data: [
                 'item_prices' => [$this->quoteItem->getKey() => '100'],
                 'currency_id' => $this->eur->getKey(),
@@ -280,7 +288,7 @@ describe('Submitting a quote', function (): void {
 
         expect($this->portalUser->can('submit', $expired))->toBeFalse();
 
-        livewire(ViewSupplierRfq::class, ['record' => $expired->getKey()])
+        livewire(ViewSupplierRequest::class, ['record' => $expired->getKey()])
             ->assertActionHidden('submit');
     });
 
@@ -306,7 +314,7 @@ describe('Declining a quote', function (): void {
     it('stamps declined_at, keeps PENDING status, and notifies the team', function (): void {
         Notification::fake();
 
-        livewire(ViewSupplierRfq::class, ['record' => $this->quote->getKey()])
+        livewire(ViewSupplierRequest::class, ['record' => $this->quote->getKey()])
             ->callAction('decline')
             ->assertHasNoActionErrors();
 
@@ -314,7 +322,7 @@ describe('Declining a quote', function (): void {
 
         expect($quote->declined_at)->not->toBeNull()
             ->and($quote->status)->toBe(SupplierQuoteStatus::PENDING)
-            ->and(app(SupplierRfqStatusPresenter::class)->label($quote))->toBe('Declined');
+            ->and(app(SupplierRequestStatusPresenter::class)->label($quote))->toBe('Declined');
 
         Notification::assertSentTo($this->admin, SupplierQuoteDeclinedNotification::class);
     });
@@ -378,12 +386,12 @@ describe('Declining a quote', function (): void {
         $expiring->checkAndUpdateExpiredStatus();
 
         expect($declined->refresh()->status)->toBe(SupplierQuoteStatus::PENDING)
-            ->and(app(SupplierRfqStatusPresenter::class)->label($declined))->toBe('Declined')
+            ->and(app(SupplierRequestStatusPresenter::class)->label($declined))->toBe('Declined')
             ->and($expiring->refresh()->status)->toBe(SupplierQuoteStatus::EXPIRED)
-            ->and(app(SupplierRfqStatusPresenter::class)->label($expiring))->toBe('Expired');
+            ->and(app(SupplierRequestStatusPresenter::class)->label($expiring))->toBe('Expired');
     });
 
-    it('resets a decline when staff re-send the RFQ', function (): void {
+    it('resets a decline when staff re-send the request', function (): void {
         $declined = SupplierQuote::factory()
             ->recycle($this->team)
             ->forRequest($this->request)
@@ -413,7 +421,7 @@ describe('Declining a quote', function (): void {
             ->and($quote->submitted_at)->toBeNull()
             ->and($quote->submitted_by_user_id)->toBeNull()
             ->and($quote->sent_to_supplier_at->greaterThan($previousSentAt))->toBeTrue()
-            ->and(app(SupplierRfqStatusPresenter::class)->label($quote))->toBe('Awaiting your quote');
+            ->and(app(SupplierRequestStatusPresenter::class)->label($quote))->toBe('Awaiting your quote');
     });
 });
 
@@ -507,7 +515,7 @@ describe('Send to Suppliers stamps the visibility gate', function (): void {
     it('embeds a supplier-portal deep link in the solicitation mail', function (): void {
         $rendered = (new QuoteToSupplierMail($this->quote))->render();
 
-        expect($rendered)->toContain(url()->getSupplierPortalUrl('rfqs'));
+        expect($rendered)->toContain(url()->getSupplierPortalUrl('requests'));
     });
 });
 
@@ -524,7 +532,7 @@ describe('Confidentiality', function (): void {
             ->validFor(30)
             ->create(['creator_id' => $this->admin->getKey()]);
 
-        livewire(ViewSupplierRfq::class, ['record' => $this->quote->getKey()])
+        livewire(ViewSupplierRequest::class, ['record' => $this->quote->getKey()])
             ->assertSee($this->quote->quote_number)
             ->assertSee('Steel Pipe 5m')
             ->assertDontSee('Confidential Buyer Ltd')
@@ -533,7 +541,7 @@ describe('Confidentiality', function (): void {
             ->assertDontSee('INTERNAL-EYES-ONLY')
             ->assertDontSee('Rival Supplier Co');
 
-        livewire(ListSupplierRfqs::class)
+        livewire(ListSupplierRequests::class)
             ->assertSee($this->quote->quote_number)
             ->assertDontSee('Confidential Buyer Ltd')
             ->assertDontSee($this->request->request_number)
@@ -541,7 +549,7 @@ describe('Confidentiality', function (): void {
     });
 
     it('never selects internal notes or notification metadata into portal records', function (): void {
-        $record = \App\Filament\Supplier\Resources\SupplierRfqResource::getEloquentQuery()
+        $record = \App\Filament\Supplier\Resources\SupplierRequestResource::getEloquentQuery()
             ->whereKey($this->quote->getKey())
             ->firstOrFail();
 

@@ -6,11 +6,10 @@ use App\Actions\Portal\InvitePortalUser;
 use App\Enums\PortalType;
 use App\Filament\Supplier\Pages\AcceptPortalInvitation;
 use App\Filament\Supplier\Pages\Auth\SupplierLogin;
-use App\Filament\Supplier\Pages\SupplierDashboard;
 use App\Filament\Supplier\Resources\SupplierArticleResource;
 use App\Filament\Supplier\Resources\SupplierArticleResource\Pages\EditSupplierArticle;
 use App\Filament\Supplier\Resources\SupplierArticleResource\Pages\ListSupplierArticles;
-use App\Filament\Supplier\Widgets\SupplierStalePricesWidget;
+use App\Filament\Supplier\Resources\SupplierRequestResource;
 use App\Mail\PortalUserInvitationMail;
 use App\Models\Article;
 use App\Models\Company;
@@ -145,7 +144,7 @@ describe('Supplier Portal Access', function (): void {
             ->assertSee('Sign In');
     });
 
-    it('redirects supplier login to dashboard not stale admin intended url', function (): void {
+    it('redirects supplier login to requests list not stale admin intended url', function (): void {
         session(['url.intended' => url()->getAppUrl('login')]);
 
         $this->actingAs($this->portalUser, 'supplier');
@@ -154,10 +153,10 @@ describe('Supplier Portal Access', function (): void {
         expect(app(\App\Http\Responses\LoginResponse::class)
             ->toResponse(request())
             ->getTargetUrl())
-            ->toBe(SupplierDashboard::getUrl(panel: 'supplier'));
+            ->toBe(SupplierRequestResource::getUrl('index', panel: 'supplier'));
     });
 
-    it('authenticates supplier via livewire and redirects to dashboard', function (): void {
+    it('authenticates supplier via livewire and redirects to requests list', function (): void {
         Filament::setCurrentPanel('supplier');
 
         livewire(SupplierLogin::class)
@@ -166,9 +165,24 @@ describe('Supplier Portal Access', function (): void {
                 'password' => 'password',
             ])
             ->call('authenticate')
-            ->assertRedirect(SupplierDashboard::getUrl(panel: 'supplier'));
+            ->assertRedirect(SupplierRequestResource::getUrl('index', panel: 'supplier'));
 
         $this->assertAuthenticatedAs($this->portalUser, 'supplier');
+    });
+
+    it('shows Requests and My Articles in the top navigation', function (): void {
+        $this->actingAs($this->portalUser, 'supplier');
+        Filament::setCurrentPanel('supplier');
+        app(SupplierPortalContext::class)->setCompany($this->supplier->getKey());
+
+        $panel = Filament::getPanel('supplier');
+
+        $labels = collect($panel->getNavigation())
+            ->flatMap(fn ($group) => collect($group->getItems())->map(fn ($item): string => (string) $item->getLabel()))
+            ->values();
+
+        expect($panel->hasTopNavigation())->toBeTrue()
+            ->and($labels->all())->toBe(['Requests', 'My Articles']);
     });
 
     it('resolves supplier portal team and company from context', function (): void {
@@ -444,6 +458,17 @@ describe('Supplier Article Self-Service', function (): void {
             ->and(SupplierArticleResource::canDelete($this->ownRow))->toBeFalse();
     });
 
+    it('mirrors the staff article layout with read-only details and an offer section', function (): void {
+        livewire(EditSupplierArticle::class, ['record' => $this->ownRow->getKey()])
+            ->assertSee('Article Details')
+            ->assertSee($this->article->code)
+            ->assertSee('Own Widget')
+            ->assertSee('Status')
+            ->assertSee('Images')
+            ->assertSee('Your Offer')
+            ->assertDontSee('Suppliers');
+    });
+
     it('updates the four supplier-writable fields and stamps timestamps', function (): void {
         livewire(EditSupplierArticle::class, ['record' => $this->ownRow->getKey()])
             ->fillForm([
@@ -481,14 +506,6 @@ describe('Supplier Article Self-Service', function (): void {
             ->and($row->last_quoted_price)->toBeNull()
             ->and($row->supplier_sku)->not->toBe('HACKED-SKU');
     });
-
-    it('loads the supplier dashboard with the stale prices widget scoped to own rows', function (): void {
-        livewire(SupplierDashboard::class)->assertOk();
-
-        livewire(SupplierStalePricesWidget::class)
-            ->assertCanSeeTableRecords([$this->ownRow])
-            ->assertCanNotSeeTableRecords([$this->otherRow]);
-    });
 });
 
 describe('Supplier Portal Deactivation', function (): void {
@@ -506,7 +523,7 @@ describe('Supplier Portal Deactivation', function (): void {
 
         $this->actingAs($this->portalUser, 'supplier')
             ->get("http://{$host}/supplier", ['Host' => $host])
-            ->assertOk();
+            ->assertRedirect(SupplierRequestResource::getUrl('index', panel: 'supplier'));
 
         CompanyPortalUser::query()
             ->where('user_id', $this->portalUser->getKey())

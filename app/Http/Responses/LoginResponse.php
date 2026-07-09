@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Http\Responses;
 
 use App\Filament\Buyer\Pages\Auth\BuyerLogin;
-use App\Filament\Buyer\Pages\BuyerDashboard;
+use App\Filament\Buyer\Resources\BuyerRequestResource;
 use App\Filament\Pages\Auth\Login;
 use App\Filament\Resources\RequestResource;
 use App\Filament\Supplier\Pages\Auth\SupplierLogin;
-use App\Filament\Supplier\Pages\SupplierDashboard;
+use App\Filament\Supplier\Resources\SupplierRequestResource;
 use Filament\Facades\Filament;
 use Filament\Panel;
 use Illuminate\Http\RedirectResponse;
@@ -130,7 +130,7 @@ final readonly class LoginResponse implements \Filament\Auth\Http\Responses\Cont
 
     private function redirectToBuyerHome(): RedirectResponse|Redirector
     {
-        $buyerHome = BuyerDashboard::getUrl(panel: 'buyer');
+        $buyerHome = BuyerRequestResource::getUrl('index', panel: 'buyer');
         $intended = session()->pull('url.intended');
 
         if (is_string($intended) && str_contains($intended, $this->buyerPortalPathNeedle())) {
@@ -142,7 +142,7 @@ final readonly class LoginResponse implements \Filament\Auth\Http\Responses\Cont
 
     private function redirectToSupplierHome(): RedirectResponse|Redirector
     {
-        $supplierHome = SupplierDashboard::getUrl(panel: 'supplier');
+        $supplierHome = SupplierRequestResource::getUrl('index', panel: 'supplier');
         $intended = session()->pull('url.intended');
 
         if (is_string($intended) && str_contains($intended, $this->supplierPortalPathNeedle())) {

@@ -42,17 +42,16 @@ function viewTestRequest(Tests\TestCase $test): Request
 }
 
 describe('Request view page layout', function (): void {
-    it('renders the three-column admin layout with guide, work area, and history', function (): void {
+    it('renders the admin layout with guide, work area, and footer activities', function (): void {
         $record = viewTestRequest($this);
 
         livewire(ViewRequest::class, ['record' => $record->getKey()])
             ->assertOk()
             ->assertSeeLivewire(\App\Livewire\RequestStageBar::class)
             ->assertSeeLivewire(\App\Livewire\RequestStepGuide::class)
-            ->assertSeeLivewire(\App\Livewire\RequestHistorySidebar::class)
+            ->assertSeeLivewire(\App\Filament\Widgets\RequestHistoryWidget::class)
             ->assertSee('Financials')
             ->assertSee('Payments')
-            ->assertSee('Activities')
             ->assertDontSeeLivewire(\App\Filament\Widgets\RequestInformationFlowWidget::class);
     });
 
@@ -266,13 +265,13 @@ describe('Proof of Request section', function (): void {
     it('renders the proof of request section with a download link when the request has an attachment', function (): void {
         $record = viewTestRequest($this);
         $record->addMediaFromString('dummy')
-            ->usingFileName('buyer-rfq.pdf')
+            ->usingFileName('buyer-request.pdf')
             ->toMediaCollection('attachments');
 
         livewire(ViewRequest::class, ['record' => $record->getKey()])
             ->assertOk()
             ->assertSee('Proof of Request')
-            ->assertSee('buyer-rfq.pdf');
+            ->assertSee('buyer-request.pdf');
     });
 
     it('hides the proof of request section when there are no attachments', function (): void {

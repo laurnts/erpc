@@ -1339,7 +1339,7 @@ For users familiar with traditional ERP systems, optional labels can be shown:
 | Buyer Quote | Sales Quotation | SQ |
 | Buyer Order | Sales Order | SO |
 | Buyer Invoice | Accounts Receivable | AR |
-| Supplier Quote | Purchase Quotation | PQ / RFQ |
+| Supplier Quote | Purchase Quotation | PQ / Quote Request |
 | Supplier Order | Purchase Order | PO |
 | Supplier Invoice | Accounts Payable | AP |
 | Inbound Shipment | Goods Receipt | GR |

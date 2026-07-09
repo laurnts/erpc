@@ -436,63 +436,14 @@ input[type='radio']:not(:disabled) {
     @apply text-2xl font-bold tracking-tight text-gray-950 dark:text-white;
 }
 
-/* Buyer request detail — sticky metadata sidebar */
-.fi-panel-buyer .buyer-request-sidebar {
-    @apply lg:sticky lg:top-6 lg:self-start;
-}
-
-.fi-panel-buyer .buyer-request-detail-grid {
-    @apply items-stretch;
-}
-
-@media (min-width: 1024px) {
-    .fi-panel-buyer .buyer-request-detail-grid {
-        grid-template-columns: minmax(0, 25%) minmax(0, 50%) minmax(0, 25%);
-    }
-
-    .fi-panel-buyer .buyer-request-detail-grid > div:has(.buyer-request-activities-sidebar) {
-        position: sticky;
-        top: 1.5rem;
-        align-self: start;
-        z-index: 10;
-        height: fit-content;
-    }
-}
-
-.fi-panel-buyer .buyer-request-detail-main {
-    @apply min-w-0;
-}
-
-.fi-panel-buyer .buyer-request-activities-sidebar .buyer-request-activities-card {
-    max-height: calc(100vh - 5rem);
-    @apply flex flex-col overflow-hidden;
-}
-
-.fi-panel-buyer .buyer-request-activities-sidebar .buyer-request-activities-card > .fi-section-content-ctn {
-    @apply flex min-h-0 flex-1 flex-col overflow-hidden;
-}
-
-.fi-panel-buyer .buyer-request-activities-body {
-    @apply flex min-h-0 flex-1 flex-col overflow-hidden;
-}
-
-.fi-panel-buyer .buyer-request-activities-scroll {
-    max-height: calc(100vh - 14rem);
-    @apply min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1;
-}
-
-.fi-panel-buyer .buyer-request-activities-sidebar .fi-section-content {
-    @apply flex min-h-0 flex-1 flex-col overflow-hidden p-0;
-}
-
-/* Admin request detail — three-column layout (guide | work | history) */
+/* Admin request detail — two-column layout (guide | work) */
 .fi-resource-view-record-page.admin-request-detail-page .admin-request-detail-grid {
   @apply items-stretch;
 }
 
 @media (min-width: 1280px) {
   .fi-resource-view-record-page.admin-request-detail-page .admin-request-detail-grid {
-    grid-template-columns: minmax(0, 22%) minmax(0, 56%) minmax(0, 22%);
+    grid-template-columns: minmax(0, 25%) minmax(0, 75%);
   }
 }
 
@@ -502,8 +453,7 @@ input[type='radio']:not(:disabled) {
 }
 
 @media (min-width: 1280px) {
-  .fi-resource-view-record-page.admin-request-detail-page .admin-request-detail-grid > div:has(.admin-request-guide-column),
-  .fi-resource-view-record-page.admin-request-detail-page .admin-request-detail-grid > div:has(.admin-request-history-sidebar) {
+  .fi-resource-view-record-page.admin-request-detail-page .admin-request-detail-grid > div:has(.admin-request-guide-column) {
     position: sticky;
     top: 1.25rem;
     align-self: start;
@@ -520,8 +470,7 @@ input[type='radio']:not(:disabled) {
 }
 
 .fi-resource-view-record-page.admin-request-detail-page .admin-request-stage-bar,
-.fi-resource-view-record-page.admin-request-detail-page .admin-request-step-guide,
-.fi-resource-view-record-page.admin-request-detail-page .admin-request-history-sidebar {
+.fi-resource-view-record-page.admin-request-detail-page .admin-request-step-guide {
   height: fit-content;
 }
 
@@ -567,53 +516,4 @@ input[type='radio']:not(:disabled) {
 
 .fi-resource-view-record-page.admin-request-detail-page .admin-request-step-guide-card {
   @apply border-gray-300 dark:border-gray-600;
-}
-
-.fi-resource-view-record-page.admin-request-detail-page .admin-request-history-sidebar .admin-request-history-card {
-  max-height: calc(100vh - 5rem);
-  @apply flex flex-col overflow-hidden;
-}
-
-.fi-resource-view-record-page.admin-request-detail-page .admin-request-history-sidebar .admin-request-history-card > .fi-section-content-ctn {
-  @apply flex min-h-0 flex-1 flex-col overflow-hidden;
-}
-
-.fi-resource-view-record-page.admin-request-detail-page .admin-request-history-body {
-  @apply flex min-h-0 flex-1 flex-col overflow-hidden;
-}
-
-.fi-resource-view-record-page.admin-request-detail-page .admin-request-history-scroll {
-  max-height: calc(100vh - 14rem);
-  @apply min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1;
-}
-
-.fi-resource-view-record-page.admin-request-detail-page .admin-request-history-composer-outer {
-  @apply shrink-0 bg-white dark:bg-gray-900;
-}
-
-.fi-resource-view-record-page.admin-request-detail-page .admin-request-history-sidebar .fi-section-content {
-  @apply flex min-h-0 flex-1 flex-col overflow-hidden p-0;
-}
-
-.fi-resource-view-record-page.admin-request-detail-page .admin-request-history-sidebar .admin-request-history-body {
-  @apply px-4 pb-4;
-}
-
-.fi-resource-view-record-page.admin-request-detail-page .admin-request-history-timeline {
-  @apply min-w-0;
-}
-
-.fi-resource-view-record-page.admin-request-detail-page .admin-request-history-timeline li,
-.fi-resource-view-record-page.admin-request-detail-page .admin-request-activity-log-full li {
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-.admin-request-activity-log-full {
-  @apply min-h-[60vh] max-h-[80vh];
-}
-
-.admin-request-activity-log-full .admin-request-history-entries {
-  max-height: calc(80vh - 12rem);
-  @apply overflow-y-auto pr-1;
 }

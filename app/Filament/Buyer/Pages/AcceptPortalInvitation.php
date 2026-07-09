@@ -6,6 +6,7 @@ namespace App\Filament\Buyer\Pages;
 
 use App\Actions\Portal\AcceptPortalInvitation as AcceptPortalInvitationAction;
 use App\Enums\PortalType;
+use App\Filament\Buyer\Resources\BuyerRequestResource;
 use App\Http\Middleware\AuthenticatePanelUser;
 use App\Http\Middleware\InitializeBuyerPortalContext;
 use App\Models\PortalInvitation;
@@ -196,6 +197,6 @@ final class AcceptPortalInvitation extends Page implements HasForms
             ->success()
             ->send();
 
-        $this->redirect(BuyerDashboard::getUrl(panel: 'buyer'));
+        $this->redirect(BuyerRequestResource::getUrl('index', panel: 'buyer'));
     }
 }

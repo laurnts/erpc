@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Supplier-portal RFQ participation state on supplier_quotes:
+ * Supplier-portal request participation state on supplier_quotes:
  * - sent_to_supplier_at is the portal visibility gate — stamped when the
  *   "Send to Suppliers" mail is successfully dispatched; auto-generated
  *   pending quotes without a send stay invisible to the portal.

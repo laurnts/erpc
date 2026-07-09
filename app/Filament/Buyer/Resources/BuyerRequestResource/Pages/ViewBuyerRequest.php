@@ -15,12 +15,14 @@ use App\Livewire\BuyerPendingQuoteActions;
 use App\Models\BuyerInvoice;
 use App\Models\Request;
 use App\Services\BuyerPortal\BuyerRequestStagePresenter;
+use App\Services\Portal\BuyerPortalContext;
+use App\Services\Timeline\PortalTimelineSource;
+use App\Services\Timeline\TimelineParty;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Resources\Pages\ViewRecord;
-use Filament\Schemas\Components\Grid;
-use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Livewire;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -79,83 +81,140 @@ final class ViewBuyerRequest extends ViewRecord
 
     public function infolist(Schema $schema): Schema
     {
+        $presenter = app(BuyerRequestStagePresenter::class);
+
         return $schema
             ->columns(1)
             ->components([
-                Grid::make()
-                    ->columns(['default' => 1, 'lg' => 12])
-                    ->extraAttributes(['class' => 'buyer-request-detail-grid'])
+                // Request header — same structure as the staff view, minus
+                // staff-only data (internal notes, financials, approvals).
+                Section::make()
                     ->schema([
-                        Group::make()
-                            ->columnSpan(['default' => 'full', 'lg' => 3])
-                            ->extraAttributes([
-                                'class' => 'buyer-request-sidebar lg:sticky lg:top-6 lg:self-start',
-                                'style' => 'position: sticky; top: 1.5rem; align-self: flex-start; height: fit-content;',
-                            ])
-                            ->schema([
-                                Section::make('Summary')
-                                    ->schema([
-                                        ViewEntry::make('summary_sidebar')
-                                            ->label('')
-                                            ->view('filament.buyer.components.request-summary-sidebar'),
-                                    ]),
-                                Section::make('Attached Documents')
-                                    ->visible(fn (Request $record): bool => $record->submission_method === RequestSubmissionMethod::DOCUMENT)
-                                    ->schema([
-                                        ViewEntry::make('attachments_list')
-                                            ->label('')
-                                            ->view('filament.buyer.components.request-attachments-list'),
-                                    ]),
-                            ]),
-                        Group::make()
-                            ->columnSpan(['default' => 'full', 'lg' => 6])
-                            ->extraAttributes(['class' => 'buyer-request-detail-main'])
-                            ->schema([
-                                Livewire::make(BuyerPendingQuoteActions::class, fn (Request $record): array => [
-                                    'request' => $record,
-                                ])
-                                    ->key(fn (Request $record): string => 'pending-quote-actions-'.$record->getKey())
-                                    ->visible(fn (Request $record): bool => $record->buyerQuotes()
-                                        ->where('status', BuyerQuoteStatus::SENT)
-                                        ->exists()),
-                                Section::make('Quotes')
-                                    ->schema([
-                                        Livewire::make(BuyerQuotesRelationManager::class, fn (Request $record): array => [
-                                            'ownerRecord' => $record,
-                                            'pageClass' => self::class,
-                                        ])->key(fn (Request $record): string => 'buyer-quotes-'.$record->getKey()),
-                                    ])
-                                    ->visible(fn (Request $record): bool => $record->buyerQuotes()
-                                        ->where('status', '!=', BuyerQuoteStatus::DRAFT)
-                                        ->exists()),
-                                Section::make('Request Items')
-                                    ->visible(fn (Request $record): bool => $record->items()->exists())
-                                    ->schema([
-                                        ViewEntry::make('items_table')
-                                            ->label('')
-                                            ->view('filament.buyer.components.request-items-table'),
-                                    ]),
-                                Section::make('Payments')
-                                    ->icon('heroicon-o-credit-card')
-                                    ->visible(fn (Request $record): bool => $this->hasPayableInvoice($record))
-                                    ->schema($this->paymentCardEntries()),
-                            ]),
-                        Group::make()
-                            ->columnSpan(['default' => 'full', 'lg' => 3])
-                            ->extraAttributes([
-                                'class' => 'buyer-request-activities-sidebar lg:sticky lg:top-6 lg:z-10 lg:self-start',
-                            ])
-                            ->schema([
-                                Section::make('Activities')
-                                    ->icon('heroicon-o-clock')
-                                    ->compact()
-                                    ->extraAttributes(['class' => 'buyer-request-activities-card'])
-                                    ->schema([
-                                        ViewEntry::make('activities_sidebar')
-                                            ->label('')
-                                            ->view('filament.buyer.components.request-activities-sidebar'),
-                                    ]),
-                            ]),
+                        TextEntry::make('request_number')
+                            ->label('Request number')
+                            ->weight('bold')
+                            ->size('md')
+                            ->copyable(),
+                        TextEntry::make('title')
+                            ->label('Title')
+                            ->weight('bold')
+                            ->size('md')
+                            ->columnSpan(3),
+                        TextEntry::make('stage')
+                            ->label('Status')
+                            ->badge()
+                            ->formatStateUsing(fn (Request $record): string => $presenter->label($record))
+                            ->color(fn (Request $record): string => $presenter->color($presenter->effectiveStage($record))),
+                        TextEntry::make('priority')
+                            ->badge(),
+                        TextEntry::make('item_type_summary')
+                            ->label('Type')
+                            ->badge()
+                            ->color(fn (string $state): string => match ($state) {
+                                'Goods' => 'primary',
+                                'Services' => 'success',
+                                'Mixed' => 'warning',
+                                default => 'gray',
+                            }),
+                        TextEntry::make('project.name')
+                            ->label('Project')
+                            ->icon('heroicon-o-folder')
+                            ->placeholder('—'),
+                        TextEntry::make('submitted_at')
+                            ->label('Submitted')
+                            ->dateTime()
+                            ->placeholder('—'),
+                        TextEntry::make('required_by')
+                            ->label('Required By')
+                            ->date()
+                            ->placeholder('—'),
+                        TextEntry::make('created_at')
+                            ->label('Created')
+                            ->dateTime(),
+                        TextEntry::make('updated_at')
+                            ->label('Last Updated')
+                            ->since(),
+                        TextEntry::make('submission_method')
+                            ->label('Source')
+                            ->badge()
+                            ->formatStateUsing(fn (RequestSubmissionMethod $state): string => $state->getLabel())
+                            ->visible(fn (Request $record): bool => $record->isPortalSubmission()),
+                        TextEntry::make('submittedBy.name')
+                            ->label('Submitted By')
+                            ->placeholder('—')
+                            ->visible(fn (Request $record): bool => $record->isPortalSubmission()),
+                    ])
+                    ->columns(4)
+                    ->columnSpanFull(),
+                Livewire::make(BuyerPendingQuoteActions::class, fn (Request $record): array => [
+                    'request' => $record,
+                ])
+                    ->key(fn (Request $record): string => 'pending-quote-actions-'.$record->getKey())
+                    ->visible(fn (Request $record): bool => $record->buyerQuotes()
+                        ->where('status', BuyerQuoteStatus::SENT)
+                        ->exists()),
+                Section::make('Description')
+                    ->schema([
+                        TextEntry::make('description')
+                            ->label('')
+                            ->markdown()
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible()
+                    ->visible(fn (Request $record): bool => filled($record->description)),
+                Section::make('Attached Documents')
+                    ->icon('heroicon-o-paper-clip')
+                    ->collapsible()
+                    ->visible(fn (Request $record): bool => $record->submission_method === RequestSubmissionMethod::DOCUMENT)
+                    ->schema([
+                        ViewEntry::make('attachments_list')
+                            ->label('')
+                            ->view('filament.buyer.components.request-attachments-list'),
+                    ]),
+                Section::make('Request Progress')
+                    ->collapsible()
+                    ->schema([
+                        ViewEntry::make('stage_timeline')
+                            ->label('')
+                            ->state(fn (Request $record): array => $presenter->timeline($record))
+                            ->view('filament.portal.components.request-progress-timeline'),
+                    ]),
+                Section::make('Quotes')
+                    ->collapsible()
+                    ->schema([
+                        Livewire::make(BuyerQuotesRelationManager::class, fn (Request $record): array => [
+                            'ownerRecord' => $record,
+                            'pageClass' => self::class,
+                        ])->key(fn (Request $record): string => 'buyer-quotes-'.$record->getKey()),
+                    ])
+                    ->visible(fn (Request $record): bool => $record->buyerQuotes()
+                        ->where('status', '!=', BuyerQuoteStatus::DRAFT)
+                        ->exists()),
+                Section::make('Requested Items')
+                    ->icon('heroicon-o-queue-list')
+                    ->collapsible()
+                    ->visible(fn (Request $record): bool => $record->items()->exists())
+                    ->schema([
+                        ViewEntry::make('items_table')
+                            ->label('')
+                            ->view('filament.buyer.components.request-items-table'),
+                    ]),
+                Section::make('Payments')
+                    ->icon('heroicon-o-credit-card')
+                    ->collapsible()
+                    ->visible(fn (Request $record): bool => $this->hasPayableInvoice($record))
+                    ->schema($this->paymentCardEntries()),
+                Section::make(fn (Request $record): string => 'Activities · '.$this->activityCount($record))
+                    ->icon('heroicon-o-clock')
+                    ->collapsible()
+                    ->schema([
+                        ViewEntry::make('activity_timeline')
+                            ->label('')
+                            ->state(fn (Request $record): array => app(PortalTimelineSource::class)->forParty(
+                                $record,
+                                TimelineParty::buyer(app(BuyerPortalContext::class)->companyId()),
+                            ))
+                            ->view('filament.buyer.components.request-activity-timeline'),
                     ]),
             ]);
     }
@@ -205,5 +264,13 @@ final class ViewBuyerRequest extends ViewRecord
             EditAction::make()
                 ->visible(fn (Request $record): bool => $record->isEditableByBuyer()),
         ];
+    }
+
+    private function activityCount(Request $record): int
+    {
+        return count(app(PortalTimelineSource::class)->forParty(
+            $record,
+            TimelineParty::buyer(app(BuyerPortalContext::class)->companyId()),
+        ));
     }
 }
