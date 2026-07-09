@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Actions\SupplierPortal\StampSupplierQuoteSent;
 use App\Enums\PortalType;
+use App\Enums\RequestStage;
 use App\Enums\SupplierQuoteStatus;
 use App\Enums\SupplierQuoteSubmissionMethod;
 use App\Filament\Resources\RequestResource\Pages\EditRequest;
@@ -148,6 +149,26 @@ describe('Request visibility', function (): void {
             ->assertSee('Reference')
             ->assertSee($this->quote->quote_number)
             ->assertSee('Valid Until');
+    });
+
+    it('renders the request progress timeline on the quote request detail page', function (): void {
+        $this->request->update(['stage' => RequestStage::SHIPPED]);
+
+        livewire(ViewSupplierRequest::class, ['record' => $this->quote->getKey()])
+            ->assertOk()
+            ->assertSee('Request Progress')
+            ->assertSee('In transit')
+            ->assertSee('Sourcing quotes');
+    });
+
+    it('renders a single cancelled step in the progress timeline when the request is cancelled', function (): void {
+        $this->request->update(['stage' => RequestStage::CANCELLED]);
+
+        livewire(ViewSupplierRequest::class, ['record' => $this->quote->getKey()])
+            ->assertOk()
+            ->assertSee('Request Progress')
+            ->assertSee('Cancelled')
+            ->assertDontSee('Sourcing quotes');
     });
 
     it('denies unsent quotes by policy and resolves them as not found on the view page', function (): void {
