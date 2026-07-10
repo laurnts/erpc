@@ -37,12 +37,7 @@
                     </tr>
                     
                     <!-- Blue Separator Line -->
-                    <tr>
-                        <td style="padding: 0 30px;">
-                            <div style="height: 2px; background-color: #2563eb;"></div>
-                        </td>
-                    </tr>
-                    
+@include('emails.partials.email-separator')
                     <!-- Supplier Information Section -->
                     <tr>
                         <td style="padding: 25px 30px 20px;">
@@ -110,9 +105,4 @@
                             </p>
                         </td>
                     </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>
+@include('emails.partials.email-shell-bottom')
