@@ -65,7 +65,7 @@ final readonly class PortalTimelineSource
             ->sortByDesc(fn (TimelineEntry $entry): string => $entry->occurredAt->format('Y-m-d H:i:s.u'))
             ->values();
 
-        return $entries->all();
+        return array_values($entries->all());
     }
 
     /**
@@ -100,11 +100,12 @@ final readonly class PortalTimelineSource
      * subject type. Only buyer/supplier subject types are reachable here;
      * an internal-only type would signal a misrouted party.
      *
-     * @return array{0: Builder, 1: string}
+     * @return array{0: Builder<\Illuminate\Database\Eloquent\Model>, 1: string}
      */
     private function baseSubjectQuery(Request $request, string $subjectType): array
     {
-        return match ($subjectType) {
+        /** @var array{0: Builder<\Illuminate\Database\Eloquent\Model>, 1: string} $result */
+        $result = match ($subjectType) {
             'request' => [Request::query()->whereKey($request->getKey()), 'request_number'],
             'buyer_quote' => [$request->buyerQuotes()->getQuery(), 'quote_number'],
             'buyer_invoice' => [$request->buyerInvoices()->getQuery(), 'invoice_number'],
@@ -124,12 +125,16 @@ final readonly class PortalTimelineSource
                 "PortalTimelineSource has no request-scoped query for subject '{$subjectType}'; portals must only receive buyer/supplier subject rules."
             ),
         };
+
+        return $result;
     }
 
     /**
      * Translate a SubjectRule's declarative constraints into query
      * predicates, resolving dotted relation paths (e.g. 'request.buyer_id',
      * 'buyerInvoice.request.buyer_id') into nested whereHas clauses.
+     *
+     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
      */
     private function applyRule(Builder $query, SubjectRule $rule): void
     {
@@ -142,6 +147,9 @@ final readonly class PortalTimelineSource
         }
     }
 
+    /**
+     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     */
     private function applyWhere(Builder $query, string $path, mixed $value): void
     {
         if (! str_contains($path, '.')) {
@@ -336,10 +344,9 @@ final readonly class PortalTimelineSource
         }
 
         return $query->get()->map(function (RequestNote $note) use ($request): TimelineEntry {
-            $attachments = $note->getMedia(RequestNote::ATTACHMENTS_COLLECTION)
+            $attachments = array_values($note->getMedia(RequestNote::ATTACHMENTS_COLLECTION)
                 ->map(fn ($media): string => (string) $media->file_name)
-                ->values()
-                ->all();
+                ->all());
 
             return new TimelineEntry(
                 actorLabel: $note->author?->getAttribute('name') ?? $note->author_actor_type->getLabel(),

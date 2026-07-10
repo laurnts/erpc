@@ -166,7 +166,7 @@ final class BuyerOrdersRelationManager extends RelationManager
                                         ->disabled(),
                                     Placeholder::make('unit_display')
                                         ->label('Unit')
-                                        ->content(fn ($record) => $record?->unit_label ?? '—')
+                                        ->content(fn ($record) => $record->unit_label ?? '—')
                                         ->columnSpan(1),
                                     TextInput::make('unit_price')
                                         ->label('Price')
@@ -743,7 +743,7 @@ final class BuyerOrdersRelationManager extends RelationManager
                                 ->label('Amount')
                                 ->numeric()
                                 ->required()
-                                ->default(fn (): string => (string) ($this->activeInvoiceFor($record)?->amount_outstanding ?? 0)),
+                                ->default(fn (): string => (string) ($this->activeInvoiceFor($record)->amount_outstanding ?? 0)),
                             Select::make('payment_method')
                                 ->label('Payment Method')
                                 ->options(PaymentMethod::class)

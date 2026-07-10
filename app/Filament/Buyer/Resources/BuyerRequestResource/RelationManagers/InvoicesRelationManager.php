@@ -53,14 +53,14 @@ final class InvoicesRelationManager extends RelationManager
                     ->label('Total')
                     ->formatStateUsing(fn (BuyerInvoice $record): string => sprintf(
                         '%s %s',
-                        $record->currency?->code ?? '',
+                        $record->currency->code ?? '',
                         number_format((float) $record->total, 2),
                     )),
                 TextColumn::make('amount_paid')
                     ->label('Paid')
                     ->formatStateUsing(fn (BuyerInvoice $record): string => sprintf(
                         '%s %s',
-                        $record->currency?->code ?? '',
+                        $record->currency->code ?? '',
                         number_format((float) $record->amount_paid, 2),
                     )),
                 TextColumn::make('issued_at')
