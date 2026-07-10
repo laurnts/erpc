@@ -114,3 +114,21 @@ it('does not demote a request whose internal stage already moved past confirmati
 
     expect($this->presenter->effectiveStage($request))->toBe(RequestStage::GOODS_RECEIVE);
 });
+
+it('applies the effective stage to the supplier timeline as well', function (): void {
+    $request = Request::factory()->for($this->team)->for($this->buyer, 'buyer')->create([
+        'stage' => RequestStage::AWAITING_BUYER_CONFIRMATION,
+    ]);
+
+    BuyerQuote::factory()
+        ->for($this->team)
+        ->for($request)
+        ->for($this->buyer, 'buyer')
+        ->accepted()
+        ->create();
+
+    $timeline = app(\App\Services\SupplierPortal\SupplierRequestStagePresenter::class)->timeline($request);
+    $current = collect($timeline)->firstWhere('current', true);
+
+    expect($current['stage'])->toBe(RequestStage::PREPARING_SUPPLIER_ORDER);
+});
