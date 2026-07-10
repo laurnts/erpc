@@ -39,12 +39,12 @@
                         </x-filament::badge>
 
                         @if ($entry->entryType === \App\Services\Timeline\TimelineAudience::ENTRY_NOTE)
-                            @php $noteVisibility = $entry->properties['visibility'] ?? null; @endphp
+                            @php $noteVisibility = \App\Enums\NoteVisibility::tryFrom((string) ($entry->properties['visibility'] ?? '')) ?? \App\Enums\NoteVisibility::Internal; @endphp
                             <x-filament::badge
-                                :color="match ($noteVisibility) { 'buyer' => 'success', 'supplier' => 'warning', default => 'gray' }"
+                                :color="$noteVisibility->getColor()"
                                 icon="heroicon-o-chat-bubble-left-right"
                             >
-                                {{ match ($noteVisibility) { 'buyer' => 'Notes: To Buyer', 'supplier' => 'Notes: To Supplier', default => 'Note' } }}
+                                {{ $noteVisibility->getTimelineBadgeLabel() }}
                             </x-filament::badge>
                         @endif
 

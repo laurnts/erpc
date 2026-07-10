@@ -40,6 +40,18 @@ enum NoteVisibility: string implements HasColor, HasIcon, HasLabel
         };
     }
 
+    /**
+     * Badge label used by the staff and portal activity timelines.
+     */
+    public function getTimelineBadgeLabel(): string
+    {
+        return match ($this) {
+            self::Internal => 'Notes: Internal',
+            self::Buyer => 'Notes: To Buyer',
+            self::Supplier => 'Notes: To Supplier',
+        };
+    }
+
     public function getIcon(): string
     {
         return match ($this) {
