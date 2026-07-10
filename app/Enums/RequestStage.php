@@ -243,6 +243,27 @@ enum RequestStage: string implements HasColor, HasIcon, HasLabel
     }
 
     /**
+     * Portal progress milestones in chronological workflow order — the single
+     * source for RequestWorkflowTimelinePresenter. SHIPPED collapses onto
+     * DELIVERED (both are tab step 8); post-delivery stages have no milestone.
+     *
+     * @return list<self>
+     */
+    public static function portalMilestones(): array
+    {
+        return [
+            self::DRAFT,
+            self::AWAITING_SUPPLIER_RESPONSE,
+            self::PREPARING_BUYER_QUOTE,
+            self::AWAITING_BUYER_CONFIRMATION,
+            self::PREPARING_SUPPLIER_ORDER,
+            self::GOODS_RECEIVE,
+            self::AWAITING_SHIPMENT,
+            self::DELIVERED,
+        ];
+    }
+
+    /**
      * Check if this stage is before the given stage.
      */
     public function isBefore(self $stage): bool

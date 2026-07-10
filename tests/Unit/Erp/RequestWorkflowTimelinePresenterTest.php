@@ -61,3 +61,17 @@ it('shows only a cancelled milestone for cancelled requests', function (): void 
         ->and($timeline[0]['stage'])->toBe(RequestStage::CANCELLED)
         ->and($timeline[0]['current'])->toBeTrue();
 });
+
+it('derives milestones from the enum: workflow-ordered, one per tab step', function (): void {
+    $milestones = \App\Enums\RequestStage::portalMilestones();
+
+    $orders = array_map(fn (\App\Enums\RequestStage $stage): int => $stage->getOrder(), $milestones);
+    $sorted = $orders;
+    sort($sorted);
+
+    $tabSteps = array_map(fn (\App\Enums\RequestStage $stage): ?int => $stage->getTabStep(), $milestones);
+
+    expect($orders)->toBe($sorted)
+        ->and($tabSteps)->toBe([1, 2, 3, 6, 4, 5, 7, 8])
+        ->and($milestones)->toHaveCount(8);
+});

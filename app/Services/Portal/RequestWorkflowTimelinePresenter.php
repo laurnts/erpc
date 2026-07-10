@@ -28,20 +28,7 @@ final readonly class RequestWorkflowTimelinePresenter
             ]];
         }
 
-        // Chronological workflow order (RequestStage::getOrder), not staff tab
-        // order: buyer confirmation happens BEFORE purchasing, so comparing tab
-        // steps would tick "Supplier Orders"/"Goods Receive" as done while the
-        // buyer is still confirming.
-        $milestones = [
-            RequestStage::DRAFT,
-            RequestStage::AWAITING_SUPPLIER_RESPONSE,
-            RequestStage::PREPARING_BUYER_QUOTE,
-            RequestStage::AWAITING_BUYER_CONFIRMATION,
-            RequestStage::PREPARING_SUPPLIER_ORDER,
-            RequestStage::GOODS_RECEIVE,
-            RequestStage::AWAITING_SHIPMENT,
-            RequestStage::DELIVERED,
-        ];
+        $milestones = RequestStage::portalMilestones();
         $resolvedActive = $this->resolveActiveTimelineStage($activeStage);
 
         return array_map(
