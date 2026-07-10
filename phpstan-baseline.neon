@@ -1,10 +1,388 @@
 parameters:
 	ignoreErrors:
 		-
+			message: '#^Using nullsafe property access "\?\-\>is_inclusive_default" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Actions/Erp/GenerateSupplierQuotesForRequest.php
+
+		-
+			message: '#^Method App\\Actions\\Jetstream\\AddTeamMember\:\:rules\(\) should return array\<string, array\<int, Illuminate\\Contracts\\Validation\\Rule\|string\>\> but returns array\<string, list\<Illuminate\\Validation\\Rules\\In\|Laravel\\Jetstream\\Rules\\Role\|string\>\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Actions/Jetstream/AddTeamMember.php
+
+		-
+			message: '#^Method App\\Actions\\Jetstream\\InviteTeamMember\:\:rules\(\) should return array\<string, list\<Illuminate\\Validation\\Rules\\Unique\|Laravel\\Jetstream\\Rules\\Role\|string\>\> but returns array\{email\: array\{''required'', ''email'', Illuminate\\Validation\\Rules\\Unique\}, role\: array\{''required'', ''string'', Laravel\\Jetstream\\Rules\\Role\}, central_purchasing_role\: array\{''nullable''\}\|array\{''required'', ''string'', Illuminate\\Validation\\Rules\\In\}\}\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Actions/Jetstream/InviteTeamMember.php
+
+		-
+			message: '#^Call to static method create\(\) on an unknown class App\\Models\\KeyAccount\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Actions/KeyAccount/CreateKeyAccount.php
+
+		-
+			message: '#^Method App\\Actions\\KeyAccount\\CreateKeyAccount\:\:execute\(\) has invalid return type App\\Models\\KeyAccount\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Actions/KeyAccount/CreateKeyAccount.php
+
+		-
+			message: '#^Class App\\Casts\\SafeDeliveryTypeCast implements generic interface Illuminate\\Contracts\\Database\\Eloquent\\CastsAttributes but does not specify its types\: TGet, TSet$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Casts/SafeDeliveryTypeCast.php
+
+		-
+			message: '#^Class App\\Casts\\SafeEnumCast implements generic interface Illuminate\\Contracts\\Database\\Eloquent\\CastsAttributes but does not specify its types\: TGet, TSet$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Casts/SafeEnumCast.php
+
+		-
+			message: '#^Method App\\Casts\\SafeEnumCast\:\:set\(\) should return string\|null but returns int\|string\.$#'
+			identifier: return.type
+			count: 2
+			path: app/Casts/SafeEnumCast.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\UnitOfMeasure\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\UnitOfMeasure\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Casts/SafeUnitCast.php
+
+		-
+			message: '#^Class App\\Casts\\SafeUnitCast implements generic interface Illuminate\\Contracts\\Database\\Eloquent\\CastsAttributes but does not specify its types\: TGet, TSet$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Casts/SafeUnitCast.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between mixed and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: app/Casts/SafeUnitCast.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>po_number" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Console/Commands/ApproveGoodsReceiveCommand.php
+
+		-
+			message: '#^Parameter \#1 \$buyerId of method App\\Console\\Commands\\TestCreditLimitEmailCommand\:\:getOrCreateRequest\(\) expects int\|null, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Console/Commands/TestCreditLimitEmailCommand.php
+
+		-
+			message: '#^Method App\\Filament\\Buyer\\Resources\\BuyerRequestResource\:\:canDelete\(\) has parameter \$record with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: app/Filament/Buyer/Resources/BuyerRequestResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\UnitOfMeasure\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\UnitOfMeasure\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/CreateBuyerRequest.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/CreateBuyerRequest.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\UnitOfMeasure\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\UnitOfMeasure\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/EditBuyerRequest.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$items\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/EditBuyerRequest.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:isEditableByBuyer\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/EditBuyerRequest.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:items\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/EditBuyerRequest.php
+
+		-
+			message: '#^Unable to resolve the template type TItem in call to static method App\\Support\\LineItemReconciler\:\:reconcile\(\)$#'
+			identifier: argument.templateType
+			count: 1
+			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/EditBuyerRequest.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/EditBuyerRequest.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$request_number\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/ViewBuyerRequest.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/ViewBuyerRequest.php
+
+		-
+			message: '#^Cannot call method loadMissing\(\) on Illuminate\\Database\\Eloquent\\Model\|int\|string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/ViewBuyerRequest.php
+
+		-
+			message: '#^Cannot call method refresh\(\) on Illuminate\\Database\\Eloquent\\Model\|int\|string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/ViewBuyerRequest.php
+
+		-
+			message: '#^Method App\\Filament\\Buyer\\Resources\\BuyerRequestResource\\Pages\\ViewBuyerRequest\:\:getRelationManagers\(\) should return array\<class\-string\> but returns list\<class\-string\<Filament\\Resources\\RelationManagers\\RelationManager\>\|Filament\\Resources\\RelationManagers\\RelationGroup\|Filament\\Resources\\RelationManagers\\RelationManagerConfiguration\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/ViewBuyerRequest.php
+
+		-
+			message: '#^Method App\\Filament\\Buyer\\Resources\\BuyerRequestResource\\Pages\\ViewBuyerRequest\:\:getSubheading\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/ViewBuyerRequest.php
+
+		-
+			message: '#^Method App\\Filament\\Buyer\\Resources\\BuyerRequestResource\\Pages\\ViewBuyerRequest\:\:getSubheading\(\) never returns string so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/ViewBuyerRequest.php
+
+		-
+			message: '#^Parameter \#2 \$callback of function array_filter expects \(callable\(class\-string\<Filament\\Resources\\RelationManagers\\RelationManager\>\|Filament\\Resources\\RelationManagers\\RelationGroup\|Filament\\Resources\\RelationManagers\\RelationManagerConfiguration\)\: bool\)\|null, Closure\(string\)\: bool given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/ViewBuyerRequest.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>amount_outstanding" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/ViewBuyerRequest.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>amount_paid" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/ViewBuyerRequest.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:buyerQuotes\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Filament/Buyer/Resources/BuyerRequestResource/RelationManagers/BuyerQuotesRelationManager.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Buyer/Resources/BuyerRequestResource/RelationManagers/BuyerQuotesRelationManager.php
+
+		-
+			message: '#^Trait App\\Filament\\Concerns\\FormatsCurrency is used zero times and is not analysed\.$#'
+			identifier: trait.unused
+			count: 1
+			path: app/Filament/Concerns/FormatsCurrency.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Request\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Request\>\:\:\$buyer_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Forms/Components/KeyAccountSelect.php
+
+		-
+			message: '#^Anonymous function has an unused use \$relationshipName\.$#'
+			identifier: closure.unusedUse
+			count: 1
+			path: app/Filament/Forms/Components/KeyAccountSelect.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Article\:\:\$unit_of_measure_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Imports/ArticleImporter.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Contracts\\Auth\\MustVerifyEmail\:\:getKey\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Pages/Auth/EmailVerificationPrompt.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\User\|Relaticle\\SystemAdmin\\Models\\SystemAdministrator\:\:\$currentTeam\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Pages/Auth/Login.php
+
+		-
+			message: '#^Access to an undefined property App\\Filament\\Pages\\EmailSettings\:\:\$form\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Pages/EmailSettings.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\EmailTemplate\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\EmailTemplate\>\:\:\$bcc_emails\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Filament/Pages/EmailSettings.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\EmailTemplate\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\EmailTemplate\>\:\:\$cc_emails\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Filament/Pages/EmailSettings.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\EmailTemplate\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\EmailTemplate\>\:\:\$content\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Pages/EmailSettings.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\EmailTemplate\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\EmailTemplate\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Pages/EmailSettings.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\EmailTemplate\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\EmailTemplate\>\:\:\$sender_email\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Pages/EmailSettings.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\EmailTemplate\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\EmailTemplate\>\:\:\$team_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Pages/EmailSettings.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\EmailTemplate\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\EmailTemplate\>\:\:\$type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Pages/EmailSettings.php
+
+		-
+			message: '#^Call to an undefined method App\\Models\\EmailTemplate\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\EmailTemplate\>\:\:update\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Pages/EmailSettings.php
+
+		-
+			message: '#^Call to function method_exists\(\) with \$this\(App\\Filament\\Pages\\EmailSettings\) and ''form'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Filament/Pages/EmailSettings.php
+
+		-
+			message: '#^Method App\\Filament\\Pages\\EmailSettings\:\:createTemplate\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Filament/Pages/EmailSettings.php
+
+		-
+			message: '#^Method App\\Filament\\Pages\\EmailSettings\:\:updateTemplate\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Filament/Pages/EmailSettings.php
+
+		-
+			message: '#^Parameter \#1 \$schema of method Filament\\Forms\\Components\\Select\:\:createOptionForm\(\) expects array\<Filament\\Actions\\Action\|Filament\\Actions\\ActionGroup\|Filament\\Schemas\\Components\\Component\>\|Closure\|null, array\<int, Filament\\Forms\\Components\\Component\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Pages/EmailSettings.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/ArticleResource.php
+
+		-
 			message: '#^Using nullsafe property access "\?\-\>display_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Filament/Resources/ArticleResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Currency\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Currency\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Filament/Resources/ArticleResource/RelationManagers/SuppliersRelationManager.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:getBaseCurrencyCode\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Filament/Resources/ArticleResource/RelationManagers/SuppliersRelationManager.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Filament/Resources/ArticleResource/RelationManagers/SuppliersRelationManager.php
+
+		-
+			message: '#^Cannot call method load\(\) on Illuminate\\Database\\Eloquent\\Model\|int\|string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Filament/Resources/BuyerCreditLimitOverviewResource/Pages/ViewBuyerCreditLimit.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Models\\BuyerCreditLimitRequest\:\:approve\(\) expects App\\Models\\User, App\\Models\\User\|Relaticle\\SystemAdmin\\Models\\SystemAdministrator\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/BuyerCreditLimitRequestResource.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Models\\BuyerCreditLimitRequest\:\:canBeApprovedBy\(\) expects App\\Models\\User, App\\Models\\User\|Relaticle\\SystemAdmin\\Models\\SystemAdministrator\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/BuyerCreditLimitRequestResource.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Models\\BuyerCreditLimitRequest\:\:canBeRejectedBy\(\) expects App\\Models\\User, App\\Models\\User\|Relaticle\\SystemAdmin\\Models\\SystemAdministrator\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/BuyerCreditLimitRequestResource.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Models\\BuyerCreditLimitRequest\:\:reject\(\) expects App\\Models\\User, App\\Models\\User\|Relaticle\\SystemAdmin\\Models\\SystemAdministrator\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/BuyerCreditLimitRequestResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Company\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Company\>\:\:\$credit_limit\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/BuyerCreditLimitRequestResource/Pages/ListCreditLimitRequests.php
 
 		-
 			message: '#^Access to an undefined property App\\Models\\BuyerOrder\:\:\$currency\.$#'
@@ -13,28 +391,244 @@ parameters:
 			path: app/Filament/Resources/BuyerOrderResource.php
 
 		-
-			message: '#^Parameter \#1 \$num of function number_format expects float, string given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Filament/Resources/BuyerOrderResource.php
-
-		-
-			message: '#^Parameter \#1 \$amount of method App\\Models\\Currency\:\:format\(\) expects float\|int, string given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Filament/Resources/BuyerQuoteResource.php
-
-		-
-			message: '#^Parameter \#1 \$num of function number_format expects float, string given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Filament/Resources/BuyerQuoteResource.php
-
-		-
 			message: '#^Using nullsafe method call on non\-nullable type App\\Models\\Currency\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 2
 			path: app/Filament/Resources/BuyerQuoteResource.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:allUsers\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Resources/BuyerResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 8
+			path: app/Filament/Resources/CreditLimitAcceptanceResource.php
+
+		-
+			message: '#^Call to an undefined method App\\Models\\User\|Relaticle\\SystemAdmin\\Models\\SystemAdministrator\:\:teams\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Filament/Resources/CreditLimitAcceptanceResource.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Models\\QuotationEvaluation\:\:approveViaDocumentAcceptance\(\) expects App\\Models\\User, App\\Models\\User\|Relaticle\\SystemAdmin\\Models\\SystemAdministrator\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/CreditLimitAcceptanceResource.php
+
+		-
+			message: '#^Call to an undefined method App\\Models\\Team\:\:setErpSettings\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Filament/Resources/EmailTemplateResource.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\:\:forTeam\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Resources/EmailTemplateResource.php
+
+		-
+			message: '#^Method App\\Filament\\Resources\\EmailTemplateResource\:\:getTemplateFormComponents\(\) has invalid return type Filament\\Forms\\Components\\Component\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/Resources/EmailTemplateResource.php
+
+		-
+			message: '#^Method App\\Filament\\Resources\\EmailTemplateResource\:\:getTemplateFormComponents\(\) should return array\<int, Filament\\Forms\\Components\\Component\> but returns array\<int, Filament\\Forms\\Components\\Placeholder\|Filament\\Forms\\Components\\Select\|Filament\\Forms\\Components\\Textarea\|Filament\\Forms\\Components\\TextInput\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Filament/Resources/EmailTemplateResource.php
+
+		-
+			message: '#^Parameter \#1 \$components of method Filament\\Schemas\\Components\\Component\:\:schema\(\) expects array\<Illuminate\\Contracts\\Support\\Htmlable\|string\>\|Closure, array\<int, Filament\\Forms\\Components\\Component\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/EmailTemplateResource.php
+
+		-
+			message: '#^Unable to resolve the template type TWhenReturnType in call to method Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>\:\:when\(\)$#'
+			identifier: argument.templateType
+			count: 1
+			path: app/Filament/Resources/EmailTemplateResource.php
+
+		-
+			message: '#^Call to an undefined method Filament\\Actions\\Action\|Filament\\Actions\\ActionGroup\|Filament\\Schemas\\Components\\Component\:\:state\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Resources/EmailTemplateResource/Pages/CreateEmailTemplate.php
+
+		-
+			message: '#^Cannot access offset ''type'' on array\<string, mixed\>\|Illuminate\\Contracts\\Support\\Arrayable\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: app/Filament/Resources/EmailTemplateResource/Pages/CreateEmailTemplate.php
+
+		-
+			message: '#^Call to an undefined method App\\Models\\Team\:\:setErpSettings\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Resources/EmailTemplateResource/Pages/EditEmailTemplate.php
+
+		-
+			message: '#^Cannot access property \$is_default on Illuminate\\Database\\Eloquent\\Model\|int\|string\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Filament/Resources/EmailTemplateResource/Pages/EditEmailTemplate.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 9
+			path: app/Filament/Resources/GoodsReceiveApprovalResource.php
+
+		-
+			message: '#^Call to an undefined method App\\Models\\User\|Relaticle\\SystemAdmin\\Models\\SystemAdministrator\:\:teams\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Resources/GoodsReceiveApprovalResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/MemberResource.php
+
+		-
+			message: '#^Call to an undefined method App\\Models\\User\|Relaticle\\SystemAdmin\\Models\\SystemAdministrator\:\:hasTeamRole\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Resources/MemberResource/Pages/ListMembers.php
+
+		-
+			message: '#^Method App\\Filament\\Resources\\MemberResource\\Pages\\ListMembers\:\:getPendingInvitationsTeam\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Filament/Resources/MemberResource/Pages/ListMembers.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Actions\\Jetstream\\InviteTeamMember\:\:invite\(\) expects App\\Models\\User, App\\Models\\User\|Relaticle\\SystemAdmin\\Models\\SystemAdministrator\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/MemberResource/Pages/ListMembers.php
+
+		-
+			message: '#^Parameter \#2 \$team of method App\\Actions\\Jetstream\\InviteTeamMember\:\:invite\(\) expects App\\Models\\Team, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/MemberResource/Pages/ListMembers.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$central_purchasing_role\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Filament/Resources/MemberResource/Pages/ViewMember.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$role\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Filament/Resources/MemberResource/Pages/ViewMember.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$roleName\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/MemberResource/Pages/ViewMember.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$user\.$#'
+			identifier: property.notFound
+			count: 7
+			path: app/Filament/Resources/MemberResource/Pages/ViewMember.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$user_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/MemberResource/Pages/ViewMember.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Actions\\Jetstream\\RemoveTeamMember\:\:remove\(\) expects App\\Models\\User, App\\Models\\User\|Relaticle\\SystemAdmin\\Models\\SystemAdministrator\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/MemberResource/Pages/ViewMember.php
+
+		-
+			message: '#^Parameter \#2 \$team of method App\\Actions\\Jetstream\\RemoveTeamMember\:\:remove\(\) expects App\\Models\\Team, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/MemberResource/Pages/ViewMember.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/MemberResource/RelationManagers/BuyersRelationManager.php
+
+		-
+			message: '#^Parameter \#1 \$team of static method App\\Services\\TeamMemberService\:\:getTeamMemberOptionsByRole\(\) expects App\\Models\\Team, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/ProfitAndLossResource.php
+
+		-
+			message: '#^Cannot access property \$id on Illuminate\\Database\\Eloquent\\Model\|int\|string\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Filament/Resources/ProfitAndLossResource/Pages/EditProfitAndLoss.php
+
+		-
+			message: '#^Cannot call method load\(\) on Illuminate\\Database\\Eloquent\\Model\|int\|string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Filament/Resources/ProfitAndLossResource/Pages/EditProfitAndLoss.php
+
+		-
+			message: '#^Cannot call method relationLoaded\(\) on Illuminate\\Database\\Eloquent\\Model\|int\|string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Filament/Resources/ProfitAndLossResource/Pages/EditProfitAndLoss.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>buyer_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/ProfitAndLossResource/Pages/EditProfitAndLoss.php
+
+		-
+			message: '#^Cannot call method load\(\) on Illuminate\\Database\\Eloquent\\Model\|int\|string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Filament/Resources/ProfitAndLossResource/Pages/ViewProfitAndLoss.php
+
+		-
+			message: '#^Cannot call method loadMissing\(\) on Illuminate\\Database\\Eloquent\\Model\|int\|string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Filament/Resources/ProfitAndLossResource/Pages/ViewProfitAndLoss.php
+
+		-
+			message: '#^Method App\\Filament\\Resources\\ProfitAndLossResource\\Pages\\ViewProfitAndLoss\:\:mutateInfolistData\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Filament/Resources/ProfitAndLossResource/Pages/ViewProfitAndLoss.php
+
+		-
+			message: '#^Method App\\Filament\\Resources\\ProfitAndLossResource\\Pages\\ViewProfitAndLoss\:\:mutateInfolistData\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Filament/Resources/ProfitAndLossResource/Pages/ViewProfitAndLoss.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Models\\ProfitAndLoss\:\:canBeApprovedBy\(\) expects App\\Models\\User, App\\Models\\User\|Relaticle\\SystemAdmin\\Models\\SystemAdministrator\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/ProfitAndLossResource/Pages/ViewProfitAndLoss.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
@@ -43,20 +637,86 @@ parameters:
 			path: app/Filament/Resources/ProjectResource.php
 
 		-
+			message: '#^Parameter \#1 \$team of static method App\\Services\\TeamMemberService\:\:getTeamMemberOptionsByRole\(\) expects App\\Models\\Team, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/QuotationEvaluationResource.php
+
+		-
+			message: '#^Cannot access property \$id on Illuminate\\Database\\Eloquent\\Model\|int\|string\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Filament/Resources/QuotationEvaluationResource/Pages/EditQuotationEvaluation.php
+
+		-
+			message: '#^Cannot call method load\(\) on Illuminate\\Database\\Eloquent\\Model\|int\|string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Filament/Resources/QuotationEvaluationResource/Pages/EditQuotationEvaluation.php
+
+		-
+			message: '#^Cannot call method relationLoaded\(\) on Illuminate\\Database\\Eloquent\\Model\|int\|string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Filament/Resources/QuotationEvaluationResource/Pages/EditQuotationEvaluation.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>buyer_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/QuotationEvaluationResource/Pages/EditQuotationEvaluation.php
+
+		-
+			message: '#^Cannot call method load\(\) on Illuminate\\Database\\Eloquent\\Model\|int\|string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Filament/Resources/QuotationEvaluationResource/Pages/ViewQuotationEvaluation.php
+
+		-
+			message: '#^Cannot call method loadMissing\(\) on Illuminate\\Database\\Eloquent\\Model\|int\|string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Filament/Resources/QuotationEvaluationResource/Pages/ViewQuotationEvaluation.php
+
+		-
+			message: '#^Method App\\Filament\\Resources\\QuotationEvaluationResource\\Pages\\ViewQuotationEvaluation\:\:mutateInfolistData\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Filament/Resources/QuotationEvaluationResource/Pages/ViewQuotationEvaluation.php
+
+		-
+			message: '#^Method App\\Filament\\Resources\\QuotationEvaluationResource\\Pages\\ViewQuotationEvaluation\:\:mutateInfolistData\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Filament/Resources/QuotationEvaluationResource/Pages/ViewQuotationEvaluation.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Models\\QuotationEvaluation\:\:canBeApprovedBy\(\) expects App\\Models\\User, App\\Models\\User\|Relaticle\\SystemAdmin\\Models\\SystemAdministrator\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/QuotationEvaluationResource/Pages/ViewQuotationEvaluation.php
+
+		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Filament/Resources/RequestResource.php
 
 		-
-			message: '#^Method App\\Filament\\Resources\\RequestResource\\Pages\\ViewRequest\:\:getMaxWidth\(\) never returns null so it can be removed from the return type\.$#'
-			identifier: return.unusedType
+			message: '#^Cannot call method refresh\(\) on Illuminate\\Database\\Eloquent\\Model\|int\|string\.$#'
+			identifier: method.nonObject
 			count: 1
 			path: app/Filament/Resources/RequestResource/Pages/ViewRequest.php
 
 		-
-			message: '#^Method App\\Filament\\Resources\\RequestResource\\Pages\\ViewRequest\:\:getMaxWidth\(\) never returns string so it can be removed from the return type\.$#'
-			identifier: return.unusedType
+			message: '#^Using nullsafe property access "\?\-\>amount_outstanding" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Filament/Resources/RequestResource/Pages/ViewRequest.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>amount_paid" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Filament/Resources/RequestResource/Pages/ViewRequest.php
 
@@ -67,28 +727,178 @@ parameters:
 			path: app/Filament/Resources/RequestResource/RelationManagers/BuyerOrdersRelationManager.php
 
 		-
-			message: '#^Anonymous function never returns null so it can be removed from the return type\.$#'
-			identifier: return.unusedType
+			message: '#^Method App\\Filament\\Resources\\RequestResource\\RelationManagers\\CompletionReportsRelationManager\:\:formatFileSize\(\) is unused\.$#'
+			identifier: method.unused
 			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/CompletionReportsRelationManager.php
+
+		-
+			message: '#^Possibly invalid array key type float\|int\.$#'
+			identifier: offsetAccess.invalidOffset
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/CompletionReportsRelationManager.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/GoodsReceiveRelationManager.php
+
+		-
+			message: '#^Access to an undefined property App\\Data\\TeamErpSettings\:\:\$email_template_quote_to_supplier\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Filament/Resources/RequestResource/RelationManagers/ItemsRelationManager.php
+
+		-
+			message: '#^Call to an undefined method App\\Filament\\Resources\\RequestResource\\RelationManagers\\ItemsRelationManager\:\:getLivewire\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/ItemsRelationManager.php
+
+		-
+			message: '#^Call to function is_object\(\) with App\\Models\\SupplierQuote will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 4
+			path: app/Filament/Resources/RequestResource/RelationManagers/ItemsRelationManager.php
+
+		-
+			message: '#^Cannot access property \$form on class\-string\|object\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/ItemsRelationManager.php
+
+		-
+			message: '#^Cannot access property \$value on App\\Enums\\Unit\|string\.$#'
+			identifier: property.nonObject
+			count: 5
+			path: app/Filament/Resources/RequestResource/RelationManagers/ItemsRelationManager.php
+
+		-
+			message: '#^Parameter \#1 \$relation of static method App\\Support\\LineItemReconciler\:\:reconcile\(\) expects Illuminate\\Database\\Eloquent\\Relations\\HasMany\<App\\Models\\RequestItem, Illuminate\\Database\\Eloquent\\Model\>, Illuminate\\Database\\Eloquent\\Relations\\HasMany\<App\\Models\\RequestItem, App\\Models\\RequestItem\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/ItemsRelationManager.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 4
 			path: app/Filament/Resources/RequestResource/RelationManagers/ItemsRelationManager.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
-			count: 3
+			count: 4
 			path: app/Filament/Resources/RequestResource/RelationManagers/ItemsRelationManager.php
 
 		-
-			message: '#^Access to an undefined property App\\Models\\SupplierQuote\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\SupplierQuote\>\:\:\$quote_number\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierOrdersRelationManager.php
+			message: '#^Using nullsafe property access "\?\-\>value" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 5
+			path: app/Filament/Resources/RequestResource/RelationManagers/ItemsRelationManager.php
 
 		-
-			message: '#^Parameter \#1 \$quote of static method App\\Models\\SupplierOrder\:\:createFromQuote\(\) expects App\\Models\\SupplierQuote, App\\Models\\SupplierQuote\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\SupplierQuote\> given\.$#'
+			message: '#^Access to an undefined property App\\Models\\SupplierOrderItem\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\SupplierOrderItem\>\:\:\$quantity\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/ShipmentsRelationManager.php
+
+		-
+			message: '#^Call to an undefined method App\\Models\\SupplierOrderItem\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\SupplierOrderItem\>\:\:getRemainingQuantity\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/ShipmentsRelationManager.php
+
+		-
+			message: '#^Call to an undefined method App\\Models\\SupplierOrderItem\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\SupplierOrderItem\>\:\:getTotalShippedQuantity\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/ShipmentsRelationManager.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>buyer" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/ShipmentsRelationManager.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>email" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/RequestResource/RelationManagers/ShipmentsRelationManager.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Filament/Resources/RequestResource/RelationManagers/ShipmentsRelationManager.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$request_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/SupplierOrderApprovals/Pages/ViewSupplierOrderApproval.php
+
+		-
+			message: '#^Cannot call method output\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Filament/Resources/SupplierOrderApprovals/Pages/ViewSupplierOrderApproval.php
+
+		-
+			message: '#^Method App\\Filament\\Resources\\SupplierOrderApprovals\\Pages\\ViewSupplierOrderApproval\:\:mutateInfolistData\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Filament/Resources/SupplierOrderApprovals/Pages/ViewSupplierOrderApproval.php
+
+		-
+			message: '#^Method App\\Filament\\Resources\\SupplierOrderApprovals\\Pages\\ViewSupplierOrderApproval\:\:mutateInfolistData\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Filament/Resources/SupplierOrderApprovals/Pages/ViewSupplierOrderApproval.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Models\\SupplierOrder\:\:canBeApprovedBy\(\) expects App\\Models\\User, App\\Models\\User\|Relaticle\\SystemAdmin\\Models\\SystemAdministrator given\.$#'
 			identifier: argument.type
 			count: 1
-			path: app/Filament/Resources/RequestResource/RelationManagers/SupplierOrdersRelationManager.php
+			path: app/Filament/Resources/SupplierOrderApprovals/Pages/ViewSupplierOrderApproval.php
+
+		-
+			message: '#^Attribute class App\\Filament\\Resources\\SupplierOrderApprovals\\Override does not exist\.$#'
+			identifier: attribute.notFound
+			count: 1
+			path: app/Filament/Resources/SupplierOrderApprovals/SupplierOrderApprovalResource.php
+
+		-
+			message: '#^Call to an undefined method App\\Models\\User\|Relaticle\\SystemAdmin\\Models\\SystemAdministrator\:\:hasTeamRole\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Resources/SupplierOrderApprovals/SupplierOrderApprovalResource.php
+
+		-
+			message: '#^Method App\\Filament\\Resources\\SupplierOrderApprovals\\SupplierOrderApprovalResource\:\:getEloquentQuery\(\) should return Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\SupplierOrder\> but returns Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>\.$#'
+			identifier: return.type
+			count: 2
+			path: app/Filament/Resources/SupplierOrderApprovals/SupplierOrderApprovalResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Currency\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Currency\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Filament/Resources/SupplierResource/RelationManagers/ArticlesRelationManager.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:getBaseCurrencyCode\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Filament/Resources/SupplierResource/RelationManagers/ArticlesRelationManager.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Filament/Resources/SupplierResource/RelationManagers/ArticlesRelationManager.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
@@ -97,16 +907,388 @@ parameters:
 			path: app/Filament/Resources/TaxCodeResource.php
 
 		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/UnitOfMeasureResource.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>team_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/UnitOfMeasureResource.php
+
+		-
 			message: '#^Method App\\Filament\\Widgets\\RequiresAttentionWidget\:\:getTableQuery\(\) should return Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\BuyerQuote\> but returns Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>\.$#'
 			identifier: return.type
 			count: 1
 			path: app/Filament/Widgets/RequiresAttentionWidget.php
 
 		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/ShipmentPdfController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\ShipmentPdfController\:\:__invoke\(\) never returns Illuminate\\Http\\Response so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Http/Controllers/ShipmentPdfController.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 2
+			path: app/Http/Middleware/AuthenticatePanelUser.php
+
+		-
+			message: '#^Method App\\Http\\Responses\\LoginResponse\:\:redirectToAppHome\(\) never returns Livewire\\Features\\SupportRedirects\\Redirector so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Http/Responses/LoginResponse.php
+
+		-
+			message: '#^Method App\\Http\\Responses\\LoginResponse\:\:redirectToBuyerHome\(\) never returns Livewire\\Features\\SupportRedirects\\Redirector so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Http/Responses/LoginResponse.php
+
+		-
+			message: '#^Method App\\Http\\Responses\\LoginResponse\:\:redirectToSupplierHome\(\) never returns Livewire\\Features\\SupportRedirects\\Redirector so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Http/Responses/LoginResponse.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>email" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Jobs/Erp/CheckExpiredQuotesJob.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>keyAccounts" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Jobs/Erp/CheckExpiredQuotesJob.php
+
+		-
+			message: '#^Anonymous function with return type void returns null but should not return anything\.$#'
+			identifier: return.void
+			count: 2
+			path: app/Livewire/App/Teams/UpdateTeamBranding.php
+
+		-
+			message: '#^Right side of \|\| is always false\.$#'
+			identifier: booleanOr.rightAlwaysFalse
+			count: 1
+			path: app/Livewire/App/Teams/UpdateTeamBranding.php
+
+		-
+			message: '#^Access to an undefined property App\\Livewire\\BuyerPendingQuoteActions\:\:\$pendingQuotes\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/BuyerPendingQuoteActions.php
+
+		-
+			message: '#^Method App\\Livewire\\BuyerPendingQuoteActions\:\:getPendingQuotesProperty\(\) should return list\<App\\Models\\BuyerQuote\> but returns array\<int, App\\Models\\BuyerQuote\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Livewire/BuyerPendingQuoteActions.php
+
+		-
+			message: '#^Method App\\Livewire\\QuotationEvaluationForm\:\:authorizeAction\(\) has Illuminate\\Auth\\Access\\AuthorizationException in PHPDoc @throws tag but it''s not thrown\.$#'
+			identifier: throws.unusedType
+			count: 1
+			path: app/Livewire/QuotationEvaluationForm.php
+
+		-
+			message: '#^Method App\\Livewire\\RequestHistoryTimeline\:\:authorizeAction\(\) has Illuminate\\Auth\\Access\\AuthorizationException in PHPDoc @throws tag but it''s not thrown\.$#'
+			identifier: throws.unusedType
+			count: 1
+			path: app/Livewire/RequestHistoryTimeline.php
+
+		-
+			message: '#^Method App\\Livewire\\SupplierQuoteComparison\:\:authorizeAction\(\) has Illuminate\\Auth\\Access\\AuthorizationException in PHPDoc @throws tag but it''s not thrown\.$#'
+			identifier: throws.unusedType
+			count: 1
+			path: app/Livewire/SupplierQuoteComparison.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>currency" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Mail/Erp/BuyerOrderToBuyerMail.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>buyer" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Mail/Erp/InvoiceToBuyerMail.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>order_number" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Mail/Erp/InvoiceToBuyerMail.php
+
+		-
+			message: '#^Access to an undefined property App\\Data\\TeamErpSettings\:\:\$email_template_quote_to_supplier\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Mail/Erp/QuoteToSupplierMail.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 1
+			path: app/Mail/Erp/ShipmentToBuyerMail.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>buyer" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Mail/Erp/ShipmentToBuyerMail.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>description" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Mail/Erp/ShipmentToBuyerMail.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>notes" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Mail/Erp/ShipmentToBuyerMail.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>po_number" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Mail/Erp/ShipmentToBuyerMail.php
+
+		-
+			message: '#^Property App\\Models\\Company\:\:\$available_credit \(string\) does not accept float\.$#'
+			identifier: assign.propertyType
+			count: 3
+			path: app/Models/BuyerCreditLimitRequest.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>currency_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Models/BuyerInvoice.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Article\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Article\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerInvoiceItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Article\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Article\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerInvoiceItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\BuyerInvoiceItem\:\:\$unit_of_measure_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerInvoiceItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Company\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Company\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerInvoiceItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\TaxCode\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\TaxCode\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerInvoiceItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\TaxCode\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\TaxCode\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerInvoiceItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\UnitOfMeasure\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\UnitOfMeasure\>\:\:\$label\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerInvoiceItem.php
+
+		-
+			message: '#^Access to an undefined property Spatie\\Activitylog\\Contracts\\Activity\:\:\$properties\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerInvoiceItem.php
+
+		-
+			message: '#^Call to an undefined method Spatie\\Activitylog\\Contracts\\Activity\:\:getAttribute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/BuyerInvoiceItem.php
+
+		-
+			message: '#^Call to an undefined method Spatie\\Activitylog\\Contracts\\Activity\:\:setAttribute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/BuyerInvoiceItem.php
+
+		-
+			message: '#^Call to function method_exists\(\) with \$this\(App\\Models\\BuyerInvoiceItem\) and ''article'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Models/BuyerInvoiceItem.php
+
+		-
+			message: '#^Method App\\Models\\BuyerInvoiceItem\:\:resolveActivityLabels\(\) has parameter \$properties with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/BuyerInvoiceItem.php
+
+		-
+			message: '#^Property App\\Models\\Company\:\:\$available_credit \(string\) does not accept float\.$#'
+			identifier: assign.propertyType
+			count: 2
+			path: app/Models/BuyerOrder.php
+
+		-
+			message: '#^Property App\\Models\\Company\:\:\$available_credit \(string\) does not accept float\|int\.$#'
+			identifier: assign.propertyType
+			count: 2
+			path: app/Models/BuyerOrder.php
+
+		-
+			message: '#^Property App\\Models\\Company\:\:\$credit_used \(string\) does not accept float\.$#'
+			identifier: assign.propertyType
+			count: 2
+			path: app/Models/BuyerOrder.php
+
+		-
+			message: '#^Property App\\Models\\Company\:\:\$credit_used \(string\) does not accept float\|int\.$#'
+			identifier: assign.propertyType
+			count: 2
+			path: app/Models/BuyerOrder.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Article\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Article\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerOrderItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Article\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Article\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerOrderItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Company\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Company\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerOrderItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\TaxCode\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\TaxCode\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerOrderItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\TaxCode\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\TaxCode\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerOrderItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\UnitOfMeasure\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\UnitOfMeasure\>\:\:\$label\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerOrderItem.php
+
+		-
+			message: '#^Access to an undefined property Spatie\\Activitylog\\Contracts\\Activity\:\:\$properties\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerOrderItem.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Support\\Collection\<int, App\\Models\\BuyerOrderItem\>\:\:loadMissing\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/BuyerOrderItem.php
+
+		-
+			message: '#^Call to an undefined method Spatie\\Activitylog\\Contracts\\Activity\:\:getAttribute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/BuyerOrderItem.php
+
+		-
+			message: '#^Call to an undefined method Spatie\\Activitylog\\Contracts\\Activity\:\:setAttribute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/BuyerOrderItem.php
+
+		-
+			message: '#^Call to function method_exists\(\) with \$this\(App\\Models\\BuyerOrderItem\) and ''article'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Models/BuyerOrderItem.php
+
+		-
+			message: '#^Method App\\Models\\BuyerOrderItem\:\:resolveActivityLabels\(\) has parameter \$properties with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/BuyerOrderItem.php
+
+		-
 			message: '#^Property App\\Models\\BuyerQuoteExtension\:\:\$extended_by_id \(int\|null\) does not accept int\|string\|null\.$#'
 			identifier: assign.propertyType
 			count: 1
 			path: app/Models/BuyerQuote.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Article\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Article\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerQuoteItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Article\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Article\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerQuoteItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Company\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Company\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerQuoteItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\TaxCode\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\TaxCode\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerQuoteItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\TaxCode\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\TaxCode\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerQuoteItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\UnitOfMeasure\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\UnitOfMeasure\>\:\:\$label\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerQuoteItem.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$description\.$#'
@@ -133,10 +1315,364 @@ parameters:
 			path: app/Models/BuyerQuoteItem.php
 
 		-
+			message: '#^Access to an undefined property Spatie\\Activitylog\\Contracts\\Activity\:\:\$properties\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/BuyerQuoteItem.php
+
+		-
+			message: '#^Call to an undefined method Spatie\\Activitylog\\Contracts\\Activity\:\:getAttribute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/BuyerQuoteItem.php
+
+		-
+			message: '#^Call to an undefined method Spatie\\Activitylog\\Contracts\\Activity\:\:setAttribute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/BuyerQuoteItem.php
+
+		-
+			message: '#^Call to function method_exists\(\) with \$this\(App\\Models\\BuyerQuoteItem\) and ''article'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Models/BuyerQuoteItem.php
+
+		-
+			message: '#^Method App\\Models\\BuyerQuoteItem\:\:resolveActivityLabels\(\) has parameter \$properties with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/BuyerQuoteItem.php
+
+		-
+			message: '#^Method App\\Models\\Company\:\:casts\(\) return type with generic interface Illuminate\\Contracts\\Database\\Eloquent\\CastsAttributes does not specify its types\: TGet, TSet$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Company.php
+
+		-
+			message: '#^Method App\\Models\\Company\:\:people\(\) should return Illuminate\\Database\\Eloquent\\Relations\\BelongsToMany\<App\\Models\\People, \$this\(App\\Models\\Company\), Illuminate\\Database\\Eloquent\\Relations\\Pivot, ''pivot''\> but returns Illuminate\\Database\\Eloquent\\Relations\\BelongsToMany\<App\\Models\\People, \$this\(App\\Models\\Company\), App\\Models\\CompanyPeople, ''pivot''\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Models/Company.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>email" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Models/CompanyPortalUser.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Models/CompanyPortalUser.php
+
+		-
 			message: '#^PHPDoc tag @method for method App\\Models\\Concerns\\HasTags\:\:morphToMany\(\) return type contains generic class Illuminate\\Database\\Eloquent\\Relations\\MorphToMany but does not specify its types\: TRelatedModel, TDeclaringModel, TPivotModel, TAccessor \(2\-4 required\)$#'
 			identifier: missingType.generics
 			count: 1
 			path: app/Models/Concerns/HasTags.php
+
+		-
+			message: '#^Class App\\Models\\EmailTemplate has PHPDoc tag @property for property \$bcc_emails with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/EmailTemplate.php
+
+		-
+			message: '#^Class App\\Models\\EmailTemplate has PHPDoc tag @property for property \$cc_emails with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/EmailTemplate.php
+
+		-
+			message: '#^Method App\\Models\\EmailTemplate\:\:scopeDefaults\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/EmailTemplate.php
+
+		-
+			message: '#^Method App\\Models\\EmailTemplate\:\:scopeDefaults\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/EmailTemplate.php
+
+		-
+			message: '#^Method App\\Models\\EmailTemplate\:\:scopeForTeam\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/EmailTemplate.php
+
+		-
+			message: '#^Method App\\Models\\EmailTemplate\:\:scopeForTeam\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/EmailTemplate.php
+
+		-
+			message: '#^Method App\\Models\\EmailTemplate\:\:scopeForType\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/EmailTemplate.php
+
+		-
+			message: '#^Method App\\Models\\EmailTemplate\:\:scopeForType\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/EmailTemplate.php
+
+		-
+			message: '#^Method App\\Models\\EmailTemplate\:\:team\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/EmailTemplate.php
+
+		-
+			message: '#^Class App\\Models\\GoodsReceiveBatch has PHPDoc tag @property for property \$media_ids with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/GoodsReceiveBatch.php
+
+		-
+			message: '#^Method App\\Models\\GoodsReceiveBatch\:\:request\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/GoodsReceiveBatch.php
+
+		-
+			message: '#^Method App\\Models\\GoodsReceiveBatch\:\:supplierOrder\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/GoodsReceiveBatch.php
+
+		-
+			message: '#^Method App\\Models\\GoodsReceiveBatch\:\:user\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/GoodsReceiveBatch.php
+
+		-
+			message: '#^Cannot call method getLabel\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Models/Membership.php
+
+		-
+			message: '#^Method App\\Models\\People\:\:companies\(\) should return Illuminate\\Database\\Eloquent\\Relations\\BelongsToMany\<App\\Models\\Company, \$this\(App\\Models\\People\), Illuminate\\Database\\Eloquent\\Relations\\Pivot, ''pivot''\> but returns Illuminate\\Database\\Eloquent\\Relations\\BelongsToMany\<App\\Models\\Company, \$this\(App\\Models\\People\), App\\Models\\CompanyPeople, ''pivot''\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Models/People.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Article\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Article\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/RequestItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Article\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Article\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/RequestItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Company\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Company\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/RequestItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\TaxCode\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\TaxCode\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/RequestItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\TaxCode\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\TaxCode\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/RequestItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\UnitOfMeasure\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\UnitOfMeasure\>\:\:\$label\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/RequestItem.php
+
+		-
+			message: '#^Access to an undefined property Spatie\\Activitylog\\Contracts\\Activity\:\:\$properties\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/RequestItem.php
+
+		-
+			message: '#^Call to an undefined method Spatie\\Activitylog\\Contracts\\Activity\:\:getAttribute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/RequestItem.php
+
+		-
+			message: '#^Call to an undefined method Spatie\\Activitylog\\Contracts\\Activity\:\:setAttribute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/RequestItem.php
+
+		-
+			message: '#^Call to function method_exists\(\) with \$this\(App\\Models\\RequestItem\) and ''article'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Models/RequestItem.php
+
+		-
+			message: '#^Method App\\Models\\RequestItem\:\:resolveActivityLabels\(\) has parameter \$properties with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/RequestItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Article\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Article\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/ShipmentItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Article\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Article\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/ShipmentItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Company\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Company\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/ShipmentItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\TaxCode\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\TaxCode\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/ShipmentItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\TaxCode\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\TaxCode\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/ShipmentItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\UnitOfMeasure\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\UnitOfMeasure\>\:\:\$label\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/ShipmentItem.php
+
+		-
+			message: '#^Access to an undefined property Spatie\\Activitylog\\Contracts\\Activity\:\:\$properties\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/ShipmentItem.php
+
+		-
+			message: '#^Call to an undefined method Spatie\\Activitylog\\Contracts\\Activity\:\:getAttribute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/ShipmentItem.php
+
+		-
+			message: '#^Call to an undefined method Spatie\\Activitylog\\Contracts\\Activity\:\:setAttribute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/ShipmentItem.php
+
+		-
+			message: '#^Call to function method_exists\(\) with \$this\(App\\Models\\ShipmentItem\) and ''article'' will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: app/Models/ShipmentItem.php
+
+		-
+			message: '#^Call to function method_exists\(\) with App\\Models\\BuyerOrderItem\|App\\Models\\SupplierOrderItem and ''getUnitLabelAttribu…'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Models/ShipmentItem.php
+
+		-
+			message: '#^Method App\\Models\\ShipmentItem\:\:resolveActivityLabels\(\) has parameter \$properties with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/ShipmentItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Article\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Article\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierInvoiceItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Article\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Article\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierInvoiceItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Company\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Company\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierInvoiceItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\TaxCode\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\TaxCode\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierInvoiceItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\TaxCode\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\TaxCode\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierInvoiceItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\UnitOfMeasure\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\UnitOfMeasure\>\:\:\$label\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierInvoiceItem.php
+
+		-
+			message: '#^Access to an undefined property Spatie\\Activitylog\\Contracts\\Activity\:\:\$properties\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierInvoiceItem.php
+
+		-
+			message: '#^Call to an undefined method Spatie\\Activitylog\\Contracts\\Activity\:\:getAttribute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/SupplierInvoiceItem.php
+
+		-
+			message: '#^Call to an undefined method Spatie\\Activitylog\\Contracts\\Activity\:\:setAttribute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/SupplierInvoiceItem.php
+
+		-
+			message: '#^Call to function method_exists\(\) with \$this\(App\\Models\\SupplierInvoiceItem\) and ''article'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Models/SupplierInvoiceItem.php
+
+		-
+			message: '#^Method App\\Models\\SupplierInvoiceItem\:\:resolveActivityLabels\(\) has parameter \$properties with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/SupplierInvoiceItem.php
+
+		-
+			message: '#^Called ''Model\:\:make\(\)'' which performs unnecessary work, use ''new Model\(\)''\.$#'
+			identifier: larastan.noModelMake
+			count: 1
+			path: app/Models/SupplierOrder.php
 
 		-
 			message: '#^Property App\\Models\\SupplierOrder\:\:\$creator_id \(int\|null\) does not accept int\|string\|null\.$#'
@@ -145,19 +1681,295 @@ parameters:
 			path: app/Models/SupplierOrder.php
 
 		-
-			message: '#^Cannot access offset ''host'' on array\{scheme\?\: string, host\?\: string, port\?\: int\<0, 65535\>, user\?\: string, pass\?\: string, path\?\: string, query\?\: string, fragment\?\: string\}\|false\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
+			message: '#^Using nullsafe property access "\?\-\>supplier_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Models/SupplierOrder.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Article\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Article\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierOrderItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Article\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Article\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierOrderItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Company\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Company\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierOrderItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\TaxCode\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\TaxCode\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierOrderItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\TaxCode\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\TaxCode\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierOrderItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\UnitOfMeasure\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\UnitOfMeasure\>\:\:\$label\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierOrderItem.php
+
+		-
+			message: '#^Access to an undefined property Spatie\\Activitylog\\Contracts\\Activity\:\:\$properties\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierOrderItem.php
+
+		-
+			message: '#^Call to an undefined method Spatie\\Activitylog\\Contracts\\Activity\:\:getAttribute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/SupplierOrderItem.php
+
+		-
+			message: '#^Call to an undefined method Spatie\\Activitylog\\Contracts\\Activity\:\:setAttribute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/SupplierOrderItem.php
+
+		-
+			message: '#^Call to function method_exists\(\) with \$this\(App\\Models\\SupplierOrderItem\) and ''article'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Models/SupplierOrderItem.php
+
+		-
+			message: '#^Method App\\Models\\SupplierOrderItem\:\:resolveActivityLabels\(\) has parameter \$properties with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/SupplierOrderItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Article\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Article\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierQuoteItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Article\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Article\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierQuoteItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Company\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Company\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierQuoteItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\TaxCode\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\TaxCode\>\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierQuoteItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\TaxCode\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\TaxCode\>\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierQuoteItem.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\UnitOfMeasure\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\UnitOfMeasure\>\:\:\$label\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierQuoteItem.php
+
+		-
+			message: '#^Access to an undefined property Spatie\\Activitylog\\Contracts\\Activity\:\:\$properties\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/SupplierQuoteItem.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Support\\Collection\<int, App\\Models\\SupplierQuoteItem\>\:\:loadMissing\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/SupplierQuoteItem.php
+
+		-
+			message: '#^Call to an undefined method Spatie\\Activitylog\\Contracts\\Activity\:\:getAttribute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/SupplierQuoteItem.php
+
+		-
+			message: '#^Call to an undefined method Spatie\\Activitylog\\Contracts\\Activity\:\:setAttribute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/SupplierQuoteItem.php
+
+		-
+			message: '#^Call to function method_exists\(\) with \$this\(App\\Models\\SupplierQuoteItem\) and ''article'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Models/SupplierQuoteItem.php
+
+		-
+			message: '#^Method App\\Models\\SupplierQuoteItem\:\:resolveActivityLabels\(\) has parameter \$properties with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/SupplierQuoteItem.php
+
+		-
+			message: '#^Method App\\Models\\User\:\:activeBuyerPortalCompanyIds\(\) should return list\<int\> but returns array\<mixed\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Models/User.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Notifications/PortalBuyerQuoteSentNotification.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>request_number" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Notifications/PortalBuyerQuoteSentNotification.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Notifications/PortalRequestSubmittedNotification.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between mixed and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Observers/BuyerQuoteItemObserver.php
+
+		-
+			message: '#^Using nullsafe property access on non\-nullable type App\\Models\\Request\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Observers/ShipmentObserver.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between mixed and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Observers/SupplierQuoteItemObserver.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>is_taxable" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Observers/SupplierQuoteItemObserver.php
+
+		-
+			message: '#^Using nullsafe property access on non\-nullable type App\\Models\\Request\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Policies/BuyerInvoicePolicy.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Policies/MembershipPolicy.php
+
+		-
+			message: '#^Using nullsafe property access on non\-nullable type App\\Models\\Request\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Policies/ShipmentPolicy.php
+
+		-
+			message: '#^Anonymous function should return App\\Models\\Team but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
 			count: 1
 			path: app/Providers/Filament/AppPanelProvider.php
 
 		-
-			message: '#^Parameter \#1 \$notes of method App\\Services\\AI\\RecordContextBuilder\:\:formatNotes\(\) expects Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Note\>, string\|null given\.$#'
-			identifier: argument.type
+			message: '#^Method App\\Services\\BuyerPortal\\BuyerInvoiceStatusPresenter\:\:icon\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
 			count: 1
-			path: app/Services/AI/RecordContextBuilder.php
+			path: app/Services/BuyerPortal/BuyerInvoiceStatusPresenter.php
+
+		-
+			message: '#^Method App\\Services\\BuyerPortal\\BuyerQuoteStatusPresenter\:\:icon\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Services/BuyerPortal/BuyerQuoteStatusPresenter.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Services/Currency/CurrencyService.php
+
+		-
+			message: '#^Method App\\Services\\Email\\EmailTemplateService\:\:getBccEmails\(\) has parameter \$templateConfig with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/Email/EmailTemplateService.php
+
+		-
+			message: '#^Method App\\Services\\Email\\EmailTemplateService\:\:getCcEmails\(\) has parameter \$templateConfig with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/Email/EmailTemplateService.php
+
+		-
+			message: '#^Method App\\Services\\Email\\EmailTemplateService\:\:getSenderEmail\(\) has parameter \$templateConfig with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/Email/EmailTemplateService.php
+
+		-
+			message: '#^Method App\\Services\\Email\\EmailTemplateService\:\:renderTemplate\(\) has parameter \$templateConfig with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/Email/EmailTemplateService.php
+
+		-
+			message: '#^Parameter \#1 \$customField of method App\\Models\\People\:\:getCustomFieldValue\(\) expects Relaticle\\CustomFields\\Models\\CustomField, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/TeamMemberService.php
+
+		-
+			message: '#^Parameter \#2 \$attachments of method App\\Services\\Timeline\\RequestTimelineSource\:\:noteHeadline\(\) expects list\<string\>, array\<int, string\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Timeline/RequestTimelineSource.php
+
+		-
+			message: '#^Parameter \$attachments of class App\\Data\\TimelineEntry constructor expects list\<string\>, array\<int, string\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Timeline/RequestTimelineSource.php
+
+		-
+			message: '#^Variable \$newLabel on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: app/Services/Timeline/RequestTimelineSource.php
+
+		-
+			message: '#^Variable \$oldLabel on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: app/Services/Timeline/RequestTimelineSource.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: database/factories/BuyerCreditLimitRequestFactory.php
