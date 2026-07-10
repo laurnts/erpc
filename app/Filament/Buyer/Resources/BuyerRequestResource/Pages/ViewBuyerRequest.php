@@ -37,6 +37,9 @@ final class ViewBuyerRequest extends ViewRecord
 
     protected static string $resource = BuyerRequestResource::class;
 
+    /** @var list<\App\Data\TimelineEntry>|null */
+    private ?array $memoizedBuyerTimeline = null;
+
     /**
      * Buyer-submitted payments are recorded as PENDING (awaiting staff
      * confirmation) rather than trusted immediately like staff entries.
@@ -208,16 +211,13 @@ final class ViewBuyerRequest extends ViewRecord
                     ->collapsible()
                     ->visible(fn (Request $record): bool => $this->hasPayableInvoice($record))
                     ->schema($this->paymentCardEntries()),
-                Section::make(fn (Request $record): string => 'Activities · '.$this->activityCount($record))
+                Section::make(fn (Request $record): string => 'Activities · '.count($this->buyerTimeline($record)))
                     ->icon('heroicon-o-clock')
                     ->collapsible()
                     ->schema([
                         ViewEntry::make('activity_timeline')
                             ->label('')
-                            ->state(fn (Request $record): array => app(PortalTimelineSource::class)->forParty(
-                                $record,
-                                TimelineParty::buyer(app(BuyerPortalContext::class)->companyId()),
-                            ))
+                            ->state(fn (Request $record): array => $this->buyerTimeline($record))
                             ->view('filament.buyer.components.request-activity-timeline'),
                     ]),
             ]);
@@ -270,11 +270,17 @@ final class ViewBuyerRequest extends ViewRecord
         ];
     }
 
-    private function activityCount(Request $record): int
+    /**
+     * Buyer-scoped activity feed, built once per Livewire render — the section
+     * heading (count) and the timeline body both consume it.
+     *
+     * @return list<\App\Data\TimelineEntry>
+     */
+    private function buyerTimeline(Request $record): array
     {
-        return count(app(PortalTimelineSource::class)->forParty(
+        return $this->memoizedBuyerTimeline ??= app(PortalTimelineSource::class)->forParty(
             $record,
             TimelineParty::buyer(app(BuyerPortalContext::class)->companyId()),
-        ));
+        );
     }
 }
