@@ -84,9 +84,4 @@
                             </p>
                         </td>
                     </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>
+@include('emails.partials.email-shell-bottom')
