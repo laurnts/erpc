@@ -1,6 +1,5 @@
 @php
     /** @var \App\Models\BuyerInvoice $invoice */
-    $invoice->loadMissing(['items.unitOfMeasure', 'currency']);
     $items = $invoice->items->sortBy('sort_order')->values();
     $currency = $invoice->currency;
 @endphp

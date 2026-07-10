@@ -1,5 +1,5 @@
 @php
-    $invoice->loadMissing(['items', 'currency', 'buyerOrder.buyer', 'buyerOrder.buyerQuote', 'request']);
+    $invoice->loadMissing(['items.unitOfMeasure', 'currency', 'buyerOrder.buyer', 'request']);
     $buyer = $invoice->buyerOrder?->buyer ?? $invoice->request?->buyer;
     $buyerOrder = $invoice->buyerOrder;
     $currency = $invoice->currency;
