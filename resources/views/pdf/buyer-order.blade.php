@@ -123,15 +123,25 @@
     </div>
 
     {{-- Payment Terms --}}
-    @if($order->payment_terms_text || $order->payment_terms_days)
+    @php
+        $paymentTermsLines = $order->payment_terms_lines;
+    @endphp
+    @if($paymentTermsLines !== [])
         <div class="payment-info">
             <div class="payment-info-title">Payment Terms</div>
             <div class="payment-info-content">
-                @if($order->payment_terms_text)
-                    {{ $order->payment_terms_text }}
-                @else
-                    Net {{ $order->payment_terms_days }} days from invoice date
-                @endif
+                <ol style="margin: 0; padding-left: 1.25rem;">
+                    @foreach($paymentTermsLines as $line)
+                        <li>{{ preg_replace('/^\d+\.\s*/', '', $line) }}</li>
+                    @endforeach
+                </ol>
+            </div>
+        </div>
+    @elseif($order->payment_terms_days)
+        <div class="payment-info">
+            <div class="payment-info-title">Payment Terms</div>
+            <div class="payment-info-content">
+                Net {{ $order->payment_terms_days }} days from invoice date
             </div>
         </div>
     @endif

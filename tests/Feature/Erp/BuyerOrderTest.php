@@ -214,6 +214,9 @@ describe('BuyerOrder Create From Quote', function (): void {
             ->create([
                 'payment_terms_days' => 45,
                 'payment_terms_description' => 'Net 45',
+                'prepayment_type' => \App\Enums\PrepaymentType::PERCENT,
+                'prepayment_percent' => 0,
+                'prepayment_amount' => '0.0000',
             ]);
 
         BuyerQuoteItem::factory()
@@ -288,12 +291,86 @@ describe('BuyerOrder Create From Quote', function (): void {
             ->create([
                 'payment_terms_days' => 60,
                 'payment_terms_description' => 'Custom terms - Net 60',
+                'prepayment_type' => \App\Enums\PrepaymentType::PERCENT,
+                'prepayment_percent' => 0,
+                'prepayment_amount' => '0.0000',
             ]);
 
         $order = BuyerOrder::createFromQuote($buyerQuote);
 
         expect($order->payment_terms_days)->toBe(60)
             ->and($order->payment_terms_text)->toBe('Custom terms - Net 60');
+    });
+
+    it('locks prepayment and payment schedule from quote', function (): void {
+        $buyerQuote = BuyerQuote::factory()
+            ->recycle($this->team)
+            ->recycle($this->buyer)
+            ->forRequest($this->request)
+            ->withCurrency($this->currency)
+            ->accepted()
+            ->create([
+                'prepayment_type' => \App\Enums\PrepaymentType::PERCENT,
+                'prepayment_percent' => 0,
+                'prepayment_amount' => '50.0000',
+            ]);
+
+        \App\Models\BuyerQuotePaymentTerm::factory()->for($buyerQuote)->create([
+            'due_days' => 30,
+            'percentage' => 50,
+            'sort_order' => 0,
+        ]);
+        \App\Models\BuyerQuotePaymentTerm::factory()->for($buyerQuote)->create([
+            'due_days' => 7,
+            'percentage' => 50,
+            'sort_order' => 1,
+        ]);
+
+        $order = BuyerOrder::createFromQuote($buyerQuote->fresh('paymentTerms'));
+
+        expect($order->payment_terms_days)->toBe(30)
+            ->and($order->payment_terms_text)->toBe("1. Prepayment: 50%\n2. Payment term 1: 30 days - 50%\n3. Payment term 2: 7 days - 50%")
+            ->and($order->payment_terms_lines)->toBe([
+                '1. Prepayment: 50%',
+                '2. Payment term 1: 30 days - 50%',
+                '3. Payment term 2: 7 days - 50%',
+            ]);
+    });
+
+    it('rebuilds payment terms display from source quote for legacy orders', function (): void {
+        $buyerQuote = BuyerQuote::factory()
+            ->recycle($this->team)
+            ->recycle($this->buyer)
+            ->forRequest($this->request)
+            ->withCurrency($this->currency)
+            ->accepted()
+            ->create([
+                'prepayment_type' => \App\Enums\PrepaymentType::PERCENT,
+                'prepayment_percent' => 0,
+                'prepayment_amount' => '50.0000',
+            ]);
+
+        \App\Models\BuyerQuotePaymentTerm::factory()->for($buyerQuote)->create([
+            'due_days' => 30,
+            'percentage' => 50,
+            'sort_order' => 0,
+        ]);
+        \App\Models\BuyerQuotePaymentTerm::factory()->for($buyerQuote)->create([
+            'due_days' => 7,
+            'percentage' => 50,
+            'sort_order' => 1,
+        ]);
+
+        $order = BuyerOrder::factory()
+            ->recycle($this->team)
+            ->recycle($this->buyer)
+            ->forRequest($this->request)
+            ->create([
+                'buyer_quote_id' => $buyerQuote->getKey(),
+                'payment_terms_text' => '50% in 30 days, 50% in 7 days',
+            ]);
+
+        expect($order->payment_terms_display)->toBe("1. Prepayment: 50%\n2. Payment term 1: 30 days - 50%\n3. Payment term 2: 7 days - 50%");
     });
 });
 

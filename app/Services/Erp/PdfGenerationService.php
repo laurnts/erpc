@@ -135,7 +135,7 @@ final readonly class PdfGenerationService
      */
     public function buildBuyerOrderPdfData(BuyerOrder $order): array
     {
-        $order->load(['buyer', 'items.buyerQuoteItem', 'request', 'team']);
+        $order->load(['buyer', 'buyerQuote.paymentTerms', 'items.buyerQuoteItem', 'request', 'team']);
 
         // Process items: filter hidden items and distribute their prices
         // Check hide_from_pdf from related buyer quote item

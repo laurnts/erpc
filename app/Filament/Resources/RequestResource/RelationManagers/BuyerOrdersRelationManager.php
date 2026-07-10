@@ -120,18 +120,32 @@ final class BuyerOrdersRelationManager extends RelationManager
 
             Section::make('Payment Terms')
                 ->schema([
-                    Grid::make(3)
-                        ->schema([
-                            Placeholder::make('prepayment_percent_display')
-                                ->label('Prepayment %')
-                                ->content(fn (?BuyerOrder $record): string => ($record->prepayment_percent ?? 0).'%'),
-                            Placeholder::make('payment_terms_days_display')
-                                ->label('Payment Terms (Days)')
-                                ->content(fn (?BuyerOrder $record): string => (string) ($record->payment_terms_days ?? 30)),
-                            Placeholder::make('payment_terms_text_display')
-                                ->label('Payment Terms Description')
-                                ->content(fn (?BuyerOrder $record): string => $record->payment_terms_text ?? '-'),
-                        ]),
+                    Placeholder::make('payment_terms_list_display')
+                        ->label('Payment Terms')
+                        ->content(function (?BuyerOrder $record): string|HtmlString {
+                            if (! $record instanceof BuyerOrder) {
+                                return '-';
+                            }
+
+                            $lines = $record->payment_terms_lines;
+                            if ($lines === []) {
+                                if ($record->payment_terms_days > 0) {
+                                    return sprintf('Net %d days from invoice date', $record->payment_terms_days);
+                                }
+
+                                return '-';
+                            }
+
+                            return new HtmlString(
+                                '<ol style="margin:0;padding-left:1.25rem;">'
+                                .implode('', array_map(
+                                    fn (string $line): string => '<li>'.e(preg_replace('/^\d+\.\s*/', '', $line) ?: $line).'</li>',
+                                    $lines,
+                                ))
+                                .'</ol>'
+                            );
+                        })
+                        ->columnSpanFull(),
                 ])
                 ->collapsible(),
 

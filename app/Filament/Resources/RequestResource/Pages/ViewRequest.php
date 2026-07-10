@@ -157,7 +157,7 @@ final class ViewRequest extends ViewRecord
         if ($targetStage->requiresMatchedItems() && ! $record->all_items_matched) {
             Notification::make()
                 ->title('Cannot advance stage')
-                ->body('All items must be matched to articles before advancing to '.$targetStage->getLabel())
+                ->body('All items must be matched to articles before advancing to '.$targetStage->getTabLabel())
                 ->warning()
                 ->send();
 
@@ -176,7 +176,7 @@ final class ViewRequest extends ViewRecord
 
             Notification::make()
                 ->title('Stage updated')
-                ->body('Request moved to: '.$targetStage->getLabelWithStep())
+                ->body('Request moved to: '.$targetStage->getTabLabelWithStep())
                 ->success()
                 ->send();
 
@@ -188,7 +188,7 @@ final class ViewRequest extends ViewRecord
         $this->refreshFormData(['stage']);
         Notification::make()
             ->title('Stage updated')
-            ->body('Request moved to: '.$targetStage->getLabelWithStep())
+            ->body('Request moved to: '.$targetStage->getTabLabelWithStep())
             ->success()
             ->send();
     }

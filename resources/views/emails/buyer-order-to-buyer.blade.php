@@ -87,14 +87,22 @@
                                 @include('emails.partials.buyer-order-items-table', ['order' => $order])
                             @endif
                             
-                            @if($order->payment_terms_text || $order->payment_terms_days)
+                            @php
+                                $paymentTermsLines = $order->payment_terms_lines;
+                            @endphp
+                            @if($paymentTermsLines !== [])
+                                <div style="font-size: 13px; line-height: 1.6; color: #6b7280; margin-top: 25px;">
+                                    <strong>Payment Terms:</strong>
+                                    <ol style="margin: 8px 0 0 0; padding-left: 20px;">
+                                        @foreach($paymentTermsLines as $line)
+                                            <li>{{ preg_replace('/^\d+\.\s*/', '', $line) }}</li>
+                                        @endforeach
+                                    </ol>
+                                </div>
+                            @elseif($order->payment_terms_days)
                                 <p style="font-size: 13px; line-height: 1.6; color: #6b7280; margin-top: 25px;">
                                     <strong>Payment Terms:</strong>
-                                    @if($order->payment_terms_text)
-                                        {{ $order->payment_terms_text }}
-                                    @else
-                                        Net {{ $order->payment_terms_days }} days from invoice date
-                                    @endif
+                                    Net {{ $order->payment_terms_days }} days from invoice date
                                 </p>
                             @endif
                             

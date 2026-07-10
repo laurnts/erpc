@@ -19,6 +19,7 @@ use App\Models\Request;
 use App\Models\SupplierOrder;
 use App\Models\User;
 use Filament\Facades\Filament;
+use Filament\Notifications\Notification;
 
 use function Pest\Livewire\livewire;
 
@@ -147,6 +148,35 @@ describe('stage advance via tab click', function (): void {
             ->set('activeRelationManager', 'goodsReceive');
 
         expect($this->request->refresh()->stage)->toBe(RequestStage::GOODS_RECEIVE);
+    });
+
+    it('shows the tab-facing label when advancing to Invoices', function (): void {
+        goodsReceiveGateOrder($this, OrderStatus::SENT);
+        $this->request->update(['stage' => RequestStage::GOODS_RECEIVE]);
+
+        livewire(ViewRequest::class, ['record' => $this->request->getKey()])
+            ->set('activeRelationManager', 'buyerOrders')
+            ->assertNotified(
+                Notification::make()
+                    ->title('Stage updated')
+                    ->body('Request moved to: '.RequestStage::AWAITING_BUYER_CONFIRMATION->getTabLabelWithStep())
+                    ->success(),
+            );
+
+        expect($this->request->refresh()->stage)->toBe(RequestStage::AWAITING_BUYER_CONFIRMATION);
+    });
+
+    it('shows the tab-facing label when advancing to goods receive', function (): void {
+        goodsReceiveGateOrder($this, OrderStatus::SENT);
+
+        livewire(ViewRequest::class, ['record' => $this->request->getKey()])
+            ->set('activeRelationManager', 'goodsReceive')
+            ->assertNotified(
+                Notification::make()
+                    ->title('Stage updated')
+                    ->body('Request moved to: '.RequestStage::GOODS_RECEIVE->getTabLabelWithStep())
+                    ->success(),
+            );
     });
 });
 

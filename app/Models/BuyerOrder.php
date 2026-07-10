@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Data\TeamErpSettings;
 use App\Enums\OrderStatus;
+use App\Support\PaymentTermsDescription;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use App\Models\Concerns\LogsErpActivity;
@@ -596,15 +597,13 @@ final class BuyerOrder extends Model implements HasCustomFields
             $order->payment_terms_days = $buyerQuote->payment_terms_days ?? 30;
         }
 
-        // Generate description from all payment terms
-        if ($buyerQuote->paymentTerms->isNotEmpty()) {
-            $termsDescriptions = $buyerQuote->paymentTerms
-                ->sortBy('sort_order')
-                ->map(fn ($term): string => "{$term->percentage}% in {$term->due_days} days")
-                ->join(', ');
-            $order->payment_terms_text = $termsDescriptions;
+        // Lock full payment terms list (prepayment + schedule) from quote
+        $hasPaymentSchedule = $buyerQuote->paymentTerms->isNotEmpty();
+        $hasPrepayment = PaymentTermsDescription::hasPrepayment($buyerQuote);
+
+        if ($hasPaymentSchedule || $hasPrepayment) {
+            $order->payment_terms_text = PaymentTermsDescription::formatFromBuyerQuote($buyerQuote);
         } else {
-            // Fallback to old description field
             $order->payment_terms_text = $buyerQuote->payment_terms_description;
         }
 
@@ -624,6 +623,31 @@ final class BuyerOrder extends Model implements HasCustomFields
         }
 
         return $order;
+    }
+
+    /**
+     * Human-readable payment terms list for display (UI, PDF, email).
+     */
+    public function getPaymentTermsDisplayAttribute(): string
+    {
+        return PaymentTermsDescription::formatForBuyerOrder($this);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getPaymentTermsLinesAttribute(): array
+    {
+        $display = $this->payment_terms_display;
+
+        if ($display === '') {
+            return [];
+        }
+
+        return array_values(array_filter(
+            array_map('trim', explode("\n", $display)),
+            fn (string $line): bool => $line !== '',
+        ));
     }
 
     /**
