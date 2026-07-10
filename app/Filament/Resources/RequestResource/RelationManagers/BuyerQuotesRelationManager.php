@@ -528,7 +528,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->step(1)
                                         ->columnSpan(2)
                                         ->live(onBlur: true)
-                                        ->afterStateUpdated(function (Set $set, Get $get, $state): void {
+                                        ->afterStateUpdated(function (Set $set, Get $get, mixed $state): void {
                                             $unitPriceExcTax = round((float) ($state ?? 0), 0);
 
                                             $set('unit_price_exc_tax', $unitPriceExcTax);
