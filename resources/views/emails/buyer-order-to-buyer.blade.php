@@ -43,29 +43,10 @@
                     </tr>
                     
                     <!-- Blue Separator Line -->
-                    <tr>
-                        <td style="padding: 0 30px;">
-                            <div style="height: 2px; background-color: #2563eb;"></div>
-                        </td>
-                    </tr>
-                    
+@include('emails.partials.email-separator')
                     <!-- BILL TO Section -->
-                    <tr>
-                        <td style="padding: 25px 30px 20px;">
-                            <div style="font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 8px;">{{ $order->buyer->name ?? 'Buyer' }}</div>
-                            @if($order->buyer->address)
-                                <div style="font-size: 13px; color: #6b7280; line-height: 1.6; margin-bottom: 4px;">
-                                    {{ $order->buyer->address }}
-                                </div>
-                            @endif
-                            @if($order->buyer->email)
-                                <div style="font-size: 13px; color: #6b7280; margin-top: 8px;">
-                                    Email: {{ $order->buyer->email }}
-                                </div>
-                            @endif
-                        </td>
-                    </tr>
-                    
+@include('emails.partials.email-bill-to', ['company' => $order->buyer, 'fallbackName' => 'Buyer'])
+
                     <!-- Email Body -->
                     <tr>
                         <td style="padding: 0 30px 30px;">
@@ -123,9 +104,4 @@
                             @endif
                         </td>
                     </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>
+@include('emails.partials.email-shell-bottom')
