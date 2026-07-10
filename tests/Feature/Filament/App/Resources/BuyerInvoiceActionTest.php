@@ -232,3 +232,18 @@ it('renders the default invoice email template', function (): void {
         ->toContain($invoice->invoice_number)
         ->toContain('Please find below the details of your invoice.');
 });
+
+it('warns instead of sending when the buyer email is whitespace only', function (): void {
+    Mail::fake();
+
+    $this->buyer->update(['email' => '   ']);
+    $order = invoiceActionOrder($this, OrderStatus::CONFIRMED);
+    BuyerInvoice::issueFromOrder($order);
+
+    invoiceActionRelationManager($this)
+        ->assertOk()
+        ->callAction(TestAction::make('resendInvoice')->table($order->refresh()))
+        ->assertNotified('Cannot send email');
+
+    Mail::assertNothingSent();
+});

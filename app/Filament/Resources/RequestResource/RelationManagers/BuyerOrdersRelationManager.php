@@ -278,18 +278,12 @@ final class BuyerOrdersRelationManager extends RelationManager
             ->first();
     }
 
-    private function sendInvoiceEmailToBuyer(
-        BuyerOrder $record,
-        BuyerInvoice $invoice,
-        string $successTitle,
-        string $successBody,
-        string $failureTitle,
-        string $failureBodyPrefix,
-    ): void {
-        $buyerEmail = $record->buyer->email ?? null;
+    private function sendInvoiceEmailToBuyer(BuyerOrder $record, BuyerInvoice $invoice, bool $isResend): void
+    {
+        $buyerEmail = trim((string) ($record->buyer->email ?? ''));
         $buyerName = $record->buyer->name ?? 'Buyer';
 
-        if (empty($buyerEmail)) {
+        if ($buyerEmail === '') {
             Notification::make()
                 ->title('Cannot send email')
                 ->body("The buyer ({$buyerName}) does not have an email address configured.")
@@ -307,8 +301,10 @@ final class BuyerOrdersRelationManager extends RelationManager
             );
 
             Notification::make()
-                ->title($successTitle)
-                ->body($successBody)
+                ->title($isResend ? 'Email resent' : 'Invoice issued')
+                ->body($isResend
+                    ? "Invoice email has been resent successfully to {$buyerEmail}."
+                    : "Invoice has been issued and sent to {$buyerEmail}.")
                 ->success()
                 ->send();
         } catch (\Exception $e) {
@@ -320,8 +316,11 @@ final class BuyerOrdersRelationManager extends RelationManager
             ]);
 
             Notification::make()
-                ->title($failureTitle)
-                ->body($failureBodyPrefix.$e->getMessage())
+                ->title($isResend ? 'Failed to resend email' : 'Invoice issued (email failed)')
+                ->body(($isResend
+                    ? "The invoice email could not be sent to {$buyerEmail}. Error: "
+                    : "Invoice was created, but the email to {$buyerEmail} could not be sent. Error: ")
+                    .$e->getMessage())
                 ->danger()
                 ->send();
         }
@@ -664,9 +663,9 @@ final class BuyerOrdersRelationManager extends RelationManager
                                 return;
                             }
 
-                            $buyerEmail = $record->buyer->email ?? null;
+                            $buyerEmail = trim((string) ($record->buyer->email ?? ''));
 
-                            if (empty($buyerEmail)) {
+                            if ($buyerEmail === '') {
                                 Notification::make()
                                     ->title('Invoice issued')
                                     ->body('Invoice has been created, but no email was sent because the buyer has no email address.')
@@ -676,14 +675,7 @@ final class BuyerOrdersRelationManager extends RelationManager
                                 return;
                             }
 
-                            $this->sendInvoiceEmailToBuyer(
-                                $record,
-                                $invoice,
-                                'Invoice issued',
-                                "Invoice has been issued and sent to {$buyerEmail}.",
-                                'Invoice issued (email failed)',
-                                "Invoice was created, but the email to {$buyerEmail} could not be sent. Error: ",
-                            );
+                            $this->sendInvoiceEmailToBuyer($record, $invoice, isResend: false);
                         }),
                     Action::make('resendInvoice')
                         ->label('Resend Invoice')
@@ -703,7 +695,7 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->modalHeading('Resend invoice email?')
                         ->modalDescription(function (BuyerOrder $record): string {
                             $invoice = $this->activeInvoiceFor($record);
-                            $buyerEmail = $record->buyer->email ?? null;
+                            $buyerEmail = trim((string) ($record->buyer->email ?? ''));
                             $buyerName = $record->buyer->name ?? 'Unknown';
                             $description = 'This will resend the invoice email to the buyer without changing the invoice status.';
 
@@ -711,7 +703,7 @@ final class BuyerOrdersRelationManager extends RelationManager
                                 $description .= "\n\nInvoice: {$invoice->invoice_number}";
                             }
 
-                            if (empty($buyerEmail)) {
+                            if ($buyerEmail === '') {
                                 $description .= "\n\n⚠️ **Warning:** The buyer ({$buyerName}) does not have an email address configured. No email will be sent.";
                             } else {
                                 $description .= "\n\n📧 Email will be sent to: {$buyerEmail}";
@@ -732,16 +724,7 @@ final class BuyerOrdersRelationManager extends RelationManager
                                 return;
                             }
 
-                            $buyerEmail = $record->buyer->email ?? null;
-
-                            $this->sendInvoiceEmailToBuyer(
-                                $record,
-                                $invoice,
-                                'Email resent',
-                                "Invoice email has been resent successfully to {$buyerEmail}.",
-                                'Failed to resend email',
-                                "The invoice email could not be sent to {$buyerEmail}. Error: ",
-                            );
+                            $this->sendInvoiceEmailToBuyer($record, $invoice, isResend: true);
                         }),
                     Action::make('recordPayment')
                         ->label('Record Payment')
