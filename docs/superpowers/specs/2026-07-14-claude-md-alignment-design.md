@@ -133,9 +133,22 @@ grep -ni 'crm' CLAUDE.md         # expect only: provenance note, crm-core spec
   changes from Boost, only middle-section changes from hand edits;
   `git status --porcelain` clean of unexpected tracked changes.
 - `composer test:arch` must pass (module rules mirror the tests).
-- Commit **only** tracked `.claude/rules/` changes (+ this spec). `boost.json`,
-  `CLAUDE.md`, and `AGENTS.md` stay uncommitted per Laravel's gitignore
-  recommendation.
+- Commit tracked changes only. **Implementation correction:** `.claude/` is
+  fully gitignored (`.gitignore:28`) — the audit and review both wrongly
+  assumed `.claude/rules/` was tracked. All rules edits are local-only, like
+  `boost.json`, `CLAUDE.md`, and `AGENTS.md`.
+
+### 7. `composer.json` scripts (tracked) — added during implementation
+
+Verification exposed that every composer script invoking a bare tool
+(`pest`/`pint`/`rector`/`phpstan`) exits 127 ("Permission denied") in the
+Docker dev environment: the volume mount reports `vendor/bin/*` as 0666
+inside the container even when the host has exec bits. Fixed by prefixing
+those scripts with `@php vendor/bin/` (standard Laravel idiom, works
+everywhere). This is why the repo convention `php vendor/bin/<tool>` existed.
+Verified after fix: `composer test:arch` 46 passed, type coverage 100%.
+Also: bare `openspec validate` requires an interactive terminal; CLAUDE.md
+now documents `openspec validate --all`.
 
 ## Error handling
 
