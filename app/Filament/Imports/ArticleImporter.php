@@ -153,6 +153,18 @@ final class ArticleImporter extends BaseImporter
         return new Article;
     }
 
+    protected function beforeCreate(): void
+    {
+        $supplierCode = $this->resolveImportString('supplier_code', ['supplier code', 'supplier-code']);
+        $supplierName = $this->resolveImportString('supplier_name', ['supplier', 'supplier name', 'supplier-name']);
+
+        if ($supplierCode === '' && $supplierName === '') {
+            throw ValidationException::withMessages([
+                'supplier' => 'A supplier is required when importing a new article.',
+            ]);
+        }
+    }
+
     protected function afterSave(): void
     {
         CustomFields::importer()->forModel($this->record)->saveValues();

@@ -21,12 +21,14 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Size;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Collection;
 
 final class ArticlesRelationManager extends RelationManager
 {
@@ -161,7 +163,7 @@ final class ArticlesRelationManager extends RelationManager
                     ->icon('heroicon-o-cube')
                     ->size(Size::Small)
                     ->form([
-                        ...ArticleResource::getFormSchema(forModal: true),
+                        ...ArticleResource::getFormSchema(forModal: true, excludeSuppliersField: true),
                         ...$this->getPivotFormSchema(),
                     ])
                     ->using(function (array $data, RelationManager $livewire): Article {
@@ -224,12 +226,36 @@ final class ArticlesRelationManager extends RelationManager
 
                             return $data;
                         }),
-                    DetachAction::make(),
+                    DetachAction::make()
+                        ->before(function (DetachAction $action, Article $record): void {
+                            if ($record->suppliers()->count() <= 1) {
+                                Notification::make()
+                                    ->title('Cannot remove the only supplier')
+                                    ->body("\"{$record->name}\" would be left without a supplier. Every article must have at least one supplier.")
+                                    ->warning()
+                                    ->send();
+
+                                $action->cancel();
+                            }
+                        }),
                 ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DetachBulkAction::make(),
+                    DetachBulkAction::make()
+                        ->before(function (DetachBulkAction $action, Collection $records): void {
+                            $orphaned = $records->filter(fn (Article $article): bool => $article->suppliers()->count() <= 1);
+
+                            if ($orphaned->isNotEmpty()) {
+                                Notification::make()
+                                    ->title('Cannot detach these articles')
+                                    ->body('Every article must have at least one supplier. Affected: '.$orphaned->pluck('name')->implode(', '))
+                                    ->warning()
+                                    ->send();
+
+                                $action->cancel();
+                            }
+                        }),
                 ]),
             ]);
     }

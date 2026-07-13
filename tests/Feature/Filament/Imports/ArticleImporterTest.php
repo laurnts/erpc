@@ -134,17 +134,40 @@ test('article import fails when supplier cannot be resolved', function (): void 
     ]);
 })->throws(ValidationException::class);
 
-test('article import without supplier columns does not create supplier link', function (): void {
-    importArticleRow($this->team->id, $this->user->id, [
-        'name' => 'name',
-    ], [
-        'name' => 'Standalone Article',
+test('article import fails when a new article has no supplier', function (): void {
+    try {
+        importArticleRow($this->team->id, $this->user->id, [
+            'name' => 'name',
+        ], [
+            'name' => 'Standalone Article',
+        ]);
+
+        $this->fail('Expected ValidationException was not thrown.');
+    } catch (ValidationException $exception) {
+        expect($exception->errors())->toHaveKey('supplier');
+    }
+
+    expect(Article::query()->where('name', 'Standalone Article')->exists())->toBeFalse();
+});
+
+test('article import without supplier columns still updates an existing article', function (): void {
+    $supplier = Company::factory()->supplier()->for($this->team)->create();
+    $article = Article::factory()->for($this->team)->create(['name' => 'Existing Article']);
+    SupplierArticle::factory()->create([
+        'article_id' => $article->id,
+        'supplier_id' => $supplier->id,
     ]);
 
-    $article = Article::query()->where('name', 'Standalone Article')->first();
+    importArticleRow($this->team->id, $this->user->id, [
+        'name' => 'name',
+        'sku' => 'sku',
+    ], [
+        'name' => 'Existing Article',
+        'sku' => 'UPDATED-SKU',
+    ]);
 
-    expect($article)->not->toBeNull()
-        ->and(SupplierArticle::query()->where('article_id', $article->id)->exists())->toBeFalse();
+    expect($article->refresh()->sku)->toBe('UPDATED-SKU')
+        ->and($article->suppliers()->count())->toBe(1);
 });
 
 test('article import links supplier from csv header when column is not mapped', function (): void {

@@ -182,7 +182,7 @@ final class CompanyForm
                         ->multiple()
                         ->preload()
                         ->helperText('Articles this supplier provides. Manage pricing details in the Articles tab.')
-                        ->createOptionForm(ArticleResource::getFormSchema(forModal: true))
+                        ->createOptionForm(ArticleResource::getFormSchema(forModal: true, excludeSuppliersField: true))
                         ->createOptionUsing(function (array $data): int {
                             /** @var \App\Models\Team $team */
                             $team = Filament::getTenant();

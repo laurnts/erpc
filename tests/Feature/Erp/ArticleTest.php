@@ -13,14 +13,14 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Spatie\MediaLibrary\MediaCollections\Exceptions\FileUnacceptableForCollection;
 
-beforeEach(function () {
+beforeEach(function (): void {
     $this->user = User::factory()->withPersonalTeam()->create();
     $this->actingAs($this->user);
     Filament::setTenant($this->user->personalTeam());
 });
 
 // Model Tests
-test('article can be created via factory', function () {
+test('article can be created via factory', function (): void {
     $article = Article::factory()->for($this->user->personalTeam())->create([
         'code' => 'ART-0001',
         'name' => 'Test Article',
@@ -35,14 +35,14 @@ test('article can be created via factory', function () {
         ->and($article->creator_id)->toBe($this->user->id);
 });
 
-test('article belongs to team', function () {
+test('article belongs to team', function (): void {
     $article = Article::factory()->for($this->user->personalTeam())->create();
 
     expect($article->team)->toBeInstanceOf(Team::class)
         ->and($article->team->id)->toBe($this->user->personalTeam()->id);
 });
 
-test('article belongs to creator', function () {
+test('article belongs to creator', function (): void {
     $article = Article::factory()->for($this->user->personalTeam())->create([
         'creator_id' => $this->user->id,
     ]);
@@ -51,7 +51,7 @@ test('article belongs to creator', function () {
         ->and($article->creator->id)->toBe($this->user->id);
 });
 
-test('article has default values', function () {
+test('article has default values', function (): void {
     $article = Article::factory()->for($this->user->personalTeam())->create([
         'unit' => 'pcs',
         'is_active' => true,
@@ -61,14 +61,14 @@ test('article has default values', function () {
         ->and($article->is_active)->toBeTrue();
 });
 
-test('article code is unique per team', function () {
+test('article code is unique per team', function (): void {
     Article::factory()->for($this->user->personalTeam())->create(['code' => 'UNIQUE-001']);
 
     expect(fn () => Article::factory()->for($this->user->personalTeam())->create(['code' => 'UNIQUE-001']))
         ->toThrow(\Illuminate\Database\QueryException::class);
 });
 
-test('same article code can exist in different teams', function () {
+test('same article code can exist in different teams', function (): void {
     $user2 = User::factory()->withPersonalTeam()->create();
 
     $article1 = Article::factory()->for($this->user->personalTeam())->create(['code' => 'SHARED-001']);
@@ -79,7 +79,7 @@ test('same article code can exist in different teams', function () {
         ->and($article1->team_id)->not->toBe($article2->team_id);
 });
 
-test('article can be deactivated', function () {
+test('article can be deactivated', function (): void {
     $article = Article::factory()->for($this->user->personalTeam())->create(['is_active' => true]);
 
     $article->update(['is_active' => false]);
@@ -87,7 +87,7 @@ test('article can be deactivated', function () {
     expect($article->fresh()->is_active)->toBeFalse();
 });
 
-test('article factory creates valid article', function () {
+test('article factory creates valid article', function (): void {
     $article = Article::factory()->for($this->user->personalTeam())->create();
 
     expect($article->code)->not->toBeEmpty()
@@ -96,13 +96,13 @@ test('article factory creates valid article', function () {
         ->and($article->team_id)->toBe($this->user->personalTeam()->id);
 });
 
-test('inactive factory state works', function () {
+test('inactive factory state works', function (): void {
     $article = Article::factory()->for($this->user->personalTeam())->inactive()->create();
 
     expect($article->is_active)->toBeFalse();
 });
 
-test('article can have tax code', function () {
+test('article can have tax code', function (): void {
     $taxCode = TaxCode::factory()->for($this->user->personalTeam())->create([
         'creator_id' => $this->user->id,
     ]);
@@ -118,7 +118,7 @@ test('article can have tax code', function () {
         ->and($article->defaultTaxCode->id)->toBe($taxCode->id);
 });
 
-test('article can have custom attributes', function () {
+test('article can have custom attributes', function (): void {
     $attributes = [
         'color' => 'blue',
         'size' => 'L',
@@ -136,7 +136,7 @@ test('article can have custom attributes', function () {
         ->and($article->attributes['weight'])->toBe(2.5);
 });
 
-test('with common attributes factory state works', function () {
+test('with common attributes factory state works', function (): void {
     $article = Article::factory()
         ->for($this->user->personalTeam())
         ->withCommonAttributes()
@@ -147,7 +147,7 @@ test('with common attributes factory state works', function () {
         ->and($article->attributes)->toHaveKey('weight');
 });
 
-test('article observer sets team and creator on create', function () {
+test('article observer sets team and creator on create', function (): void {
     $article = Article::create([
         'code' => 'OBSERVER-001',
         'name' => 'Observer Test',
@@ -159,7 +159,7 @@ test('article observer sets team and creator on create', function () {
         ->and($article->creator_id)->toBe($this->user->id);
 });
 
-test('article observer auto-generates code if not provided', function () {
+test('article observer auto-generates code if not provided', function (): void {
     // Manually test the observer's code generation
     $observer = new \App\Observers\ArticleObserver;
 
@@ -186,7 +186,7 @@ test('article observer auto-generates code if not provided', function () {
     expect($article2->code)->toBe('ART-0002');
 });
 
-test('article code auto-generation continues after gap', function () {
+test('article code auto-generation continues after gap', function (): void {
     // Create articles with specific codes using factory
     Article::factory()->for($this->user->personalTeam())->create([
         'code' => 'ART-0001',
@@ -212,7 +212,7 @@ test('article code auto-generation continues after gap', function () {
     expect($newArticle->code)->toBe('ART-0006');
 });
 
-test('article display name includes code and name', function () {
+test('article display name includes code and name', function (): void {
     $article = Article::factory()->for($this->user->personalTeam())->create([
         'code' => 'ART-0001',
         'name' => 'Test Product',
@@ -221,7 +221,7 @@ test('article display name includes code and name', function () {
     expect($article->display_name)->toBe('[ART-0001] Test Product');
 });
 
-test('article can be soft deleted', function () {
+test('article can be soft deleted', function (): void {
     $article = Article::factory()->for($this->user->personalTeam())->create();
 
     $article->delete();
@@ -231,7 +231,7 @@ test('article can be soft deleted', function () {
         ->and(Article::find($article->id))->toBeNull();
 });
 
-test('article can be restored', function () {
+test('article can be restored', function (): void {
     $article = Article::factory()->for($this->user->personalTeam())->create();
     $article->delete();
 
@@ -241,7 +241,7 @@ test('article can be restored', function () {
         ->and(Article::find($article->id))->not->toBeNull();
 });
 
-test('article can have tags', function () {
+test('article can have tags', function (): void {
     $article = Article::factory()->for($this->user->personalTeam())->create([
         'creator_id' => $this->user->id,
     ]);
@@ -256,7 +256,7 @@ test('article can have tags', function () {
         ->and($article->hasTag($tag))->toBeTrue();
 });
 
-test('article can sync multiple tags', function () {
+test('article can sync multiple tags', function (): void {
     $article = Article::factory()->for($this->user->personalTeam())->create([
         'creator_id' => $this->user->id,
     ]);
@@ -276,7 +276,7 @@ test('article can sync multiple tags', function () {
     expect($article->fresh()->tags)->toHaveCount(1);
 });
 
-test('article can detach tags', function () {
+test('article can detach tags', function (): void {
     $article = Article::factory()->for($this->user->personalTeam())->create([
         'creator_id' => $this->user->id,
     ]);
@@ -292,7 +292,7 @@ test('article can detach tags', function () {
     expect($article->fresh()->tags)->toHaveCount(0);
 });
 
-test('with unit factory state works', function () {
+test('with unit factory state works', function (): void {
     $article = Article::factory()
         ->for($this->user->personalTeam())
         ->withUnit('kg')
@@ -301,7 +301,7 @@ test('with unit factory state works', function () {
     expect($article->unit)->toBe(\App\Enums\Unit::KG);
 });
 
-test('with sku factory state works', function () {
+test('with sku factory state works', function (): void {
     $article = Article::factory()
         ->for($this->user->personalTeam())
         ->withSku('SKU-123456')
@@ -311,7 +311,7 @@ test('with sku factory state works', function () {
 });
 
 // Supplier Assignment Tests
-test('article can have suppliers assigned', function () {
+test('article can have suppliers assigned', function (): void {
     $article = Article::factory()->for($this->user->personalTeam())->create([
         'creator_id' => $this->user->id,
     ]);
@@ -330,7 +330,7 @@ test('article can have suppliers assigned', function () {
         ->and($article->suppliers->first()->is_supplier)->toBeTrue();
 });
 
-test('article can sync multiple suppliers', function () {
+test('article can sync multiple suppliers', function (): void {
     $article = Article::factory()->for($this->user->personalTeam())->create([
         'creator_id' => $this->user->id,
     ]);
@@ -351,7 +351,7 @@ test('article can sync multiple suppliers', function () {
     expect($article->fresh()->suppliers)->toHaveCount(1);
 });
 
-test('article can detach suppliers', function () {
+test('article can detach suppliers', function (): void {
     $article = Article::factory()->for($this->user->personalTeam())->create([
         'creator_id' => $this->user->id,
     ]);
@@ -368,7 +368,7 @@ test('article can detach suppliers', function () {
     expect($article->fresh()->suppliers)->toHaveCount(0);
 });
 
-test('article suppliers are filtered by is_supplier and team', function () {
+test('article suppliers are filtered by is_supplier and team', function (): void {
     $article = Article::factory()->for($this->user->personalTeam())->create([
         'creator_id' => $this->user->id,
     ]);
@@ -400,7 +400,7 @@ test('article suppliers are filtered by is_supplier and team', function () {
         ->and($article->suppliers->first()->team_id)->toBe($this->user->personalTeam()->id);
 });
 
-test('article can be created with suppliers via form data sync', function () {
+test('article can be created with suppliers via form data sync', function (): void {
     $suppliers = Company::factory()
         ->count(2)
         ->for($this->user->personalTeam())
@@ -422,7 +422,7 @@ test('article can be created with suppliers via form data sync', function () {
         ->and($article->suppliers->pluck('id')->toArray())->toBe($suppliers->pluck('id')->toArray());
 });
 
-test('article supplier sync handles empty array', function () {
+test('article supplier sync handles empty array', function (): void {
     $article = Article::factory()->for($this->user->personalTeam())->create([
         'creator_id' => $this->user->id,
     ]);
@@ -442,7 +442,7 @@ test('article supplier sync handles empty array', function () {
 });
 
 // Product Images Tests
-test('article accepts images into the product_images collection', function () {
+test('article accepts images into the product_images collection', function (): void {
     Storage::fake('public');
 
     $article = Article::factory()->for($this->user->personalTeam())->create();
@@ -454,7 +454,7 @@ test('article accepts images into the product_images collection', function () {
         ->and($article->getFirstMedia('product_images')->collection_name)->toBe('product_images');
 });
 
-test('product images generate thumb and medium conversions', function () {
+test('product images generate thumb and medium conversions', function (): void {
     Storage::fake('public');
 
     $article = Article::factory()->for($this->user->personalTeam())->create();
@@ -468,7 +468,7 @@ test('product images generate thumb and medium conversions', function () {
         ->and($media->hasGeneratedConversion('medium'))->toBeTrue();
 });
 
-test('product images keep their upload order and expose a primary image', function () {
+test('product images keep their upload order and expose a primary image', function (): void {
     Storage::fake('public');
 
     $article = Article::factory()->for($this->user->personalTeam())->create();
@@ -485,7 +485,7 @@ test('product images keep their upload order and expose a primary image', functi
         ->and($article->getFirstMedia('product_images')->file_name)->toBe('first.jpg');
 });
 
-test('product_images collection rejects non-image files', function () {
+test('product_images collection rejects non-image files', function (): void {
     Storage::fake('public');
 
     $article = Article::factory()->for($this->user->personalTeam())->create();
@@ -494,7 +494,7 @@ test('product_images collection rejects non-image files', function () {
         ->toMediaCollection('product_images');
 })->throws(FileUnacceptableForCollection::class);
 
-test('article create form uploads product images through the Images section', function () {
+test('article create form uploads product images through the Images section', function (): void {
     Storage::fake('public');
 
     $unitOfMeasureId = \App\Models\UnitOfMeasure::query()
@@ -504,10 +504,16 @@ test('article create form uploads product images through the Images section', fu
             'code' => 'pcs',
         ])->id;
 
+    $supplier = Company::factory()
+        ->for($this->user->personalTeam())
+        ->supplier()
+        ->create(['creator_id' => $this->user->id]);
+
     \Pest\Livewire\livewire(\App\Filament\Resources\ArticleResource\Pages\CreateArticle::class)
         ->fillForm([
             'name' => 'Imaged Article',
             'unit_of_measure_id' => $unitOfMeasureId,
+            'suppliers' => [$supplier->id],
             'product_images' => [UploadedFile::fake()->image('front.jpg', 600, 600)],
         ])
         ->call('create')
@@ -518,7 +524,54 @@ test('article create form uploads product images through the Images section', fu
     expect($article->getMedia('product_images'))->toHaveCount(1);
 });
 
-test('factory state attaches product images', function () {
+test('article create form requires at least one supplier', function (): void {
+    $unitOfMeasureId = \App\Models\UnitOfMeasure::query()
+        ->where('team_id', $this->user->personalTeam()->id)
+        ->value('id') ?? \App\Models\UnitOfMeasure::factory()->create([
+            'team_id' => $this->user->personalTeam()->id,
+            'code' => 'pcs',
+        ])->id;
+
+    \Pest\Livewire\livewire(\App\Filament\Resources\ArticleResource\Pages\CreateArticle::class)
+        ->fillForm([
+            'name' => 'Supplierless Article',
+            'unit_of_measure_id' => $unitOfMeasureId,
+        ])
+        ->call('create')
+        ->assertHasFormErrors(['suppliers' => 'required']);
+
+    expect(Article::query()->where('name', 'Supplierless Article')->exists())->toBeFalse();
+});
+
+test('article create form attaches the selected suppliers', function (): void {
+    $unitOfMeasureId = \App\Models\UnitOfMeasure::query()
+        ->where('team_id', $this->user->personalTeam()->id)
+        ->value('id') ?? \App\Models\UnitOfMeasure::factory()->create([
+            'team_id' => $this->user->personalTeam()->id,
+            'code' => 'pcs',
+        ])->id;
+
+    $suppliers = Company::factory()
+        ->count(2)
+        ->for($this->user->personalTeam())
+        ->supplier()
+        ->create(['creator_id' => $this->user->id]);
+
+    \Pest\Livewire\livewire(\App\Filament\Resources\ArticleResource\Pages\CreateArticle::class)
+        ->fillForm([
+            'name' => 'Supplied Article',
+            'unit_of_measure_id' => $unitOfMeasureId,
+            'suppliers' => $suppliers->pluck('id')->toArray(),
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $article = Article::query()->where('name', 'Supplied Article')->firstOrFail();
+
+    expect($article->suppliers)->toHaveCount(2);
+});
+
+test('factory state attaches product images', function (): void {
     Storage::fake('public');
 
     $article = Article::factory()

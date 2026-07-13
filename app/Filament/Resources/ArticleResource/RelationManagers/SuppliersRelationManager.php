@@ -21,6 +21,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Size;
@@ -28,6 +29,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 final class SuppliersRelationManager extends RelationManager
 {
@@ -234,12 +236,40 @@ final class SuppliersRelationManager extends RelationManager
 
                             return $data;
                         }),
-                    DetachAction::make(),
+                    DetachAction::make()
+                        ->before(function (DetachAction $action): void {
+                            /** @var \App\Models\Article $article */
+                            $article = $this->getOwnerRecord();
+
+                            if ($article->suppliers()->count() <= 1) {
+                                Notification::make()
+                                    ->title('Cannot remove the last supplier')
+                                    ->body('Every article must have at least one supplier.')
+                                    ->warning()
+                                    ->send();
+
+                                $action->cancel();
+                            }
+                        }),
                 ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DetachBulkAction::make(),
+                    DetachBulkAction::make()
+                        ->before(function (DetachBulkAction $action, Collection $records): void {
+                            /** @var \App\Models\Article $article */
+                            $article = $this->getOwnerRecord();
+
+                            if ($records->count() >= $article->suppliers()->count()) {
+                                Notification::make()
+                                    ->title('Cannot remove all suppliers')
+                                    ->body('Every article must have at least one supplier.')
+                                    ->warning()
+                                    ->send();
+
+                                $action->cancel();
+                            }
+                        }),
                 ]),
             ]);
     }

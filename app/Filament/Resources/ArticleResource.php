@@ -60,9 +60,10 @@ final class ArticleResource extends Resource
      * Used both in main form and inline create modals.
      *
      * @param  bool  $forModal  When true, uses options() instead of relationship() to avoid model context issues
+     * @param  bool  $excludeSuppliersField  When true, omits the suppliers select (for contexts that attach the supplier themselves)
      * @return array<int, \Filament\Schemas\Components\Component>
      */
-    public static function getFormSchema(bool $forModal = false): array
+    public static function getFormSchema(bool $forModal = false, bool $excludeSuppliersField = false): array
     {
         $taxCodeSelect = Select::make('default_tax_code_id')
             ->label('Default Tax Code')
@@ -130,6 +131,10 @@ final class ArticleResource extends Resource
             ->label('Suppliers')
             ->multiple()
             ->preload()
+            ->required()
+            ->validationMessages([
+                'required' => 'Every article must have at least one supplier.',
+            ])
 
             ->createOptionForm(SupplierResource::getFormSchema(excludePeopleField: true, forModal: true))
             ->createOptionUsing(function (array $data): int {
@@ -263,7 +268,7 @@ final class ArticleResource extends Resource
                 ->helperText('Select the unit of measure for this article'),
             $taxCodeSelect,
             $tagsSelect,
-            $suppliersSelect,
+            ...$excludeSuppliersField ? [] : [$suppliersSelect],
             Textarea::make('description')
                 ->maxLength(2000)
                 ->rows(3),
