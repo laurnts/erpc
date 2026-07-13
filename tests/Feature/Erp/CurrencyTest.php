@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Models\Company;
-
 use App\Models\Currency;
 use App\Models\ExchangeRate;
 use App\Models\Team;

@@ -48,7 +48,7 @@ final readonly class BuyerQuoteItemObserver
         if ($item->isDirty($priceFields)) {
             $item->recalculatePrices();
         }
-        
+
         // Also ensure unit_price_exc_tax always matches unit_price (both are net price)
         // This fixes cases where unit_price_exc_tax might have been saved with old logic
         if ((float) $item->unit_price !== (float) $item->unit_price_exc_tax && (float) $item->unit_price > 0) {

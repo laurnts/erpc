@@ -21,7 +21,7 @@ return new class extends Migration
 
         // Update prepared_by_id values using mapping
         $mappings = DB::table('key_account_people_mapping')->get()->keyBy('key_account_id');
-        
+
         DB::table('quotation_evaluations')
             ->whereNotNull('prepared_by_id')
             ->get()

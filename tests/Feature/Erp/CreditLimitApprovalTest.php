@@ -6,7 +6,6 @@ use App\Enums\CentralPurchasingRole;
 use App\Enums\CreditLimitRequestStatus;
 use App\Mail\Erp\CreditLimitIncreaseRequestMail;
 use App\Models\BuyerCreditLimitRequest;
-use App\Models\BuyerCreditLimitRequestApproval;
 use App\Models\Company;
 use App\Models\Membership;
 use App\Models\Team;

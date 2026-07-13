@@ -14,7 +14,7 @@ final readonly class ShipmentPdfController
     public function __invoke(Shipment $shipment): StreamedResponse|Response
     {
         // Ensure user is authenticated and has access to this shipment
-        if (!auth()->check()) {
+        if (! auth()->check()) {
             abort(403);
         }
 

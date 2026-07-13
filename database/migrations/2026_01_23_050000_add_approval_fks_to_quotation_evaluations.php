@@ -19,13 +19,13 @@ return new class extends Migration
                 ->after('prepared_by_id')
                 ->constrained('people')
                 ->nullOnDelete();
-            
+
             $table->foreignId('deputy_director_id')
                 ->nullable()
                 ->after('dept_head_sales_id')
                 ->constrained('people')
                 ->nullOnDelete();
-            
+
             $table->foreignId('approved_by_id')
                 ->nullable()
                 ->after('deputy_director_id')
@@ -43,7 +43,7 @@ return new class extends Migration
             $table->dropForeign(['dept_head_sales_id']);
             $table->dropForeign(['deputy_director_id']);
             $table->dropForeign(['approved_by_id']);
-            
+
             $table->dropColumn(['dept_head_sales_id', 'deputy_director_id', 'approved_by_id']);
         });
     }

@@ -163,18 +163,6 @@ parameters:
 			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/ViewBuyerRequest.php
 
 		-
-			message: '#^Method App\\Filament\\Buyer\\Resources\\BuyerRequestResource\\Pages\\ViewBuyerRequest\:\:getSubheading\(\) never returns null so it can be removed from the return type\.$#'
-			identifier: return.unusedType
-			count: 1
-			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/ViewBuyerRequest.php
-
-		-
-			message: '#^Method App\\Filament\\Buyer\\Resources\\BuyerRequestResource\\Pages\\ViewBuyerRequest\:\:getSubheading\(\) never returns string so it can be removed from the return type\.$#'
-			identifier: return.unusedType
-			count: 1
-			path: app/Filament/Buyer/Resources/BuyerRequestResource/Pages/ViewBuyerRequest.php
-
-		-
 			message: '#^Parameter \#2 \$callback of function array_filter expects \(callable\(class\-string\<Filament\\Resources\\RelationManagers\\RelationManager\>\|Filament\\Resources\\RelationManagers\\RelationGroup\|Filament\\Resources\\RelationManagers\\RelationManagerConfiguration\)\: bool\)\|null, Closure\(string\)\: bool given\.$#'
 			identifier: argument.type
 			count: 1
@@ -213,12 +201,6 @@ parameters:
 		-
 			message: '#^Access to an undefined property App\\Models\\Request\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Request\>\:\:\$buyer_id\.$#'
 			identifier: property.notFound
-			count: 1
-			path: app/Filament/Forms/Components/KeyAccountSelect.php
-
-		-
-			message: '#^Anonymous function has an unused use \$relationshipName\.$#'
-			identifier: closure.unusedUse
 			count: 1
 			path: app/Filament/Forms/Components/KeyAccountSelect.php
 
@@ -1387,37 +1369,37 @@ parameters:
 			path: app/Models/EmailTemplate.php
 
 		-
-			message: '#^Method App\\Models\\EmailTemplate\:\:scopeDefaults\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			message: '#^Method App\\Models\\EmailTemplate\:\:defaults\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
 			identifier: missingType.generics
 			count: 1
 			path: app/Models/EmailTemplate.php
 
 		-
-			message: '#^Method App\\Models\\EmailTemplate\:\:scopeDefaults\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			message: '#^Method App\\Models\\EmailTemplate\:\:defaults\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
 			identifier: missingType.generics
 			count: 1
 			path: app/Models/EmailTemplate.php
 
 		-
-			message: '#^Method App\\Models\\EmailTemplate\:\:scopeForTeam\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			message: '#^Method App\\Models\\EmailTemplate\:\:forTeam\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
 			identifier: missingType.generics
 			count: 1
 			path: app/Models/EmailTemplate.php
 
 		-
-			message: '#^Method App\\Models\\EmailTemplate\:\:scopeForTeam\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			message: '#^Method App\\Models\\EmailTemplate\:\:forTeam\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
 			identifier: missingType.generics
 			count: 1
 			path: app/Models/EmailTemplate.php
 
 		-
-			message: '#^Method App\\Models\\EmailTemplate\:\:scopeForType\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			message: '#^Method App\\Models\\EmailTemplate\:\:forType\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
 			identifier: missingType.generics
 			count: 1
 			path: app/Models/EmailTemplate.php
 
 		-
-			message: '#^Method App\\Models\\EmailTemplate\:\:scopeForType\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			message: '#^Method App\\Models\\EmailTemplate\:\:forType\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
 			identifier: missingType.generics
 			count: 1
 			path: app/Models/EmailTemplate.php
@@ -1895,18 +1877,6 @@ parameters:
 			identifier: return.type
 			count: 1
 			path: app/Providers/Filament/AppPanelProvider.php
-
-		-
-			message: '#^Method App\\Services\\BuyerPortal\\BuyerInvoiceStatusPresenter\:\:icon\(\) never returns null so it can be removed from the return type\.$#'
-			identifier: return.unusedType
-			count: 1
-			path: app/Services/BuyerPortal/BuyerInvoiceStatusPresenter.php
-
-		-
-			message: '#^Method App\\Services\\BuyerPortal\\BuyerQuoteStatusPresenter\:\:icon\(\) never returns null so it can be removed from the return type\.$#'
-			identifier: return.unusedType
-			count: 1
-			path: app/Services/BuyerPortal/BuyerQuoteStatusPresenter.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'

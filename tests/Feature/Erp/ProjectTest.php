@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Models\Company;
-
 use App\Enums\ProjectStatus;
+use App\Models\Company;
 use App\Models\Project;
 use App\Models\Team;
 use App\Models\User;

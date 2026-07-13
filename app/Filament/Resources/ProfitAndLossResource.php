@@ -9,7 +9,6 @@ use App\Filament\Forms\Components\ApprovalPersonnelSchema;
 use App\Filament\Resources\ProfitAndLossResource\Pages\ListProfitAndLosses;
 use App\Filament\Resources\ProfitAndLossResource\Pages\ViewProfitAndLoss;
 use App\Models\ProfitAndLoss;
-use App\Policies\ProfitAndLossPolicy;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\ExportBulkAction;
 use Filament\Facades\Filament;
@@ -25,8 +24,6 @@ use Illuminate\Database\Eloquent\Builder;
 final class ProfitAndLossResource extends Resource
 {
     protected static ?string $model = ProfitAndLoss::class;
-
-    private static ?string $policy = ProfitAndLossPolicy::class;
 
     protected static ?string $recordTitleAttribute = 'pnl_number';
 

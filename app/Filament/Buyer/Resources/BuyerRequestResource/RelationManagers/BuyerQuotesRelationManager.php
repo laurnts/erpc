@@ -80,7 +80,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                     ->badge()
                     ->formatStateUsing(fn (BuyerQuoteStatus $state): string => $statusPresenter->label($state))
                     ->color(fn (BuyerQuoteStatus $state): string => $statusPresenter->color($state))
-                    ->icon(fn (BuyerQuoteStatus $state): ?string => $statusPresenter->icon($state))
+                    ->icon(fn (BuyerQuoteStatus $state): string => $statusPresenter->icon($state))
                     ->extraAttributes(fn (BuyerQuote $record): array => $this->rowAttributes($record)),
             ])
             ->recordActions([

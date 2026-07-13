@@ -11,7 +11,6 @@ use App\Models\User;
 use App\Services\Email\EmailTemplateService;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 final readonly class QuotationEvaluationObserver
 {
@@ -95,6 +94,7 @@ final readonly class QuotationEvaluationObserver
                 'quotation_evaluation_id' => $quotationEvaluation->id,
                 'team_id' => $team->id,
             ]);
+
             return;
         }
 

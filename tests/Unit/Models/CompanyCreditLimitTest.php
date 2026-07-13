@@ -2,10 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Enums\CreditLimitRequestStatus;
 use App\Models\BuyerCreditLimitRequest;
 use App\Models\Company;
-use App\Models\Team;
 
 test('company has credit limit requests relationship', function () {
     $buyer = Company::factory()->buyer()->create();

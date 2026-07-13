@@ -33,7 +33,7 @@ return new class extends Migration
             // Set any other invalid unit values to 'pcs' (default value)
             // Valid values: pcs, kg, mt, set, box, roll, pair, l, m
             $validUnits = ['pcs', 'kg', 'mt', 'set', 'box', 'roll', 'pair', 'l', 'm'];
-            
+
             DB::table($table)
                 ->whereNotNull('unit')
                 ->whereNotIn('unit', $validUnits)

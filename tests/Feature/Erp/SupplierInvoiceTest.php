@@ -2,11 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Models\Company;
-
 use App\Enums\InvoiceStatus;
 use App\Enums\InvoiceType;
 use App\Models\Article;
+use App\Models\Company;
 use App\Models\Currency;
 use App\Models\Request;
 use App\Models\RequestItem;

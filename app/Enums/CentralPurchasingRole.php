@@ -7,7 +7,7 @@ namespace App\Enums;
 use Filament\Support\Contracts\HasDescription;
 use Filament\Support\Contracts\HasLabel;
 
-enum CentralPurchasingRole: string implements HasLabel, HasDescription
+enum CentralPurchasingRole: string implements HasDescription, HasLabel
 {
     case KEY_ACCOUNT = 'key_account';
     case DEPT_HEAD_SALES = 'dept_head_sales';

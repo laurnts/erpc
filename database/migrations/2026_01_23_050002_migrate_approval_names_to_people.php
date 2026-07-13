@@ -14,7 +14,7 @@ return new class extends Migration
     {
         // Migrate QuotationEvaluation approval names to People
         $this->migrateQuotationEvaluations();
-        
+
         // Migrate ProfitAndLoss approval names to People
         $this->migrateProfitAndLosses();
     }
@@ -46,7 +46,7 @@ return new class extends Migration
                     ->where('name', $record->{$nameField})
                     ->first();
 
-                if (!$person) {
+                if (! $person) {
                     // Create new People record using DB to avoid enum casting issues
                     $peopleId = DB::table('people')->insertGetId([
                         'team_id' => $record->team_id,
@@ -96,7 +96,7 @@ return new class extends Migration
                     ->where('name', $record->{$nameField})
                     ->first();
 
-                if (!$person) {
+                if (! $person) {
                     // Create new People record using DB to avoid enum casting issues
                     $peopleId = DB::table('people')->insertGetId([
                         'team_id' => $record->team_id,

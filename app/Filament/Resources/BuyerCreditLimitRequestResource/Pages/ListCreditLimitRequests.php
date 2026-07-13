@@ -38,7 +38,7 @@ final class ListCreditLimitRequests extends ListRecords
                         ->options(function (): array {
                             /** @var \App\Models\Team|null $team */
                             $team = Filament::getTenant();
-                            
+
                             if ($team === null) {
                                 return [];
                             }
@@ -108,8 +108,9 @@ final class ListCreditLimitRequests extends ListRecords
                         ->helperText(function ($get): string {
                             $currentLimit = $get('current_limit');
                             if ($currentLimit) {
-                                return 'Current Credit Limit: ' . number_format((float) $currentLimit, 2) . '. You can request an increase or decrease (minimum: 0).';
+                                return 'Current Credit Limit: '.number_format((float) $currentLimit, 2).'. You can request an increase or decrease (minimum: 0).';
                             }
+
                             return 'Select a buyer first to see the Current Credit Limit.';
                         })
                         ->visible(fn ($get): bool => $get('buyer_id') !== null),

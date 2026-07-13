@@ -13,8 +13,8 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Job to check for buyer quotes that have expired and send emails to the buyer and key accounts.
@@ -107,7 +107,7 @@ final class CheckExpiredQuotesJob implements ShouldQueue
         $metadata = $quote->getAttributeValue('notification_metadata') ?? [];
 
         $metadata[self::EXPIRED_NOTIFIED_KEY] = true;
-        $metadata[self::EXPIRED_NOTIFIED_KEY . '_at'] = now()->toIso8601String();
+        $metadata[self::EXPIRED_NOTIFIED_KEY.'_at'] = now()->toIso8601String();
 
         $quote->forceFill(['notification_metadata' => $metadata]);
         $quote->saveQuietly();

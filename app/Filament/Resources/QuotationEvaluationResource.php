@@ -9,7 +9,6 @@ use App\Filament\Forms\Components\ApprovalPersonnelSchema;
 use App\Filament\Resources\QuotationEvaluationResource\Pages\ListQuotationEvaluations;
 use App\Filament\Resources\QuotationEvaluationResource\Pages\ViewQuotationEvaluation;
 use App\Models\QuotationEvaluation;
-use App\Policies\QuotationEvaluationPolicy;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\ExportBulkAction;
 use Filament\Facades\Filament;
@@ -25,8 +24,6 @@ use Illuminate\Database\Eloquent\Builder;
 final class QuotationEvaluationResource extends Resource
 {
     protected static ?string $model = QuotationEvaluation::class;
-
-    private static ?string $policy = QuotationEvaluationPolicy::class;
 
     protected static ?string $recordTitleAttribute = 'qe_number';
 

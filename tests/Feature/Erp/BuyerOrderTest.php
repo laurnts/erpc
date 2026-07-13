@@ -2,13 +2,12 @@
 
 declare(strict_types=1);
 
-use App\Models\Company;
-
 use App\Enums\OrderStatus;
 use App\Models\BuyerOrder;
 use App\Models\BuyerOrderItem;
 use App\Models\BuyerQuote;
 use App\Models\BuyerQuoteItem;
+use App\Models\Company;
 use App\Models\Currency;
 use App\Models\Request;
 use App\Models\RequestItem;

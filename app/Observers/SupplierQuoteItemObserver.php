@@ -156,7 +156,7 @@ final readonly class SupplierQuoteItemObserver
         $quote = $item->supplierQuote;
         if ($quote !== null) {
             $quote->recalculateTotals();
-            
+
             // After recalculating totals, check if status needs to be updated
             // Reload to get fresh totals
             $quote->refresh();

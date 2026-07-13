@@ -8,7 +8,7 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasIcon;
 use Filament\Support\Contracts\HasLabel;
 
-enum CreditLimitRequestStatus: string implements HasLabel, HasColor, HasIcon
+enum CreditLimitRequestStatus: string implements HasColor, HasIcon, HasLabel
 {
     case PENDING = 'pending';
     case APPROVED = 'approved';

@@ -2,11 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Models\Company;
-
 use App\Enums\ItemCondition;
 use App\Enums\ShipmentStatus;
 use App\Enums\ShipmentType;
+use App\Models\Company;
 use App\Models\Request;
 use App\Models\Shipment;
 use App\Models\ShipmentItem;

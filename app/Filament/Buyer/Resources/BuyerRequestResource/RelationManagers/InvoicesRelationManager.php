@@ -76,7 +76,7 @@ final class InvoicesRelationManager extends RelationManager
                     ->badge()
                     ->formatStateUsing(fn (InvoiceStatus $state): string => $invoiceStatusPresenter->label($state))
                     ->color(fn (InvoiceStatus $state): string => $invoiceStatusPresenter->color($state))
-                    ->icon(fn (InvoiceStatus $state): ?string => $invoiceStatusPresenter->icon($state)),
+                    ->icon(fn (InvoiceStatus $state): string => $invoiceStatusPresenter->icon($state)),
             ])
             ->recordActions([
                 DownloadPdfAction::make()

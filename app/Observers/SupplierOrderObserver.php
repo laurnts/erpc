@@ -14,7 +14,6 @@ use App\Models\User;
 use App\Services\Email\EmailTemplateService;
 use App\Services\TeamMemberService;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 final readonly class SupplierOrderObserver
 {
@@ -156,6 +155,7 @@ final readonly class SupplierOrderObserver
                 'supplier_order_id' => $supplierOrder->id,
                 'team_id' => $team->id,
             ]);
+
             return;
         }
 
@@ -164,7 +164,7 @@ final readonly class SupplierOrderObserver
             try {
                 $emailService = app(EmailTemplateService::class);
                 $settings = $team->getErpSettings();
-                
+
                 $emailService->sendWithTeamSettings(
                     $team,
                     new SupplierOrderApprovalRequestMail($supplierOrder, $approver),

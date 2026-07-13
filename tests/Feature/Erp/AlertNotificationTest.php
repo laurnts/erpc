@@ -2,14 +2,13 @@
 
 declare(strict_types=1);
 
-use App\Models\Company;
-
 use App\Enums\InvoiceStatus;
 use App\Jobs\Erp\CheckAwaitingSupplierQuotesJob;
 use App\Jobs\Erp\CheckExpiringQuotesJob;
 use App\Jobs\Erp\CheckOverdueInvoicesJob;
 use App\Models\BuyerInvoice;
 use App\Models\BuyerQuote;
+use App\Models\Company;
 use App\Models\SupplierQuote;
 use App\Models\Team;
 use App\Models\User;

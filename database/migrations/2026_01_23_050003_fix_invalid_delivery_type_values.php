@@ -16,13 +16,13 @@ return new class extends Migration
         // "Franco" is not a valid DeliveryType enum value
         // Map it to NULL or a valid value based on business logic
         // Valid values are: 'fob', 'cif', 'exw', 'ddp', 'dap'
-        
+
         DB::table('companies')
             ->where('delivery_type', 'franco')
             ->orWhere('delivery_type', 'Franco')
             ->orWhere('delivery_type', 'FRANCO')
             ->update(['delivery_type' => null]);
-        
+
         // Also fix delivery_type_details if it exists
         if (DB::getSchemaBuilder()->hasColumn('companies', 'delivery_type_details')) {
             DB::table('companies')
@@ -31,15 +31,15 @@ return new class extends Migration
                 ->orWhere('delivery_type_details', 'FRANCO')
                 ->update(['delivery_type_details' => null]);
         }
-        
+
         // Fix any other invalid enum values that might exist
         $validValues = ['fob', 'cif', 'exw', 'ddp', 'dap'];
-        
+
         DB::table('companies')
             ->whereNotNull('delivery_type')
             ->whereNotIn('delivery_type', $validValues)
             ->update(['delivery_type' => null]);
-        
+
         if (DB::getSchemaBuilder()->hasColumn('companies', 'delivery_type_details')) {
             DB::table('companies')
                 ->whereNotNull('delivery_type_details')

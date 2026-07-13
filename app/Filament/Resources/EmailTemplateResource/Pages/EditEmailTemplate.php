@@ -20,7 +20,7 @@ final class EditEmailTemplate extends EditRecord
     {
         return [
             DeleteAction::make()
-                ->visible(fn (): bool => !$this->record->is_default)
+                ->visible(fn (): bool => ! $this->record->is_default)
                 ->requiresConfirmation()
                 ->action(function (): void {
                     /** @var EmailTemplate $record */
@@ -80,7 +80,7 @@ final class EditEmailTemplate extends EditRecord
 
                     Notification::make()
                         ->title('Template Deleted')
-                        ->body($isSelected 
+                        ->body($isSelected
                             ? "Template '{$record->name}' has been deleted. The default template is now selected for this type."
                             : "Template '{$record->name}' has been deleted successfully.")
                         ->success()
@@ -90,6 +90,7 @@ final class EditEmailTemplate extends EditRecord
                 }),
         ];
     }
+
     protected function getRedirectUrl(): string
     {
         return EmailTemplateResource::getUrl('index');

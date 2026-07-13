@@ -44,13 +44,6 @@ final class ItemsRelationManager extends RelationManager
 
     protected static string $relationship = 'items';
 
-    /**
-     * Temporary storage for children data during edit operations.
-     *
-     * @var array<int, array<string, mixed>>|null
-     */
-    private ?array $storedChildrenData = null;
-
     protected static ?string $title = 'Requested Items';
 
     protected static string|\BackedEnum|null $icon = 'heroicon-o-queue-list';

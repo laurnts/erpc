@@ -36,16 +36,16 @@ final class BuyersRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('code')
                     ->label('Code')
-                    
+
                     ->sortable(),
                 TextColumn::make('name')
                     ->label('Buyer Name')
-                    
+
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('country')
                     ->label('Country')
-                    
+
                     ->sortable()
                     ->toggleable(),
                 IconColumn::make('is_active')

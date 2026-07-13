@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Models\Company;
-
 use App\Enums\InvoiceStatus;
 use App\Enums\OrderStatus;
 use App\Enums\RequestStage;
@@ -17,6 +15,7 @@ use App\Filament\Widgets\RequiresAttentionWidget;
 use App\Models\BuyerInvoice;
 use App\Models\BuyerOrder;
 use App\Models\BuyerQuote;
+use App\Models\Company;
 use App\Models\Currency;
 use App\Models\Request;
 use App\Models\Shipment;

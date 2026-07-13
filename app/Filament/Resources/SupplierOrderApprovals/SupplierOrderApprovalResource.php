@@ -11,7 +11,6 @@ use App\Filament\Actions\ApproveSupplierOrderAction;
 use App\Filament\Resources\SupplierOrderApprovals\Pages\ListSupplierOrderApprovals;
 use App\Filament\Resources\SupplierOrderApprovals\Pages\ViewSupplierOrderApproval;
 use App\Models\SupplierOrder;
-use App\Policies\SupplierOrderApprovalPolicy;
 use App\Services\TeamMemberService;
 use App\Support\DocumentUpload;
 use Filament\Actions\Action;
@@ -32,8 +31,6 @@ use Illuminate\Database\Eloquent\Builder;
 final class SupplierOrderApprovalResource extends Resource
 {
     protected static ?string $model = SupplierOrder::class;
-
-    private static ?string $policy = SupplierOrderApprovalPolicy::class;
 
     protected static ?string $recordTitleAttribute = 'po_number';
 

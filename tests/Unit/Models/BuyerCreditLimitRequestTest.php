@@ -86,7 +86,7 @@ test('buyer credit limit request defaults to pending status', function () {
 
 test('buyer credit limit request approval count returns correct number', function () {
     $request = BuyerCreditLimitRequest::factory()->create();
-    
+
     expect($request->approvalCount())->toBe(0);
 
     BuyerCreditLimitRequestApproval::factory()->count(2)->create([
@@ -99,7 +99,7 @@ test('buyer credit limit request approval count returns correct number', functio
 
 test('buyer credit limit request is approved when has 2 or more approvals', function () {
     $request = BuyerCreditLimitRequest::factory()->create();
-    
+
     expect($request->isApproved())->toBeFalse();
 
     BuyerCreditLimitRequestApproval::factory()->count(1)->create([

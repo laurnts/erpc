@@ -7,7 +7,7 @@ namespace App\Enums;
 use Filament\Support\Contracts\HasDescription;
 use Filament\Support\Contracts\HasLabel;
 
-enum ContactRole: string implements HasLabel, HasDescription
+enum ContactRole: string implements HasDescription, HasLabel
 {
     case PRIMARY = 'primary';
     case BILLING = 'billing';
