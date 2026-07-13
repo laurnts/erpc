@@ -19,6 +19,7 @@ use App\Models\BuyerQuoteItem;
 use App\Models\Company;
 use App\Models\Currency;
 use App\Models\Request;
+use App\Models\RequestItem;
 use App\Models\SupplierOrder;
 use App\Models\SupplierOrderItem;
 use App\Models\SupplierQuote;
@@ -52,6 +53,7 @@ use Filament\Support\Enums\Size;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
 
 final class SupplierOrdersRelationManager extends RelationManager
@@ -243,7 +245,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                             ->options(fn (): array => $request->items()
                                                 ->whereNull('parent_id') // Only show main items, not child items
                                                 ->get()
-                                                ->mapWithKeys(fn ($item): array => [
+                                                ->mapWithKeys(fn (RequestItem $item): array => [
                                                     $item->getKey() => $item->display_text,
                                                 ])
                                                 ->all())
@@ -292,7 +294,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                                             ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
                                         Select::make('unit_of_measure_id')
                                             ->label('Unit')
-                                            ->relationship('unitOfMeasure', 'label', fn ($query) => $query->where('team_id', $request->team_id)->where('is_active', true))
+                                            ->relationship('unitOfMeasure', 'label', fn (Builder $query) => $query->where('team_id', $request->team_id)->where('is_active', true))
 
                                             ->preload()
                                             ->selectablePlaceholder(false)

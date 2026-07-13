@@ -18,6 +18,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Validation\Rules\Unique;
 
 final class TaxCodeResource extends Resource
 {
@@ -42,7 +43,7 @@ final class TaxCodeResource extends Resource
             TextInput::make('code')
                 ->required()
                 ->maxLength(50)
-                ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule, $record) => $rule->where('team_id', $record->team_id ?? Filament::getTenant()?->id))
+                ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule, ?TaxCode $record) => $rule->where('team_id', $record?->team_id ?? Filament::getTenant()?->id))
                 ->helperText('A unique identifier for this tax code (e.g., PPN11, VAT20)'),
             TextInput::make('name')
                 ->required()

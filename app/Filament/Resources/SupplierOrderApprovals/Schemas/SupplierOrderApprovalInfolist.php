@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SupplierOrderApprovals\Schemas;
 
+use App\Models\SupplierOrder;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Schemas\Components\Grid;
@@ -25,20 +26,20 @@ final class SupplierOrderApprovalInfolist
                                     ->label('PO Number'),
                                 TextEntry::make('approval_status')
                                     ->label('Status')
-                                    ->getStateUsing(function ($record): string {
+                                    ->getStateUsing(function (SupplierOrder $record): string {
                                         $bothApproved = $record->approver_1_id !== null && $record->approver_2_id !== null;
 
                                         return $bothApproved ? 'Approved' : 'Pending';
                                     })
                                     ->badge()
-                                    ->color(function ($record): string {
+                                    ->color(function (SupplierOrder $record): string {
                                         $bothApproved = $record->approver_1_id !== null && $record->approver_2_id !== null;
 
                                         return $bothApproved ? 'success' : 'warning';
                                     }),
                                 TextEntry::make('request.request_number')
                                     ->label('Request')
-                                    ->url(fn ($record): string => \App\Filament\Resources\RequestResource::getUrl('view', ['record' => $record->request_id])),
+                                    ->url(fn (SupplierOrder $record): string => \App\Filament\Resources\RequestResource::getUrl('view', ['record' => $record->request_id])),
                             ]),
                         Grid::make(3)
                             ->schema([
@@ -48,7 +49,7 @@ final class SupplierOrderApprovalInfolist
                                     ->label('Currency'),
                                 TextEntry::make('total')
                                     ->label('Total')
-                                    ->formatStateUsing(fn ($record): string => $record->formatted_total),
+                                    ->formatStateUsing(fn (SupplierOrder $record): string => $record->formatted_total),
                             ]),
                         Grid::make(3)
                             ->schema([
@@ -60,7 +61,7 @@ final class SupplierOrderApprovalInfolist
                                     ->date(),
                                 TextEntry::make('payment_terms_days')
                                     ->label('Payment Terms')
-                                    ->formatStateUsing(fn ($record): ?string => $record->payment_terms_days ? "Net {$record->payment_terms_days} days" : null),
+                                    ->formatStateUsing(fn (SupplierOrder $record): ?string => $record->payment_terms_days ? "Net {$record->payment_terms_days} days" : null),
                             ]),
                     ]),
                 Section::make('Approval Status')
@@ -69,7 +70,7 @@ final class SupplierOrderApprovalInfolist
                             ->schema([
                                 TextEntry::make('approver_1')
                                     ->label('Approver 1')
-                                    ->getStateUsing(function ($record): string {
+                                    ->getStateUsing(function (SupplierOrder $record): string {
                                         if ($record->approver_1_id === null) {
                                             return 'Pending';
                                         }
@@ -78,10 +79,10 @@ final class SupplierOrderApprovalInfolist
                                         return $record->approver1->name ?? 'Unknown';
                                     })
                                     ->badge()
-                                    ->color(fn ($record): string => $record->approver_1_id === null ? 'warning' : 'success'),
+                                    ->color(fn (SupplierOrder $record): string => $record->approver_1_id === null ? 'warning' : 'success'),
                                 TextEntry::make('approver_2')
                                     ->label('Approver 2')
-                                    ->getStateUsing(function ($record): string {
+                                    ->getStateUsing(function (SupplierOrder $record): string {
                                         if ($record->approver_2_id === null) {
                                             return 'Pending';
                                         }
@@ -90,12 +91,12 @@ final class SupplierOrderApprovalInfolist
                                         return $record->approver2->name ?? 'Unknown';
                                     })
                                     ->badge()
-                                    ->color(fn ($record): string => $record->approver_2_id === null ? 'warning' : 'success'),
+                                    ->color(fn (SupplierOrder $record): string => $record->approver_2_id === null ? 'warning' : 'success'),
                             ]),
                         TextEntry::make('approved_at')
                             ->label('Approved At')
                             ->dateTime()
-                            ->visible(fn ($record): bool => $record->approved_at !== null),
+                            ->visible(fn (SupplierOrder $record): bool => $record->approved_at !== null),
                     ]),
                 Section::make('Items')
                     ->schema([

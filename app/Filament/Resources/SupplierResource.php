@@ -29,6 +29,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
@@ -192,7 +193,7 @@ final class SupplierResource extends Resource
             $defaultCurrencySelect->relationship(
                 'defaultCurrency',
                 'name',
-                modifyQueryUsing: fn ($query) => $query->where('is_active', true)
+                modifyQueryUsing: fn (Builder $query) => $query->where('is_active', true)
             )
                 ->getOptionLabelFromRecordUsing(fn (?Currency $record): string => $record instanceof \App\Models\Currency ? "{$record->code} - {$record->name}" : '');
         }
@@ -238,7 +239,7 @@ final class SupplierResource extends Resource
                         ->label('Delivery Type Details')
                         ->placeholder('Additional delivery type information')
                         ->maxLength(255)
-                        ->visible(fn ($get): bool => $get('delivery_type') !== null),
+                        ->visible(fn (Get $get): bool => $get('delivery_type') !== null),
                     Toggle::make('is_taxable')
                         ->label('Taxable Company')
                         ->default(true)

@@ -21,6 +21,7 @@ use App\Models\BuyerQuoteItem;
 use App\Models\Currency;
 use App\Models\ProfitAndLoss;
 use App\Models\Request;
+use App\Models\RequestItem;
 use App\Models\SupplierQuote;
 use App\Models\TaxCode;
 use App\Models\UnitOfMeasure;
@@ -58,6 +59,7 @@ use Filament\Support\Enums\Size;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
 
@@ -237,7 +239,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 ->live()
                                 ->maxValue(fn (Get $get): ?int => $get('prepayment_type') === PrepaymentType::PERCENT->value ? 100 : null)
                                 ->suffix(fn (Get $get): string => $get('prepayment_type') === PrepaymentType::PERCENT->value ? '%' : '')
-                                ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : null),
+                                ->formatStateUsing(fn (mixed $state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : null),
                         ]),
                     Repeater::make('paymentTerms')
                         ->relationship()
@@ -306,11 +308,11 @@ final class BuyerQuotesRelationManager extends RelationManager
                             'items',
 
                             // Only load main-level lines; child lines are nested within their main items
-                            fn ($query) => $query->whereDoesntHave('requestItem', function ($q): void {
+                            fn (Builder $query) => $query->whereDoesntHave('requestItem', function (Builder $q): void {
                                 $q->whereNotNull('parent_id');
                             })
                         )
-                        ->mutateRelationshipDataBeforeFillUsing(function (array $data, $record) use ($request): array {
+                        ->mutateRelationshipDataBeforeFillUsing(function (array $data, ?Model $record) use ($request): array {
                             $data['quantity'] = (string) (int) round((float) ($data['quantity'] ?? 0));
                             // Prefill margin_percent_input so the Margin % field is never empty; round to int so all items show same default (e.g. 3)
                             $stored = $data['margin_percent'] ?? ($record->margin_percent ?? null);
@@ -356,14 +358,14 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             // Get main item's tax information (this is the current item being processed)
                                             // Use the current record's tax info as the main item's tax info
                                             $mainItemTaxCodeId = $data['tax_code_id'] ?? $record->tax_code_id ?? $defaultTaxCode?->getKey();
-                                            $mainItemTaxRate = ($data['tax_code_id'] ?? $record->tax_code_id) !== null
+                                            $mainItemTaxRate = ($data['tax_code_id'] ?? $record?->getAttribute('tax_code_id')) !== null
                                                 ? (string) (int) round((float) ($data['tax_rate'] ?? $record->tax_rate ?? 0))
                                                 : (string) (int) round((float) ($defaultTaxCode !== null ? $defaultTaxCode->rate : 0));
-                                            $mainItemIsTaxInclusive = ($data['tax_code_id'] ?? $record->tax_code_id) !== null
+                                            $mainItemIsTaxInclusive = ($data['tax_code_id'] ?? $record?->getAttribute('tax_code_id')) !== null
                                                 ? ($data['is_tax_inclusive'] ?? $record->is_tax_inclusive ?? false)
                                                 : ($defaultTaxCode !== null && $defaultTaxCode->is_inclusive_default);
 
-                                            $data['child_items'] = $childBuyerQuoteItems->map(function ($childItem) use ($mainItemTaxCodeId, $mainItemTaxRate, $mainItemIsTaxInclusive): array {
+                                            $data['child_items'] = $childBuyerQuoteItems->map(function (BuyerQuoteItem $childItem) use ($mainItemTaxCodeId, $mainItemTaxRate, $mainItemIsTaxInclusive): array {
                                                 // Use stored tax information, or fallback to main item's tax
                                                 $taxCodeId = $childItem->tax_code_id ?? $mainItemTaxCodeId;
                                                 $taxRate = $childItem->tax_code_id !== null
@@ -422,7 +424,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->options(fn (): array => $request->items()
                                             ->whereNull('parent_id') // Only show main items, not child items
                                             ->get()
-                                            ->mapWithKeys(fn ($item): array => [
+                                            ->mapWithKeys(fn (RequestItem $item): array => [
                                                 $item->getKey() => $item->display_text,
                                             ])
                                             ->all())
@@ -464,8 +466,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->minValue(1)
                                         ->columnSpan(2)
                                         ->live(onBlur: true)
-                                        ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : null)
-                                        ->dehydrateStateUsing(fn ($state): string => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '1')
+                                        ->formatStateUsing(fn (mixed $state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : null)
+                                        ->dehydrateStateUsing(fn (mixed $state): string => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '1')
                                         ->afterStateHydrated(function (Set $set, Get $get): void {
                                             $qty = $get('quantity');
                                             $normalized = $qty !== null && $qty !== '' ? (string) (int) round((float) $qty) : '1';
@@ -475,7 +477,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
                                     Select::make('unit_of_measure_id')
                                         ->label('Unit')
-                                        ->relationship('unitOfMeasure', 'label', fn ($query) => $query->where('team_id', $request->team_id)->where('is_active', true))
+                                        ->relationship('unitOfMeasure', 'label', fn (Builder $query) => $query->where('team_id', $request->team_id)->where('is_active', true))
 
                                         ->preload()
                                         ->selectablePlaceholder(false)
@@ -601,7 +603,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                 }
                                             }
                                         })
-                                        ->afterStateUpdated(function (Set $set, Get $get, $state): void {
+                                        ->afterStateUpdated(function (Set $set, Get $get, mixed $state): void {
                                             $isTaxInclusive = (bool) $state;
                                             $this->calculateItemTotals($set, $get, $isTaxInclusive);
                                             // Sync +Tax to all child items and recalc their line totals
@@ -621,8 +623,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->columnSpan(1)
                                         ->disabled()
                                         ->dehydrated()
-                                        ->formatStateUsing(fn ($state): string => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0')
-                                        ->dehydrateStateUsing(fn ($state): string => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0'),
+                                        ->formatStateUsing(fn (mixed $state): string => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0')
+                                        ->dehydrateStateUsing(fn (mixed $state): string => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0'),
                                     // Margin %: default from general settings. Unit price = cost / (1 - margin%/100); margin% = (selling - cost)/selling×100. +Tax adds tax to line total.
                                     TextInput::make('margin_percent_input')
                                         ->label('Margin %')
@@ -711,8 +713,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                         ->minValue(1)
                                                         ->columnSpan(1)
                                                         ->live(onBlur: true)
-                                                        ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : null)
-                                                        ->dehydrateStateUsing(fn ($state): string => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '1')
+                                                        ->formatStateUsing(fn (mixed $state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : null)
+                                                        ->dehydrateStateUsing(fn (mixed $state): string => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '1')
                                                         ->afterStateHydrated(function (Set $set, Get $get): void {
                                                             $qty = $get('quantity');
                                                             $normalized = $qty !== null && $qty !== '' ? (string) (int) round((float) $qty) : '1';
@@ -804,7 +806,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                         ->inline(false)
                                                         ->columnSpan(1)
                                                         ->live()
-                                                        ->afterStateUpdated(function (Set $set, Get $get, $state): void {
+                                                        ->afterStateUpdated(function (Set $set, Get $get, mixed $state): void {
                                                             // Explicitly set the state and pass it directly to calculation
                                                             // This ensures correct behavior in nested Repeaters
                                                             $isTaxInclusive = (bool) $state;
@@ -819,8 +821,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                         ->columnSpan(1)
                                                         ->disabled()
                                                         ->dehydrated()
-                                                        ->formatStateUsing(fn ($state): string => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0')
-                                                        ->dehydrateStateUsing(fn ($state): string => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0'),
+                                                        ->formatStateUsing(fn (mixed $state): string => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0')
+                                                        ->dehydrateStateUsing(fn (mixed $state): string => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0'),
                                                     TextInput::make('line_total')
                                                         ->label('Line Total')
                                                         ->numeric()
@@ -1002,7 +1004,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                             'max' => DocumentUpload::maxSizeMessage(2048),
                         ])
                         ->dehydrated(false)
-                        ->afterStateUpdated(function ($state, $record, $set): void {
+                        ->afterStateUpdated(function (mixed $state, ?BuyerQuote $record, Set $set): void {
                             // Process uploaded files immediately when they're uploaded
                             if ($record && $record->exists && $state && is_array($state)) {
                                 app(AttachUploadedFiles::class)->execute($record, $state, 'buyer_po', BuyerQuote::PO_FILES_UPLOAD_DIRECTORY);
@@ -1120,7 +1122,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                     $childSupplierQuoteItemId = $childSupplierQuoteItem?->getKey();
                     if ($childSupplierQuoteItem === null) {
                         $anyChildQuoteItem = \App\Models\SupplierQuoteItem::query()
-                            ->whereHas('supplierQuote', fn ($q) => $q->where('request_id', $request->getKey()))
+                            ->whereHas('supplierQuote', fn (Builder $q) => $q->where('request_id', $request->getKey()))
                             ->where('request_item_id', $childRequestItem->getKey())
                             ->first();
                         if ($anyChildQuoteItem !== null) {
@@ -1195,7 +1197,7 @@ final class BuyerQuotesRelationManager extends RelationManager
         unset($item, $childItem);
 
         if ($singleQuote !== null) {
-            $paymentTerms = $singleQuote->paymentTerms->map(fn ($t): array => [
+            $paymentTerms = $singleQuote->paymentTerms->map(fn (\App\Models\SupplierQuotePaymentTerm $t): array => [
                 'due_days' => $t->due_days,
                 'percentage' => $t->percentage,
                 'job_progress' => $t->job_progress,
@@ -1388,7 +1390,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         // Get main items that were just created, keyed by request_item_id
                         $mainItems = $record->items()
                             ->whereNotNull('request_item_id')
-                            ->whereHas('requestItem', fn ($q) => $q->whereNull('parent_id'))
+                            ->whereHas('requestItem', fn (Builder $q) => $q->whereNull('parent_id'))
                             ->orderBy('sort_order')
                             ->get()
                             ->keyBy('request_item_id');
@@ -1486,7 +1488,7 @@ final class BuyerQuotesRelationManager extends RelationManager
 
                                     // Find the corresponding supplier quote item for this child
                                     $childSupplierQuoteItem = \App\Models\SupplierQuoteItem::query()
-                                        ->whereHas('supplierQuote', fn ($q) => $q->where('request_id', $request->getKey())
+                                        ->whereHas('supplierQuote', fn (Builder $q) => $q->where('request_id', $request->getKey())
                                             ->where('status', SupplierQuoteStatus::SELECTED))
                                         ->where('request_item_id', $childRequestItem->getKey())
                                         ->first();
@@ -1556,7 +1558,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     ->where('request_id', $request->getKey())
                                     ->where('status', SupplierQuoteStatus::SELECTED)
                                     ->pluck('id')
-                                    ->map(fn ($id): int => (int) $id)
+                                    ->map(fn (mixed $id): int => (int) $id)
                                     ->all()
                             )
                                 ->with(['requestItem.article', 'requestItem.unitOfMeasure'])
@@ -1679,10 +1681,10 @@ final class BuyerQuotesRelationManager extends RelationManager
                         // Prepared By: key account assigned to this request's buyer (same team)
                         $preparedByDefault = $team && $request->buyer_id
                             ? User::query()
-                                ->whereHas('teams', fn ($q) => $q->where('teams.id', $team->id)
+                                ->whereHas('teams', fn (Builder $q) => $q->where('teams.id', $team->id)
                                     ->where('team_user.role', 'central_purchasing')
                                     ->where('team_user.central_purchasing_role', CentralPurchasingRole::KEY_ACCOUNT->value))
-                                ->whereHas('buyers', fn ($q) => $q->where('companies.id', $request->buyer_id))
+                                ->whereHas('buyers', fn (Builder $q) => $q->where('companies.id', $request->buyer_id))
                                 ->orderBy('name')
                                 ->first()
                                 ?->id
@@ -1983,7 +1985,7 @@ final class BuyerQuotesRelationManager extends RelationManager
 
                                 $mainItems = $record->items()
                                     ->whereNotNull('request_item_id')
-                                    ->whereHas('requestItem', fn ($q) => $q->whereNull('parent_id'))
+                                    ->whereHas('requestItem', fn (Builder $q) => $q->whereNull('parent_id'))
                                     ->orderBy('sort_order')
                                     ->get()
                                     ->keyBy('request_item_id');
@@ -2435,9 +2437,9 @@ final class BuyerQuotesRelationManager extends RelationManager
         return SupplierQuote::query()
             ->where('request_id', $request->getKey())
             ->where('status', SupplierQuoteStatus::SELECTED)
-            ->where(function ($query): void {
+            ->where(function (Builder $query): void {
                 $query->where('obtained', true)
-                    ->orWhereHas('items', fn ($q) => $q->where('is_selected', true));
+                    ->orWhereHas('items', fn (Builder $q) => $q->where('is_selected', true));
             });
     }
 
@@ -2451,10 +2453,10 @@ final class BuyerQuotesRelationManager extends RelationManager
     {
         return \App\Models\SupplierQuoteItem::query()
             ->whereIn('supplier_quote_id', $supplierQuoteIds)
-            ->whereHas('requestItem', fn ($q) => $q->whereNull('parent_id'))
-            ->where(function ($query): void {
+            ->whereHas('requestItem', fn (Builder $q) => $q->whereNull('parent_id'))
+            ->where(function (Builder $query): void {
                 $query->where('is_selected', true)
-                    ->orWhereHas('supplierQuote', fn ($q) => $q->where('obtained', true));
+                    ->orWhereHas('supplierQuote', fn (Builder $q) => $q->where('obtained', true));
             });
     }
 
@@ -2529,7 +2531,7 @@ final class BuyerQuotesRelationManager extends RelationManager
         return $this->supplierQuotesAvailableForBuyerQuoteQuery($request)
             ->orderBy('quote_number')
             ->pluck('id')
-            ->map(fn ($id): int => (int) $id)
+            ->map(fn (mixed $id): int => (int) $id)
             ->all();
     }
 
@@ -2806,7 +2808,7 @@ final class BuyerQuotesRelationManager extends RelationManager
             $serviceItemIds = $request->items()
                 ->where('item_type', \App\Enums\ItemType::SERVICE)
                 ->pluck('id')
-                ->map(fn ($id): int => (int) $id)
+                ->map(fn (mixed $id): int => (int) $id)
                 ->values()
                 ->all();
             $this->serviceItemIds = $serviceItemIds;

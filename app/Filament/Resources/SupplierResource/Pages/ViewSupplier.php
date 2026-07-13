@@ -9,6 +9,7 @@ use App\Enums\DeliveryType;
 use App\Enums\PortalType;
 use App\Filament\Resources\SupplierResource;
 use App\Filament\Resources\SupplierResource\RelationManagers\ArticlesRelationManager;
+use App\Models\Company;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -110,7 +111,7 @@ final class ViewSupplier extends ViewRecord
                             TextEntry::make('domain')
                                 ->label('Domain')
                                 ->placeholder('—')
-                                ->url(fn ($record) => $record->domain ? "https://{$record->domain}" : null)
+                                ->url(fn (Company $record) => $record->domain ? "https://{$record->domain}" : null)
                                 ->openUrlInNewTab(),
                             TextEntry::make('email')
                                 ->label('Email')
@@ -153,7 +154,7 @@ final class ViewSupplier extends ViewRecord
                             ->placeholder('—'),
                         TextEntry::make('delivery_type')
                             ->label('Delivery Type')
-                            ->formatStateUsing(fn ($state): ?string => $state instanceof DeliveryType ? $state->getLabel() : ($state ?? null))
+                            ->formatStateUsing(fn (mixed $state): ?string => $state instanceof DeliveryType ? $state->getLabel() : ($state ?? null))
                             ->placeholder('—'),
                         TextEntry::make('delivery_type_details')
                             ->label('Delivery Type Details')

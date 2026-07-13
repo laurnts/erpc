@@ -13,6 +13,7 @@ use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestS
 use App\Models\Company;
 use App\Models\Currency;
 use App\Models\Request;
+use App\Models\RequestItem;
 use App\Models\SupplierQuote;
 use App\Models\SupplierQuoteItem;
 use App\Models\TaxCode;
@@ -47,6 +48,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Spatie\MediaLibrary\MediaCollections\Exceptions\FileUnacceptableForCollection;
 
 final class SupplierQuotesRelationManager extends RelationManager
@@ -359,7 +361,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                             return Repeater::make('items')
                                 ->relationship('items',
                                     // Only load main-level lines; child lines are nested within their main items
-                                    fn ($query) => $query->whereDoesntHave('requestItem', function ($q): void {
+                                    fn (Builder $query) => $query->whereDoesntHave('requestItem', function (Builder $q): void {
                                         $q->whereNotNull('parent_id');
                                     }))
                                 ->mutateRelationshipDataBeforeFillUsing(function (array $data, SupplierQuote|SupplierQuoteItem $record) use ($request): array {
@@ -464,7 +466,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                     return $data;
                                 });
                         })()
-                            ->afterStateHydrated(function (Set $set, Get $get, $state, $record) use ($request): void {
+                            ->afterStateHydrated(function (Set $set, Get $get, mixed $state, mixed $record) use ($request): void {
                                 // Populate child_items for each main item after items are loaded from relationship
                                 if (! is_array($state) || $state === []) {
                                     return;
@@ -559,7 +561,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                             ->options(fn (): array => $request->items()
                                                 ->whereNull('parent_id') // Only show main items, not child items
                                                 ->get()
-                                                ->mapWithKeys(fn ($item): array => [
+                                                ->mapWithKeys(fn (RequestItem $item): array => [
                                                     $item->getKey() => $item->display_text,
                                                 ])
                                                 ->all())
@@ -611,7 +613,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                             ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
                                         Select::make('unit_of_measure_id')
                                             ->label('Unit')
-                                            ->relationship('unitOfMeasure', 'label', fn ($query) => $query->where('team_id', $request->team_id)->where('is_active', true))
+                                            ->relationship('unitOfMeasure', 'label', fn (Builder $query) => $query->where('team_id', $request->team_id)->where('is_active', true))
 
                                             ->preload()
                                             ->selectablePlaceholder(false)
@@ -749,8 +751,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                             ->default(1)
                                                             ->step(1) // No decimals for child items
                                                             ->extraInputAttributes(['inputmode' => 'numeric'])
-                                                            ->formatStateUsing(fn ($state): string => $state !== null ? (string) (int) (float) $state : '1')
-                                                            ->dehydrateStateUsing(fn ($state): int => $state !== null ? (int) (float) $state : 1)
+                                                            ->formatStateUsing(fn (mixed $state): string => $state !== null ? (string) (int) (float) $state : '1')
+                                                            ->dehydrateStateUsing(fn (mixed $state): int => $state !== null ? (int) (float) $state : 1)
                                                             ->columnSpan(2)
                                                             ->live(onBlur: true)
                                                             ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
@@ -775,8 +777,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                             ->default(0)
                                                             ->step(1) // No decimals for child items
                                                             ->extraInputAttributes(['inputmode' => 'numeric'])
-                                                            ->formatStateUsing(fn ($state): string => $state !== null ? (string) (int) (float) $state : '0')
-                                                            ->dehydrateStateUsing(fn ($state): int => $state !== null ? (int) (float) $state : 0)
+                                                            ->formatStateUsing(fn (mixed $state): string => $state !== null ? (string) (int) (float) $state : '0')
+                                                            ->dehydrateStateUsing(fn (mixed $state): int => $state !== null ? (int) (float) $state : 0)
                                                             ->columnSpan(4)
                                                             ->live(onBlur: true)
                                                             ->afterStateUpdated(fn (Set $set, Get $get) => $this->calculateItemTotals($set, $get)),
@@ -835,8 +837,8 @@ final class SupplierQuotesRelationManager extends RelationManager
                                                             ->numeric()
                                                             ->step(1) // No decimals for child items
                                                             ->extraInputAttributes(['inputmode' => 'numeric'])
-                                                            ->formatStateUsing(fn ($state): string => $state !== null ? (string) (int) (float) $state : '0')
-                                                            ->dehydrateStateUsing(fn ($state): int => $state !== null ? (int) (float) $state : 0)
+                                                            ->formatStateUsing(fn (mixed $state): string => $state !== null ? (string) (int) (float) $state : '0')
+                                                            ->dehydrateStateUsing(fn (mixed $state): int => $state !== null ? (int) (float) $state : 0)
                                                             ->disabled()
                                                             ->dehydrated()
                                                             ->columnSpan(6),
@@ -847,7 +849,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                                             ->collapsible()
                                             ->itemLabel(fn (array $state): ?string => $state['description'] ?? null)
                                             ->dehydrated(true) // Include in form state so we can access it in callbacks
-                                            ->afterStateHydrated(function (Set $set, Get $get, $state, $record) use ($request): void {
+                                            ->afterStateHydrated(function (Set $set, Get $get, mixed $state, mixed $record) use ($request): void {
                                                 // Load child_items from parent item's data when repeater hydrates
                                                 // Get request_item_id from parent item context
                                                 $requestItemId = $get('../../request_item_id');
@@ -940,9 +942,9 @@ final class SupplierQuotesRelationManager extends RelationManager
                                     ])
                                     ->collapsible()
                                     ->collapsed()
-                                    ->visible(function (Get $get, $record) use ($request): bool {
+                                    ->visible(function (Get $get, ?SupplierQuoteItem $record) use ($request): bool {
                                         $requestItemId = $get('request_item_id');
-                                        if ($requestItemId === null && $record !== null) {
+                                        if ($requestItemId === null && $record instanceof \App\Models\SupplierQuoteItem) {
                                             $requestItemId = $record->request_item_id;
                                         }
                                         if ($requestItemId === null) {
@@ -1212,7 +1214,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                         // Similar to Compare Quotes button - need quotes with RECEIVED or SELECTED status
                         $quotesWithPrices = $request->supplierQuotes()
                             ->whereIn('status', [SupplierQuoteStatus::RECEIVED, SupplierQuoteStatus::SELECTED])
-                            ->whereHas('items', function ($query): void {
+                            ->whereHas('items', function (Builder $query): void {
                                 $query->where('unit_price', '>', 0);
                             })
                             ->exists();
@@ -1271,7 +1273,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                             // Save child items from form data (child_items may not be passed into mutateRelationshipDataBeforeSaveUsing)
                             $itemsData = $data['items'] ?? [];
                             $mainItems = $record->items()
-                                ->whereHas('requestItem', function ($q): void {
+                                ->whereHas('requestItem', function (Builder $q): void {
                                     $q->whereNull('parent_id');
                                 })
                                 ->get();
@@ -1412,7 +1414,7 @@ final class SupplierQuotesRelationManager extends RelationManager
                             // Child items are captured in storedChildItemsData by mutateRelationshipDataBeforeSaveUsing;
                             // $data['items'] is often empty in after(), so we rely on storedChildItemsData to persist them.
                             $mainItems = $record->items()
-                                ->whereHas('requestItem', function ($q): void {
+                                ->whereHas('requestItem', function (Builder $q): void {
                                     $q->whereNull('parent_id');
                                 })
                                 ->get();

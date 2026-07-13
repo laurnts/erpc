@@ -16,7 +16,9 @@ use App\Models\PaymentDocumentApproval;
 use App\Models\People;
 use App\Models\Request;
 use App\Models\Shipment;
+use App\Models\ShipmentItem;
 use App\Models\SupplierOrder;
+use App\Models\SupplierOrderItem;
 use App\Services\Email\EmailTemplateService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -31,13 +33,16 @@ use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Enums\Size;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\HtmlString;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class ShipmentsRelationManager extends RelationManager
 {
@@ -82,7 +87,7 @@ final class ShipmentsRelationManager extends RelationManager
             ->pluck('media_id')
             ->toArray();
 
-        return $media->contains(fn ($m): bool => ! in_array($m->id, $approvedMediaIds, true));
+        return $media->contains(fn (Media $m): bool => ! in_array($m->id, $approvedMediaIds, true));
     }
 
     /**
@@ -146,7 +151,7 @@ final class ShipmentsRelationManager extends RelationManager
                                         ->label('Order Item')
                                         ->options(
                                             $supplierOrder->shippableItems()
-                                                ->mapWithKeys(fn ($item): array => [
+                                                ->mapWithKeys(fn (SupplierOrderItem $item): array => [
                                                     $item->getKey() => $item->description,
                                                 ])
                                                 ->all()
@@ -172,7 +177,7 @@ final class ShipmentsRelationManager extends RelationManager
                                         ->numeric()
                                         ->required()
                                         ->step(0.0001)
-                                        ->helperText(function ($get) use ($supplierOrder): ?string {
+                                        ->helperText(function (Get $get) use ($supplierOrder): ?string {
                                             $orderItemId = $get('supplier_order_item_id');
                                             if ($orderItemId === null) {
                                                 return null;
@@ -552,7 +557,7 @@ final class ShipmentsRelationManager extends RelationManager
             return '<span class="text-gray-400">No items</span>';
         }
 
-        $rows = $shipment->items->map(function ($item): string {
+        $rows = $shipment->items->map(function (ShipmentItem $item): string {
             $orderItem = $item->supplierOrderItem;
             $description = $orderItem !== null ? $orderItem->description : 'Unknown item';
             $qtyShipped = (float) $item->quantity_shipped;
@@ -670,7 +675,7 @@ final class ShipmentsRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('po_number')
             ->defaultSort('created_at', 'desc')
-            ->modifyQueryUsing(fn ($query) => $query
+            ->modifyQueryUsing(fn (Builder $query) => $query
                 ->whereIn('status', [OrderStatus::SENT, OrderStatus::COMPLETED])
                 ->with(['supplier', 'shipments', 'items'])
             )
@@ -724,8 +729,8 @@ final class ShipmentsRelationManager extends RelationManager
                             $shipmentItems = $record->items()
                                 ->orderBy('sort_order')
                                 ->get()
-                                ->filter(fn ($item): bool => $item->getRemainingQuantity() > 0)
-                                ->map(fn ($item): array => [
+                                ->filter(fn (SupplierOrderItem $item): bool => $item->getRemainingQuantity() > 0)
+                                ->map(fn (SupplierOrderItem $item): array => [
                                     'supplier_order_item_id' => $item->getKey(),
                                     'quantity_shipped' => (string) $item->getRemainingQuantity(),
                                     'condition' => ItemCondition::GOOD->value,

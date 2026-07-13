@@ -22,8 +22,10 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class CompletionReportsRelationManager extends RelationManager
@@ -49,7 +51,7 @@ final class CompletionReportsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(function ($query): void {
+            ->modifyQueryUsing(function (Builder $query): void {
                 $query->where('collection_name', 'completion_reports');
             })
             ->recordAction(null)
@@ -130,11 +132,11 @@ final class CompletionReportsRelationManager extends RelationManager
                         Select::make('payment_terms')
                             ->label('Payment Terms')
                             ->options(fn (): array => $this->getPaymentTermsOptions())
-                            ->visible(fn ($get): bool => $get('is_payment_document') === true)
-                            ->required(fn ($get): bool => $get('is_payment_document') === true)
+                            ->visible(fn (Get $get): bool => $get('is_payment_document') === true)
+                            ->required(fn (Get $get): bool => $get('is_payment_document') === true)
                             ->disabled(fn (): bool => $this->getPaymentTermsOptions() === [])
                             ->rules([
-                                fn (): \Closure => function (string $attribute, $value, \Closure $fail): void {
+                                fn (): \Closure => function (string $attribute, mixed $value, \Closure $fail): void {
                                     if (empty($value)) {
                                         return;
                                     }
@@ -231,8 +233,8 @@ final class CompletionReportsRelationManager extends RelationManager
                         ->label('Delete')
                         ->icon('heroicon-o-trash')
                         ->requiresConfirmation()
-                        ->authorize(fn ($record): bool => true)
-                        ->action(function ($record): void {
+                        ->authorize(fn (Media $record): bool => true)
+                        ->action(function (Media $record): void {
                             $record->delete();
 
                             Notification::make()

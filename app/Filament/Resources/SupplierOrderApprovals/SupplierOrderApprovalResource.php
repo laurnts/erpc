@@ -115,7 +115,7 @@ final class SupplierOrderApprovalResource extends Resource
             ->defaultSort('confirmed_at', 'desc')
             ->filters([
                 SelectFilter::make('supplier_id')
-                    ->relationship('supplier', 'name', fn ($query) => $query->where('is_supplier', true))
+                    ->relationship('supplier', 'name', fn (Builder $query) => $query->where('is_supplier', true))
                     ->label('Supplier')
                     ->preload(),
             ])

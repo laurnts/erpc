@@ -105,7 +105,7 @@ final class ArticlesRelationManager extends RelationManager
                     ->sortable(),
                 TextColumn::make('supplier_price')
                     ->label('Supplier Price')
-                    ->money(fn ($record): string => Currency::find($record->supplier_price_currency_id)?->code
+                    ->money(fn (Article $record): string => Currency::find($record->getAttribute('supplier_price_currency_id'))?->code
                         ?? Filament::getTenant()?->getBaseCurrencyCode()
                         ?? 'USD')
                     ->placeholder('—')
@@ -117,7 +117,7 @@ final class ArticlesRelationManager extends RelationManager
                     ->sortable(),
                 TextColumn::make('last_quoted_price')
                     ->label('Last Price')
-                    ->money(fn ($record): string => Currency::find($record->last_quoted_currency_id)?->code
+                    ->money(fn (Article $record): string => Currency::find($record->getAttribute('last_quoted_currency_id'))?->code
                         ?? Filament::getTenant()?->getBaseCurrencyCode()
                         ?? 'USD')
                     ->sortable(),

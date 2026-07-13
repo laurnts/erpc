@@ -47,7 +47,7 @@ final class UnitOfMeasureResource extends Resource
                 ->unique(
                     table: 'unit_of_measures',
                     ignoreRecord: true,
-                    modifyRuleUsing: fn (Unique $rule, $record) => $rule->where('team_id', $record?->team_id ?? Filament::getTenant()?->id)
+                    modifyRuleUsing: fn (Unique $rule, ?UnitOfMeasure $record) => $rule->where('team_id', $record?->team_id ?? Filament::getTenant()?->id)
                 )
                 ->helperText('A unique identifier for this unit (e.g., pcs, kg, m)'),
             TextInput::make('label')

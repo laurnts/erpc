@@ -18,6 +18,7 @@ use App\Mail\Erp\BuyerOrderToBuyerMail;
 use App\Mail\Erp\InvoiceToBuyerMail;
 use App\Models\BuyerInvoice;
 use App\Models\BuyerOrder;
+use App\Models\BuyerOrderItem;
 use App\Models\BuyerPayment;
 use App\Models\BuyerQuote;
 use App\Models\Request;
@@ -46,6 +47,7 @@ use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\HtmlString;
 
@@ -153,7 +155,7 @@ final class BuyerOrdersRelationManager extends RelationManager
                 ->schema([
                     Repeater::make('items')
                         ->relationship(
-                            modifyQueryUsing: fn ($query) => $query->with(['unitOfMeasure', 'requestItem.supplier', 'buyerQuoteItem.supplierQuoteItem.supplierQuote.supplier'])
+                            modifyQueryUsing: fn (Builder $query) => $query->with(['unitOfMeasure', 'requestItem.supplier', 'buyerQuoteItem.supplierQuoteItem.supplierQuote.supplier'])
                         )
                         ->schema([
                             Grid::make(12)
@@ -166,14 +168,14 @@ final class BuyerOrdersRelationManager extends RelationManager
                                         ->disabled(),
                                     Placeholder::make('unit_display')
                                         ->label('Unit')
-                                        ->content(fn ($record) => $record->unit_label ?? '—')
+                                        ->content(fn (?BuyerOrderItem $record) => $record->unit_label ?? '—')
                                         ->columnSpan(1),
                                     TextInput::make('unit_price')
                                         ->label('Price')
                                         ->columnSpan(2)
                                         ->disabled()
-                                        ->helperText(function ($record): ?string {
-                                            if ($record === null) {
+                                        ->helperText(function (?BuyerOrderItem $record): ?string {
+                                            if (! $record instanceof \App\Models\BuyerOrderItem) {
                                                 return null;
                                             }
 

@@ -10,6 +10,7 @@ use App\Filament\Resources\RequestResource\RelationManagers\Concerns\HasRequestS
 use App\Models\GoodsReceiveBatch;
 use App\Models\PaymentDocumentApproval;
 use App\Models\Request;
+use App\Models\SupplierOrder;
 use App\Support\DocumentUpload;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -24,6 +25,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Section;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
 final class GoodsReceiveRelationManager extends RelationManager
@@ -49,7 +51,7 @@ final class GoodsReceiveRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['supplierOrder.supplier', 'user']))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['supplierOrder.supplier', 'user']))
             ->recordAction(null)
             ->recordUrl(null)
             ->columns([
@@ -135,7 +137,7 @@ final class GoodsReceiveRelationManager extends RelationManager
                                     ->with('supplier')
                                     ->orderBy('po_number')
                                     ->get()
-                                    ->mapWithKeys(fn ($order): array => [
+                                    ->mapWithKeys(fn (SupplierOrder $order): array => [
                                         $order->id => "{$order->po_number} - ".($order->supplier?->name ?? ''),
                                     ])
                                     ->toArray();
@@ -240,7 +242,7 @@ final class GoodsReceiveRelationManager extends RelationManager
                         ->label('Delete')
                         ->icon('heroicon-o-trash')
                         ->requiresConfirmation()
-                        ->authorize(fn ($record): bool => true)
+                        ->authorize(fn (GoodsReceiveBatch $record): bool => true)
                         ->action(function (GoodsReceiveBatch $record): void {
                             foreach ($record->getMediaRecords() as $media) {
                                 $media->delete();

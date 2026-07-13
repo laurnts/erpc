@@ -117,7 +117,7 @@ final class SupplierOrderResource extends Resource
                     ->options(OrderStatus::class)
                     ->multiple(),
                 SelectFilter::make('supplier_id')
-                    ->relationship('supplier', 'name', fn ($query) => $query->where('is_supplier', true))
+                    ->relationship('supplier', 'name', fn (Builder $query) => $query->where('is_supplier', true))
                     ->label('Supplier')
                     ->preload(),
                 SelectFilter::make('request_id')

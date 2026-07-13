@@ -29,12 +29,14 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Size;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -217,7 +219,7 @@ final class ItemsRelationManager extends RelationManager
                     ])
                     ->columns(2)
                     ->columnSpanFull()
-                    ->visible(fn ($get, $record): bool => $this->isServiceItemState($get('item_type')) && ($get('article_id') !== null || ($record && $record->article_id !== null)))
+                    ->visible(fn (Get $get, ?RequestItem $record): bool => $this->isServiceItemState($get('item_type')) && ($get('article_id') !== null || ($record && $record->article_id !== null)))
                     ->helperText('Add child items to provide detail breakdown of the service (services items only)')
                     ->defaultItems(0)
                     ->collapsible()
@@ -252,7 +254,7 @@ final class ItemsRelationManager extends RelationManager
 
                 return "Status: {$matchedCount}/{$totalCount} items matched to articles";
             })
-            ->modifyQueryUsing(fn ($query) => $query->whereNull('parent_id')->with(['article', 'children', 'supplierQuoteItems.supplierQuote'])->withCount('supplierQuoteItems'))
+            ->modifyQueryUsing(fn (Builder $query) => $query->whereNull('parent_id')->with(['article', 'children', 'supplierQuoteItems.supplierQuote'])->withCount('supplierQuoteItems'))
             ->reorderable('sort_order')
             ->defaultSort('sort_order')
             ->columns([
@@ -552,7 +554,7 @@ final class ItemsRelationManager extends RelationManager
                         if ($quotesToEmail === [] && ! empty($matchedItems)) {
                             $itemIds = $matchedItems->pluck('id')->toArray();
                             $existingQuotes = $request->supplierQuotes()
-                                ->whereHas('items', function ($query) use ($itemIds): void {
+                                ->whereHas('items', function (Builder $query) use ($itemIds): void {
                                     $query->whereIn('request_item_id', $itemIds);
                                 })
                                 ->get();
@@ -780,7 +782,7 @@ final class ItemsRelationManager extends RelationManager
 
                             $rows = array_values(array_filter(
                                 $rows,
-                                static fn ($childData): bool => is_array($childData)
+                                static fn (mixed $childData): bool => is_array($childData)
                                     && isset($childData['description'])
                                     && ! empty($childData['description']),
                             ));
@@ -927,7 +929,7 @@ final class ItemsRelationManager extends RelationManager
                         // Also check existing quotes for this item to resend emails if needed
                         if ($quotesToEmail === []) {
                             $existingQuotes = $request->supplierQuotes()
-                                ->whereHas('items', function ($query) use ($record): void {
+                                ->whereHas('items', function (Builder $query) use ($record): void {
                                     $query->where('request_item_id', $record->getKey());
                                 })
                                 ->get();
