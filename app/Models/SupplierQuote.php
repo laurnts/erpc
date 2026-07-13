@@ -414,7 +414,7 @@ final class SupplierQuote extends Model implements HasMedia
 
         $quoteCoveredMainItemIds = $this->items()
             ->whereNotNull('request_item_id')
-            ->whereHas('requestItem', fn ($q) => $q->whereNull('parent_id'))
+            ->whereHas('requestItem', fn (Builder $q) => $q->whereNull('parent_id'))
             ->pluck('request_item_id')
             ->unique()
             ->values()

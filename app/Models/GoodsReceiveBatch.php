@@ -79,7 +79,7 @@ final class GoodsReceiveBatch extends Model
 
         $media = Media::query()->whereIn('id', $this->media_ids)->get();
 
-        return collect($this->media_ids)->map(fn ($id) => $media->firstWhere('id', $id))->filter()->values();
+        return collect($this->media_ids)->map(fn (mixed $id) => $media->firstWhere('id', $id))->filter()->values();
     }
 
     /**

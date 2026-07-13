@@ -125,7 +125,7 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
         if ($this->request->buyer_id) {
             $users = $users->filter(
                 // Check if this key account is assigned to handle the request's buyer via key_account_buyers table
-                fn ($user) => \Illuminate\Support\Facades\DB::table('key_account_buyers')
+                fn (\App\Models\User $user) => \Illuminate\Support\Facades\DB::table('key_account_buyers')
                     ->where('key_account_id', $user->id)
                     ->where('buyer_id', $this->request->buyer_id)
                     ->exists());

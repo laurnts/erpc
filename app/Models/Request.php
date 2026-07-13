@@ -478,7 +478,7 @@ final class Request extends Model implements HasCustomFields, HasMedia
         return Attribute::make(
             get: fn (): int => $this->items()
                 ->whereNull('parent_id') // Only main items
-                ->where(function ($query): void {
+                ->where(function (Builder $query): void {
                     $query->where('is_matched', false)
                         ->orWhereNull('article_id'); // Also count items without article_id as unmatched
                 })
@@ -875,8 +875,8 @@ final class Request extends Model implements HasCustomFields, HasMedia
     public static function itemPresenceExistsConstraints(): array
     {
         return [
-            'items as has_goods_items' => fn ($query) => $query->where('item_type', ItemType::GOODS),
-            'items as has_services_items' => fn ($query) => $query->where('item_type', ItemType::SERVICE),
+            'items as has_goods_items' => fn (Builder $query) => $query->where('item_type', ItemType::GOODS),
+            'items as has_services_items' => fn (Builder $query) => $query->where('item_type', ItemType::SERVICE),
         ];
     }
 
@@ -955,7 +955,7 @@ final class Request extends Model implements HasCustomFields, HasMedia
         return ! $this->items()
             ->whereNull('parent_id')
             ->where('item_type', ItemType::SERVICE)
-            ->whereNotExists(function ($query): void {
+            ->whereNotExists(function (\Illuminate\Database\Query\Builder $query): void {
                 $query->select(DB::raw('1'))
                     ->from('acceptance_report_items')
                     ->join('acceptance_reports', 'acceptance_reports.id', '=', 'acceptance_report_items.acceptance_report_id')

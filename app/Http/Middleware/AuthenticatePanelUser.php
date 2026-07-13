@@ -16,9 +16,10 @@ use Illuminate\Database\Eloquent\Model;
 final class AuthenticatePanelUser extends FilamentAuthenticate
 {
     /**
+     * @param  \Illuminate\Http\Request  $request
      * @param  array<string>  $guards
      */
-    protected function authenticate($request, array $guards): void
+    protected function authenticate(mixed $request, array $guards): void
     {
         $guard = Filament::auth();
 

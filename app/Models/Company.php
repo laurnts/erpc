@@ -16,6 +16,7 @@ use App\Observers\CompanyObserver;
 use App\Services\AvatarService;
 use Database\Factories\CompanyFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -238,7 +239,7 @@ final class Company extends Model implements HasCustomFields, HasMedia
     public function keyAccounts(): BelongsToMany
     {
         return $this->belongsToMany(\App\Models\User::class, 'key_account_buyers', 'buyer_id', 'key_account_id')
-            ->whereHas('teams', function ($query): void {
+            ->whereHas('teams', function (Builder $query): void {
                 $query->where('team_user.role', 'central_purchasing')
                     ->where('team_user.central_purchasing_role', \App\Enums\CentralPurchasingRole::KEY_ACCOUNT->value);
             })

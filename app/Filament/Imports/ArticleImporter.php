@@ -289,6 +289,9 @@ final class ArticleImporter extends BaseImporter
         };
     }
 
+    /**
+     * @param  array<int, string>  $additionalGuesses
+     */
     private function resolveImportString(string $column, array $additionalGuesses = []): string
     {
         if (array_key_exists($column, $this->data)) {

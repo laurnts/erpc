@@ -15,6 +15,7 @@ use App\Services\Erp\Financial\TotalsLine;
 use App\Support\DocumentUpload;
 use Database\Factories\BuyerQuoteFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -366,7 +367,7 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
 
         // Get all request items with selected supplier quotes for this request
         $selectedSupplierQuoteItems = \App\Models\SupplierQuoteItem::query()
-            ->whereHas('supplierQuote', fn ($q) => $q->where('request_id', $this->request_id)
+            ->whereHas('supplierQuote', fn (Builder $q) => $q->where('request_id', $this->request_id)
                 ->where('status', \App\Enums\SupplierQuoteStatus::SELECTED))
             ->whereNotNull('request_item_id')
             ->pluck('request_item_id')
@@ -454,7 +455,7 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
 
         // Get all selected supplier quote items for this request
         $selectedSupplierQuoteItems = \App\Models\SupplierQuoteItem::query()
-            ->whereHas('supplierQuote', fn ($q) => $q->where('request_id', $this->request_id)
+            ->whereHas('supplierQuote', fn (Builder $q) => $q->where('request_id', $this->request_id)
                 ->where('status', \App\Enums\SupplierQuoteStatus::SELECTED))
             ->whereNotNull('request_item_id')
             ->whereNotIn('request_item_id', $existingRequestItemIds)

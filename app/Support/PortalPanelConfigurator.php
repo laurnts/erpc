@@ -6,6 +6,7 @@ namespace App\Support;
 
 use App\Filament\Pages\Auth\EmailVerificationPrompt;
 use App\Http\Middleware\UsePanelSession;
+use App\Models\CompanyPortalUser;
 use App\Services\Portal\PortalContext;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
@@ -142,7 +143,7 @@ final readonly class PortalPanelConfigurator
                     ->label('Company')
                     ->options(fn (): array => app($context)
                         ->activeMemberships()
-                        ->mapWithKeys(fn ($membership): array => [
+                        ->mapWithKeys(fn (CompanyPortalUser $membership): array => [
                             $membership->company_id => (string) $membership->company?->name,
                         ])
                         ->all())

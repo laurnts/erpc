@@ -637,7 +637,7 @@ final readonly class RequestTimelineSource
             ->get()
             ->map(function (RequestNote $note) use ($request): TimelineEntry {
                 $attachments = $note->getMedia(RequestNote::ATTACHMENTS_COLLECTION)
-                    ->map(fn ($media): string => (string) $media->file_name)
+                    ->map(fn (Media $media): string => (string) $media->file_name)
                     ->values()
                     ->all();
 

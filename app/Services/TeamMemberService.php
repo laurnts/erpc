@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Enums\CentralPurchasingRole;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 
 final readonly class TeamMemberService
@@ -21,7 +22,7 @@ final readonly class TeamMemberService
     public static function getTeamMembersByCentralPurchasingRole(Team $team, CentralPurchasingRole $role): Collection
     {
         return User::query()
-            ->whereHas('teams', function ($query) use ($team, $role): void {
+            ->whereHas('teams', function (Builder $query) use ($team, $role): void {
                 $query->where('teams.id', $team->id)
                     ->where('team_user.role', 'central_purchasing')
                     ->where('team_user.central_purchasing_role', $role->value);
@@ -39,7 +40,7 @@ final readonly class TeamMemberService
     public static function getFinanceApprovers(Team $team): Collection
     {
         return User::query()
-            ->whereHas('teams', function ($query) use ($team): void {
+            ->whereHas('teams', function (Builder $query) use ($team): void {
                 $query->where('teams.id', $team->id)
                     ->where('team_user.role', 'central_purchasing')
                     ->where('team_user.central_purchasing_role', CentralPurchasingRole::FINANCE->value)
@@ -59,13 +60,13 @@ final readonly class TeamMemberService
     public static function getCentralPurchasingTeamMembers(Team $team, ?CentralPurchasingRole $role = null): Collection
     {
         $query = User::query()
-            ->whereHas('teams', function ($q) use ($team): void {
+            ->whereHas('teams', function (Builder $q) use ($team): void {
                 $q->where('teams.id', $team->id)
                     ->where('team_user.role', 'central_purchasing');
             });
 
         if ($role instanceof \App\Enums\CentralPurchasingRole) {
-            $query->whereHas('teams', function ($q) use ($role): void {
+            $query->whereHas('teams', function (Builder $q) use ($role): void {
                 $q->where('team_user.central_purchasing_role', $role->value);
             });
         }

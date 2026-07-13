@@ -45,7 +45,7 @@ final readonly class RequestGoodsReceiveDeleteController
             $media->delete();
 
             if ($batch !== null) {
-                $mediaIds = array_values(array_filter($batch->media_ids ?? [], fn ($id): bool => (int) $id !== (int) $media->id));
+                $mediaIds = array_values(array_filter($batch->media_ids ?? [], fn (mixed $id): bool => (int) $id !== (int) $media->id));
 
                 if ($mediaIds === []) {
                     $batch->delete();

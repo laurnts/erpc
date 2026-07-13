@@ -345,7 +345,7 @@ final readonly class PortalTimelineSource
 
         return $query->get()->map(function (RequestNote $note) use ($request): TimelineEntry {
             $attachments = array_values($note->getMedia(RequestNote::ATTACHMENTS_COLLECTION)
-                ->map(fn ($media): string => (string) $media->file_name)
+                ->map(fn (Media $media): string => (string) $media->file_name)
                 ->all());
 
             return new TimelineEntry(

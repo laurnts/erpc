@@ -7,10 +7,13 @@ namespace App\Services\Erp;
 use App\Data\TeamErpSettings;
 use App\Models\BuyerInvoice;
 use App\Models\BuyerOrder;
+use App\Models\BuyerOrderItem;
 use App\Models\BuyerQuote;
+use App\Models\BuyerQuoteItem;
 use App\Models\ProfitAndLoss;
 use App\Models\QuotationEvaluation;
 use App\Models\Shipment;
+use App\Models\ShipmentItem;
 use App\Models\SupplierOrder;
 use App\Models\Team;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -42,18 +45,18 @@ final readonly class PdfGenerationService
         $quote->load(['buyer', 'currency', 'items.requestItem', 'paymentTerms', 'team']);
 
         // Process items: filter hidden items and distribute their prices
-        $visibleItems = $quote->items->filter(fn ($item): bool => ! $item->hide_from_pdf);
-        $hiddenItems = $quote->items->filter(fn ($item) => $item->hide_from_pdf);
+        $visibleItems = $quote->items->filter(fn (BuyerQuoteItem $item): bool => ! $item->hide_from_pdf);
+        $hiddenItems = $quote->items->filter(fn (BuyerQuoteItem $item) => $item->hide_from_pdf);
 
         // Calculate total price of hidden items (line_total)
-        $hiddenTotal = $hiddenItems->sum(fn ($item): float => (float) $item->line_total);
+        $hiddenTotal = $hiddenItems->sum(fn (BuyerQuoteItem $item): float => (float) $item->line_total);
 
         // Distribute hidden item prices evenly among visible items
         $visibleCount = $visibleItems->count();
         $distributionPerItem = $visibleCount > 0 ? $hiddenTotal / $visibleCount : 0;
 
         // Create processed items with distributed prices
-        $processedItems = $visibleItems->map(function ($item) use ($distributionPerItem): object {
+        $processedItems = $visibleItems->map(function (BuyerQuoteItem $item) use ($distributionPerItem): object {
             $quantity = (float) $item->quantity;
 
             // Add distribution amount directly to unit price (not divided by quantity)
@@ -80,7 +83,7 @@ final readonly class PdfGenerationService
 
         // Recalculate tax for processed items based on distributed prices and tax inclusivity
         // Processed items have distributed prices added, so we need to recalculate tax for each item
-        $processedItems = $processedItems->map(function ($item): object {
+        $processedItems = $processedItems->map(function (BuyerQuoteItem $item): object {
             $lineSubtotal = (float) $item->line_subtotal;
             $taxRate = (float) $item->tax_rate;
             $isTaxInclusive = (bool) $item->is_tax_inclusive;
@@ -139,7 +142,7 @@ final readonly class PdfGenerationService
 
         // Process items: filter hidden items and distribute their prices
         // Check hide_from_pdf from related buyer quote item
-        $visibleItems = $order->items->filter(function ($item): bool {
+        $visibleItems = $order->items->filter(function (BuyerOrderItem $item): bool {
             // If item has a buyer quote item, check its hide_from_pdf flag
             if ($item->buyerQuoteItem !== null) {
                 return ! $item->buyerQuoteItem->hide_from_pdf;
@@ -149,7 +152,7 @@ final readonly class PdfGenerationService
             return true;
         });
 
-        $hiddenItems = $order->items->filter(function ($item): bool {
+        $hiddenItems = $order->items->filter(function (BuyerOrderItem $item): bool {
             // If item has a buyer quote item, check its hide_from_pdf flag
             if ($item->buyerQuoteItem !== null) {
                 return $item->buyerQuoteItem->hide_from_pdf;
@@ -160,14 +163,14 @@ final readonly class PdfGenerationService
         });
 
         // Calculate total price of hidden items (line_total)
-        $hiddenTotal = $hiddenItems->sum(fn ($item): float => (float) $item->line_total);
+        $hiddenTotal = $hiddenItems->sum(fn (BuyerOrderItem $item): float => (float) $item->line_total);
 
         // Distribute hidden item prices evenly among visible items
         $visibleCount = $visibleItems->count();
         $distributionPerItem = $visibleCount > 0 ? $hiddenTotal / $visibleCount : 0;
 
         // Create processed items with distributed prices
-        $processedItems = $visibleItems->map(function ($item) use ($distributionPerItem): object {
+        $processedItems = $visibleItems->map(function (BuyerOrderItem $item) use ($distributionPerItem): object {
             $quantity = (float) $item->quantity;
 
             // Add distribution amount directly to unit price (not divided by quantity)
@@ -302,7 +305,7 @@ final readonly class PdfGenerationService
         ]);
 
         // Prepare items data with brand/model from article
-        $items = $shipment->items->map(function ($shipmentItem): array {
+        $items = $shipment->items->map(function (ShipmentItem $shipmentItem): array {
             $supplierOrderItem = $shipmentItem->supplierOrderItem;
             $article = $supplierOrderItem?->article;
 

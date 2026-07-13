@@ -6,6 +6,7 @@ namespace App\Mail\Erp;
 
 use App\Models\EmailTemplate;
 use App\Models\Shipment;
+use App\Models\ShipmentItem;
 use App\Services\Email\EmailTemplateService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
@@ -96,7 +97,7 @@ final class ShipmentToBuyerMail extends Mailable
         }
 
         // Prepare items data with brand/model from article (same as PDF)
-        $items = $this->shipment->items->map(function ($shipmentItem): array {
+        $items = $this->shipment->items->map(function (ShipmentItem $shipmentItem): array {
             $supplierOrderItem = $shipmentItem->supplierOrderItem;
             $article = $supplierOrderItem?->article;
 

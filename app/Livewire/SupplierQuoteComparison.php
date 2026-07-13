@@ -16,6 +16,7 @@ use App\Models\SupplierQuoteItem;
 use Filament\Notifications\Notification;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
@@ -66,7 +67,7 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
     {
         // Get items that are specifically marked as selected
         $selectedItems = SupplierQuoteItem::query()
-            ->whereHas('supplierQuote', fn ($query) => $query->where('request_id', $this->request->getKey()))
+            ->whereHas('supplierQuote', fn (Builder $query) => $query->where('request_id', $this->request->getKey()))
             ->where('is_selected', true)
             ->whereNotNull('request_item_id')
             ->get();
@@ -190,7 +191,7 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
 
         // First, clear all is_selected flags for this request's quotes
         SupplierQuoteItem::query()
-            ->whereHas('supplierQuote', fn ($query) => $query->where('request_id', $this->request->getKey()))
+            ->whereHas('supplierQuote', fn (Builder $query) => $query->where('request_id', $this->request->getKey()))
             ->update(['is_selected' => false]);
 
         // Mark selected quotes and their specific items
@@ -281,7 +282,7 @@ final class SupplierQuoteComparison extends BaseLivewireComponent
     public function hasAppliedSelections(): bool
     {
         return SupplierQuoteItem::query()
-            ->whereHas('supplierQuote', fn ($query) => $query->where('request_id', $this->request->getKey()))
+            ->whereHas('supplierQuote', fn (Builder $query) => $query->where('request_id', $this->request->getKey()))
             ->where('is_selected', true)
             ->exists();
     }

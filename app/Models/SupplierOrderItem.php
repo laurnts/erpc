@@ -9,6 +9,7 @@ use App\Enums\Unit;
 use App\Models\Concerns\LogsErpActivity;
 use App\Models\Concerns\StampsParentOnActivity;
 use Database\Factories\SupplierOrderItemFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -342,7 +343,7 @@ final class SupplierOrderItem extends Model
     {
         return (float) \App\Models\ShipmentItem::query()
             ->where('supplier_order_item_id', $this->getKey())
-            ->whereHas('shipment', function ($query): void {
+            ->whereHas('shipment', function (Builder $query): void {
                 $query->where('supplier_order_id', $this->supplier_order_id);
             })
             ->sum('quantity_shipped');

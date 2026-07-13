@@ -16,6 +16,7 @@ use Filament\Models\Contracts\HasTenants;
 use Filament\Panel;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -194,7 +195,7 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
         return $this->portalMemberships()
             ->where('is_active', true)
             ->where('portal', PortalType::Buyer)
-            ->whereHas('company', fn ($query) => $query->where('is_buyer', true));
+            ->whereHas('company', fn (Builder $query) => $query->where('is_buyer', true));
     }
 
     /**
@@ -209,7 +210,7 @@ final class User extends Authenticatable implements FilamentUser, HasAvatar, Has
         return $this->portalMemberships()
             ->where('is_active', true)
             ->where('portal', PortalType::Supplier)
-            ->whereHas('company', fn ($query) => $query->where('is_supplier', true));
+            ->whereHas('company', fn (Builder $query) => $query->where('is_supplier', true));
     }
 
     public function getDefaultTenant(Panel $panel): ?Model
