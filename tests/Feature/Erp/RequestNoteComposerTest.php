@@ -213,6 +213,11 @@ it('scopes a supplier-authored note to the supplier, hidden from buyer and other
         ->and(composerStaffNoteBodies($this))->toContain('supplier-authored-note');
 });
 
+it('anchors the sr-only file input inside a positioned label so it cannot stretch the page', function (): void {
+    livewire(RequestNoteComposer::class, ['request' => $this->request])
+        ->assertSeeHtml('class="relative flex cursor-pointer');
+});
+
 it('rejects a note with an empty body and no attachment', function (): void {
     livewire(RequestNoteComposer::class, ['request' => $this->request])
         ->set('body', '   ')

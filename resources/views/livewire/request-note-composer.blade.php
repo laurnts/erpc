@@ -56,7 +56,8 @@
         @endif
 
         <div class="flex flex-col gap-2">
-            <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+            {{-- `relative` contains the absolutely-positioned sr-only input; without it the input anchors to the document root and stretches the page, adding a second scrollbar --}}
+            <label class="relative flex cursor-pointer items-center gap-2 text-xs font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
                 @svg('heroicon-o-paper-clip', 'h-4 w-4')
                 <span>Attach files</span>
                 <input type="file" wire:model="attachments" multiple class="sr-only" />
