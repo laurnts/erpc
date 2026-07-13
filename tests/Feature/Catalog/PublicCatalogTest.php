@@ -147,6 +147,39 @@ describe('Category menu', function (): void {
     });
 });
 
+describe('Pagination', function (): void {
+    it('paginates at 50 per page and navigates between pages', function (): void {
+        foreach (range(1, 50) as $i) {
+            makeCatalogArticle($this->team, [
+                'name' => sprintf('Bulk Product %03d', $i),
+                'creator_id' => $this->owner->getKey(),
+            ]);
+        }
+        makeCatalogArticle($this->team, [
+            'name' => 'ZZZ Overflow Product',
+            'creator_id' => $this->owner->getKey(),
+        ]);
+
+        livewire(CatalogHome::class)
+            ->assertSee('Bulk Product 001')
+            ->assertDontSee('ZZZ Overflow Product')
+            ->assertSee('Showing 1-50 of 51 products')
+            ->assertSee('Next')
+            ->call('gotoPage', 2, 'page')
+            ->assertSee('ZZZ Overflow Product')
+            ->assertSee('Showing 51-51 of 51 products')
+            ->assertDontSee('Bulk Product 001');
+    });
+
+    it('shows the result total even when everything fits on one page', function (): void {
+        makeCatalogArticle($this->team, ['name' => 'Only Product']);
+
+        livewire(CatalogHome::class)
+            ->assertSee('Showing 1-1 of 1 product')
+            ->assertDontSee('Next');
+    });
+});
+
 describe('Price display', function (): void {
     it('shows the list price formatted in the team default currency', function (): void {
         makeCatalogArticle($this->team, ['name' => 'Priced Product', 'list_price' => '1250.0000']);
@@ -193,8 +226,8 @@ describe('Price display', function (): void {
     });
 });
 
-describe('Availability badge', function (): void {
-    it('shows In stock when an active supplier link has positive quantity', function (): void {
+describe('Stock visibility', function (): void {
+    it('does not show stock availability badges on the public catalog', function (): void {
         $article = makeCatalogArticle($this->team, ['name' => 'Stocked Product']);
         SupplierArticle::factory()->create([
             'article_id' => $article->getKey(),
@@ -203,60 +236,10 @@ describe('Availability badge', function (): void {
             'is_active' => true,
         ]);
 
-        livewire(CatalogHome::class)->assertSee('In stock');
-    });
-
-    it('shows Out of stock when quantities are recorded but none positive', function (): void {
-        $article = makeCatalogArticle($this->team, ['name' => 'Depleted Product']);
-        SupplierArticle::factory()->create([
-            'article_id' => $article->getKey(),
-            'supplier_id' => Company::factory()->supplier()->for($this->team)->create()->getKey(),
-            'available_quantity' => '0.0000',
-            'is_active' => true,
-        ]);
-
-        livewire(CatalogHome::class)->assertSee('Out of stock');
-    });
-
-    it('shows On request when quantities are unknown or no qualifying supplier link exists', function (): void {
-        makeCatalogArticle($this->team, ['name' => 'Unknown Availability Product']);
-
-        $nullQuantity = makeCatalogArticle($this->team, ['name' => 'Null Quantity Product']);
-        SupplierArticle::factory()->create([
-            'article_id' => $nullQuantity->getKey(),
-            'supplier_id' => Company::factory()->supplier()->for($this->team)->create()->getKey(),
-            'available_quantity' => null,
-            'is_active' => true,
-        ]);
-
         livewire(CatalogHome::class)
-            ->assertSee('On request')
+            ->assertSee('Stocked Product')
             ->assertDontSee('In stock')
             ->assertDontSee('Out of stock');
-    });
-
-    it('ignores inactive links and demoted suppliers for the stock badge', function (): void {
-        $article = makeCatalogArticle($this->team, ['name' => 'Formerly Stocked Product']);
-
-        SupplierArticle::factory()->create([
-            'article_id' => $article->getKey(),
-            'supplier_id' => Company::factory()->supplier()->for($this->team)->create()->getKey(),
-            'available_quantity' => '10.0000',
-            'is_active' => false,
-        ]);
-
-        $demoted = Company::factory()->supplier()->for($this->team)->create();
-        SupplierArticle::factory()->create([
-            'article_id' => $article->getKey(),
-            'supplier_id' => $demoted->getKey(),
-            'available_quantity' => '10.0000',
-            'is_active' => true,
-        ]);
-        $demoted->forceFill(['is_supplier' => false])->save();
-
-        livewire(CatalogHome::class)
-            ->assertSee('On request')
-            ->assertDontSee('In stock');
     });
 });
 

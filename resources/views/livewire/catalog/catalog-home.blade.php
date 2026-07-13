@@ -54,15 +54,12 @@
                                 </div>
                             @endif
 
-                            <div class="absolute top-2 right-2 drop-shadow-sm">
-                                @include('livewire.catalog.partials.availability-badge')
-                            </div>
                         </div>
 
-                        <div class="flex flex-1 flex-col gap-2 p-2">
+                        <div class="flex flex-1 flex-col gap-3 p-3">
                             <div class="w-full">
                                 @if ($article->preferredSupplier->first() !== null)
-                                    <span class="block w-full text-[0.6em] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 truncate">
+                                    <span class="mb-1 block w-full text-[0.6em] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 truncate">
                                         {{ $article->preferredSupplier->first()->name }}
                                     </span>
                                 @endif
@@ -82,7 +79,7 @@
                                 </div>
                             @endif
 
-                            <div class="mt-auto flex flex-col gap-2">
+                            <div class="mt-auto flex flex-col gap-3">
                                 <div>@include('livewire.catalog.partials.price')</div>
 
                                 <div class="flex items-center gap-2">
@@ -112,7 +109,7 @@
             </div>
 
             <div>
-                {{ $articles->links() }}
+                {{ $articles->links('livewire.catalog.partials.pagination') }}
             </div>
         @endif
     </div>

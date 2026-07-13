@@ -93,15 +93,7 @@ final class CatalogHome extends Component
         $query = Article::query()
             ->inPublicCatalog($teamId)
             ->select(['articles.id', 'articles.name', 'articles.description', 'articles.unit', 'articles.list_price', 'articles.show_price'])
-            ->with(['tags', 'media', 'preferredSupplier:companies.id,companies.name'])
-            ->withExists([
-                'suppliers as in_stock' => fn (Builder $q) => $q
-                    ->where('supplier_articles.is_active', true)
-                    ->where('supplier_articles.available_quantity', '>', 0),
-                'suppliers as has_quantity_data' => fn (Builder $q) => $q
-                    ->where('supplier_articles.is_active', true)
-                    ->whereNotNull('supplier_articles.available_quantity'),
-            ]);
+            ->with(['tags', 'media', 'preferredSupplier:companies.id,companies.name']);
 
         $term = trim($this->search);
 
