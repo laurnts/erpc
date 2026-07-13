@@ -9,13 +9,14 @@ The AI agent configuration has drifted from the actual project state. An audit
 (2026-07-14) found:
 
 1. **Missing vendor guidelines.** `boost.json`'s `"guidelines"` allowlist was
-   empty, so Laravel Boost silently dropped every third-party guideline package
-   during `boost:update`. Three eligible packages ship
+   empty at audit time, so Laravel Boost silently dropped every third-party
+   guideline package during `boost:update`. Three eligible packages ship
    `resources/boost/guidelines/core.blade.php`: `filament/filament` (~4.5KB,
    core Filament v5 conventions), `prism-php/prism` (~6.4KB, LLM package behind
    AI summaries), and `filament/blueprint` (~0.3KB, planning-mode pointer;
-   already re-enabled). `laravel/fortify` also ships one but is not a direct
-   composer requirement, so Boost cannot pick it up.
+   re-enabled and regenerated during the audit, so `boost.json` now reads
+   `["filament/blueprint"]`). `laravel/fortify` also ships one but is not a
+   direct composer requirement, so Boost cannot pick it up.
 2. **Phantom commands.** `.claude/rules/testing.md` documents `pnpm test`,
    `pnpm test:arch`, `pnpm test:coverage`, `pnpm test:type-coverage` — none
    exist (`package.json` has only `build`/`dev`). Real commands are the
@@ -56,26 +57,40 @@ The AI agent configuration has drifted from the actual project state. An audit
   `AppServiceProvider`, `InstallCommand`, `CreateSystemAdminCommand`).
 - `Relaticle\SystemAdmin` must not use `App` except `App\Models`, `App\Enums`.
 - `Relaticle\OnboardSeed` freely uses `App\Models` / `App\Enums` (Company,
-  People, Team, User, CreationSource…). Not arch-tested; document as allowed.
+  People, Team, User, CreationSource, CustomFields\PeopleField — exhaustive as
+  of audit). Not arch-tested; document as allowed.
 - `Relaticle\Documentation` imports nothing from `App`; self-contained.
 - `App` touches modules only from providers, listeners, and console commands.
 
 ## Changes
 
 ### 1. `boost.json` + regenerate (local-only file)
-`"guidelines": ["filament/blueprint", "filament/filament", "prism-php/prism"]`,
-then `php artisan boost:update`. Verify: three `=== <package> rules ===`
-sections inside `<laravel-boost-guidelines>`; zero diff outside the tags.
+Step 0: back up `CLAUDE.md` **and** `AGENTS.md` to the session scratchpad.
+`boost:update` regenerates both — `boost.json` configures three agents
+(`claude_code`, `codex`, `opencode`) and the latter two target `AGENTS.md`.
+Both files are gitignored; `AGENTS.md` has no hand-written section (OpenSpec
+block + managed block only), so it needs no content mirroring — just verify
+its changes stay inside the managed block.
+
+Then set
+`"guidelines": ["filament/blueprint", "filament/filament", "prism-php/prism"]`
+and run `php artisan boost:update`. Verify: three `=== <package> rules ===`
+sections inside `<laravel-boost-guidelines>` in both files; zero diff outside
+the tags in either file; `git status --porcelain` shows no tracked file
+changed by the regeneration.
 
 ### 2. `CLAUDE.md` middle section (local-only file)
-- Retitle: "ERPC — B2B Trading ERP" (keep "forked from Relaticle CRM" note for
-  provenance).
+- Retitle: "ERPC — B2B Trading ERP" and **add** a one-line "forked from
+  Relaticle CRM" provenance note (no such note exists yet).
 - Reword "CRM entities" → "team-scoped entities" with ERP examples.
 - Replace the 9-item spec list with all 21 (one-liners, grouped: ERP core,
   portals, platform, CRM legacy).
 - Add `decision-guide.md` to the Quick Start rules list.
-- State canonical tool form: `php vendor/bin/<tool>` (Docker wrapper),
-  overriding the Boost pint rule's bare `vendor/bin/pint`.
+- State canonical tool form: `php vendor/bin/<tool>` (Docker wrapper). This is
+  a standing precedence override — the managed block will keep saying
+  `vendor/bin/pint --dirty` on every regen — so the sentence must name what it
+  overrides explicitly (e.g. "this overrides the Boost pint rule's
+  `vendor/bin/pint` form below").
 
 ### 3. `.claude/rules/testing.md` (tracked)
 Replace `pnpm` commands with `composer test`, `composer test:arch`,
@@ -89,16 +104,46 @@ exception lists.
 Terminology sweep only (CRM → ERP/team-scoped). No rule-content changes.
 
 ### 6. Verification & commit
-- Diff CLAUDE.md before/after regen; assert only managed-block changes from
-  Boost, only middle-section changes from hand edits.
+
+The original defect was a documented-but-never-executed command, so the
+verification must *run* everything the docs promise, not just diff text:
+
+```bash
+# Criterion 1 — guideline sections present (expect 3, in CLAUDE.md and AGENTS.md)
+grep -c '^=== \(filament/filament\|prism-php/prism\|filament/blueprint\) rules ===' CLAUDE.md
+
+# Criterion 2 — every command documented in CLAUDE.md / .claude/rules runs
+composer test:arch
+composer test:type-coverage
+composer test:coverage   # proves a coverage driver exists in the Docker image;
+                         # if it errors, do NOT document it — adjust testing.md
+openspec list --specs
+php vendor/bin/pint --dirty  # canonical wrapper form works (no-op on clean tree)
+
+# Criterion 3 — spec list complete
+ls openspec/specs | wc -l    # expect 21; names must match the new CLAUDE.md list
+
+# Criterion 5 — terminology sweep
+grep -rni 'crm' .claude/rules/   # expect zero hits
+grep -ni 'crm' CLAUDE.md         # expect only: provenance note, crm-core spec
+                                 # name, occurrences inside the managed block
+```
+
+- Diff CLAUDE.md and AGENTS.md before/after regen; assert only managed-block
+  changes from Boost, only middle-section changes from hand edits;
+  `git status --porcelain` clean of unexpected tracked changes.
 - `composer test:arch` must pass (module rules mirror the tests).
-- Commit **only** tracked `.claude/rules/` changes (+ this spec). `boost.json`
-  and `CLAUDE.md` stay uncommitted per Laravel's gitignore recommendation.
+- Commit **only** tracked `.claude/rules/` changes (+ this spec). `boost.json`,
+  `CLAUDE.md`, and `AGENTS.md` stay uncommitted per Laravel's gitignore
+  recommendation.
 
 ## Error handling
 
 - If `boost:update` produces unexpected diffs outside the managed block,
-  restore from the scratchpad backup (`CLAUDE.md.before`) and stop.
+  restore from the scratchpad backups (`CLAUDE.md.before`, `AGENTS.md.before`
+  — created in Change 1 step 0) and stop.
+- If `composer test:coverage` fails for lack of a coverage driver, document
+  only the commands that actually run and note the limitation in testing.md.
 - If arch tests fail after rule edits, the *rules doc* is wrong, not the code —
   fix the doc to match `tests/ArchTest.php`.
 
@@ -112,10 +157,12 @@ Terminology sweep only (CRM → ERP/team-scoped). No rule-content changes.
 
 ## Success criteria
 
-- CLAUDE.md contains Filament, Prism, and Blueprint guideline sections.
+- CLAUDE.md and AGENTS.md contain Filament, Prism, and Blueprint guideline
+  sections.
 - Every command an agent can copy from CLAUDE.md or `.claude/rules/` executes
-  successfully.
+  successfully (verified by running each one, per Change 6).
 - Spec list matches `openspec list --specs` (21 entries).
 - Module rules match `tests/ArchTest.php` and actual imports.
 - No CRM-era terminology in tracked rules or the hand-written CLAUDE.md
-  section.
+  section, **except** the provenance note and legacy spec names (`crm-core`);
+  the Boost-managed block is exempt (regenerated content).
