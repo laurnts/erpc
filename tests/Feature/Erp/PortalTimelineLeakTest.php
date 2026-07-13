@@ -187,9 +187,9 @@ it('redacts staff causers and raw stage values in the rendered feed', function (
     $entries = $this->source->forParty($seed['request'], TimelineParty::buyer($seed['buyer']->getKey()));
     $rendered = view('timeline.portal-timeline', ['entries' => $entries])->render();
 
-    $presenterLabel = app(BuyerRequestStagePresenter::class)->labelForStage(RequestStage::PREPARING_BUYER_QUOTE);
+    $presenterLabel = app(BuyerRequestStagePresenter::class)->partyFacingLabel(RequestStage::PREPARING_BUYER_QUOTE);
 
-    // Stage is presented via the buyer label, never the raw enum value.
+    // Stage is presented via the customer-safe label, never the raw enum value.
     expect($rendered)->toContain($presenterLabel)
         ->and($rendered)->not->toContain(RequestStage::PREPARING_BUYER_QUOTE->value);
 

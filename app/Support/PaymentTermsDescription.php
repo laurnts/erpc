@@ -8,7 +8,7 @@ use App\Enums\PrepaymentType;
 use App\Models\BuyerOrder;
 use App\Models\BuyerQuote;
 
-final class PaymentTermsDescription
+final readonly class PaymentTermsDescription
 {
     /**
      * Build numbered payment-term lines from a buyer quote (prepayment + schedule).
