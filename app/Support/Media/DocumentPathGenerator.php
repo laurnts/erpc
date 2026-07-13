@@ -20,14 +20,14 @@ use Spatie\MediaLibrary\Support\PathGenerator\PathGenerator;
  */
 final readonly class DocumentPathGenerator implements PathGenerator
 {
-    private const SUBFOLDER = 'uploaded_document_files';
+    private const string SUBFOLDER = 'uploaded_document_files';
 
     /**
      * Map of model_type + collection_name to folder name (relative to disk root).
      *
      * @return array<class-string, array<string, string>>
      */
-    private static function folderMap(): array
+    private function folderMap(): array
     {
         return [
             SupplierQuote::class => [
@@ -56,7 +56,7 @@ final readonly class DocumentPathGenerator implements PathGenerator
     /**
      * Resolve model_type to class name (app uses morph map, so model_type can be alias e.g. 'supplier_quote').
      */
-    private static function resolveModelClass(Media $media): string
+    private function resolveModelClass(Media $media): string
     {
         $type = $media->model_type;
         $resolved = Relation::getMorphedModel($type);
@@ -64,12 +64,12 @@ final readonly class DocumentPathGenerator implements PathGenerator
         return $resolved ?? $type;
     }
 
-    private static function getFolderName(Media $media): ?string
+    private function getFolderName(Media $media): ?string
     {
-        $modelClass = self::resolveModelClass($media);
+        $modelClass = $this->resolveModelClass($media);
         $collectionName = $media->collection_name;
 
-        foreach (self::folderMap() as $mappedClass => $collections) {
+        foreach ($this->folderMap() as $mappedClass => $collections) {
             if (! is_a($modelClass, $mappedClass, true)) {
                 continue;
             }
@@ -82,20 +82,20 @@ final readonly class DocumentPathGenerator implements PathGenerator
     }
 
     /** Custom property set on new uploads so they use the dedicated path; avoids breaking existing files. */
-    public const PATH_VERSION_PROPERTY = 'path_version';
+    public const string PATH_VERSION_PROPERTY = 'path_version';
 
-    public const PATH_VERSION_V2 = 2;
+    public const int PATH_VERSION_V2 = 2;
 
-    public const PATH_VERSION_V3 = 3;
+    public const int PATH_VERSION_V3 = 3;
 
     /** Custom property holding the fully-resolved v3 path prefix stamped at attach time. */
-    public const PATH_PREFIX_PROPERTY = 'path_prefix';
+    public const string PATH_PREFIX_PROPERTY = 'path_prefix';
 
     /**
      * Resolve the stamped v3 prefix for the media, or null when the media is not a
      * complete v3 upload. This never queries the database: it reads custom properties only.
      */
-    private static function v3Prefix(Media $media): ?string
+    private function v3Prefix(Media $media): ?string
     {
         $version = $media->getCustomProperty(self::PATH_VERSION_PROPERTY);
         if ($version !== self::PATH_VERSION_V3 && $version !== (string) self::PATH_VERSION_V3) {
@@ -115,7 +115,7 @@ final readonly class DocumentPathGenerator implements PathGenerator
      * or (b) media has path_version so we know it was stored with the new structure.
      * Existing media on 'public' or without path_version keep legacy path {id}/.
      */
-    private static function useDedicatedPath(Media $media): bool
+    private function useDedicatedPath(Media $media): bool
     {
         if ($media->disk !== 'local') {
             return false;
@@ -124,28 +124,25 @@ final readonly class DocumentPathGenerator implements PathGenerator
         if ($pathVersion === self::PATH_VERSION_V2 || $pathVersion === (string) self::PATH_VERSION_V2) {
             return true;
         }
-        $folder = self::getFolderName($media);
+        $folder = $this->getFolderName($media);
         if ($folder === null) {
             return false;
         }
-        $modelClass = self::resolveModelClass($media);
+        $modelClass = $this->resolveModelClass($media);
 
-        return $modelClass === SupplierOrder::class
-            || $modelClass === Request::class
-            || $modelClass === QuotationEvaluation::class
-            || $modelClass === ProfitAndLoss::class;
+        return in_array($modelClass, [SupplierOrder::class, Request::class, QuotationEvaluation::class, ProfitAndLoss::class], true);
     }
 
     public function getPath(Media $media): string
     {
-        $v3Prefix = self::v3Prefix($media);
+        $v3Prefix = $this->v3Prefix($media);
         if ($v3Prefix !== null) {
             return $v3Prefix.'/'.$media->getKey().'/';
         }
-        if (! self::useDedicatedPath($media)) {
+        if (! $this->useDedicatedPath($media)) {
             return $media->getKey().'/';
         }
-        $folder = self::getFolderName($media);
+        $folder = $this->getFolderName($media);
         if ($folder !== null) {
             return $folder.'/'.$media->getKey().'/'.self::SUBFOLDER.'/';
         }
@@ -155,14 +152,14 @@ final readonly class DocumentPathGenerator implements PathGenerator
 
     public function getPathForConversions(Media $media): string
     {
-        $v3Prefix = self::v3Prefix($media);
+        $v3Prefix = $this->v3Prefix($media);
         if ($v3Prefix !== null) {
             return $v3Prefix.'/'.$media->getKey().'/conversions/';
         }
-        if (! self::useDedicatedPath($media)) {
+        if (! $this->useDedicatedPath($media)) {
             return $media->getKey().'/conversions/';
         }
-        $folder = self::getFolderName($media);
+        $folder = $this->getFolderName($media);
         if ($folder !== null) {
             return $folder.'/'.$media->getKey().'/'.self::SUBFOLDER.'/conversions/';
         }
@@ -172,14 +169,14 @@ final readonly class DocumentPathGenerator implements PathGenerator
 
     public function getPathForResponsiveImages(Media $media): string
     {
-        $v3Prefix = self::v3Prefix($media);
+        $v3Prefix = $this->v3Prefix($media);
         if ($v3Prefix !== null) {
             return $v3Prefix.'/'.$media->getKey().'/responsive-images/';
         }
-        if (! self::useDedicatedPath($media)) {
+        if (! $this->useDedicatedPath($media)) {
             return $media->getKey().'/responsive-images/';
         }
-        $folder = self::getFolderName($media);
+        $folder = $this->getFolderName($media);
         if ($folder !== null) {
             return $folder.'/'.$media->getKey().'/'.self::SUBFOLDER.'/responsive-images/';
         }

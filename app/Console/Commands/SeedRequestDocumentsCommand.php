@@ -23,11 +23,11 @@ use Throwable;
 
 final class SeedRequestDocumentsCommand extends Command
 {
-    private const DEFAULT_USER_NAME = 'Jun Sin';
+    private const string DEFAULT_USER_NAME = 'Jun Sin';
 
-    private const STAGING_DIRECTORY = 'uploads-tmp/seed-documents';
+    private const string STAGING_DIRECTORY = 'uploads-tmp/seed-documents';
 
-    private const GATES = ['goods-receive', 'completion-report', 'documents', 'quotation'];
+    private const array GATES = ['goods-receive', 'completion-report', 'documents', 'quotation'];
 
     protected $signature = 'request:seed-documents
                             {identifier : PO number (goods-receive, documents), request number (completion-report, quotation), QE/PNL number (documents), or SQ quote number (quotation)}
@@ -157,7 +157,7 @@ final class SeedRequestDocumentsCommand extends Command
     private function seedQuotation(string $identifier, User $user): int
     {
         $quotes = $this->resolveSupplierQuotes($identifier);
-        if ($quotes === null) {
+        if (! $quotes instanceof \Illuminate\Support\Collection) {
             $this->error("No supplier quote or request found for: {$identifier}");
 
             return self::FAILURE;

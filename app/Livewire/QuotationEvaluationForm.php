@@ -123,13 +123,12 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
 
         // Filter to only show key accounts assigned to handle this request's buyer
         if ($this->request->buyer_id) {
-            $users = $users->filter(function ($user) {
+            $users = $users->filter(
                 // Check if this key account is assigned to handle the request's buyer via key_account_buyers table
-                return \Illuminate\Support\Facades\DB::table('key_account_buyers')
+                fn ($user) => \Illuminate\Support\Facades\DB::table('key_account_buyers')
                     ->where('key_account_id', $user->id)
                     ->where('buyer_id', $this->request->buyer_id)
-                    ->exists();
-            });
+                    ->exists());
         }
 
         return $users
@@ -268,7 +267,7 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
         } catch (\Illuminate\Validation\ValidationException $e) {
             // Validation errors are handled automatically by Livewire/Filament
             throw $e;
-        } catch (\Exception $e) {
+        } catch (\Exception) {
             Notification::make()
                 ->title('Error creating Quotation Evaluation')
                 ->body('An error occurred while creating the quotation evaluation. Please try again.')

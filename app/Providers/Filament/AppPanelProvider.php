@@ -208,7 +208,7 @@ final class AppPanelProvider extends PanelProvider
                         throw (new ModelNotFoundException)->setModel(Team::class, [$key]);
                     }
 
-                    $record = app(Team::class)->resolveRouteBinding($key, null);
+                    $record = app(Team::class)->resolveRouteBinding($key);
 
                     if ($record === null) {
                         throw (new ModelNotFoundException)->setModel(Team::class, [$key]);

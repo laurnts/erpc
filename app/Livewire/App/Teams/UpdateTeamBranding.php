@@ -203,7 +203,7 @@ final class UpdateTeamBranding extends BaseLivewireComponent
 
     private function resolveUploadPath(mixed $state): ?string
     {
-        if ($state === null || $state === '' || $state === []) {
+        if (in_array($state, [null, '', []], true)) {
             return null;
         }
 

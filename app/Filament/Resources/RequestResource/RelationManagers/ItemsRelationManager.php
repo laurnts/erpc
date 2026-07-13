@@ -49,7 +49,7 @@ final class ItemsRelationManager extends RelationManager
      *
      * @var array<int, array<string, mixed>>|null
      */
-    protected ?array $storedChildrenData = null;
+    private ?array $storedChildrenData = null;
 
     protected static ?string $title = 'Requested Items';
 
@@ -158,7 +158,7 @@ final class ItemsRelationManager extends RelationManager
                         $article = Article::create([
                             'name' => $data['name'],
                             'sku' => $data['sku'] ?? null,
-                            'unit' => ! empty($data['unit']) ? $data['unit'] : 'pcs',
+                            'unit' => empty($data['unit']) ? 'pcs' : $data['unit'],
                             'default_tax_code_id' => $data['default_tax_code_id'] ?? null,
                             'description' => $data['description'] ?? null,
                             'attributes' => $data['attributes'] ?? null,
@@ -224,7 +224,7 @@ final class ItemsRelationManager extends RelationManager
                     ])
                     ->columns(2)
                     ->columnSpanFull()
-                    ->visible(fn ($get, $record): bool => self::isServiceItemState($get('item_type')) && ($get('article_id') !== null || ($record && $record->article_id !== null)))
+                    ->visible(fn ($get, $record): bool => $this->isServiceItemState($get('item_type')) && ($get('article_id') !== null || ($record && $record->article_id !== null)))
                     ->helperText('Add child items to provide detail breakdown of the service (services items only)')
                     ->defaultItems(0)
                     ->collapsible()
@@ -249,7 +249,6 @@ final class ItemsRelationManager extends RelationManager
             ->whereNotNull('article_id')
             ->count();
         $totalCount = $request->items()->whereNull('parent_id')->count();
-        $allMatched = $matchedCount === $totalCount && $totalCount > 0;
 
         return $table
             ->recordTitleAttribute('description')
@@ -401,7 +400,7 @@ final class ItemsRelationManager extends RelationManager
                     ->icon('heroicon-o-paper-airplane')
                     ->color('primary')
                     ->size(Size::Small)
-                    ->visible(fn () => $request->items()->count() > 0)
+                    ->visible(fn (): bool => $request->items()->count() > 0)
                     ->requiresConfirmation()
                     ->modalHeading(fn (): string => count($this->getSelectedTableRecords()) > 0
                         ? 'Send Selected Items to Suppliers'
@@ -442,7 +441,7 @@ final class ItemsRelationManager extends RelationManager
 
                         $prefix = $hasSelection ? 'SELECTED ' : 'ALL ';
 
-                        $hasExistingQuotes = $matchedItems->some(fn (RequestItem $item) => $item->supplier_quote_items_count > 0);
+                        $hasExistingQuotes = $matchedItems->some(fn (RequestItem $item): bool => $item->supplier_quote_items_count > 0);
                         $resendNote = $hasExistingQuotes ? "\n\n📧 If emails failed previously, they will be resent automatically." : "\n\n📧 Email notifications will be sent to suppliers for newly created quote requests.";
 
                         return "You are about to send {$prefix}matched items to their respective suppliers.\n\n{$itemsList}{$moreItems}\n\nTotal: {$matchedItems->count()} item(s) will be sent to {$supplierIds} supplier(s).{$resendNote}";
@@ -532,7 +531,7 @@ final class ItemsRelationManager extends RelationManager
                                         }
 
                                         if ($needsResend) {
-                                            $quoteIds = array_map(fn ($q) => is_object($q) ? $q->id : $q, $quotesToEmail);
+                                            $quoteIds = array_map(fn (\App\Models\SupplierQuote $q) => is_object($q) ? $q->id : $q, $quotesToEmail);
                                             if (! in_array($existingQuote->id, $quoteIds)) {
                                                 $quotesToEmail[] = $existingQuote;
                                             }
@@ -557,10 +556,10 @@ final class ItemsRelationManager extends RelationManager
                         });
 
                         // Also check all existing quotes for matched items to resend emails if needed
-                        if (empty($quotesToEmail) && ! empty($matchedItems)) {
+                        if ($quotesToEmail === [] && ! empty($matchedItems)) {
                             $itemIds = $matchedItems->pluck('id')->toArray();
                             $existingQuotes = $request->supplierQuotes()
-                                ->whereHas('items', function ($query) use ($itemIds) {
+                                ->whereHas('items', function ($query) use ($itemIds): void {
                                     $query->whereIn('request_item_id', $itemIds);
                                 })
                                 ->get();
@@ -579,7 +578,7 @@ final class ItemsRelationManager extends RelationManager
                                 }
 
                                 if ($needsResend) {
-                                    $quoteIds = array_map(fn ($q) => is_object($q) ? $q->id : $q, $quotesToEmail);
+                                    $quoteIds = array_map(fn (\App\Models\SupplierQuote $q) => is_object($q) ? $q->id : $q, $quotesToEmail);
                                     if (! in_array($quote->id, $quoteIds)) {
                                         $quotesToEmail[] = $quote;
                                     }
@@ -593,7 +592,7 @@ final class ItemsRelationManager extends RelationManager
                         $noEmailCount = 0;
                         $emailsResent = 0;
 
-                        if (! empty($quotesToEmail) && $team !== null) {
+                        if ($quotesToEmail !== [] && $team !== null) {
                             $emailService = app(EmailTemplateService::class);
                             $settings = $team->getErpSettings();
 
@@ -736,14 +735,12 @@ final class ItemsRelationManager extends RelationManager
                         // Load existing children for editing
                         $data = $record->toArray();
                         if ($record->isMainItem()) {
-                            $data['children'] = $record->children()->get()->map(function (RequestItem $child): array {
-                                return [
-                                    'id' => $child->getKey(),
-                                    'description' => $child->description,
-                                    'quantity' => $child->quantity,
-                                    'unit_of_measure_id' => $child->unit_of_measure_id,
-                                ];
-                            })->toArray();
+                            $data['children'] = $record->children()->get()->map(fn (RequestItem $child): array => [
+                                'id' => $child->getKey(),
+                                'description' => $child->description,
+                                'quantity' => $child->quantity,
+                                'unit_of_measure_id' => $child->unit_of_measure_id,
+                            ])->toArray();
                         } else {
                             $data['children'] = [];
                         }
@@ -762,7 +759,7 @@ final class ItemsRelationManager extends RelationManager
                                     $formState = $livewire->form->getState();
                                     $childrenData = $formState['children'] ?? [];
                                 }
-                            } catch (\Exception $e) {
+                            } catch (\Exception) {
                                 // Ignore
                             }
                         }
@@ -887,7 +884,7 @@ final class ItemsRelationManager extends RelationManager
                                     }
 
                                     if ($needsResend) {
-                                        $quoteIds = array_map(fn ($q) => is_object($q) ? $q->id : $q, $quotesToEmail);
+                                        $quoteIds = array_map(fn (\App\Models\SupplierQuote $q) => is_object($q) ? $q->id : $q, $quotesToEmail);
                                         if (! in_array($existingQuote->id, $quoteIds)) {
                                             $quotesToEmail[] = $existingQuote;
                                         }
@@ -935,9 +932,9 @@ final class ItemsRelationManager extends RelationManager
                         });
 
                         // Also check existing quotes for this item to resend emails if needed
-                        if (empty($quotesToEmail)) {
+                        if ($quotesToEmail === []) {
                             $existingQuotes = $request->supplierQuotes()
-                                ->whereHas('items', function ($query) use ($record) {
+                                ->whereHas('items', function ($query) use ($record): void {
                                     $query->where('request_item_id', $record->getKey());
                                 })
                                 ->get();
@@ -956,7 +953,7 @@ final class ItemsRelationManager extends RelationManager
                                 }
 
                                 if ($needsResend) {
-                                    $quoteIds = array_map(fn ($q) => is_object($q) ? $q->id : $q, $quotesToEmail);
+                                    $quoteIds = array_map(fn (\App\Models\SupplierQuote $q) => is_object($q) ? $q->id : $q, $quotesToEmail);
                                     if (! in_array($quote->id, $quoteIds)) {
                                         $quotesToEmail[] = $quote;
                                     }
@@ -970,7 +967,7 @@ final class ItemsRelationManager extends RelationManager
                         $noEmailCount = 0;
                         $emailsResent = 0;
 
-                        if (! empty($quotesToEmail) && $team !== null) {
+                        if ($quotesToEmail !== [] && $team !== null) {
                             $emailService = app(EmailTemplateService::class);
                             $settings = $team->getErpSettings();
 
@@ -1105,7 +1102,7 @@ final class ItemsRelationManager extends RelationManager
     /**
      * Form state for item_type may hold the enum instance or its backing value.
      */
-    private static function isServiceItemState(mixed $state): bool
+    private function isServiceItemState(mixed $state): bool
     {
         $type = $state instanceof \App\Enums\ItemType
             ? $state

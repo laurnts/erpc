@@ -127,7 +127,7 @@ final class RequestNoteComposer extends BaseLivewireComponent
         $user = $this->authUser();
         $policy = app(RequestNotePolicy::class);
 
-        if (! $policy->create($user) || ! $policy->createNote($user, $this->request, $visibility, $audienceCompanyId)) {
+        if (! $policy->create() || ! $policy->createNote($user, $this->request, $visibility, $audienceCompanyId)) {
             throw new AuthorizationException('You are not allowed to post this note on this request.');
         }
 
@@ -213,10 +213,15 @@ final class RequestNoteComposer extends BaseLivewireComponent
         $paths = [];
 
         foreach ($this->attachments as $file) {
-            if (! is_object($file) || ! method_exists($file, 'storeAs') || ! method_exists($file, 'getClientOriginalName')) {
+            if (! is_object($file)) {
                 continue;
             }
-
+            if (! method_exists($file, 'storeAs')) {
+                continue;
+            }
+            if (! method_exists($file, 'getClientOriginalName')) {
+                continue;
+            }
             $stored = $file->storeAs($directory, $file->getClientOriginalName(), 'local');
 
             if (is_string($stored) && $stored !== '') {

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Data\TeamErpSettings;
-use App\Filament\Pages\EditTeam;
 use App\Filament\Resources\EmailTemplateResource;
 use App\Mail\TestEmailMail;
 use App\Models\EmailTemplate;
@@ -20,11 +19,11 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ViewField;
-use Filament\Schemas\Components\Section;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Mail;
@@ -71,7 +70,7 @@ final class EmailSettings extends Page implements HasForms
         /** @var Team $team */
         $team = Filament::getTenant();
         $settings = $team->getErpSettings();
-        $emailService = app(EmailTemplateService::class);
+        app(EmailTemplateService::class);
         $smtpPassword = $this->decryptSmtpPassword($settings->smtp_password);
 
         $this->emailForm->fill([
@@ -107,7 +106,7 @@ final class EmailSettings extends Page implements HasForms
 
     private function decryptSmtpPassword(?string $encrypted): ?string
     {
-        if (empty($encrypted)) {
+        if (in_array($encrypted, [null, '', '0'], true)) {
             return null;
         }
 
@@ -142,6 +141,7 @@ final class EmailSettings extends Page implements HasForms
 
         // Fallback to old format
         $oldField = "email_template_{$type}";
+
         return $settings->{$oldField}['sender_email'] ?? '';
     }
 
@@ -160,6 +160,7 @@ final class EmailSettings extends Page implements HasForms
 
         // Fallback to old format
         $oldField = "email_template_{$type}";
+
         return isset($settings->{$oldField}['cc_emails']) ? implode(', ', $settings->{$oldField}['cc_emails']) : '';
     }
 
@@ -178,6 +179,7 @@ final class EmailSettings extends Page implements HasForms
 
         // Fallback to old format
         $oldField = "email_template_{$type}";
+
         return isset($settings->{$oldField}['bcc_emails']) ? implode(', ', $settings->{$oldField}['bcc_emails']) : '';
     }
 
@@ -281,12 +283,13 @@ final class EmailSettings extends Page implements HasForms
                         Placeholder::make('template_management_info')
                             ->label('Manage Your Templates')
                             ->content('View, edit, or delete your custom email templates. Default templates cannot be deleted.'),
-                        
+
                         ViewField::make('template_list')
                             ->view('filament.components.email-template-list')
-                            ->viewData(function () {
+                            ->viewData(function (): array {
                                 /** @var Team $team */
                                 $team = Filament::getTenant();
+
                                 return [
                                     'templates' => EmailTemplate::forTeam($team)
                                         ->orderBy('type')
@@ -346,8 +349,8 @@ final class EmailSettings extends Page implements HasForms
 
                         return $options;
                     })
-                    
-                    ->helperText($helperText . ' Select a template or use + to create a new one.')
+
+                    ->helperText($helperText.' Select a template or use + to create a new one.')
                     ->createOptionForm(
                         EmailTemplateResource::getTemplateFormComponents(
                             defaultType: $key,
@@ -360,20 +363,20 @@ final class EmailSettings extends Page implements HasForms
                     ->createOptionUsing(function (array $data, $get) use ($key, $team): int {
                         // Get sender/CC/BCC from the existing template section fields (if set)
                         $emailService = app(EmailTemplateService::class);
-                        
+
                         // Get values from form state - these come from the template section fields below
-                        $senderEmail = $get("email_template_{$key}_sender") ? trim($get("email_template_{$key}_sender")) : null;
-                        $ccEmails = $get("email_template_{$key}_cc") ? trim($get("email_template_{$key}_cc")) : null;
-                        $bccEmails = $get("email_template_{$key}_bcc") ? trim($get("email_template_{$key}_bcc")) : null;
+                        $senderEmail = $get("email_template_{$key}_sender") ? trim((string) $get("email_template_{$key}_sender")) : null;
+                        $ccEmails = $get("email_template_{$key}_cc") ? trim((string) $get("email_template_{$key}_cc")) : null;
+                        $bccEmails = $get("email_template_{$key}_bcc") ? trim((string) $get("email_template_{$key}_bcc")) : null;
 
                         $template = EmailTemplate::create([
                             'team_id' => $team->id,
                             'type' => $key,
                             'name' => $data['name'],
                             'content' => $data['content'],
-                            'sender_email' => !empty($senderEmail) ? $senderEmail : null,
-                            'cc_emails' => !empty($ccEmails) ? $emailService->parseEmailList($ccEmails) : null,
-                            'bcc_emails' => !empty($bccEmails) ? $emailService->parseEmailList($bccEmails) : null,
+                            'sender_email' => in_array($senderEmail, [null, '', '0'], true) ? null : $senderEmail,
+                            'cc_emails' => in_array($ccEmails, [null, '', '0'], true) ? null : $emailService->parseEmailList($ccEmails),
+                            'bcc_emails' => in_array($bccEmails, [null, '', '0'], true) ? null : $emailService->parseEmailList($bccEmails),
                             'is_default' => false,
                         ]);
 
@@ -434,9 +437,9 @@ final class EmailSettings extends Page implements HasForms
             'type' => $data['type'] ?? $this->createTemplateType,
             'name' => $data['name'],
             'content' => $data['content'],
-            'sender_email' => !empty($data['sender_email']) ? $data['sender_email'] : null,
-            'cc_emails' => !empty($data['cc_emails']) ? $emailService->parseEmailList($data['cc_emails']) : null,
-            'bcc_emails' => !empty($data['bcc_emails']) ? $emailService->parseEmailList($data['bcc_emails']) : null,
+            'sender_email' => empty($data['sender_email']) ? null : $data['sender_email'],
+            'cc_emails' => empty($data['cc_emails']) ? null : $emailService->parseEmailList($data['cc_emails']),
+            'bcc_emails' => empty($data['bcc_emails']) ? null : $emailService->parseEmailList($data['bcc_emails']),
             'is_default' => false,
         ]);
 
@@ -447,7 +450,7 @@ final class EmailSettings extends Page implements HasForms
             ->send();
 
         $this->createTemplateType = null;
-        
+
         // Refresh the form to show new template in select and auto-select it
         $this->mount();
         $this->emailForm->fill([
@@ -464,12 +467,13 @@ final class EmailSettings extends Page implements HasForms
         $team = Filament::getTenant();
         $template = EmailTemplate::find($templateId);
 
-        if (!$template) {
+        if (! $template) {
             Notification::make()
                 ->title('Template Not Found')
                 ->body('The template you are trying to delete does not exist.')
                 ->danger()
                 ->send();
+
             return;
         }
 
@@ -480,6 +484,7 @@ final class EmailSettings extends Page implements HasForms
                 ->body('Default templates cannot be deleted.')
                 ->warning()
                 ->send();
+
             return;
         }
 
@@ -489,6 +494,7 @@ final class EmailSettings extends Page implements HasForms
                 ->body('You can only delete templates belonging to your team.')
                 ->danger()
                 ->send();
+
             return;
         }
 
@@ -552,7 +558,7 @@ final class EmailSettings extends Page implements HasForms
 
         Notification::make()
             ->title('Template Deleted')
-            ->body($isSelected 
+            ->body($isSelected
                 ? "Template '{$templateName}' has been deleted. The default template will now be used."
                 : "Template '{$templateName}' has been deleted successfully.")
             ->success()
@@ -588,7 +594,7 @@ final class EmailSettings extends Page implements HasForms
         $team->refresh();
         $updatedSettings = $team->getErpSettings();
         $logoMediaId = $updatedSettings->email_logo_media_id ?? $currentSettings->email_logo_media_id;
-        
+
         // Fallback: if logoMediaId is null but there's a logo in media collection, use the latest one
         if (empty($logoMediaId)) {
             $latestLogo = $team->getMedia('email_logo')->sortByDesc('created_at')->first();
@@ -601,8 +607,8 @@ final class EmailSettings extends Page implements HasForms
         $smtpPassword = $currentSettings->smtp_password;
         if (! empty($emailData['smtp_password'])) {
             // Trim password to remove any accidental whitespace (especially important for Gmail App Passwords)
-            $passwordToEncrypt = trim($emailData['smtp_password']);
-            if (! empty($passwordToEncrypt)) {
+            $passwordToEncrypt = trim((string) $emailData['smtp_password']);
+            if ($passwordToEncrypt !== '' && $passwordToEncrypt !== '0') {
                 $smtpPassword = Crypt::encryptString($passwordToEncrypt);
             }
         }
@@ -625,14 +631,14 @@ final class EmailSettings extends Page implements HasForms
                 $template = EmailTemplate::find($templateId);
                 if ($template && $template->team_id === $team->id) {
                     // Only update if it's a team template (not default)
-                    $sender = !empty($emailData["email_template_{$type}_sender"]) ? trim($emailData["email_template_{$type}_sender"]) : null;
+                    $sender = empty($emailData["email_template_{$type}_sender"]) ? null : trim((string) $emailData["email_template_{$type}_sender"]);
                     $cc = trim($emailData["email_template_{$type}_cc"] ?? '');
                     $bcc = trim($emailData["email_template_{$type}_bcc"] ?? '');
 
                     $template->update([
                         'sender_email' => $sender,
-                        'cc_emails' => !empty($cc) ? $emailService->parseEmailList($cc) : null,
-                        'bcc_emails' => !empty($bcc) ? $emailService->parseEmailList($bcc) : null,
+                        'cc_emails' => $cc === '' || $cc === '0' ? null : $emailService->parseEmailList($cc),
+                        'bcc_emails' => $bcc === '' || $bcc === '0' ? null : $emailService->parseEmailList($bcc),
                     ]);
                 }
             }
@@ -675,11 +681,11 @@ final class EmailSettings extends Page implements HasForms
             email_logo_media_id: $logoMediaId,
             email_signature: $emailData['email_signature'] ?? '',
             test_email_address: $emailData['test_email_address'] ?? '',
-            smtp_host: ! empty($emailData['smtp_host']) ? $emailData['smtp_host'] : null,
-            smtp_port: ! empty($emailData['smtp_port']) ? (int) $emailData['smtp_port'] : null,
-            smtp_username: ! empty($emailData['smtp_username']) ? $emailData['smtp_username'] : null,
+            smtp_host: empty($emailData['smtp_host']) ? null : $emailData['smtp_host'],
+            smtp_port: empty($emailData['smtp_port']) ? null : (int) $emailData['smtp_port'],
+            smtp_username: empty($emailData['smtp_username']) ? null : $emailData['smtp_username'],
             smtp_password: $smtpPassword,
-            smtp_encryption: ! empty($emailData['smtp_encryption']) ? $emailData['smtp_encryption'] : null,
+            smtp_encryption: empty($emailData['smtp_encryption']) ? null : $emailData['smtp_encryption'],
             email_template_buyer_quote_id: $templateIds['email_template_buyer_quote_id'],
             email_template_buyer_order_id: $templateIds['email_template_buyer_order_id'],
             email_template_supplier_order_id: $templateIds['email_template_supplier_order_id'],
@@ -692,7 +698,7 @@ final class EmailSettings extends Page implements HasForms
 
         $team->erp_settings = $settings;
         $team->save();
-        
+
         // Refresh the team model to ensure latest data
         $team->refresh();
 
@@ -739,16 +745,16 @@ final class EmailSettings extends Page implements HasForms
                 ->send();
         } catch (\Exception $e) {
             $errorMessage = $e->getMessage();
-            
+
             // Provide helpful guidance for common Gmail errors
             if (str_contains($errorMessage, '535') || str_contains($errorMessage, 'Username and Password not accepted')) {
                 $errorMessage .= "\n\nTroubleshooting:\n";
                 $errorMessage .= "• Ensure App Password has NO spaces (remove spaces from generated password)\n";
                 $errorMessage .= "• Verify username is the full email address\n";
                 $errorMessage .= "• Check port/encryption: 465=SSL, 587=TLS\n";
-                $errorMessage .= "• Regenerate App Password if issue persists";
+                $errorMessage .= '• Regenerate App Password if issue persists';
             }
-            
+
             Notification::make()
                 ->title('Failed to Send Test Email')
                 ->body($errorMessage)
@@ -877,8 +883,8 @@ final class EmailSettings extends Page implements HasForms
                             EmailTemplate::TYPE_DELIVERY_ORDER => 'Delivery Order',
                         ])
                         ->required()
-                        ->default(fn () => $this->createTemplateType)
-                        ->disabled(fn () => $this->createTemplateType !== null)
+                        ->default(fn (): ?string => $this->createTemplateType)
+                        ->disabled(fn (): bool => $this->createTemplateType !== null)
                         ->dehydrated(),
 
                     Textarea::make('content')
@@ -947,7 +953,7 @@ final class EmailSettings extends Page implements HasForms
                 ])
                 ->fillForm(function (array $arguments): array {
                     $template = EmailTemplate::find($arguments['id'] ?? null);
-                    if (!$template) {
+                    if (! $template) {
                         return [];
                     }
 
@@ -972,12 +978,13 @@ final class EmailSettings extends Page implements HasForms
      */
     public function updateTemplate(?int $templateId, array $data): void
     {
-        if (!$templateId) {
+        if (! $templateId) {
             Notification::make()
                 ->title('Template ID Required')
                 ->body('Template ID is required to update a template.')
                 ->danger()
                 ->send();
+
             return;
         }
 
@@ -985,12 +992,13 @@ final class EmailSettings extends Page implements HasForms
         $team = Filament::getTenant();
         $template = EmailTemplate::find($templateId);
 
-        if (!$template) {
+        if (! $template) {
             Notification::make()
                 ->title('Template Not Found')
                 ->body('The template you are trying to edit does not exist.')
                 ->danger()
                 ->send();
+
             return;
         }
 
@@ -1000,6 +1008,7 @@ final class EmailSettings extends Page implements HasForms
                 ->body('You can only edit templates belonging to your team.')
                 ->danger()
                 ->send();
+
             return;
         }
 
@@ -1008,9 +1017,9 @@ final class EmailSettings extends Page implements HasForms
         $template->update([
             'name' => $data['name'],
             'content' => $data['content'],
-            'sender_email' => !empty($data['sender_email']) ? $data['sender_email'] : null,
-            'cc_emails' => !empty($data['cc_emails']) ? $emailService->parseEmailList($data['cc_emails']) : null,
-            'bcc_emails' => !empty($data['bcc_emails']) ? $emailService->parseEmailList($data['bcc_emails']) : null,
+            'sender_email' => empty($data['sender_email']) ? null : $data['sender_email'],
+            'cc_emails' => empty($data['cc_emails']) ? null : $emailService->parseEmailList($data['cc_emails']),
+            'bcc_emails' => empty($data['bcc_emails']) ? null : $emailService->parseEmailList($data['bcc_emails']),
         ]);
 
         Notification::make()
@@ -1039,44 +1048,47 @@ final class EmailSettings extends Page implements HasForms
 
         $bladeFilePath = $templateFileMap[$type] ?? null;
 
-        if (!$bladeFilePath) {
+        if (! $bladeFilePath) {
             Notification::make()
                 ->title('Invalid Template Type')
                 ->body('No default template file found for this type.')
                 ->warning()
                 ->send();
+
             return;
         }
 
         // Read the Blade file content
         $fullPath = resource_path("views/{$bladeFilePath}");
-        
-        if (!file_exists($fullPath)) {
+
+        if (! file_exists($fullPath)) {
             Notification::make()
                 ->title('Default Template Not Found')
                 ->body("Template file not found: {$bladeFilePath}")
                 ->warning()
                 ->send();
+
             return;
         }
 
         $content = file_get_contents($fullPath);
 
-        if ($content === false || empty(trim($content))) {
+        if ($content === false || in_array(trim($content), ['', '0'], true)) {
             Notification::make()
                 ->title('Default Template Empty')
                 ->body('The default template file is empty.')
                 ->warning()
                 ->send();
+
             return;
         }
 
         // Store the content in a public property that can be accessed by the form
         $this->createTemplateType = $type;
-        
+
         // Dispatch a browser event with the content to update the modal form
         $this->dispatch('load-default-template-content', content: $content);
-        
+
         // Also try to update via Livewire's form state if possible
         // Note: This might not work in modal context, but worth trying
         try {
@@ -1084,15 +1096,14 @@ final class EmailSettings extends Page implements HasForms
                 // Try to get the form and update it
                 $this->form->fill(['content' => $content]);
             }
-        } catch (\Exception $e) {
+        } catch (\Exception) {
             // Ignore if form is not available in this context
         }
-        
+
         Notification::make()
             ->title('Default Template Loaded')
             ->body('Default template content has been loaded.')
             ->success()
             ->send();
     }
-
 }

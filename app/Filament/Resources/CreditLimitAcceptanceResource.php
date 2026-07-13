@@ -246,10 +246,11 @@ final class CreditLimitAcceptanceResource extends Resource
                             $approvedMediaIds = PaymentDocumentApproval::where('team_id', $teamId)
                                 ->pluck('media_id')
                                 ->toArray();
-
                             if ($data['value'] === 'pending') {
                                 return $query->whereNotIn('id', $approvedMediaIds);
-                            } elseif ($data['value'] === 'approved') {
+                            }
+
+                            if ($data['value'] === 'approved') {
                                 return $query->whereIn('id', $approvedMediaIds);
                             }
                         }
@@ -347,7 +348,7 @@ final class CreditLimitAcceptanceResource extends Resource
     /**
      * Approve: key account for QE/PNL/Supplier Order documents; finance approver for payment documents.
      */
-    protected static function canApprove(Media $record): bool
+    private static function canApprove(Media $record): bool
     {
         $user = Auth::user();
         $team = Filament::getTenant();

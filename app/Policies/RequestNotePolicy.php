@@ -25,7 +25,7 @@ final readonly class RequestNotePolicy
 {
     use HandlesAuthorization;
 
-    public function viewAny(User $user): bool
+    public function viewAny(): bool
     {
         return ActivityLogContext::currentActorType() !== ActorType::System;
     }
@@ -51,7 +51,7 @@ final readonly class RequestNotePolicy
      * specific request + visibility combination is authorized by
      * {@see self::createNote()}, which the note-creation flow must call.
      */
-    public function create(User $user): bool
+    public function create(): bool
     {
         return ActivityLogContext::currentActorType() !== ActorType::System;
     }

@@ -26,12 +26,12 @@ final readonly class PortalInvitationPolicy
      * Invitations are only issued through the invite action on company
      * records, never created directly.
      */
-    public function create(User $user): bool
+    public function create(): bool
     {
         return false;
     }
 
-    public function update(User $user, PortalInvitation $invitation): bool
+    public function update(): bool
     {
         return false;
     }
@@ -46,27 +46,27 @@ final readonly class PortalInvitationPolicy
             && $invitation->accepted_at === null;
     }
 
-    public function deleteAny(User $user): bool
+    public function deleteAny(): bool
     {
         return false;
     }
 
-    public function restore(User $user, PortalInvitation $invitation): bool
+    public function restore(): bool
     {
         return false;
     }
 
-    public function restoreAny(User $user): bool
+    public function restoreAny(): bool
     {
         return false;
     }
 
-    public function forceDelete(User $user, PortalInvitation $invitation): bool
+    public function forceDelete(): bool
     {
         return false;
     }
 
-    public function forceDeleteAny(User $user): bool
+    public function forceDeleteAny(): bool
     {
         return false;
     }

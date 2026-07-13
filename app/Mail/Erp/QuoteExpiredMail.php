@@ -37,8 +37,8 @@ final class QuoteExpiredMail extends Mailable
         $fromAddress = $emailService->getSenderEmail(null, $settings);
 
         return new Envelope(
-            subject: 'Quote '.$this->quote->quote_number.' has expired',
             from: $fromAddress,
+            subject: 'Quote '.$this->quote->quote_number.' has expired',
         );
     }
 

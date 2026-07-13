@@ -16,7 +16,7 @@ return new class extends Migration
     public function up(): void
     {
         // First, ensure default units exist for all teams
-        $seeder = new \Database\Seeders\UnitOfMeasureSeeder();
+        $seeder = new \Database\Seeders\UnitOfMeasureSeeder;
         $seeder->run();
 
         // Tables that have unit fields
@@ -126,9 +126,11 @@ return new class extends Migration
 
             // Create UnitOfMeasure records for any units that don't exist
             foreach ($unitValues as $unitCode) {
-                $unitCode = strtolower(trim($unitCode));
-
-                if (empty($unitCode)) {
+                $unitCode = strtolower(trim((string) $unitCode));
+                if ($unitCode === '') {
+                    continue;
+                }
+                if ($unitCode === '0') {
                     continue;
                 }
 

@@ -302,7 +302,7 @@ final readonly class PdfGenerationService
         ]);
 
         // Prepare items data with brand/model from article
-        $items = $shipment->items->map(function ($shipmentItem) {
+        $items = $shipment->items->map(function ($shipmentItem): array {
             $supplierOrderItem = $shipmentItem->supplierOrderItem;
             $article = $supplierOrderItem?->article;
 

@@ -58,7 +58,7 @@ return new class extends Migration
             $table->dropColumn(['is_central_purchasing', 'central_purchasing_role']);
         });
 
-        if (DB::getDriverName() === 'pgsql' || DB::getDriverName() === 'mysql' || DB::getDriverName() === 'mariadb') {
+        if (in_array(DB::getDriverName(), ['pgsql', 'mysql', 'mariadb'], true)) {
             DB::statement('ALTER TABLE people DROP CONSTRAINT IF EXISTS people_central_purchasing_role_check');
         }
     }

@@ -552,7 +552,7 @@ trait InteractsWithPaymentCard
         // If an acceptance report payment document for this term is approved, consider Paid
         $paymentTermsKey = "{$dueDays}-{$percentage}";
         $paymentMedia = $record->getMedia('completion_reports')
-            ->filter(fn ($media) => (bool) $media->getCustomProperty('is_payment_document', false)
+            ->filter(fn ($media): bool => (bool) $media->getCustomProperty('is_payment_document', false)
                 && $media->getCustomProperty('payment_terms') === $paymentTermsKey);
         $paymentMediaIds = $paymentMedia->pluck('id')->toArray();
         if ($paymentMediaIds !== [] && $record->team_id !== null) {

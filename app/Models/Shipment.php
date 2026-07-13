@@ -162,7 +162,8 @@ final class Shipment extends Model implements HasMedia
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeForBuyerCompany(Builder $query, int $buyerCompanyId): Builder
+    #[\Illuminate\Database\Eloquent\Attributes\Scope]
+    protected function forBuyerCompany(Builder $query, int $buyerCompanyId): Builder
     {
         return $query->whereHas('request', fn (Builder $requestQuery) => $requestQuery->where('buyer_id', $buyerCompanyId));
     }
@@ -415,7 +416,7 @@ final class Shipment extends Model implements HasMedia
         if (! empty($existingDoNumbers)) {
             $regex = '/^(\d{4})-CP\/DO\/'.preg_quote($romanMonth, '/').'\/'.$year.'$/';
             foreach ($existingDoNumbers as $doNumber) {
-                if (preg_match($regex, $doNumber, $matches)) {
+                if (preg_match($regex, (string) $doNumber, $matches)) {
                     $increment = (int) $matches[1];
                     if ($increment >= $nextIncrement) {
                         $nextIncrement = $increment + 1;
@@ -458,7 +459,7 @@ final class Shipment extends Model implements HasMedia
         if (! empty($existingDoNumbers)) {
             $regex = '/^(\d{4})-CP\/DO\/'.preg_quote($romanMonth, '/').'\/'.$year.'$/';
             foreach ($existingDoNumbers as $doNumber) {
-                if (preg_match($regex, $doNumber, $matches)) {
+                if (preg_match($regex, (string) $doNumber, $matches)) {
                     $increment = (int) $matches[1];
                     if ($increment >= $nextIncrement) {
                         $nextIncrement = $increment + 1;

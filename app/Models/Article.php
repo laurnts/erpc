@@ -242,7 +242,8 @@ final class Article extends Model implements HasCustomFields, HasMedia
      * @param  Builder<Article>  $query
      * @return Builder<Article>
      */
-    public function scopeInPublicCatalog(Builder $query, int $teamId): Builder
+    #[\Illuminate\Database\Eloquent\Attributes\Scope]
+    protected function inPublicCatalog(Builder $query, int $teamId): Builder
     {
         return $query
             ->where('articles.team_id', $teamId)

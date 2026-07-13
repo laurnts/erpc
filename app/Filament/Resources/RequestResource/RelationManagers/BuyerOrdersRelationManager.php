@@ -490,8 +490,8 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->label('Send')
                         ->icon('heroicon-o-paper-airplane')
                         ->color('primary')
-                        ->authorize(fn (?BuyerOrder $record): bool => $record !== null && auth()->user()?->can('send', $record) === true)
-                        ->visible(fn (?BuyerOrder $record): bool => $record !== null && $record->status === OrderStatus::DRAFT)
+                        ->authorize(fn (?BuyerOrder $record): bool => $record instanceof \App\Models\BuyerOrder && auth()->user()?->can('send', $record) === true)
+                        ->visible(fn (?BuyerOrder $record): bool => $record instanceof \App\Models\BuyerOrder && $record->status === OrderStatus::DRAFT)
                         ->requiresConfirmation()
                         ->modalHeading('Send order email to buyer?')
                         ->modalDescription(function (BuyerOrder $record): string {
@@ -561,8 +561,8 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->label('Resend')
                         ->icon('heroicon-o-arrow-path')
                         ->color('info')
-                        ->authorize(fn (?BuyerOrder $record): bool => $record !== null && auth()->user()?->can('send', $record) === true)
-                        ->visible(fn (?BuyerOrder $record): bool => $record !== null && $record->status === OrderStatus::SENT)
+                        ->authorize(fn (?BuyerOrder $record): bool => $record instanceof \App\Models\BuyerOrder && auth()->user()?->can('send', $record) === true)
+                        ->visible(fn (?BuyerOrder $record): bool => $record instanceof \App\Models\BuyerOrder && $record->status === OrderStatus::SENT)
                         ->requiresConfirmation()
                         ->modalHeading('Resend order email?')
                         ->modalDescription(function (BuyerOrder $record): string {
@@ -629,7 +629,7 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->label('Issue Invoice')
                         ->icon('heroicon-o-document-text')
                         ->color('primary')
-                        ->visible(fn (?BuyerOrder $record): bool => $record !== null
+                        ->visible(fn (?BuyerOrder $record): bool => $record instanceof \App\Models\BuyerOrder
                             && $record->status === OrderStatus::CONFIRMED
                             && ! BuyerInvoice::query()
                                 ->where('buyer_order_id', $record->getKey())
@@ -681,15 +681,15 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->label('Resend Invoice')
                         ->icon('heroicon-o-arrow-path')
                         ->color('info')
-                        ->authorize(fn (?BuyerOrder $record): bool => $record !== null && auth()->user()?->can('send', $record) === true)
+                        ->authorize(fn (?BuyerOrder $record): bool => $record instanceof \App\Models\BuyerOrder && auth()->user()?->can('send', $record) === true)
                         ->visible(function (?BuyerOrder $record): bool {
-                            if ($record === null) {
+                            if (! $record instanceof \App\Models\BuyerOrder) {
                                 return false;
                             }
 
                             $invoice = $this->activeInvoiceFor($record);
 
-                            return $invoice !== null && $invoice->status !== InvoiceStatus::DRAFT;
+                            return $invoice instanceof \App\Models\BuyerInvoice && $invoice->status !== InvoiceStatus::DRAFT;
                         })
                         ->requiresConfirmation()
                         ->modalHeading('Resend invoice email?')
@@ -699,7 +699,7 @@ final class BuyerOrdersRelationManager extends RelationManager
                             $buyerName = $record->buyer->name ?? 'Unknown';
                             $description = 'This will resend the invoice email to the buyer without changing the invoice status.';
 
-                            if ($invoice !== null) {
+                            if ($invoice instanceof \App\Models\BuyerInvoice) {
                                 $description .= "\n\nInvoice: {$invoice->invoice_number}";
                             }
 
@@ -714,7 +714,7 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->action(function (BuyerOrder $record): void {
                             $invoice = $this->activeInvoiceFor($record);
 
-                            if ($invoice === null) {
+                            if (! $invoice instanceof \App\Models\BuyerInvoice) {
                                 Notification::make()
                                     ->title('Cannot resend invoice')
                                     ->body('No active invoice was found for this order.')
@@ -731,12 +731,12 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->icon('heroicon-o-banknotes')
                         ->color('success')
                         ->visible(function (?BuyerOrder $record): bool {
-                            if ($record === null) {
+                            if (! $record instanceof \App\Models\BuyerOrder) {
                                 return false;
                             }
                             $invoice = $this->activeInvoiceFor($record);
 
-                            return $invoice !== null && $invoice->status->canRecordPayment();
+                            return $invoice instanceof \App\Models\BuyerInvoice && $invoice->status->canRecordPayment();
                         })
                         ->form(fn (BuyerOrder $record): array => [
                             TextInput::make('amount')
@@ -778,7 +778,7 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->action(function (BuyerOrder $record, array $data): void {
                             $invoice = $this->activeInvoiceFor($record);
 
-                            if ($invoice === null || ! $invoice->status->canRecordPayment()) {
+                            if (! $invoice instanceof \App\Models\BuyerInvoice || ! $invoice->status->canRecordPayment()) {
                                 Notification::make()
                                     ->title('Cannot record payment')
                                     ->body('There is no open invoice to record a payment against.')
@@ -829,12 +829,12 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->icon('heroicon-o-check-badge')
                         ->color('success')
                         ->visible(function (?BuyerOrder $record): bool {
-                            if ($record === null) {
+                            if (! $record instanceof \App\Models\BuyerOrder) {
                                 return false;
                             }
                             $invoice = $this->activeInvoiceFor($record);
 
-                            return $invoice !== null && $invoice->payments()
+                            return $invoice instanceof \App\Models\BuyerInvoice && $invoice->payments()
                                 ->where('status', PaymentStatus::Pending->value)
                                 ->exists();
                         })
@@ -957,7 +957,7 @@ final class BuyerOrdersRelationManager extends RelationManager
                         ->label('Cancel')
                         ->icon('heroicon-o-x-circle')
                         ->color('danger')
-                        ->authorize(fn (?BuyerOrder $record): bool => $record !== null && auth()->user()?->can('cancel', $record) === true)
+                        ->authorize(fn (?BuyerOrder $record): bool => $record instanceof \App\Models\BuyerOrder && auth()->user()?->can('cancel', $record) === true)
                         ->visible(fn (BuyerOrder $record): bool => $record->status->canCancel())
                         ->requiresConfirmation()
                         ->modalHeading('Cancel this order?')

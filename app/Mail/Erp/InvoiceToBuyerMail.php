@@ -40,11 +40,11 @@ final class InvoiceToBuyerMail extends Mailable
         $fromAddress = $template
             ? $emailService->getSenderEmailFromTemplate($template, $settings)
             : $emailService->getSenderEmail($settings->email_template_buyer_order ?? null, $settings);
-        $fromName = $emailService->getSenderName($settings);
+        $emailService->getSenderName($settings);
 
         return new Envelope(
-            subject: 'Invoice '.$this->invoice->invoice_number,
             from: $fromAddress,
+            subject: 'Invoice '.$this->invoice->invoice_number,
         );
     }
 

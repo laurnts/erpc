@@ -71,9 +71,9 @@ final class AcceptanceReportResource extends Resource
                 ->preload()
                 ->live()
                 ->default($request?->getKey())
-                ->disabled(fn ($record): bool => $record !== null || $request !== null)
+                ->disabled(fn ($record): bool => $record !== null || $request instanceof \App\Models\Request)
                 ->dehydrated()
-                ->hidden($request !== null)
+                ->hidden($request instanceof \App\Models\Request)
                 ->helperText('Only requests with services items are available'),
             Select::make('items')
                 ->label('Covered Items')
@@ -112,7 +112,7 @@ final class AcceptanceReportResource extends Resource
                         ->maxLength(50)
                         ->placeholder('Auto-generated')
                         ->helperText('Leave empty to auto-generate')
-                        ->disabled(fn ($record) => $record !== null),
+                        ->disabled(fn ($record): bool => $record !== null),
                     DatePicker::make('reported_at')
                         ->label('Reported Date')
                         ->required()

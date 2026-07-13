@@ -161,11 +161,7 @@ final class ViewSupplierOrderApproval extends ViewRecord
                     }
 
                     // Check if user already approved
-                    if ($record->approver_1_id === $user->id || $record->approver_2_id === $user->id) {
-                        return false;
-                    }
-
-                    return true;
+                    return $record->approver_1_id !== $user->id && $record->approver_2_id !== $user->id;
                 })
                 ->requiresConfirmation()
                 ->modalHeading('Approve this supplier order?')

@@ -196,7 +196,8 @@ final class Request extends Model implements HasCustomFields, HasMedia
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeForBuyer(Builder $query, int $buyerCompanyId): Builder
+    #[\Illuminate\Database\Eloquent\Attributes\Scope]
+    protected function forBuyer(Builder $query, int $buyerCompanyId): Builder
     {
         return $query->where('buyer_id', $buyerCompanyId);
     }
@@ -477,7 +478,7 @@ final class Request extends Model implements HasCustomFields, HasMedia
         return Attribute::make(
             get: fn (): int => $this->items()
                 ->whereNull('parent_id') // Only main items
-                ->where(function ($query) {
+                ->where(function ($query): void {
                     $query->where('is_matched', false)
                         ->orWhereNull('article_id'); // Also count items without article_id as unmatched
                 })

@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Notification;
  */
 final readonly class DeclineSupplierRequest
 {
-    public function execute(SupplierQuote $quote, User $user): SupplierQuote
+    public function execute(SupplierQuote $quote): SupplierQuote
     {
         $quote->forceFill(['declined_at' => now()])->save();
 

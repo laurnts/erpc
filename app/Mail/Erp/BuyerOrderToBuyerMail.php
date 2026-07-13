@@ -39,11 +39,11 @@ final class BuyerOrderToBuyerMail extends Mailable
         $fromAddress = $template
             ? $emailService->getSenderEmailFromTemplate($template, $settings)
             : $emailService->getSenderEmail($settings->email_template_buyer_order ?? null, $settings);
-        $fromName = $emailService->getSenderName($settings);
+        $emailService->getSenderName($settings);
 
         return new Envelope(
-            subject: 'Order '.$this->order->order_number,
             from: $fromAddress,
+            subject: 'Order '.$this->order->order_number,
         );
     }
 

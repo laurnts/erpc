@@ -204,11 +204,11 @@ final class ArticleResource extends Resource
                             Action::make('suggestListPrice')
                                 ->label('Suggest price')
                                 ->icon('heroicon-m-calculator')
-                                ->visible(fn (?Article $record): bool => $record !== null)
+                                ->visible(fn (?Article $record): bool => $record instanceof \App\Models\Article)
                                 ->action(function (Set $set, ?Article $record): void {
                                     $team = Filament::getTenant();
 
-                                    if ($record === null || ! $team instanceof Team) {
+                                    if (! $record instanceof \App\Models\Article || ! $team instanceof Team) {
                                         return;
                                     }
 

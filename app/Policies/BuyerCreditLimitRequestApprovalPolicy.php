@@ -23,49 +23,49 @@ final readonly class BuyerCreditLimitRequestApprovalPolicy
         return $user->belongsToTeam($buyerCreditLimitRequestApproval->buyerCreditLimitRequest->team);
     }
 
-    public function create(User $user): bool
+    public function create(): bool
     {
         // Read-only resource - approvals are created through the request approval process
         return false;
     }
 
-    public function update(User $user, BuyerCreditLimitRequestApproval $buyerCreditLimitRequestApproval): bool
+    public function update(): bool
     {
         // Read-only resource
         return false;
     }
 
-    public function delete(User $user, BuyerCreditLimitRequestApproval $buyerCreditLimitRequestApproval): bool
+    public function delete(): bool
     {
         // Read-only resource
         return false;
     }
 
-    public function deleteAny(User $user): bool
+    public function deleteAny(): bool
     {
         // Read-only resource
         return false;
     }
 
-    public function restore(User $user, BuyerCreditLimitRequestApproval $buyerCreditLimitRequestApproval): bool
+    public function restore(): bool
     {
         // Read-only resource
         return false;
     }
 
-    public function restoreAny(User $user): bool
+    public function restoreAny(): bool
     {
         // Read-only resource
         return false;
     }
 
-    public function forceDelete(User $user, BuyerCreditLimitRequestApproval $buyerCreditLimitRequestApproval): bool
+    public function forceDelete(): bool
     {
         // Read-only resource - only admins could potentially force delete, but keeping false for consistency
         return false;
     }
 
-    public function forceDeleteAny(User $user): bool
+    public function forceDeleteAny(): bool
     {
         // Read-only resource
         return false;

@@ -147,7 +147,7 @@ final class ViewSupplierRequest extends ViewRecord
     {
         $request = $this->parentRequest();
 
-        if ($request === null) {
+        if (! $request instanceof \App\Models\Request) {
             return [];
         }
 
@@ -196,7 +196,7 @@ final class ViewSupplierRequest extends ViewRecord
                     // and the write path must operate on complete attributes.
                     $quote = $this->freshQuote();
 
-                    abort_unless($user !== null && $user->can('submit', $quote), 403);
+                    abort_unless($user instanceof \App\Models\User && $user->can('submit', $quote), 403);
 
                     /** @var array<int|string, mixed> $itemPrices */
                     $itemPrices = is_array($data['item_prices'] ?? null) ? $data['item_prices'] : [];
@@ -239,9 +239,9 @@ final class ViewSupplierRequest extends ViewRecord
                     $user = $this->supplierUser();
                     $quote = $this->freshQuote();
 
-                    abort_unless($user !== null && $user->can('decline', $quote), 403);
+                    abort_unless($user instanceof \App\Models\User && $user->can('decline', $quote), 403);
 
-                    app(DeclineSupplierRequest::class)->execute($quote, $user);
+                    app(DeclineSupplierRequest::class)->execute($quote);
 
                     Notification::make()
                         ->title('Quote request declined')

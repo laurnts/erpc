@@ -115,10 +115,12 @@ final readonly class LoginResponse implements \Filament\Auth\Http\Responses\Cont
         }
 
         foreach ($components as $component) {
-            if (! is_array($component) || ! is_string($component['snapshot'] ?? null)) {
+            if (! is_array($component)) {
                 continue;
             }
-
+            if (! is_string($component['snapshot'] ?? null)) {
+                continue;
+            }
             $snapshot = json_decode($component['snapshot'], true);
 
             if (is_array($snapshot)) {

@@ -12,11 +12,11 @@ use Throwable;
 
 final class ApproveSupplierOrderCommand extends Command
 {
-    private const TEAM_NAME = 'Central Purchasing';
+    private const string TEAM_NAME = 'Central Purchasing';
 
-    private const APPROVER_1_NAME = 'Jun Sin';
+    private const string APPROVER_1_NAME = 'Jun Sin';
 
-    private const APPROVER_2_NAME = 'Lenny';
+    private const string APPROVER_2_NAME = 'Lenny';
 
     protected $signature = 'supplier-order:approve
                             {po_number : The PO number (e.g. PO-2026-0012)}';
@@ -36,7 +36,7 @@ final class ApproveSupplierOrderCommand extends Command
             }
 
             $order = $this->resolveOrder($poNumber, $team->id);
-            if ($order === null) {
+            if (! $order instanceof \App\Models\SupplierOrder) {
                 $this->error("Supplier order not found: {$poNumber} (team: {$team->name}).");
 
                 return self::FAILURE;

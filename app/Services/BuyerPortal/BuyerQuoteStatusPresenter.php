@@ -28,7 +28,7 @@ final readonly class BuyerQuoteStatusPresenter
         };
     }
 
-    public function icon(BuyerQuoteStatus $status): ?string
+    public function icon(BuyerQuoteStatus $status): string
     {
         return match ($status) {
             BuyerQuoteStatus::SENT => 'heroicon-o-clock',

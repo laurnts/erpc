@@ -240,7 +240,7 @@ final class RequestResource extends Resource
                     ->label('Source')
                     ->badge()
                     ->formatStateUsing(fn (?RequestSubmissionMethod $state): string => $state?->getLabel() ?? 'Internal')
-                    ->color(fn (?RequestSubmissionMethod $state): string => $state !== null ? 'info' : 'gray')
+                    ->color(fn (?RequestSubmissionMethod $state): string => $state instanceof \App\Enums\RequestSubmissionMethod ? 'info' : 'gray')
                     ->toggleable(),
                 TextColumn::make('buyer.name')
                     ->label('Buyer')

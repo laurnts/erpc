@@ -320,13 +320,11 @@ final class CompanyForm
      */
     private static function roleSection(bool $requireRole): Section
     {
-        $atLeastOneRole = fn (string $other): Closure => function (Get $get) use ($other): Closure {
-            return function (string $attribute, mixed $value, Closure $fail) use ($get, $other): void {
-                if (! $value && ! $get($other)) {
-                    $fail('The company must be a Buyer, a Supplier, or both.');
-                }
-            };
-        };
+        $atLeastOneRole = fn (string $other): Closure => (fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get, $other): void {
+            if (! $value && ! $get($other)) {
+                $fail('The company must be a Buyer, a Supplier, or both.');
+            }
+        });
 
         $isBuyer = Checkbox::make('is_buyer')
             ->label('This company is a Buyer (Customer)')

@@ -27,7 +27,7 @@ final class QuotationEvaluationFactory extends Factory
         return [
             'team_id' => Team::factory(),
             'request_id' => Request::factory(),
-            'qe_number' => fn () => sprintf('%03d-DS/QE/%s/%d', $this->faker->numberBetween(1, 999), $this->romanMonth(), now()->year),
+            'qe_number' => fn (): string => sprintf('%03d-DS/QE/%s/%d', $this->faker->numberBetween(1, 999), $this->romanMonth(), now()->year),
             'description' => $this->faker->optional()->sentence(),
             'qe_date' => $this->faker->dateTimeBetween('-1 month', 'now'),
             'data' => [

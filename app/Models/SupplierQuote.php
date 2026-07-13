@@ -467,7 +467,8 @@ final class SupplierQuote extends Model implements HasMedia
      * @param  Builder<SupplierQuote>  $query
      * @return Builder<SupplierQuote>
      */
-    public function scopeForSupplierPortal(Builder $query, int $companyId): Builder
+    #[\Illuminate\Database\Eloquent\Attributes\Scope]
+    protected function forSupplierPortal(Builder $query, int $companyId): Builder
     {
         return $query
             ->where('supplier_id', $companyId)

@@ -49,7 +49,7 @@ final class CompletionReportsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(function ($query) {
+            ->modifyQueryUsing(function ($query): void {
                 $query->where('collection_name', 'completion_reports');
             })
             ->recordAction(null)
@@ -132,32 +132,30 @@ final class CompletionReportsRelationManager extends RelationManager
                             ->options(fn (): array => $this->getPaymentTermsOptions())
                             ->visible(fn ($get): bool => $get('is_payment_document') === true)
                             ->required(fn ($get): bool => $get('is_payment_document') === true)
-                            ->disabled(fn (): bool => empty($this->getPaymentTermsOptions()))
+                            ->disabled(fn (): bool => $this->getPaymentTermsOptions() === [])
                             ->rules([
-                                function (): \Closure {
-                                    return function (string $attribute, $value, \Closure $fail): void {
-                                        if (empty($value)) {
-                                            return;
-                                        }
-                                        /** @var Request $request */
-                                        $request = $this->getOwnerRecord();
-                                        $existingMedia = $request->getMedia('completion_reports')
-                                            ->filter(fn (Media $m): bool => (bool) $m->getCustomProperty('is_payment_document', false)
-                                                && $m->getCustomProperty('payment_terms') === $value);
-                                        if ($existingMedia->isEmpty()) {
-                                            return;
-                                        }
-                                        $mediaIds = $existingMedia->pluck('id')->toArray();
-                                        $alreadyApproved = $request->team_id !== null && PaymentDocumentApproval::query()
-                                            ->whereIn('media_id', $mediaIds)
-                                            ->where('team_id', $request->team_id)
-                                            ->exists();
-                                        if ($alreadyApproved) {
-                                            $fail('A payment document for the selected payment terms has already been approved. Please choose different payment terms or do not mark as payment document.');
-                                        } else {
-                                            $fail('A payment document for the selected payment terms already exists (pending approval). Please choose different payment terms or do not mark as payment document.');
-                                        }
-                                    };
+                                fn (): \Closure => function (string $attribute, $value, \Closure $fail): void {
+                                    if (empty($value)) {
+                                        return;
+                                    }
+                                    /** @var Request $request */
+                                    $request = $this->getOwnerRecord();
+                                    $existingMedia = $request->getMedia('completion_reports')
+                                        ->filter(fn (Media $m): bool => (bool) $m->getCustomProperty('is_payment_document', false)
+                                            && $m->getCustomProperty('payment_terms') === $value);
+                                    if ($existingMedia->isEmpty()) {
+                                        return;
+                                    }
+                                    $mediaIds = $existingMedia->pluck('id')->toArray();
+                                    $alreadyApproved = $request->team_id !== null && PaymentDocumentApproval::query()
+                                        ->whereIn('media_id', $mediaIds)
+                                        ->where('team_id', $request->team_id)
+                                        ->exists();
+                                    if ($alreadyApproved) {
+                                        $fail('A payment document for the selected payment terms has already been approved. Please choose different payment terms or do not mark as payment document.');
+                                    } else {
+                                        $fail('A payment document for the selected payment terms already exists (pending approval). Please choose different payment terms or do not mark as payment document.');
+                                    }
                                 },
                             ]),
                     ])
@@ -278,7 +276,7 @@ final class CompletionReportsRelationManager extends RelationManager
         $request = $this->getOwnerRecord();
         $buyerOrder = $this->getPrimaryBuyerOrder($request);
 
-        if ($buyerOrder === null || $buyerOrder->buyerQuote === null) {
+        if (! $buyerOrder instanceof \App\Models\BuyerOrder || $buyerOrder->buyerQuote === null) {
             return [];
         }
 

@@ -280,7 +280,7 @@ final readonly class PortalTimelineSource
      */
     private function mediaPasses(Media $item, ?MediaRule $rule): bool
     {
-        if ($rule === null) {
+        if (! $rule instanceof \App\Services\Timeline\MediaRule) {
             return false;
         }
 
@@ -459,10 +459,15 @@ final readonly class PortalTimelineSource
         }
 
         foreach (['attributes', 'old'] as $bucket) {
-            if (! isset($properties[$bucket]) || ! is_array($properties[$bucket]) || ! array_key_exists('stage', $properties[$bucket])) {
+            if (! isset($properties[$bucket])) {
                 continue;
             }
-
+            if (! is_array($properties[$bucket])) {
+                continue;
+            }
+            if (! array_key_exists('stage', $properties[$bucket])) {
+                continue;
+            }
             $raw = $properties[$bucket]['stage'];
             $stage = $raw instanceof RequestStage ? $raw : RequestStage::tryFrom((string) $raw);
 

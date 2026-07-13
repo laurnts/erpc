@@ -66,7 +66,7 @@ final readonly class PortalContextCore
     {
         $user ??= $this->authenticatedUser();
 
-        if ($user === null) {
+        if (! $user instanceof \App\Models\User) {
             return collect();
         }
 
@@ -80,7 +80,7 @@ final readonly class PortalContextCore
     {
         $user = $this->authenticatedUser();
 
-        if ($user === null || ! $this->userHasAccessToCompany($companyId)) {
+        if (! $user instanceof \App\Models\User || ! $this->userHasAccessToCompany($companyId)) {
             throw new \InvalidArgumentException('User does not have portal access to this company.');
         }
 
@@ -119,7 +119,7 @@ final readonly class PortalContextCore
     {
         $user = $this->authenticatedUser();
 
-        if ($user === null) {
+        if (! $user instanceof \App\Models\User) {
             return false;
         }
 

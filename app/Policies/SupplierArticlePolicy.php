@@ -35,37 +35,37 @@ final readonly class SupplierArticlePolicy
         return $this->userOwnsSupplierCompany($user, $supplierArticle->supplier_id);
     }
 
-    public function create(User $user): bool
+    public function create(): bool
     {
         return false;
     }
 
-    public function delete(User $user, SupplierArticle $supplierArticle): bool
+    public function delete(): bool
     {
         return false;
     }
 
-    public function deleteAny(User $user): bool
+    public function deleteAny(): bool
     {
         return false;
     }
 
-    public function forceDelete(User $user, SupplierArticle $supplierArticle): bool
+    public function forceDelete(): bool
     {
         return false;
     }
 
-    public function forceDeleteAny(User $user): bool
+    public function forceDeleteAny(): bool
     {
         return false;
     }
 
-    public function restore(User $user, SupplierArticle $supplierArticle): bool
+    public function restore(): bool
     {
         return false;
     }
 
-    public function restoreAny(User $user): bool
+    public function restoreAny(): bool
     {
         return false;
     }

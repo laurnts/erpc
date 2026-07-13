@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Builder;
 
 /**
  * @property int $id
@@ -26,12 +26,17 @@ final class EmailTemplate extends Model
     /**
      * Template types
      */
-    public const TYPE_BUYER_QUOTE = 'buyer_quote';
-    public const TYPE_BUYER_ORDER = 'buyer_order';
-    public const TYPE_SUPPLIER_ORDER = 'supplier_order';
-    public const TYPE_DELIVERY_ORDER = 'delivery_order';
-    public const TYPE_QUOTATION_EVALUATION = 'quotation_evaluation';
-    public const TYPE_PROFIT_AND_LOSS = 'profit_and_loss';
+    public const string TYPE_BUYER_QUOTE = 'buyer_quote';
+
+    public const string TYPE_BUYER_ORDER = 'buyer_order';
+
+    public const string TYPE_SUPPLIER_ORDER = 'supplier_order';
+
+    public const string TYPE_DELIVERY_ORDER = 'delivery_order';
+
+    public const string TYPE_QUOTATION_EVALUATION = 'quotation_evaluation';
+
+    public const string TYPE_PROFIT_AND_LOSS = 'profit_and_loss';
 
     /**
      * The attributes that are mass assignable.
@@ -71,9 +76,10 @@ final class EmailTemplate extends Model
     /**
      * Scope a query to only include templates for a specific team.
      */
-    public function scopeForTeam(Builder $query, ?Team $team): Builder
+    #[\Illuminate\Database\Eloquent\Attributes\Scope]
+    protected function forTeam(Builder $query, ?Team $team): Builder
     {
-        if ($team === null) {
+        if (! $team instanceof \App\Models\Team) {
             return $query->whereNull('team_id');
         }
 
@@ -86,7 +92,8 @@ final class EmailTemplate extends Model
     /**
      * Scope a query to only include default templates.
      */
-    public function scopeDefaults(Builder $query): Builder
+    #[\Illuminate\Database\Eloquent\Attributes\Scope]
+    protected function defaults(Builder $query): Builder
     {
         return $query->where('is_default', true)
             ->whereNull('team_id');
@@ -95,7 +102,8 @@ final class EmailTemplate extends Model
     /**
      * Scope a query to only include templates of a specific type.
      */
-    public function scopeForType(Builder $query, string $type): Builder
+    #[\Illuminate\Database\Eloquent\Attributes\Scope]
+    protected function forType(Builder $query, string $type): Builder
     {
         return $query->where('type', $type);
     }

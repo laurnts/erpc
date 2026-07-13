@@ -25,7 +25,7 @@ final class ApprovalPersonnelSchema
     public static function make(int|callable|null $buyerId = null, string $sectionTitle = 'Approval Information', int $columns = 2): array
     {
         // Resolve buyer ID if it's a callback (will be resolved per field)
-        $isCallback = is_callable($buyerId);
+        is_callable($buyerId);
 
         return [
             Section::make($sectionTitle)
@@ -37,32 +37,28 @@ final class ApprovalPersonnelSchema
                             'Prepared By',
                             'preparedBy',
                             CentralPurchasingRole::KEY_ACCOUNT,
-                            $buyerId,
-                            $isCallback
+                            $buyerId
                         ),
                         self::makeKeyAccountSelect(
                             'dept_head_sales_id',
                             'Acknowledged By - Dept Head of Sales',
                             'deptHeadSales',
                             CentralPurchasingRole::DEPT_HEAD_SALES,
-                            $buyerId,
-                            $isCallback
+                            $buyerId
                         ),
                         self::makeKeyAccountSelect(
                             'deputy_director_id',
                             'Acknowledged By - Deputy Director',
                             'deputyDirector',
                             CentralPurchasingRole::DEPUTY_DIRECTOR,
-                            $buyerId,
-                            $isCallback
+                            $buyerId
                         ),
                         self::makeKeyAccountSelect(
                             'approved_by_id',
                             'Approved By',
                             'approvedBy',
                             CentralPurchasingRole::DIRECTOR,
-                            $buyerId,
-                            $isCallback
+                            $buyerId
                         ),
                     ]),
                 ])
@@ -78,8 +74,7 @@ final class ApprovalPersonnelSchema
         string $label,
         string $relationshipName,
         CentralPurchasingRole $role,
-        int|callable|null $buyerId,
-        bool $isCallback
+        int|callable|null $buyerId
     ): \Filament\Forms\Components\Select {
         // Pass the buyerId (callable or int) directly to KeyAccountSelect
         // It will handle the callable resolution internally

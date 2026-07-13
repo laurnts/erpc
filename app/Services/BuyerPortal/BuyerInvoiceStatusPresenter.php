@@ -24,7 +24,7 @@ final readonly class BuyerInvoiceStatusPresenter
         };
     }
 
-    public function icon(InvoiceStatus $status): ?string
+    public function icon(InvoiceStatus $status): string
     {
         return match ($status) {
             InvoiceStatus::SENT => 'heroicon-o-inbox-arrow-down',

@@ -9,10 +9,10 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-final class InitializeBuyerPortalContext
+final readonly class InitializeBuyerPortalContext
 {
     public function __construct(
-        private readonly BuyerPortalContext $portalContext,
+        private BuyerPortalContext $portalContext,
     ) {}
 
     public function handle(Request $request, Closure $next): Response

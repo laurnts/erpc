@@ -31,7 +31,7 @@ final readonly class UploaderProvenance
      *
      * @var array<string, ActorType>
      */
-    private const ACTOR_BY_COLLECTION = [
+    private const array ACTOR_BY_COLLECTION = [
         // Buyer-facing intake.
         'attachments' => ActorType::Buyer,
         'buyer_po' => ActorType::Buyer,

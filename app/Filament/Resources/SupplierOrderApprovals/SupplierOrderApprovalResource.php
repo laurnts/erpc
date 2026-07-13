@@ -33,7 +33,7 @@ final class SupplierOrderApprovalResource extends Resource
 {
     protected static ?string $model = SupplierOrder::class;
 
-    protected static ?string $policy = SupplierOrderApprovalPolicy::class;
+    private static ?string $policy = SupplierOrderApprovalPolicy::class;
 
     protected static ?string $recordTitleAttribute = 'po_number';
 

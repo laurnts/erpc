@@ -29,11 +29,11 @@ final class SupplierOrderApprovalRequestMail extends Mailable
         $settings = $this->order->team->getErpSettings();
 
         $fromAddress = $emailService->getSenderEmail(null, $settings);
-        $fromName = $emailService->getSenderName($settings);
+        $emailService->getSenderName($settings);
 
         return new Envelope(
-            subject: 'Supplier Order Approval Required: '.$this->order->po_number,
             from: $fromAddress,
+            subject: 'Supplier Order Approval Required: '.$this->order->po_number,
         );
     }
 

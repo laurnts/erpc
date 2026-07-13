@@ -6,7 +6,6 @@ namespace App\Filament\Resources\EmailTemplateResource\Pages;
 
 use App\Filament\Resources\EmailTemplateResource;
 use App\Models\EmailTemplate;
-use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 
@@ -26,22 +25,23 @@ final class CreateEmailTemplate extends CreateRecord
         // Get the type value directly from the form component state without validation
         // Access the raw state of the 'type' field
         $type = null;
-        
+
         // Try to get type from form state without validation
         try {
             $formState = $this->form->getRawState();
             $type = $formState['type'] ?? null;
-        } catch (\Exception $e) {
+        } catch (\Exception) {
             // If that fails, try accessing via data property
             $type = $this->data['type'] ?? null;
         }
-        
-        if (!$type) {
+
+        if (! $type) {
             Notification::make()
                 ->title('Template Type Required')
                 ->body('Please select a template type first.')
                 ->warning()
                 ->send();
+
             return;
         }
 
@@ -55,49 +55,52 @@ final class CreateEmailTemplate extends CreateRecord
 
         $bladeFilePath = $templateFileMap[$type] ?? null;
 
-        if (!$bladeFilePath) {
+        if (! $bladeFilePath) {
             Notification::make()
                 ->title('Invalid Template Type')
                 ->body('No default template file found for this type.')
                 ->warning()
                 ->send();
+
             return;
         }
 
         // Read the Blade file content
         $fullPath = resource_path("views/{$bladeFilePath}");
-        
-        if (!file_exists($fullPath)) {
+
+        if (! file_exists($fullPath)) {
             Notification::make()
                 ->title('Default Template Not Found')
                 ->body("Template file not found: {$bladeFilePath}")
                 ->warning()
                 ->send();
+
             return;
         }
 
         $content = file_get_contents($fullPath);
 
-        if ($content === false || empty(trim($content))) {
+        if ($content === false || in_array(trim($content), ['', '0'], true)) {
             Notification::make()
                 ->title('Default Template Empty')
                 ->body('The default template file is empty.')
                 ->warning()
                 ->send();
+
             return;
         }
 
         // Update only the content field without affecting other fields
         // Get current form state to preserve other fields
         $currentState = $this->data ?? [];
-        
+
         // Update only the content field
         $currentState['content'] = $content;
         $this->data = $currentState;
-        
+
         // Update the form component state directly
         $this->form->getComponent('content')->state($content);
-        
+
         Notification::make()
             ->title('Default Template Loaded')
             ->body('Default template content has been loaded.')

@@ -28,7 +28,7 @@ final class ProfitAndLossFactory extends Factory
         return [
             'team_id' => Team::factory(),
             'request_id' => Request::factory(),
-            'pnl_number' => fn () => sprintf('%04d/EL-PNL/%s/%d', $this->faker->numberBetween(1, 9999), $this->romanMonth(), now()->year),
+            'pnl_number' => fn (): string => sprintf('%04d/EL-PNL/%s/%d', $this->faker->numberBetween(1, 9999), $this->romanMonth(), now()->year),
             'description' => $this->faker->optional()->sentence(),
             'pnl_date' => $this->faker->dateTimeBetween('-1 month', 'now'),
             'data' => null,

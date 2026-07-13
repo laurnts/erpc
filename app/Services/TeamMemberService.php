@@ -21,7 +21,7 @@ final readonly class TeamMemberService
     public static function getTeamMembersByCentralPurchasingRole(Team $team, CentralPurchasingRole $role): Collection
     {
         return User::query()
-            ->whereHas('teams', function ($query) use ($team, $role) {
+            ->whereHas('teams', function ($query) use ($team, $role): void {
                 $query->where('teams.id', $team->id)
                     ->where('team_user.role', 'central_purchasing')
                     ->where('team_user.central_purchasing_role', $role->value);
@@ -39,7 +39,7 @@ final readonly class TeamMemberService
     public static function getFinanceApprovers(Team $team): Collection
     {
         return User::query()
-            ->whereHas('teams', function ($query) use ($team) {
+            ->whereHas('teams', function ($query) use ($team): void {
                 $query->where('teams.id', $team->id)
                     ->where('team_user.role', 'central_purchasing')
                     ->where('team_user.central_purchasing_role', CentralPurchasingRole::FINANCE->value)
@@ -59,13 +59,13 @@ final readonly class TeamMemberService
     public static function getCentralPurchasingTeamMembers(Team $team, ?CentralPurchasingRole $role = null): Collection
     {
         $query = User::query()
-            ->whereHas('teams', function ($q) use ($team) {
+            ->whereHas('teams', function ($q) use ($team): void {
                 $q->where('teams.id', $team->id)
                     ->where('team_user.role', 'central_purchasing');
             });
 
-        if ($role !== null) {
-            $query->whereHas('teams', function ($q) use ($role) {
+        if ($role instanceof \App\Enums\CentralPurchasingRole) {
+            $query->whereHas('teams', function ($q) use ($role): void {
                 $q->where('team_user.central_purchasing_role', $role->value);
             });
         }

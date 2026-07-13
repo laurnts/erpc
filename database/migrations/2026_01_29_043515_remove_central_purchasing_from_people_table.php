@@ -14,14 +14,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('people', function (Blueprint $table) {
+        Schema::table('people', function (Blueprint $table): void {
             // Drop check constraints if they exist (PostgreSQL/MySQL)
             if (DB::getDriverName() === 'pgsql') {
                 DB::statement('ALTER TABLE people DROP CONSTRAINT IF EXISTS people_central_purchasing_role_check');
             } elseif (in_array(DB::getDriverName(), ['mysql', 'mariadb'])) {
                 DB::statement('ALTER TABLE people DROP CONSTRAINT IF EXISTS people_central_purchasing_role_check');
             }
-            
+
             // Drop columns
             $table->dropColumn(['is_central_purchasing', 'central_purchasing_role']);
         });
@@ -32,7 +32,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('people', function (Blueprint $table) {
+        Schema::table('people', function (Blueprint $table): void {
             $table->boolean('is_central_purchasing')->default(false)->after('is_key_account');
             $table->string('central_purchasing_role')->nullable()->after('is_central_purchasing');
         });

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Enums\CentralPurchasingRole;
-use App\Models\SupplierOrder;
 use App\Models\User;
 use App\Services\TeamMemberService;
 use Filament\Facades\Filament;
@@ -39,17 +38,13 @@ final readonly class SupplierOrderApprovalPolicy
         }
 
         // Also show to users with admin permissions
-        if ($user->hasPermissionTo('view supplier orders')) {
-            return true;
-        }
-
-        return false;
+        return $user->hasPermissionTo('view supplier orders');
     }
 
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, SupplierOrder $supplierOrder): bool
+    public function view(User $user): bool
     {
         return $this->viewAny($user);
     }
@@ -57,31 +52,34 @@ final readonly class SupplierOrderApprovalPolicy
     /**
      * Determine whether the user can create models.
      */
-    public function create(User $user): bool
+    public function create(): bool
     {
-        return false; // Approvals cannot be created directly
+        return false;
+        // Approvals cannot be created directly
     }
 
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, SupplierOrder $supplierOrder): bool
+    public function update(): bool
     {
-        return false; // Approvals are handled via actions, not updates
+        return false;
+        // Approvals are handled via actions, not updates
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, SupplierOrder $supplierOrder): bool
+    public function delete(): bool
     {
-        return false; // Approvals cannot be deleted
+        return false;
+        // Approvals cannot be deleted
     }
 
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user, SupplierOrder $supplierOrder): bool
+    public function restore(): bool
     {
         return false;
     }
@@ -89,7 +87,7 @@ final readonly class SupplierOrderApprovalPolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, SupplierOrder $supplierOrder): bool
+    public function forceDelete(): bool
     {
         return false;
     }

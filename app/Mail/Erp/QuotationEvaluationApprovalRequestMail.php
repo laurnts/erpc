@@ -29,11 +29,11 @@ final class QuotationEvaluationApprovalRequestMail extends Mailable
         $settings = $this->quotationEvaluation->team->getErpSettings();
 
         $fromAddress = $emailService->getSenderEmail(null, $settings);
-        $fromName = $emailService->getSenderName($settings);
+        $emailService->getSenderName($settings);
 
         return new Envelope(
-            subject: 'Quotation Evaluation Approval Required: '.$this->quotationEvaluation->qe_number,
             from: $fromAddress,
+            subject: 'Quotation Evaluation Approval Required: '.$this->quotationEvaluation->qe_number,
         );
     }
 

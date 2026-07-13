@@ -230,11 +230,11 @@ final class SupplierOrdersRelationManager extends RelationManager
                         ViewField::make('hierarchical_line_items')
                             ->label('')
                             ->view('filament.infolists.components.supplier-order-items')
-                            ->visible(fn (?SupplierOrder $record): bool => $record !== null && ! $record->is_editable)
+                            ->visible(fn (?SupplierOrder $record): bool => $record instanceof \App\Models\SupplierOrder && ! $record->is_editable)
                             ->dehydrated(false),
                         Repeater::make('items')
                             ->relationship()
-                            ->visible(fn (?SupplierOrder $record): bool => $record === null || $record->is_editable)
+                            ->visible(fn (?SupplierOrder $record): bool => ! $record instanceof \App\Models\SupplierOrder || $record->is_editable)
                             ->schema([
                                 Grid::make(12)
                                     ->schema([
@@ -818,8 +818,8 @@ final class SupplierOrdersRelationManager extends RelationManager
                                     ->native(false)
                                     ->searchable()
                                     ->placeholder('Select a supplier...')
-                                    ->helperText(empty($supplierOptions) ? 'All suppliers already have an order.' : null)
-                                    ->disabled(empty($supplierOptions)),
+                                    ->helperText($supplierOptions === [] ? 'All suppliers already have an order.' : null)
+                                    ->disabled($supplierOptions === []),
                             ]);
 
                         // One section per supplier; visible only when that supplier is selected
@@ -958,11 +958,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                         $supplierOrder->exchange_rate = '1.00000000';
 
                         $customNotes = trim($data['notes'] ?? '');
-                        if ($customNotes !== '') {
-                            $supplierOrder->notes = $customNotes;
-                        } else {
-                            $supplierOrder->notes = "Created from Accepted Buyer Quote(s): {$quoteNumbers}";
-                        }
+                        $supplierOrder->notes = $customNotes !== '' ? $customNotes : "Created from Accepted Buyer Quote(s): {$quoteNumbers}";
 
                         $supplierOrder->save();
 
@@ -1084,13 +1080,13 @@ final class SupplierOrdersRelationManager extends RelationManager
                         ->visible(fn (SupplierOrder $record): bool => $record->status === OrderStatus::SENT),
                     DownloadPdfAction::make('downloadPdfApproved')
                         ->label('PDF')
-                        ->visible(fn (?SupplierOrder $record): bool => $record !== null && $record->status === OrderStatus::APPROVED),
+                        ->visible(fn (?SupplierOrder $record): bool => $record instanceof \App\Models\SupplierOrder && $record->status === OrderStatus::APPROVED),
                     Action::make('send')
                         ->label('Send Purchase Order')
                         ->icon('heroicon-o-paper-airplane')
                         ->color('primary')
-                        ->authorize(fn (?SupplierOrder $record): bool => $record !== null && auth()->user()?->can('send', $record) === true)
-                        ->visible(fn (?SupplierOrder $record): bool => $record !== null && $record->status === OrderStatus::APPROVED)
+                        ->authorize(fn (?SupplierOrder $record): bool => $record instanceof \App\Models\SupplierOrder && auth()->user()?->can('send', $record) === true)
+                        ->visible(fn (?SupplierOrder $record): bool => $record instanceof \App\Models\SupplierOrder && $record->status === OrderStatus::APPROVED)
                         ->requiresConfirmation()
                         ->modalHeading('Send purchase order email to supplier?')
                         ->modalDescription(function (SupplierOrder $record): string {
@@ -1134,8 +1130,8 @@ final class SupplierOrdersRelationManager extends RelationManager
                         ->label('Resend')
                         ->icon('heroicon-o-arrow-path')
                         ->color('info')
-                        ->authorize(fn (?SupplierOrder $record): bool => $record !== null && auth()->user()?->can('send', $record) === true)
-                        ->visible(fn (?SupplierOrder $record): bool => $record !== null && $record->status === OrderStatus::SENT)
+                        ->authorize(fn (?SupplierOrder $record): bool => $record instanceof \App\Models\SupplierOrder && auth()->user()?->can('send', $record) === true)
+                        ->visible(fn (?SupplierOrder $record): bool => $record instanceof \App\Models\SupplierOrder && $record->status === OrderStatus::SENT)
                         ->requiresConfirmation()
                         ->modalHeading('Resend purchase order email?')
                         ->modalDescription(function (SupplierOrder $record): string {
@@ -1200,7 +1196,7 @@ final class SupplierOrdersRelationManager extends RelationManager
                         ->label('Cancel')
                         ->icon('heroicon-o-x-circle')
                         ->color('danger')
-                        ->authorize(fn (?SupplierOrder $record): bool => $record !== null && auth()->user()?->can('cancel', $record) === true)
+                        ->authorize(fn (?SupplierOrder $record): bool => $record instanceof \App\Models\SupplierOrder && auth()->user()?->can('cancel', $record) === true)
                         ->visible(fn (SupplierOrder $record): bool => $record->is_cancellable)
                         ->requiresConfirmation()
                         ->modalHeading('Cancel this order?')
@@ -1439,15 +1435,14 @@ final class SupplierOrdersRelationManager extends RelationManager
         }
 
         $html .= '</div>';
-        $html .= sprintf(
+
+        return $html.sprintf(
             '<div class="mt-2 pt-2 border-t-2 border-primary-300 dark:border-primary-600 bg-primary-50/50 dark:bg-primary-950/30 -mx-1 px-2 py-2 rounded text-right"><span class="font-semibold text-primary-800 dark:text-primary-200">Supplier Total</span>%s<br><span class="text-base font-bold text-primary-700 dark:text-primary-300">%s</span></div>',
             $quoteItems->count() > $itemsForTotal->count()
                 ? '<br><span class="text-xs font-normal text-primary-600/80 dark:text-primary-400/80">(main items)</span>'
                 : '',
             number_format($supplierTotal, 2)
         );
-
-        return $html;
     }
 
     private function createSupplierOrderItemFromBuyerQuoteItem(SupplierOrder $supplierOrder, BuyerQuoteItem $quoteItem, int $sortOrder): void

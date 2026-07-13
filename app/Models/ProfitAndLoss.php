@@ -217,14 +217,14 @@ final class ProfitAndLoss extends Model implements HasMedia
     public function captureFinancialSnapshot(): void
     {
         $quote = $this->resolveSourceBuyerQuote();
-        if ($quote === null) {
+        if (! $quote instanceof \App\Models\BuyerQuote) {
             return;
         }
 
         $items = $quote->items()->whereNotNull('request_item_id')->get();
         $totals = BuyerQuoteItem::collectTotals($items);
 
-        $this->financial_snapshot = (new FinancialSnapshot(
+        $this->financial_snapshot = new FinancialSnapshot(
             subtotal: $totals->subtotal,
             taxTotal: $totals->taxTotal,
             grandTotal: $totals->grandTotal,
@@ -235,7 +235,7 @@ final class ProfitAndLoss extends Model implements HasMedia
             snapshotAt: CarbonImmutable::now(),
             buyerQuoteId: $quote->getKey(),
             supplierGroups: $this->computeLiveLineGroups(),
-        ))->toArray();
+        )->toArray();
     }
 
     /**
@@ -249,7 +249,7 @@ final class ProfitAndLoss extends Model implements HasMedia
     {
         $snapshot = $this->financialSnapshotData();
 
-        if ($snapshot !== null && $snapshot->supplierGroups !== []) {
+        if ($snapshot instanceof \App\Data\Erp\FinancialSnapshot && $snapshot->supplierGroups !== []) {
             return $snapshot->supplierGroups;
         }
 
@@ -262,7 +262,7 @@ final class ProfitAndLoss extends Model implements HasMedia
     private function computeLiveLineGroups(): array
     {
         $quote = $this->resolveSourceBuyerQuote();
-        if ($quote === null) {
+        if (! $quote instanceof \App\Models\BuyerQuote) {
             return [];
         }
 
@@ -487,9 +487,9 @@ final class ProfitAndLoss extends Model implements HasMedia
     public function approveViaDocumentAcceptance(User $user): void
     {
         $now = now();
-        $this->dept_head_sales_approved_at = $this->dept_head_sales_approved_at ?? $now;
-        $this->deputy_director_approved_at = $this->deputy_director_approved_at ?? $now;
-        $this->director_approved_at = $this->director_approved_at ?? $now;
+        $this->dept_head_sales_approved_at ??= $now;
+        $this->deputy_director_approved_at ??= $now;
+        $this->director_approved_at ??= $now;
         $this->status = PNLStatus::APPROVED;
         $this->save();
     }

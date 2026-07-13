@@ -30,18 +30,16 @@ final readonly class EmailTemplateService
             $template = EmailTemplate::find($templateId);
             if ($template && $template->type === $type) {
                 // Check if template is accessible to team (belongs to team or is default)
-                if ($team && ! $template->is_default) {
-                    // For non-default templates, must belong to the team
-                    if ($template->team_id !== $team->id) {
-                        \Log::warning('Template does not belong to team, falling back to default', [
-                            'template_id' => $templateId,
-                            'template_team_id' => $template->team_id,
-                            'requested_team_id' => $team->id,
-                            'type' => $type,
-                        ]);
+                // For non-default templates, must belong to the team
+                if ($team && ! $template->is_default && $template->team_id !== $team->id) {
+                    \Log::warning('Template does not belong to team, falling back to default', [
+                        'template_id' => $templateId,
+                        'template_team_id' => $template->team_id,
+                        'requested_team_id' => $team->id,
+                        'type' => $type,
+                    ]);
 
-                        return $this->getDefaultTemplate($type);
-                    }
+                    return $this->getDefaultTemplate($type);
                 }
 
                 return $template;
@@ -117,7 +115,7 @@ final readonly class EmailTemplateService
             return $template->sender_email;
         }
 
-        return ! empty($settings->email_from_address) ? $settings->email_from_address : config('mail.from.address');
+        return $settings->email_from_address === '' || $settings->email_from_address === '0' ? config('mail.from.address') : $settings->email_from_address;
     }
 
     /**
@@ -155,11 +153,11 @@ final readonly class EmailTemplateService
      */
     public function renderTemplate(?array $templateConfig, array $variables): string
     {
-        if (! $templateConfig || empty($templateConfig['content']) || trim($templateConfig['content']) === '') {
+        if (! $templateConfig || empty($templateConfig['content']) || trim((string) $templateConfig['content']) === '') {
             return '';
         }
 
-        $content = trim($templateConfig['content']);
+        $content = trim((string) $templateConfig['content']);
 
         // Check if content matches default template content (treat as empty to use default blade template)
         $defaultContents = [
@@ -201,7 +199,7 @@ final readonly class EmailTemplateService
             return $templateConfig['sender_email'];
         }
 
-        return ! empty($settings->email_from_address) ? $settings->email_from_address : config('mail.from.address');
+        return $settings->email_from_address === '' || $settings->email_from_address === '0' ? config('mail.from.address') : $settings->email_from_address;
     }
 
     /**
@@ -209,7 +207,7 @@ final readonly class EmailTemplateService
      */
     public function getSenderName(TeamErpSettings $settings): string
     {
-        return ! empty($settings->email_from_name) ? $settings->email_from_name : config('mail.from.name', '');
+        return $settings->email_from_name === '' || $settings->email_from_name === '0' ? config('mail.from.name', '') : $settings->email_from_name;
     }
 
     /**
@@ -245,7 +243,7 @@ final readonly class EmailTemplateService
      */
     public function configureMailer(TeamErpSettings $settings): ?string
     {
-        if (empty($settings->smtp_host)) {
+        if (in_array($settings->smtp_host, [null, '', '0'], true)) {
             return null; // Use default mailer
         }
 
@@ -253,7 +251,7 @@ final readonly class EmailTemplateService
 
         // Decrypt password and trim whitespace (Gmail App Passwords should have no spaces)
         $password = null;
-        if (! empty($settings->smtp_password)) {
+        if (! in_array($settings->smtp_password, [null, '', '0'], true)) {
             try {
                 $password = Crypt::decryptString($settings->smtp_password);
                 // Remove any whitespace that might have been accidentally added
@@ -281,7 +279,7 @@ final readonly class EmailTemplateService
 
         // Warn if using Gmail SMTP with different sender email
         if (str_contains(strtolower($settings->smtp_host ?? ''), 'gmail')
-            && ! empty($settings->email_from_address)
+            && ($settings->email_from_address !== '' && $settings->email_from_address !== '0')
             && ! str_contains(strtolower($settings->email_from_address), 'gmail.com')) {
             \Log::warning('Gmail SMTP with non-Gmail sender address - emails may be rejected or marked as spam', [
                 'smtp_host' => $settings->smtp_host,
@@ -300,13 +298,13 @@ final readonly class EmailTemplateService
      */
     public function parseEmailList(string $emails): array
     {
-        if (empty($emails)) {
+        if ($emails === '' || $emails === '0') {
             return [];
         }
 
         return array_filter(
-            array_map('trim', explode(',', $emails)),
-            fn (string $email): bool => ! empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL) !== false
+            array_map(trim(...), explode(',', $emails)),
+            fn (string $email): bool => $email !== '' && $email !== '0' && filter_var($email, FILTER_VALIDATE_EMAIL) !== false
         );
     }
 
@@ -340,7 +338,7 @@ final readonly class EmailTemplateService
 
         if ($templateId && $templateType) {
             $template = $this->getTemplateForSending($templateId, $templateType, $team);
-            if ($template) {
+            if ($template instanceof \App\Models\EmailTemplate) {
                 $ccEmails = $this->getCcEmailsFromTemplate($template);
                 $bccEmails = $this->getBccEmailsFromTemplate($template);
             }
@@ -350,22 +348,22 @@ final readonly class EmailTemplateService
             $bccEmails = $this->getBccEmails($templateConfig);
         }
 
-        if (! empty($ccEmails)) {
+        if ($ccEmails !== []) {
             $pendingMail->cc($ccEmails);
             \Log::info('Email CC applied', [
                 'to' => is_array($to) ? $to : [$to],
                 'cc' => $ccEmails,
-                'mailable' => get_class($mailable),
+                'mailable' => $mailable::class,
                 'template_id' => $templateId,
             ]);
         }
 
-        if (! empty($bccEmails)) {
+        if ($bccEmails !== []) {
             $pendingMail->bcc($bccEmails);
             \Log::info('Email BCC applied', [
                 'to' => is_array($to) ? $to : [$to],
                 'bcc' => $bccEmails,
-                'mailable' => get_class($mailable),
+                'mailable' => $mailable::class,
                 'template_id' => $templateId,
             ]);
         }
@@ -376,7 +374,7 @@ final readonly class EmailTemplateService
             'cc' => $ccEmails,
             'bcc' => $bccEmails,
             'mailer' => $mailer ?? 'default',
-            'mailable' => get_class($mailable),
+            'mailable' => $mailable::class,
             'template_id' => $templateId,
         ]);
 
@@ -385,7 +383,7 @@ final readonly class EmailTemplateService
 
         \Log::info('Email sent successfully', [
             'to' => is_array($to) ? $to : [$to],
-            'mailable' => get_class($mailable),
+            'mailable' => $mailable::class,
         ]);
     }
 }

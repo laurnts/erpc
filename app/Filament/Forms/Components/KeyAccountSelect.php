@@ -6,7 +6,6 @@ namespace App\Filament\Forms\Components;
 
 use App\Enums\CentralPurchasingRole;
 use App\Models\User;
-use App\Services\TeamMemberService;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 
@@ -29,7 +28,6 @@ final class KeyAccountSelect
      * @param  string  $relationshipName  Relationship name on the model (e.g., 'preparedBy')
      * @param  CentralPurchasingRole  $role  Required Central Purchasing role
      * @param  int|callable|null  $buyerId  Optional buyer ID or callback to get buyer ID from livewire
-     * @return Select
      */
     public static function makeWithRelationship(
         string $name,
@@ -42,8 +40,8 @@ final class KeyAccountSelect
         $team = Filament::getTenant();
 
         // Build base query for relationship (without buyer filtering for validation)
-        $baseQuery = User::query()
-            ->whereHas('teams', function ($q) use ($team, $role) {
+        User::query()
+            ->whereHas('teams', function ($q) use ($team, $role): void {
                 $q->where('teams.id', $team->id)
                     ->where('team_user.role', 'central_purchasing')
                     ->where('team_user.central_purchasing_role', $role->value);
@@ -51,7 +49,7 @@ final class KeyAccountSelect
 
         return Select::make($name)
             ->label($label)
-            ->options(function ($get, $livewire) use ($team, $role, $buyerId, $name, $relationshipName) {
+            ->options(function ($get, $livewire) use ($team, $role, $buyerId, $name) {
                 // Build query from scratch to avoid Filament's relationship query constraints
                 $currentValue = null;
                 if ($livewire && isset($livewire->record) && $livewire->record) {
@@ -59,25 +57,25 @@ final class KeyAccountSelect
                 } elseif ($livewire && isset($livewire->data[$name])) {
                     $currentValue = $livewire->data[$name];
                 }
-                
+
                 $query = User::query();
-                
+
                 // Base query: ONLY users who are team members with the specified Central Purchasing role
-                $query->whereHas('teams', function ($q) use ($team, $role) {
+                $query->whereHas('teams', function ($q) use ($team, $role): void {
                     $q->where('teams.id', $team->id)
                         ->where('team_user.role', 'central_purchasing')
                         ->where('team_user.central_purchasing_role', $role->value);
                 });
-                
+
                 // Filter by buyer assignment ONLY for Key Account role
                 if ($buyerId !== null && $role === CentralPurchasingRole::KEY_ACCOUNT) {
                     $resolvedBuyerId = null;
-                    
+
                     if ($livewire && isset($livewire->record) && $livewire->record) {
-                        if (!$livewire->record->relationLoaded('request')) {
+                        if (! $livewire->record->relationLoaded('request')) {
                             $livewire->record->load('request');
                         }
-                        
+
                         if ($livewire->record->request && $livewire->record->request->buyer_id) {
                             $resolvedBuyerId = $livewire->record->request->buyer_id;
                         } elseif ($livewire->record->request_id) {
@@ -86,23 +84,23 @@ final class KeyAccountSelect
                         } elseif (is_callable($buyerId)) {
                             try {
                                 $resolvedBuyerId = $buyerId($livewire);
-                            } catch (\Exception $e) {
+                            } catch (\Exception) {
                                 $resolvedBuyerId = null;
                             }
                         }
                     } elseif (is_callable($buyerId)) {
                         try {
                             $resolvedBuyerId = $buyerId($livewire);
-                        } catch (\Exception $e) {
+                        } catch (\Exception) {
                             $resolvedBuyerId = null;
                         }
                     } else {
                         $resolvedBuyerId = $buyerId;
                     }
-                    
+
                     if ($resolvedBuyerId !== null) {
                         // Only show key accounts assigned to this buyer
-                        $query->whereExists(function ($subQuery) use ($resolvedBuyerId) {
+                        $query->whereExists(function ($subQuery) use ($resolvedBuyerId): void {
                             $subQuery->select(\Illuminate\Support\Facades\DB::raw(1))
                                 ->from('key_account_buyers')
                                 ->whereColumn('key_account_buyers.key_account_id', 'users.id')
@@ -110,7 +108,7 @@ final class KeyAccountSelect
                         });
                     }
                 }
-                
+
                 return $query->pluck('name', 'id')->toArray();
             })
             // REMOVED ->relationship() because Filament ignores ->options() when both are present
@@ -119,16 +117,14 @@ final class KeyAccountSelect
             // Filament will save directly to the model attribute (e.g., prepared_by_id)
             // The BelongsTo relationship on the model will handle the relationship binding automatically
             ->rules([
-                \Illuminate\Validation\Rule::exists('users', 'id')->where(function ($query) use ($team, $role) {
-                    return $query->whereExists(function ($subQuery) use ($team, $role) {
-                        $subQuery->select(\Illuminate\Support\Facades\DB::raw(1))
-                            ->from('team_user')
-                            ->whereColumn('team_user.user_id', 'users.id')
-                            ->where('team_user.team_id', $team->id)
-                            ->where('team_user.role', 'central_purchasing')
-                            ->where('team_user.central_purchasing_role', $role->value);
-                    });
-                }),
+                \Illuminate\Validation\Rule::exists('users', 'id')->where(fn ($query) => $query->whereExists(function ($subQuery) use ($team, $role): void {
+                    $subQuery->select(\Illuminate\Support\Facades\DB::raw(1))
+                        ->from('team_user')
+                        ->whereColumn('team_user.user_id', 'users.id')
+                        ->where('team_user.team_id', $team->id)
+                        ->where('team_user.role', 'central_purchasing')
+                        ->where('team_user.central_purchasing_role', $role->value);
+                })),
             ])
             ->selectablePlaceholder(false)
             ->nullable()

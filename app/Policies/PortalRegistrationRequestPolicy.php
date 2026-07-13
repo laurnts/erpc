@@ -22,7 +22,7 @@ final readonly class PortalRegistrationRequestPolicy
         return $user->belongsToTeam($application->team);
     }
 
-    public function create(User $user): bool
+    public function create(): bool
     {
         return false;
     }
@@ -32,32 +32,32 @@ final readonly class PortalRegistrationRequestPolicy
         return $user->belongsToTeam($application->team);
     }
 
-    public function delete(User $user, PortalRegistrationRequest $application): bool
+    public function delete(): bool
     {
         return false;
     }
 
-    public function deleteAny(User $user): bool
+    public function deleteAny(): bool
     {
         return false;
     }
 
-    public function restore(User $user, PortalRegistrationRequest $application): bool
+    public function restore(): bool
     {
         return false;
     }
 
-    public function restoreAny(User $user): bool
+    public function restoreAny(): bool
     {
         return false;
     }
 
-    public function forceDelete(User $user, PortalRegistrationRequest $application): bool
+    public function forceDelete(): bool
     {
         return false;
     }
 
-    public function forceDeleteAny(User $user): bool
+    public function forceDeleteAny(): bool
     {
         return false;
     }

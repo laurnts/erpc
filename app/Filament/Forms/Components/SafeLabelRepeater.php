@@ -14,11 +14,11 @@ use Illuminate\Contracts\Support\Htmlable;
  */
 final class SafeLabelRepeater extends Repeater
 {
-    public function getItemLabel(string $key): string | Htmlable | null
+    public function getItemLabel(string $key): string|Htmlable|null
     {
         $container = $this->getChildSchema($key);
 
-        if ($container === null) {
+        if (! $container instanceof \Filament\Schemas\Schema) {
             return null;
         }
 

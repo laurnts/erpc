@@ -30,7 +30,7 @@ final class ApproveSupplierOrderAction extends Action
             ->icon('heroicon-o-check-badge')
             ->color('success')
             ->visible(function (?SupplierOrder $record): bool {
-                if ($record === null) {
+                if (! $record instanceof \App\Models\SupplierOrder) {
                     return false;
                 }
 
@@ -54,7 +54,7 @@ final class ApproveSupplierOrderAction extends Action
             ->modalDescription(function (SupplierOrder $record): string {
                 $description = 'This order requires approval from at least 2 approvers. ';
 
-                if (self::recordedApprovals($record) === 0) {
+                if ($this->recordedApprovals($record) === 0) {
                     return $description.'You will be the first approver. One more approval is needed.';
                 }
 
@@ -69,7 +69,7 @@ final class ApproveSupplierOrderAction extends Action
                 try {
                     $record->approve($user);
 
-                    if (self::recordedApprovals($record) === 2) {
+                    if ($this->recordedApprovals($record) === 2) {
                         Notification::make()
                             ->title('Order approved')
                             ->body('Order has been fully approved and is now ready to send to supplier.')
@@ -97,7 +97,7 @@ final class ApproveSupplierOrderAction extends Action
     /**
      * How many of the two approval slots are filled.
      */
-    private static function recordedApprovals(SupplierOrder $record): int
+    private function recordedApprovals(SupplierOrder $record): int
     {
         return ($record->approver_1_id !== null ? 1 : 0)
             + ($record->approver_2_id !== null ? 1 : 0);

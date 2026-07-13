@@ -26,7 +26,7 @@ final readonly class ActivityLogContext
      *
      * @var array<string, ActorType>
      */
-    private const GUARD_ACTORS = [
+    private const array GUARD_ACTORS = [
         'web' => ActorType::Staff,
         'buyer' => ActorType::Buyer,
         'supplier' => ActorType::Supplier,

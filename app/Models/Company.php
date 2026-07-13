@@ -238,7 +238,7 @@ final class Company extends Model implements HasCustomFields, HasMedia
     public function keyAccounts(): BelongsToMany
     {
         return $this->belongsToMany(\App\Models\User::class, 'key_account_buyers', 'buyer_id', 'key_account_id')
-            ->whereHas('teams', function ($query) {
+            ->whereHas('teams', function ($query): void {
                 $query->where('team_user.role', 'central_purchasing')
                     ->where('team_user.central_purchasing_role', \App\Enums\CentralPurchasingRole::KEY_ACCOUNT->value);
             })

@@ -107,10 +107,15 @@ final class UsePanelSession
         }
 
         foreach ($components as $component) {
-            if (! is_array($component) || ! isset($component['snapshot']) || ! is_string($component['snapshot'])) {
+            if (! is_array($component)) {
                 continue;
             }
-
+            if (! isset($component['snapshot'])) {
+                continue;
+            }
+            if (! is_string($component['snapshot'])) {
+                continue;
+            }
             $snapshot = json_decode($component['snapshot'], true);
 
             if (! is_array($snapshot)) {

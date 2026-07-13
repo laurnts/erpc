@@ -14,12 +14,12 @@ return new class extends Migration
     {
         // Get custom field IDs for People
         $emailsFieldId = DB::table('custom_fields')
-            ->where('entity_type', 'App\\Models\\People')
+            ->where('entity_type', \App\Models\People::class)
             ->where('code', 'emails')
             ->value('id');
 
         $phoneFieldId = DB::table('custom_fields')
-            ->where('entity_type', 'App\\Models\\People')
+            ->where('entity_type', \App\Models\People::class)
             ->where('code', 'phone_number')
             ->value('id');
 
@@ -40,13 +40,13 @@ return new class extends Migration
 
             // Get custom field IDs for this team (tenant-aware)
             $teamEmailsFieldId = DB::table('custom_fields')
-                ->where('entity_type', 'App\\Models\\People')
+                ->where('entity_type', \App\Models\People::class)
                 ->where('code', 'emails')
                 ->where('tenant_id', $keyAccount->team_id)
                 ->value('id') ?? $emailsFieldId;
 
             $teamPhoneFieldId = DB::table('custom_fields')
-                ->where('entity_type', 'App\\Models\\People')
+                ->where('entity_type', \App\Models\People::class)
                 ->where('code', 'phone_number')
                 ->where('tenant_id', $keyAccount->team_id)
                 ->value('id') ?? $phoneFieldId;
@@ -54,7 +54,7 @@ return new class extends Migration
             // Migrate email to custom fields (emails is tags input, stored as JSON array)
             if ($keyAccount->email && $teamEmailsFieldId) {
                 $emailInsert = [
-                    'entity_type' => 'App\\Models\\People',
+                    'entity_type' => \App\Models\People::class,
                     'entity_id' => $peopleId,
                     'custom_field_id' => $teamEmailsFieldId,
                     'json_value' => json_encode([$keyAccount->email]),
@@ -73,7 +73,7 @@ return new class extends Migration
             // Migrate phone to custom fields (phone_number is text, stored as string_value)
             if ($keyAccount->phone && $teamPhoneFieldId) {
                 $phoneInsert = [
-                    'entity_type' => 'App\\Models\\People',
+                    'entity_type' => \App\Models\People::class,
                     'entity_id' => $peopleId,
                     'custom_field_id' => $teamPhoneFieldId,
                     'string_value' => $keyAccount->phone,
@@ -111,24 +111,24 @@ return new class extends Migration
             if ($person) {
                 // Get custom field values
                 $emailsFieldId = DB::table('custom_fields')
-                    ->where('entity_type', 'App\\Models\\People')
+                    ->where('entity_type', \App\Models\People::class)
                     ->where('code', 'emails')
                     ->value('id');
 
                 $phoneFieldId = DB::table('custom_fields')
-                    ->where('entity_type', 'App\\Models\\People')
+                    ->where('entity_type', \App\Models\People::class)
                     ->where('code', 'phone_number')
                     ->value('id');
 
                 $emailValue = null;
                 if ($emailsFieldId) {
                     $emailData = DB::table('custom_field_values')
-                        ->where('entity_type', 'App\\Models\\People')
+                        ->where('entity_type', \App\Models\People::class)
                         ->where('entity_id', $mapping->people_id)
                         ->where('custom_field_id', $emailsFieldId)
                         ->value('json_value');
                     if ($emailData) {
-                        $emails = json_decode($emailData, true);
+                        $emails = json_decode((string) $emailData, true);
                         $emailValue = $emails[0] ?? null;
                     }
                 }
@@ -136,7 +136,7 @@ return new class extends Migration
                 $phoneValue = null;
                 if ($phoneFieldId) {
                     $phoneValue = DB::table('custom_field_values')
-                        ->where('entity_type', 'App\\Models\\People')
+                        ->where('entity_type', \App\Models\People::class)
                         ->where('entity_id', $mapping->people_id)
                         ->where('custom_field_id', $phoneFieldId)
                         ->value('string_value');

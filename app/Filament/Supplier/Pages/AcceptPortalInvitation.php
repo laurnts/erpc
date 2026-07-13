@@ -142,7 +142,7 @@ final class AcceptPortalInvitation extends Page implements HasForms
 
     public function accept(): void
     {
-        if ($this->invitation === null) {
+        if (! $this->invitation instanceof \App\Models\PortalInvitation) {
             return;
         }
 

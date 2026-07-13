@@ -76,25 +76,23 @@ final class ViewMember extends ViewRecord
                                     $role->value => $role->getLabel(),
                                 ])
                                 ->toArray())
-                            ->required(fn ($get) => $get('role') === 'central_purchasing')
-                            ->visible(fn ($get) => $get('role') === 'central_purchasing')
+                            ->required(fn ($get): bool => $get('role') === 'central_purchasing')
+                            ->visible(fn ($get): bool => $get('role') === 'central_purchasing')
                             ->helperText('Select the specific role for this Central Purchasing team member.')
                             ->live(),
                         Toggle::make('is_approver')
                             ->label('Is Approver')
-                            ->visible(fn ($get) => $get('role') === 'central_purchasing' && $get('central_purchasing_role') === CentralPurchasingRole::FINANCE->value)
+                            ->visible(fn ($get): bool => $get('role') === 'central_purchasing' && $get('central_purchasing_role') === CentralPurchasingRole::FINANCE->value)
                             ->helperText('Only finance users marked as approvers can approve credit limit increase requests.')
                             ->default(false),
                     ])
-                    ->fillForm(function () use ($membership): array {
-                        return [
-                            'name' => $membership->user->name,
-                            'profile_photo_path' => $membership->user->profile_photo_path,
-                            'role' => $membership->role,
-                            'central_purchasing_role' => $membership->central_purchasing_role?->value,
-                            'is_approver' => $membership->is_approver ?? false,
-                        ];
-                    })
+                    ->fillForm(fn (): array => [
+                        'name' => $membership->user->name,
+                        'profile_photo_path' => $membership->user->profile_photo_path,
+                        'role' => $membership->role,
+                        'central_purchasing_role' => $membership->central_purchasing_role?->value,
+                        'is_approver' => $membership->is_approver ?? false,
+                    ])
                     ->action(function (array $data) use ($membership, $team): void {
                         $user = $membership->user;
 
@@ -145,7 +143,7 @@ final class ViewMember extends ViewRecord
                     ->color('danger')
                     ->requiresConfirmation()
                     ->modalHeading('Remove Team Member')
-                    ->modalDescription(fn () => "Are you sure you want to remove {$membership->user->email} from the team?")
+                    ->modalDescription(fn (): string => "Are you sure you want to remove {$membership->user->email} from the team?")
                     ->action(function () use ($membership, $team): void {
                         app(\App\Actions\Jetstream\RemoveTeamMember::class)->remove(
                             auth()->user(),
@@ -160,7 +158,7 @@ final class ViewMember extends ViewRecord
 
                         $this->redirect(MemberResource::getUrl('index'));
                     })
-                    ->visible(fn () => auth()->id() !== $membership->user_id &&
+                    ->visible(fn (): bool => auth()->id() !== $membership->user_id &&
                         Gate::check('removeTeamMember', $team)
                     ),
             ]),

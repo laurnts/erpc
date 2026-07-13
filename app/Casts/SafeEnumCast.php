@@ -18,9 +18,8 @@ final readonly class SafeEnumCast implements CastsAttributes
      * @param  class-string<\BackedEnum>  $enumClass
      */
     public function __construct(
-        private readonly string $enumClass
-    ) {
-    }
+        private string $enumClass
+    ) {}
 
     /**
      * Transform the attribute from the underlying model values.

@@ -692,7 +692,7 @@ final class ViewRequest extends ViewRecord
             $rows[] = sprintf(
                 '<tr><td style="%sfont-weight:500;white-space:nowrap;">%s</td><td style="%s">%s</td><td style="%s">%s</td><td style="%swhite-space:nowrap;">%s</td></tr>',
                 $cell,
-                htmlspecialchars($shipment->shipment_number),
+                htmlspecialchars((string) $shipment->shipment_number),
                 $cell,
                 $this->statusBadge($shipment->status->getLabel(), $shipment->status->getColor()),
                 $cell,

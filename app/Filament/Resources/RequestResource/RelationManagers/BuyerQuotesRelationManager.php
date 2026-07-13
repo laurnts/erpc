@@ -95,7 +95,7 @@ final class BuyerQuotesRelationManager extends RelationManager
             ViewField::make('expired_alert')
                 ->label('')
                 ->view('filament.forms.components.buyer-quote-expired-alert')
-                ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->exists && $record->is_expired)
+                ->visible(fn (?BuyerQuote $record): bool => $record instanceof \App\Models\BuyerQuote && $record->exists && $record->is_expired)
                 ->dehydrated(false),
             Section::make('Quote Creation')
                 ->schema([
@@ -127,7 +127,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 ->visible(fn (Get $get): bool => $this->isConsolidatedMode($get))
                                 ->live()
                                 ->afterStateUpdated(function (Set $set, ?array $state) use ($request): void {
-                                    $this->applyBuiltSupplierQuoteData($set, $request, is_array($state) ? array_filter(array_map('intval', $state)) : []);
+                                    $this->applyBuiltSupplierQuoteData($set, $request, is_array($state) ? array_filter(array_map(intval(...), $state)) : []);
                                 }),
                             Select::make('supplier_quote_id')
                                 ->label('Supplier quote')
@@ -304,12 +304,11 @@ final class BuyerQuotesRelationManager extends RelationManager
                     Repeater::make('items')
                         ->relationship(
                             'items',
-                            function ($query) {
-                                // Only load main-level lines; child lines are nested within their main items
-                                return $query->whereDoesntHave('requestItem', function ($q) {
-                                    $q->whereNotNull('parent_id');
-                                });
-                            }
+
+                            // Only load main-level lines; child lines are nested within their main items
+                            fn ($query) => $query->whereDoesntHave('requestItem', function ($q): void {
+                                $q->whereNotNull('parent_id');
+                            })
                         )
                         ->mutateRelationshipDataBeforeFillUsing(function (array $data, $record) use ($request): array {
                             $data['quantity'] = (string) (int) round((float) ($data['quantity'] ?? 0));
@@ -364,7 +363,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                 ? ($data['is_tax_inclusive'] ?? $record->is_tax_inclusive ?? false)
                                                 : ($defaultTaxCode !== null && $defaultTaxCode->is_inclusive_default);
 
-                                            $data['child_items'] = $childBuyerQuoteItems->map(function ($childItem) use ($mainItemTaxCodeId, $mainItemTaxRate, $mainItemIsTaxInclusive) {
+                                            $data['child_items'] = $childBuyerQuoteItems->map(function ($childItem) use ($mainItemTaxCodeId, $mainItemTaxRate, $mainItemIsTaxInclusive): array {
                                                 // Use stored tax information, or fallback to main item's tax
                                                 $taxCodeId = $childItem->tax_code_id ?? $mainItemTaxCodeId;
                                                 $taxRate = $childItem->tax_code_id !== null
@@ -466,7 +465,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->columnSpan(2)
                                         ->live(onBlur: true)
                                         ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : null)
-                                        ->dehydrateStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '1')
+                                        ->dehydrateStateUsing(fn ($state): string => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '1')
                                         ->afterStateHydrated(function (Set $set, Get $get): void {
                                             $qty = $get('quantity');
                                             $normalized = $qty !== null && $qty !== '' ? (string) (int) round((float) $qty) : '1';
@@ -593,7 +592,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             $this->calculateItemTotals($set, $get);
                                             // Sync main item +Tax to child items on load and recalc their line totals
                                             $mainInclusive = $get('is_tax_inclusive');
-                                            $mainInclusive = $mainInclusive === true || $mainInclusive === '1' || $mainInclusive === 1;
+                                            $mainInclusive = in_array($mainInclusive, [true, '1', 1], true);
                                             $childItems = $get('child_items') ?? [];
                                             if (is_array($childItems) && $mainInclusive) {
                                                 foreach (array_keys($childItems) as $index) {
@@ -622,8 +621,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         ->columnSpan(1)
                                         ->disabled()
                                         ->dehydrated()
-                                        ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0')
-                                        ->dehydrateStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0'),
+                                        ->formatStateUsing(fn ($state): string => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0')
+                                        ->dehydrateStateUsing(fn ($state): string => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0'),
                                     // Margin %: default from general settings. Unit price = cost / (1 - margin%/100); margin% = (selling - cost)/selling×100. +Tax adds tax to line total.
                                     TextInput::make('margin_percent_input')
                                         ->label('Margin %')
@@ -676,7 +675,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                             $price = (float) ($get('unit_price') ?? 0);
                                             $taxRate = (float) ($get('tax_rate') ?? 0);
                                             $incl = $get('is_tax_inclusive');
-                                            $incl = $incl === true || $incl === '1' || $incl === 1;
+                                            $incl = in_array($incl, [true, '1', 1], true);
                                             $sub = $qty * $price;
                                             if ($incl && $taxRate > 0) {
                                                 return (string) round($sub + $sub * $taxRate / 100, 0);
@@ -713,7 +712,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                         ->columnSpan(1)
                                                         ->live(onBlur: true)
                                                         ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : null)
-                                                        ->dehydrateStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '1')
+                                                        ->dehydrateStateUsing(fn ($state): string => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '1')
                                                         ->afterStateHydrated(function (Set $set, Get $get): void {
                                                             $qty = $get('quantity');
                                                             $normalized = $qty !== null && $qty !== '' ? (string) (int) round((float) $qty) : '1';
@@ -820,8 +819,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                                                         ->columnSpan(1)
                                                         ->disabled()
                                                         ->dehydrated()
-                                                        ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0')
-                                                        ->dehydrateStateUsing(fn ($state) => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0'),
+                                                        ->formatStateUsing(fn ($state): string => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0')
+                                                        ->dehydrateStateUsing(fn ($state): string => $state !== null && $state !== '' ? (string) (int) round((float) $state) : '0'),
                                                     TextInput::make('line_total')
                                                         ->label('Line Total')
                                                         ->numeric()
@@ -1003,7 +1002,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                             'max' => DocumentUpload::maxSizeMessage(2048),
                         ])
                         ->dehydrated(false)
-                        ->afterStateUpdated(function ($state, $record, $set) {
+                        ->afterStateUpdated(function ($state, $record, $set): void {
                             // Process uploaded files immediately when they're uploaded
                             if ($record && $record->exists && $state && is_array($state)) {
                                 app(AttachUploadedFiles::class)->execute($record, $state, 'buyer_po', BuyerQuote::PO_FILES_UPLOAD_DIRECTORY);
@@ -1015,7 +1014,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                     ViewField::make('buyer_po_list')
                         ->label('Uploaded Buyer PO Files')
                         ->view('filament.forms.components.buyer-po-list')
-                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->exists)
+                        ->visible(fn (?BuyerQuote $record): bool => $record instanceof \App\Models\BuyerQuote && $record->exists)
                         ->dehydrated(false)
                         ->live(),
                 ]),
@@ -1035,7 +1034,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                     ViewField::make('buyer_po_list')
                         ->label('Uploaded Buyer PO Files')
                         ->view('filament.forms.components.buyer-po-list')
-                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->exists)
+                        ->visible(fn (?BuyerQuote $record): bool => $record instanceof \App\Models\BuyerQuote && $record->exists)
                         ->dehydrated(false)
                         ->live(),
                 ]),
@@ -1055,7 +1054,7 @@ final class BuyerQuotesRelationManager extends RelationManager
         $team = Filament::getTenant();
         $settings = $team?->getErpSettings();
         $defaultCurrencyCode = $settings->default_currency ?? 'USD';
-        $currencyId = (int) Currency::query()->where('code', $defaultCurrencyCode)->where('is_active', true)->value('id');
+        Currency::query()->where('code', $defaultCurrencyCode)->where('is_active', true)->value('id');
         $defaultTaxCode = TaxCode::query()
             ->where('team_id', $request->team_id)
             ->where('is_default', true)
@@ -1145,7 +1144,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         'unit_price' => (string) $childUnitPrice,
                         'unit_price_exc_tax' => (string) round($childUnitPriceExcTax, 0),
                         'tax_code_id' => $mainItemTaxCodeId,
-                        'tax_rate' => (string) (int) round((float) $taxRate),
+                        'tax_rate' => (string) (int) round($taxRate),
                         'is_tax_inclusive' => $addTax,
                         'line_subtotal' => (string) round($childLineSubtotal, 4),
                         'line_tax' => (string) round($childLineTax, 4),
@@ -1169,7 +1168,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                 'unit_price' => (string) $unitPrice,
                 'unit_price_exc_tax' => (string) round($unitPriceExcTax, 0),
                 'tax_code_id' => $mainItemTaxCodeId,
-                'tax_rate' => (string) (int) round((float) $taxRate),
+                'tax_rate' => (string) (int) round($taxRate),
                 'tax_amount' => (string) round($lineTax / max($quantity, 0.0001), 4),
                 'is_tax_inclusive' => $addTax,
                 'line_subtotal' => (string) round($lineSubtotal, 4),
@@ -1196,7 +1195,7 @@ final class BuyerQuotesRelationManager extends RelationManager
         unset($item, $childItem);
 
         if ($singleQuote !== null) {
-            $paymentTerms = $singleQuote->paymentTerms->map(fn ($t) => [
+            $paymentTerms = $singleQuote->paymentTerms->map(fn ($t): array => [
                 'due_days' => $t->due_days,
                 'percentage' => $t->percentage,
                 'job_progress' => $t->job_progress,
@@ -1209,7 +1208,8 @@ final class BuyerQuotesRelationManager extends RelationManager
             $prepaymentAmount = $singleQuote->prepayment_type === \App\Enums\PrepaymentType::PERCENT
                 ? ((int) $singleQuote->prepayment_percent > 0 ? (int) $singleQuote->prepayment_percent : (int) round((float) $singleQuote->prepayment_amount))
                 : (float) $singleQuote->prepayment_amount;
-            $result = [
+
+            return [
                 'items' => $items,
                 'paymentTerms' => $paymentTerms,
                 'prepayment_type' => $singleQuote->prepayment_type->value,
@@ -1218,16 +1218,14 @@ final class BuyerQuotesRelationManager extends RelationManager
                 'valid_until' => $singleQuote->valid_until ?? now()->addDays($settings->quote_validity_days ?? 30),
                 'exchange_rate' => (float) $singleQuote->exchange_rate,
             ];
-        } else {
-            $result = [
-                'items' => $items,
-                'paymentTerms' => [['due_days' => $defaultPaymentTermsDays, 'percentage' => 100, 'sort_order' => 0]],
-                'prepayment_type' => PrepaymentType::PERCENT->value,
-                'prepayment_amount' => 0,
-            ];
         }
 
-        return $result;
+        return [
+            'items' => $items,
+            'paymentTerms' => [['due_days' => $defaultPaymentTermsDays, 'percentage' => 100, 'sort_order' => 0]],
+            'prepayment_type' => PrepaymentType::PERCENT->value,
+            'prepayment_amount' => 0,
+        ];
     }
 
     public function table(Table $table): Table
@@ -1351,7 +1349,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         if (isset($data['items']) && is_array($data['items'])) {
                             $childItemsByRequestItemId = [];
                             foreach ($data['items'] as $index => $item) {
-                                if (isset($item['child_items']) && is_array($item['child_items']) && ! empty($item['child_items'])) {
+                                if (isset($item['child_items']) && is_array($item['child_items']) && (isset($item['child_items']) && $item['child_items'] !== [])) {
                                     $requestItemId = $item['request_item_id'] ?? null;
                                     if ($requestItemId !== null) {
                                         $childItemsByRequestItemId[$requestItemId] = $item['child_items'];
@@ -1412,7 +1410,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 // Match by request_item_id instead of array index for reliability
                                 $mainItem = $mainItems->get($requestItemId);
 
-                                if ($mainItem !== null && is_array($childItemsData) && ! empty($childItemsData)) {
+                                if ($mainItem !== null && is_array($childItemsData) && $childItemsData !== []) {
                                     foreach ($childItemsData as $childItemData) {
                                         $childRequestItemId = $childItemData['request_item_id'] ?? null;
                                         if ($childRequestItemId !== null && $record->items()->where('request_item_id', $childRequestItemId)->exists()) {
@@ -1465,7 +1463,10 @@ final class BuyerQuotesRelationManager extends RelationManager
                                 }
 
                                 $requestItem = $request->items()->find($mainItem->request_item_id);
-                                if ($requestItem === null || ! $requestItem->children()->exists()) {
+                                if ($requestItem === null) {
+                                    continue;
+                                }
+                                if (! $requestItem->children()->exists()) {
                                     continue;
                                 }
 
@@ -1581,11 +1582,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                                     : 0.0;
 
                                 // If tax is inclusive, unit_price should include tax; otherwise unit_price = net price
-                                if ($addTax && $taxRate > 0) {
-                                    $unitPrice = round($unitPriceExcTax * (1 + $taxRate / 100), 4);
-                                } else {
-                                    $unitPrice = $unitPriceExcTax;
-                                }
+                                $unitPrice = $addTax && $taxRate > 0 ? round($unitPriceExcTax * (1 + $taxRate / 100), 4) : $unitPriceExcTax;
 
                                 // Line subtotal is quantity * net price (amount before tax)
                                 $lineSubtotal = $quantity * $unitPriceExcTax;
@@ -1655,9 +1652,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                     })
                     ->createAnother(false),
                 Action::make('createPnl')
-                    ->label(function () use ($request): string {
-                        return $request->profitAndLosses()->exists() ? 'View PNL' : 'Create PNL';
-                    })
+                    ->label(fn (): string => $request->profitAndLosses()->exists() ? 'View PNL' : 'Create PNL')
                     ->icon('heroicon-o-chart-bar')
                     ->size(Size::Small)
                     ->color('success')
@@ -1740,24 +1735,21 @@ final class BuyerQuotesRelationManager extends RelationManager
                                         'dept_head_sales_id',
                                         'Dept Head of Sales',
                                         'deptHeadSales',
-                                        CentralPurchasingRole::DEPT_HEAD_SALES,
-                                        null
+                                        CentralPurchasingRole::DEPT_HEAD_SALES
                                     )
                                         ->default($deptHeadDefault),
                                     KeyAccountSelect::makeWithRelationship(
                                         'deputy_director_id',
                                         'Deputy Director',
                                         'deputyDirector',
-                                        CentralPurchasingRole::DEPUTY_DIRECTOR,
-                                        null
+                                        CentralPurchasingRole::DEPUTY_DIRECTOR
                                     )
                                         ->default($deputyDirectorDefault),
                                     KeyAccountSelect::makeWithRelationship(
                                         'approved_by_id',
                                         'Approved By',
                                         'approvedBy',
-                                        CentralPurchasingRole::DIRECTOR,
-                                        null
+                                        CentralPurchasingRole::DIRECTOR
                                     )
                                         ->default($directorDefault),
                                 ])
@@ -1804,9 +1796,7 @@ final class BuyerQuotesRelationManager extends RelationManager
 
                         return $draftQuote !== null && auth()->user()?->can('send', $draftQuote) === true;
                     })
-                    ->visible(function () use ($request): bool {
-                        return $request->buyerQuotes()->where('status', BuyerQuoteStatus::DRAFT)->exists();
-                    })
+                    ->visible(fn (): bool => $request->buyerQuotes()->where('status', BuyerQuoteStatus::DRAFT)->exists())
                     ->requiresConfirmation()
                     ->modalHeading('Send draft quote(s)?')
                     ->modalDescription(function () use ($request): string {
@@ -1926,11 +1916,11 @@ final class BuyerQuotesRelationManager extends RelationManager
             ->recordActions([
                 ActionGroup::make([
                     ViewAction::make()
-                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && ! $record->status->canEdit())
+                        ->visible(fn (?BuyerQuote $record): bool => $record instanceof \App\Models\BuyerQuote && ! $record->status->canEdit())
                         ->modalWidth('7xl')
                         ->form(fn (): array => $this->getFormSchema()),
                     EditAction::make()
-                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->status->canEdit())
+                        ->visible(fn (?BuyerQuote $record): bool => $record instanceof \App\Models\BuyerQuote && $record->status->canEdit())
                         ->modalWidth('7xl')
                         ->form(fn (): array => $this->getFormSchema())
                         ->fillForm(function (BuyerQuote $record): array {
@@ -1963,7 +1953,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                             if (isset($data['items']) && is_array($data['items'])) {
                                 $childItemsByRequestItemId = [];
                                 foreach ($data['items'] as $index => $item) {
-                                    if (isset($item['child_items']) && is_array($item['child_items']) && ! empty($item['child_items'])) {
+                                    if (isset($item['child_items']) && is_array($item['child_items']) && (isset($item['child_items']) && $item['child_items'] !== [])) {
                                         $requestItemId = $item['request_item_id'] ?? null;
                                         if ($requestItemId !== null) {
                                             $childItemsByRequestItemId[$requestItemId] = $item['child_items'];
@@ -2000,8 +1990,13 @@ final class BuyerQuotesRelationManager extends RelationManager
 
                                 foreach ($dataChildItems as $requestItemId => $childItemsData) {
                                     $mainItem = $mainItems->get($requestItemId);
-
-                                    if ($mainItem === null || ! is_array($childItemsData) || $childItemsData === []) {
+                                    if ($mainItem === null) {
+                                        continue;
+                                    }
+                                    if (! is_array($childItemsData)) {
+                                        continue;
+                                    }
+                                    if ($childItemsData === []) {
                                         continue;
                                     }
 
@@ -2060,7 +2055,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         }),
                     \Filament\Actions\DeleteAction::make()
                         ->hidden(function (?BuyerQuote $record): bool {
-                            if ($record === null) {
+                            if (! $record instanceof \App\Models\BuyerQuote) {
                                 return true;
                             }
                             // Override default trashed check to also check status
@@ -2091,7 +2086,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         })
                         ->color('gray')
                         ->visible(function (?BuyerQuote $record): bool {
-                            if ($record === null) {
+                            if (! $record instanceof \App\Models\BuyerQuote) {
                                 return false;
                             }
 
@@ -2180,8 +2175,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->label('Resend')
                         ->icon('heroicon-o-arrow-path')
                         ->color('info')
-                        ->authorize(fn (?BuyerQuote $record): bool => $record !== null && auth()->user()?->can('update', $record) === true)
-                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->status === BuyerQuoteStatus::SENT)
+                        ->authorize(fn (?BuyerQuote $record): bool => $record instanceof \App\Models\BuyerQuote && auth()->user()?->can('update', $record) === true)
+                        ->visible(fn (?BuyerQuote $record): bool => $record instanceof \App\Models\BuyerQuote && $record->status === BuyerQuoteStatus::SENT)
                         ->requiresConfirmation()
                         ->modalHeading('Resend quote email?')
                         ->modalDescription(function (BuyerQuote $record): string {
@@ -2248,12 +2243,11 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->label('Accept')
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
-                        ->visible(function (?BuyerQuote $record): bool {
+                        ->visible(
                             // Hide Accept button when status is SENT (Upload PO replaces it)
                             // Accept button is only available for SENT status, but we're replacing it with Upload PO
                             // So we hide it completely since Upload PO handles the acceptance
-                            return false;
-                        })
+                            fn (?BuyerQuote $record): bool => false)
                         ->requiresConfirmation()
                         ->modalHeading('Accept this quote?')
                         ->modalDescription('This will mark the quote as accepted by the buyer.')
@@ -2268,8 +2262,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->label('Reject')
                         ->icon('heroicon-o-x-circle')
                         ->color('danger')
-                        ->authorize(fn (?BuyerQuote $record): bool => $record !== null && auth()->user()?->can('update', $record) === true)
-                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->status === BuyerQuoteStatus::SENT)
+                        ->authorize(fn (?BuyerQuote $record): bool => $record instanceof \App\Models\BuyerQuote && auth()->user()?->can('update', $record) === true)
+                        ->visible(fn (?BuyerQuote $record): bool => $record instanceof \App\Models\BuyerQuote && $record->status === BuyerQuoteStatus::SENT)
                         ->requiresConfirmation()
                         ->modalHeading('Reject this quote?')
                         ->modalDescription('This will mark the quote as rejected by the buyer.')
@@ -2284,8 +2278,8 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->label('New Version')
                         ->icon('heroicon-o-document-duplicate')
                         ->color('primary')
-                        ->authorize(fn (?BuyerQuote $record): bool => $record !== null && auth()->user()?->can('createVersion', $record) === true)
-                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->status->canCreateNewVersion())
+                        ->authorize(fn (?BuyerQuote $record): bool => $record instanceof \App\Models\BuyerQuote && auth()->user()?->can('createVersion', $record) === true)
+                        ->visible(fn (?BuyerQuote $record): bool => $record instanceof \App\Models\BuyerQuote && $record->status->canCreateNewVersion())
                         ->requiresConfirmation()
                         ->modalHeading('Create new version?')
                         ->modalDescription(fn (BuyerQuote $record): string => $record->hasAdditionalItems()
@@ -2310,7 +2304,7 @@ final class BuyerQuotesRelationManager extends RelationManager
                         ->label('Extend')
                         ->icon('heroicon-o-clock')
                         ->color('warning')
-                        ->visible(fn (?BuyerQuote $record): bool => $record !== null && $record->status->isActive())
+                        ->visible(fn (?BuyerQuote $record): bool => $record instanceof \App\Models\BuyerQuote && $record->status->isActive())
                         ->form([
                             DatePicker::make('new_valid_until')
                                 ->label('New Valid Until Date')
@@ -2343,7 +2337,7 @@ final class BuyerQuotesRelationManager extends RelationManager
 
     private function isCreatingBuyerQuote(?Model $record): bool
     {
-        return $record === null || ! $record->exists;
+        return ! $record instanceof \Illuminate\Database\Eloquent\Model || ! $record->exists;
     }
 
     /**
@@ -2399,7 +2393,7 @@ final class BuyerQuotesRelationManager extends RelationManager
 
     private function hasCreationModeSelected(Get $get): bool
     {
-        return $this->normalizeCreationMode($get('creation_mode')) !== null;
+        return $this->normalizeCreationMode($get('creation_mode')) instanceof \App\Enums\BuyerQuoteCreationMode;
     }
 
     private function isConsolidatedMode(Get $get): bool
@@ -2414,7 +2408,7 @@ final class BuyerQuotesRelationManager extends RelationManager
 
     private function showsSupplierQuoteDetails(?Model $record, Get $get): bool
     {
-        if ($record !== null && $record->exists) {
+        if ($record instanceof \Illuminate\Database\Eloquent\Model && $record->exists) {
             return true;
         }
 
@@ -2491,7 +2485,7 @@ final class BuyerQuotesRelationManager extends RelationManager
 
         $ids = $get('supplier_quote_ids');
 
-        return is_array($ids) ? array_values(array_filter(array_map('intval', $ids))) : [];
+        return is_array($ids) ? array_values(array_filter(array_map(intval(...), $ids))) : [];
     }
 
     /**
@@ -2511,7 +2505,7 @@ final class BuyerQuotesRelationManager extends RelationManager
         if ($mode === BuyerQuoteCreationMode::CONSOLIDATED) {
             $ids = $data['supplier_quote_ids'] ?? [];
 
-            return is_array($ids) ? array_values(array_filter(array_map('intval', $ids))) : [];
+            return is_array($ids) ? array_values(array_filter(array_map(intval(...), $ids))) : [];
         }
 
         return [];
@@ -2607,7 +2601,7 @@ final class BuyerQuotesRelationManager extends RelationManager
 
         $taxRate = isset($childItemData['tax_rate']) && $childItemData['tax_rate'] !== ''
             ? (string) (int) round((float) $childItemData['tax_rate'])
-            : (string) (int) round((float) ($defaultTaxCode !== null ? $defaultTaxCode->rate : 0));
+            : (string) (int) round((float) ($defaultTaxCode instanceof \App\Models\TaxCode ? $defaultTaxCode->rate : 0));
 
         return [
             'tax_code_id' => $taxCodeId,
@@ -2736,7 +2730,7 @@ final class BuyerQuotesRelationManager extends RelationManager
         $costPrice = (float) ($get('cost_price') ?? 0);
         $taxRate = (float) ($get('tax_rate') ?? 0);
         $taxInclusiveRaw = $get('is_tax_inclusive');
-        $isTaxInclusive = $isTaxInclusiveOverride !== null ? $isTaxInclusiveOverride : ($taxInclusiveRaw === true || $taxInclusiveRaw === '1' || $taxInclusiveRaw === 1);
+        $isTaxInclusive = $isTaxInclusiveOverride ?? in_array($taxInclusiveRaw, [true, '1', 1], true);
 
         // unit_price always represents the net price (Selling Price Net), regardless of tax checkbox
         // unit_price_exc_tax should always equal unit_price (they're the same - net price before tax)

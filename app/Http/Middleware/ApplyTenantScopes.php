@@ -15,7 +15,7 @@ use Illuminate\Http\Request;
 
 final readonly class ApplyTenantScopes
 {
-    public const TENANT_USER_SCOPE = 'app_tenancy';
+    public const string TENANT_USER_SCOPE = 'app_tenancy';
 
     public function handle(Request $request, Closure $next): mixed
     {

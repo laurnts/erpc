@@ -39,11 +39,11 @@ final class PurchaseOrderToSupplierMail extends Mailable
         $fromAddress = $template
             ? $emailService->getSenderEmailFromTemplate($template, $settings)
             : $emailService->getSenderEmail($settings->email_template_supplier_order ?? null, $settings);
-        $fromName = $emailService->getSenderName($settings);
+        $emailService->getSenderName($settings);
 
         return new Envelope(
-            subject: 'Purchase Order '.$this->order->po_number,
             from: $fromAddress,
+            subject: 'Purchase Order '.$this->order->po_number,
         );
     }
 

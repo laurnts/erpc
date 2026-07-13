@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
-use App\Models\QuotationEvaluation;
 use App\Models\User;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Access\HandlesAuthorization;
@@ -24,7 +23,7 @@ final readonly class QuotationEvaluationPolicy
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, QuotationEvaluation $quotationEvaluation): bool
+    public function view(User $user): bool
     {
         return $this->viewAny($user);
     }
@@ -55,23 +54,25 @@ final readonly class QuotationEvaluationPolicy
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, QuotationEvaluation $quotationEvaluation): bool
+    public function update(): bool
     {
-        return false; // QEs are updated via workflow, not directly
+        return false;
+        // QEs are updated via workflow, not directly
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, QuotationEvaluation $quotationEvaluation): bool
+    public function delete(): bool
     {
-        return false; // QEs cannot be deleted
+        return false;
+        // QEs cannot be deleted
     }
 
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user, QuotationEvaluation $quotationEvaluation): bool
+    public function restore(): bool
     {
         return false;
     }
@@ -79,7 +80,7 @@ final readonly class QuotationEvaluationPolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, QuotationEvaluation $quotationEvaluation): bool
+    public function forceDelete(): bool
     {
         return false;
     }

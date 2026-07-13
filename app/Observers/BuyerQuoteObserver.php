@@ -76,7 +76,7 @@ final readonly class BuyerQuoteObserver
 
     private function advanceRequestStageForSentQuote(?Request $request): void
     {
-        if ($request === null || $request->stage !== RequestStage::PREPARING_BUYER_QUOTE) {
+        if (! $request instanceof \App\Models\Request || $request->stage !== RequestStage::PREPARING_BUYER_QUOTE) {
             return;
         }
 

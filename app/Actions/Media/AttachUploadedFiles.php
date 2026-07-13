@@ -66,8 +66,10 @@ final readonly class AttachUploadedFiles
             }
 
             $realPath = realpath($root.DIRECTORY_SEPARATOR.ltrim($file, '/'));
-
-            if ($realPath === false || ! str_starts_with($realPath, $baseDir.DIRECTORY_SEPARATOR)) {
+            if ($realPath === false) {
+                continue;
+            }
+            if (! str_starts_with($realPath, $baseDir.DIRECTORY_SEPARATOR)) {
                 continue;
             }
 

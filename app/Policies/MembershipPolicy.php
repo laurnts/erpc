@@ -51,17 +51,17 @@ final readonly class MembershipPolicy
                $user->id !== $membership->user_id;
     }
 
-    public function deleteAny(User $user): bool
+    public function deleteAny(): bool
     {
         return false;
     }
 
-    public function restore(User $user, Membership $membership): bool
+    public function restore(): bool
     {
         return false;
     }
 
-    public function restoreAny(User $user): bool
+    public function restoreAny(): bool
     {
         return false;
     }
@@ -75,7 +75,7 @@ final readonly class MembershipPolicy
                $user->ownsTeam($team);
     }
 
-    public function forceDeleteAny(User $user): bool
+    public function forceDeleteAny(): bool
     {
         return false;
     }

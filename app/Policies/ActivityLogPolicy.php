@@ -34,32 +34,32 @@ final readonly class ActivityLogPolicy
         return $this->isAdmin($user);
     }
 
-    public function create(User $user): bool
+    public function create(): bool
     {
         return false;
     }
 
-    public function update(User $user): bool
+    public function update(): bool
     {
         return false;
     }
 
-    public function delete(User $user): bool
+    public function delete(): bool
     {
         return false;
     }
 
-    public function deleteAny(User $user): bool
+    public function deleteAny(): bool
     {
         return false;
     }
 
-    public function restore(User $user): bool
+    public function restore(): bool
     {
         return false;
     }
 
-    public function forceDelete(User $user): bool
+    public function forceDelete(): bool
     {
         return false;
     }

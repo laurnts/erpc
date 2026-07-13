@@ -120,7 +120,8 @@ final class BuyerPayment extends Model implements HasMedia
      *
      * @param  Builder<BuyerPayment>  $query
      */
-    public function scopeConfirmed(Builder $query): void
+    #[\Illuminate\Database\Eloquent\Attributes\Scope]
+    protected function confirmed(Builder $query): void
     {
         $query->where('status', PaymentStatus::Confirmed->value);
     }

@@ -462,8 +462,8 @@ final class SupplierOrder extends Model implements HasMedia
      */
     public function approveViaDocumentAcceptance(User $user): void
     {
-        $this->approver_1_id = $this->approver_1_id ?? $user->id;
-        $this->approver_2_id = $this->approver_2_id ?? $user->id;
+        $this->approver_1_id ??= $user->id;
+        $this->approver_2_id ??= $user->id;
         $this->approved_at = now();
         $this->status = OrderStatus::APPROVED;
         $this->save();

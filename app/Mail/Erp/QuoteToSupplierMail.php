@@ -27,11 +27,11 @@ final class QuoteToSupplierMail extends Mailable
         $templateConfig = $settings->email_template_quote_to_supplier ?? null;
 
         $fromAddress = $emailService->getSenderEmail($templateConfig, $settings);
-        $fromName = $emailService->getSenderName($settings);
+        $emailService->getSenderName($settings);
 
         return new Envelope(
-            subject: 'Quote Request - '.($this->quote->request->request_number ?? ''),
             from: $fromAddress,
+            subject: 'Quote Request - '.($this->quote->request->request_number ?? ''),
         );
     }
 

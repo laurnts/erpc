@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    private string $table;
+    private readonly string $table;
 
     public function __construct()
     {

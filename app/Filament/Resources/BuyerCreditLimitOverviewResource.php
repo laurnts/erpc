@@ -62,7 +62,7 @@ final class BuyerCreditLimitOverviewResource extends Resource
                     ->money(fn (): string => Filament::getTenant() instanceof \App\Models\Team ? Filament::getTenant()->getBaseCurrencyCode() : 'USD')
                     ->placeholder('—')
                     ->color('warning')
-                    ->visible(fn (?Company $record): bool => $record !== null && $record->requested_credit_limit !== null),
+                    ->visible(fn (?Company $record): bool => $record instanceof \App\Models\Company && $record->requested_credit_limit !== null),
                 IconColumn::make('credit_status')
                     ->label('Credit Status')
                     ->boolean()

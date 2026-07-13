@@ -349,9 +349,9 @@ final class QuotationEvaluation extends Model implements HasMedia
     public function approveViaDocumentAcceptance(User $user): void
     {
         $now = now();
-        $this->dept_head_sales_approved_at = $this->dept_head_sales_approved_at ?? $now;
-        $this->deputy_director_approved_at = $this->deputy_director_approved_at ?? $now;
-        $this->director_approved_at = $this->director_approved_at ?? $now;
+        $this->dept_head_sales_approved_at ??= $now;
+        $this->deputy_director_approved_at ??= $now;
+        $this->director_approved_at ??= $now;
         $this->status = QEStatus::APPROVED;
         $this->save();
     }

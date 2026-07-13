@@ -23,13 +23,13 @@ use InvalidArgumentException;
  */
 final readonly class TimelineAudience
 {
-    public const ENTRY_ACTIVITY = 'activity';
+    public const string ENTRY_ACTIVITY = 'activity';
 
-    public const ENTRY_MEDIA = 'media';
+    public const string ENTRY_MEDIA = 'media';
 
-    public const ENTRY_CREDIT = 'credit';
+    public const string ENTRY_CREDIT = 'credit';
 
-    public const ENTRY_NOTE = 'note';
+    public const string ENTRY_NOTE = 'note';
 
     /**
      * Full internal subject set: the request plus every logged request
@@ -38,7 +38,7 @@ final readonly class TimelineAudience
      *
      * @var list<string>
      */
-    public const INTERNAL_SUBJECT_TYPES = [
+    public const array INTERNAL_SUBJECT_TYPES = [
         'request',
         'buyer_quote',
         'supplier_quote',
@@ -76,7 +76,7 @@ final readonly class TimelineAudience
      *
      * @var array<string, string> morph alias => exclusion reason
      */
-    public const BUYER_EXCLUDED_SUBJECT_TYPES = [
+    public const array BUYER_EXCLUDED_SUBJECT_TYPES = [
         'buyer_order' => 'Audited attributes carry internal credit mechanics (credit_released, payment_terms_days); buyers see BuyerInvoice + BuyerPayment instead.',
         'supplier_quote' => 'Supplier cost figures; any supplier price reaching a buyer is a margin leak.',
         'supplier_order' => 'Supplier-side purchasing document; internal cost data.',

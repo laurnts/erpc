@@ -27,7 +27,7 @@ final readonly class ArticleCostResolver
     {
         $baseCurrency = $team->getBaseCurrency();
 
-        if ($baseCurrency === null) {
+        if (! $baseCurrency instanceof \App\Models\Currency) {
             return new ArticleCostResolution(null, false, [
                 sprintf('Team default currency "%s" is not configured as an active currency.', $team->getBaseCurrencyCode()),
             ]);
@@ -43,11 +43,11 @@ final readonly class ArticleCostResolver
         $preferred = $links->firstWhere('is_preferred', true);
 
         if ($preferred !== null && $preferred->supplier_price !== null) {
-            return $this->resolvePreferredCost($preferred, (float) $preferred->supplier_price, $preferred->supplier_price_currency_id, $baseCurrency, $team, 'standing price');
+            return $this->resolvePreferredCost((float) $preferred->supplier_price, $preferred->supplier_price_currency_id, $baseCurrency, $team, 'standing price');
         }
 
         if ($preferred !== null && $preferred->last_quoted_price !== null) {
-            return $this->resolvePreferredCost($preferred, (float) $preferred->last_quoted_price, $preferred->last_quoted_currency_id, $baseCurrency, $team, 'last quoted price');
+            return $this->resolvePreferredCost((float) $preferred->last_quoted_price, $preferred->last_quoted_currency_id, $baseCurrency, $team, 'last quoted price');
         }
 
         return $this->resolveLowestCandidateCost($links->filter(
@@ -55,7 +55,7 @@ final readonly class ArticleCostResolver
         )->values(), $baseCurrency, $team);
     }
 
-    private function resolvePreferredCost(SupplierArticle $link, float $amount, ?int $currencyId, Currency $baseCurrency, Team $team, string $priceLabel): ArticleCostResolution
+    private function resolvePreferredCost(float $amount, ?int $currencyId, Currency $baseCurrency, Team $team, string $priceLabel): ArticleCostResolution
     {
         $fromCurrencyId = $currencyId ?? $baseCurrency->getKey();
         $converted = $this->currencyService->convert($amount, $fromCurrencyId, $baseCurrency->getKey(), null, $team);

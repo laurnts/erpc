@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Enums\CentralPurchasingRole;
 use App\Models\People;
 use App\Models\Team;
 use App\Models\User;
@@ -13,7 +12,7 @@ return new class extends Migration
 {
     /**
      * Run the migrations.
-     * 
+     *
      * This migration maps existing Central Purchasing People records to team members (Users).
      * For each People record with is_central_purchasing = true:
      * 1. Find or create corresponding User (by email or name matching)
@@ -23,10 +22,11 @@ return new class extends Migration
     public function up(): void
     {
         // Check if columns still exist (they may have been removed by a later migration)
-        if (! Schema::hasColumn('people', 'is_central_purchasing') || 
+        if (! Schema::hasColumn('people', 'is_central_purchasing') ||
             ! Schema::hasColumn('people', 'central_purchasing_role')) {
             // Columns have already been removed, migration likely already ran or data was migrated
             \Log::info('Central Purchasing columns already removed from people table. Skipping migration.');
+
             return;
         }
 
@@ -45,9 +45,10 @@ return new class extends Migration
             // Try to find existing User by email (from custom fields) or name
             $user = $this->findOrCreateUserForPeople($person, $team);
 
-            if (! $user) {
+            if (! $user instanceof \App\Models\User) {
                 // Skip if we can't create/find a user
                 \Log::warning("Could not migrate Central Purchasing People ID {$person->id} to team member");
+
                 continue;
             }
 
@@ -99,11 +100,11 @@ return new class extends Migration
                 ->where('model_id', $person->id)
                 ->where('field_key', 'email')
                 ->first();
-            
+
             if ($customField) {
                 $email = $customField->value;
             }
-        } catch (\Exception $e) {
+        } catch (\Exception) {
             // Custom fields table might not exist or have different structure
         }
 
@@ -122,13 +123,13 @@ return new class extends Migration
         }
 
         // Create new User
-        $email = $email ?: strtolower(str_replace(' ', '.', $person->name)) . '@' . str_replace(' ', '', strtolower($team->name)) . '.local';
-        
+        $email = $email ?: strtolower(str_replace(' ', '.', $person->name)).'@'.str_replace(' ', '', strtolower($team->name)).'.local';
+
         // Ensure email is unique
         $baseEmail = $email;
         $counter = 1;
         while (User::where('email', $email)->exists()) {
-            $email = str_replace('@', $counter . '@', $baseEmail);
+            $email = str_replace('@', $counter.'@', $baseEmail);
             $counter++;
         }
 
@@ -146,7 +147,7 @@ return new class extends Migration
     private function updateForeignKeys(string $table, int $peopleId, int $userId): void
     {
         $fields = ['prepared_by_id', 'dept_head_sales_id', 'deputy_director_id', 'approved_by_id'];
-        
+
         foreach ($fields as $field) {
             DB::table($table)
                 ->where($field, $peopleId)
@@ -156,7 +157,7 @@ return new class extends Migration
 
     /**
      * Reverse the migrations.
-     * 
+     *
      * Note: This is a destructive operation. Data migration reversal is complex
      * and may not perfectly restore the original state.
      */

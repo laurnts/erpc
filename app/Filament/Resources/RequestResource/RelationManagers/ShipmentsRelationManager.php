@@ -69,7 +69,7 @@ final class ShipmentsRelationManager extends RelationManager
     /**
      * Check if the request has any goods receive documents that are not yet approved.
      */
-    private static function hasUnapprovedGoodsReceiveDocuments(Request $request): bool
+    private function hasUnapprovedGoodsReceiveDocuments(Request $request): bool
     {
         $media = $request->getMedia('goods_receive');
         if ($media->isEmpty() || $request->team_id === null) {
@@ -82,7 +82,7 @@ final class ShipmentsRelationManager extends RelationManager
             ->pluck('media_id')
             ->toArray();
 
-        return $media->contains(fn ($m) => ! in_array($m->id, $approvedMediaIds, true));
+        return $media->contains(fn ($m): bool => ! in_array($m->id, $approvedMediaIds, true));
     }
 
     /**
@@ -314,7 +314,7 @@ final class ShipmentsRelationManager extends RelationManager
                     Placeholder::make("actions_{$shipment->id}")
                         ->label('Actions')
                         ->content(view('filament.components.shipment-actions', ['shipment' => $shipment]))
-                        ->visible(fn () => $shipmentType === ShipmentType::INBOUND),
+                        ->visible(fn (): bool => $shipmentType === ShipmentType::INBOUND),
                 ])
                 ->collapsible()
                 ->collapsed($shipmentStatus === ShipmentStatus::DELIVERED);
@@ -665,7 +665,7 @@ final class ShipmentsRelationManager extends RelationManager
     {
         /** @var Request $request */
         $request = $this->getOwnerRecord();
-        $goodsReceivePending = self::hasUnapprovedGoodsReceiveDocuments($request);
+        $goodsReceivePending = $this->hasUnapprovedGoodsReceiveDocuments($request);
 
         return $table
             ->recordTitleAttribute('po_number')

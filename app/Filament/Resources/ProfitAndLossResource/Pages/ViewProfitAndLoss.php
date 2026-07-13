@@ -87,7 +87,7 @@ final class ViewProfitAndLoss extends ViewRecord
                 EditAction::make()
                     ->url(null)
                     ->slideOver()
-                    ->beforeFormFilled(function ($record) {
+                    ->beforeFormFilled(function ($record): void {
                         // Ensure request relationship is loaded before form is built
                         $record->load('request');
                     }),
@@ -257,7 +257,7 @@ final class ViewProfitAndLoss extends ViewRecord
                                 return $membership ? $record->deptHeadSales->name : null;
                             })
                             ->formatStateUsing(function (?string $state, ?\App\Models\ProfitAndLoss $record): HtmlString|string|null {
-                                if ($state === null || $record === null) {
+                                if ($state === null || ! $record instanceof \App\Models\ProfitAndLoss) {
                                     return $state;
                                 }
 
@@ -302,7 +302,7 @@ final class ViewProfitAndLoss extends ViewRecord
                                 return $membership ? $record->deputyDirector->name : null;
                             })
                             ->formatStateUsing(function (?string $state, ?\App\Models\ProfitAndLoss $record): HtmlString|string|null {
-                                if ($state === null || $record === null) {
+                                if ($state === null || ! $record instanceof \App\Models\ProfitAndLoss) {
                                     return $state;
                                 }
 
@@ -347,7 +347,7 @@ final class ViewProfitAndLoss extends ViewRecord
                                 return $membership ? $record->approvedBy->name : null;
                             })
                             ->formatStateUsing(function (?string $state, ?\App\Models\ProfitAndLoss $record): HtmlString|string|null {
-                                if ($state === null || $record === null) {
+                                if ($state === null || ! $record instanceof \App\Models\ProfitAndLoss) {
                                     return $state;
                                 }
 

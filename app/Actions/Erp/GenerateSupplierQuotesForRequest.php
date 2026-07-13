@@ -106,7 +106,7 @@ final readonly class GenerateSupplierQuotesForRequest
             if ($item->supportsItemHierarchy() && $item->isMainItem() && $item->children()->count() > 0) {
                 $childItems = $item->children()->orderBy('sort_order')->get();
                 foreach ($childItems as $childItem) {
-                    $this->createChildQuoteItem($quote, $childItem, $item, $supplierId, $sortOrder++);
+                    $this->createChildQuoteItem($quote, $childItem, $item, $sortOrder++);
                 }
             }
         }
@@ -193,7 +193,6 @@ final readonly class GenerateSupplierQuotesForRequest
         SupplierQuote $quote,
         RequestItem $childItem,
         RequestItem $parentItem,
-        int $supplierId,
         int $sortOrder
     ): SupplierQuoteItem {
         // Child items don't have articles, so use the parent's article tax code

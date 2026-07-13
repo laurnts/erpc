@@ -26,7 +26,7 @@ final class QuotationEvaluationResource extends Resource
 {
     protected static ?string $model = QuotationEvaluation::class;
 
-    protected static ?string $policy = QuotationEvaluationPolicy::class;
+    private static ?string $policy = QuotationEvaluationPolicy::class;
 
     protected static ?string $recordTitleAttribute = 'qe_number';
 

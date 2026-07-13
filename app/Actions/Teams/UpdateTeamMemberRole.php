@@ -27,9 +27,7 @@ final readonly class UpdateTeamMemberRole
 
         if ($role === 'central_purchasing') {
             $pivotData['central_purchasing_role'] = $centralPurchasingRole;
-            $pivotData['is_approver'] = $centralPurchasingRole === CentralPurchasingRole::FINANCE->value
-                ? $isApprover
-                : false;
+            $pivotData['is_approver'] = $centralPurchasingRole === CentralPurchasingRole::FINANCE->value && $isApprover;
         } else {
             $pivotData['central_purchasing_role'] = null;
             $pivotData['is_approver'] = false;

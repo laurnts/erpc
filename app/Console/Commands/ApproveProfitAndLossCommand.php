@@ -51,7 +51,7 @@ final class ApproveProfitAndLossCommand extends Command
             }
 
             $approver = $this->resolveApproverUser($pnl);
-            if ($approver === null) {
+            if (! $approver instanceof \App\Models\User) {
                 $this->error("No approvers assigned to Profit & Loss {$number}.");
 
                 return self::FAILURE;

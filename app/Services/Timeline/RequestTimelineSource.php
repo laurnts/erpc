@@ -52,7 +52,7 @@ final readonly class RequestTimelineSource
      *
      * @var array<string, string>
      */
-    private const ITEM_PARENT_ALIASES = [
+    private const array ITEM_PARENT_ALIASES = [
         'request_item' => 'request',
         'buyer_quote_item' => 'buyer_quote',
         'supplier_quote_item' => 'supplier_quote',
@@ -256,7 +256,7 @@ final readonly class RequestTimelineSource
      *
      * @var array<string, string>
      */
-    private const APPROVAL_FIELD_LABELS = [
+    private const array APPROVAL_FIELD_LABELS = [
         'dept_head_sales_approved_at' => 'Dept Head (Sales)',
         'deputy_director_approved_at' => 'Deputy Director',
         'director_approved_at' => 'Director',

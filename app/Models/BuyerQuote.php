@@ -376,7 +376,7 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
         // Check if there are any request items with selected quotes that aren't in this buyer quote
         $additionalItemIds = array_diff($selectedSupplierQuoteItems, $existingRequestItemIds);
 
-        return ! empty($additionalItemIds);
+        return $additionalItemIds !== [];
     }
 
     /**
@@ -487,11 +487,7 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
                 : 0.0;
 
             // If tax is inclusive, unit_price should include tax; otherwise unit_price = net price
-            if ($addTax && $taxRate > 0) {
-                $unitPrice = round($unitPriceExcTax * (1 + $taxRate / 100), 4);
-            } else {
-                $unitPrice = $unitPriceExcTax;
-            }
+            $unitPrice = $addTax && $taxRate > 0 ? round($unitPriceExcTax * (1 + $taxRate / 100), 4) : $unitPriceExcTax;
 
             // Line subtotal is quantity * net price (amount before tax)
             $lineSubtotal = $quantity * $unitPriceExcTax;
@@ -641,7 +637,13 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
 
             /** @var BuyerQuoteItem|null $mainItem */
             $mainItem = $mainItemsByRequestItemId->get($parentRequestItemId);
-            if ($mainItem === null || $mainItem->tax_code_id === null || ! $mainItem->is_tax_inclusive) {
+            if ($mainItem === null) {
+                continue;
+            }
+            if ($mainItem->tax_code_id === null) {
+                continue;
+            }
+            if (! $mainItem->is_tax_inclusive) {
                 continue;
             }
 

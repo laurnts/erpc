@@ -23,10 +23,10 @@ use Spatie\MediaLibrary\Support\PathGenerator\PathGeneratorFactory;
 final class ScanOrphanDocumentsCommand extends Command
 {
     /** @var list<string> */
-    private const DISKS = ['local', 'public'];
+    private const array DISKS = ['local', 'public'];
 
     /** @var list<string> */
-    private const SKIPPED_SEGMENTS = ['uploads-tmp', 'livewire-tmp'];
+    private const array SKIPPED_SEGMENTS = ['uploads-tmp', 'livewire-tmp'];
 
     /**
      * Disk subtrees that hold non-media files this command must never touch,
@@ -38,7 +38,7 @@ final class ScanOrphanDocumentsCommand extends Command
      *
      * @var array<string, list<string>> disk name => protected root segments
      */
-    private const PROTECTED_ROOTS = [
+    private const array PROTECTED_ROOTS = [
         'public' => ['profile-photos', 'filament_exports'],
     ];
 
@@ -163,16 +163,9 @@ final class ScanOrphanDocumentsCommand extends Command
             }
         }
 
-        foreach (self::PROTECTED_ROOTS[$diskName] ?? [] as $segment) {
-            if ($relativePath === $segment
-                || str_starts_with($relativePath, $segment.'/')
-                || str_contains($relativePath, '/'.$segment.'/')
-            ) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any(self::PROTECTED_ROOTS[$diskName] ?? [], fn ($segment): bool => $relativePath === $segment
+            || str_starts_with($relativePath, $segment.'/')
+            || str_contains($relativePath, '/'.$segment.'/'));
     }
 
     /**

@@ -26,7 +26,7 @@ final class ProfitAndLossResource extends Resource
 {
     protected static ?string $model = ProfitAndLoss::class;
 
-    protected static ?string $policy = ProfitAndLossPolicy::class;
+    private static ?string $policy = ProfitAndLossPolicy::class;
 
     protected static ?string $recordTitleAttribute = 'pnl_number';
 

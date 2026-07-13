@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -11,7 +13,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('companies', function (Blueprint $table) {
+        Schema::table('companies', function (Blueprint $table): void {
             $table->boolean('credit_status')->default(true)->after('is_on_hold');
             $table->index(['team_id', 'credit_status']);
         });
@@ -22,7 +24,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('companies', function (Blueprint $table) {
+        Schema::table('companies', function (Blueprint $table): void {
             $table->dropIndex(['team_id', 'credit_status']);
             $table->dropColumn('credit_status');
         });

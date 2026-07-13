@@ -26,11 +26,11 @@ final class TestEmailMail extends Mailable
         $settings = $this->team->getErpSettings();
 
         $fromAddress = $emailService->getSenderEmail(null, $settings);
-        $fromName = $emailService->getSenderName($settings);
+        $emailService->getSenderName($settings);
 
         return new Envelope(
-            subject: 'Test Email from '.config('app.name'),
             from: $fromAddress,
+            subject: 'Test Email from '.config('app.name'),
         );
     }
 

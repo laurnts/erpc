@@ -59,7 +59,7 @@ final class TestCreditLimitEmailCommand extends Command
             $request = $this->getOrCreateRequest($buyerId);
         }
 
-        if (! $request) {
+        if (! $request instanceof \App\Models\BuyerCreditLimitRequest) {
             $this->error('Could not find or create a credit limit request');
 
             return self::FAILURE;

@@ -226,17 +226,15 @@ trait HasRequestStageTab
                 ->extraAttributes([
                     'class' => 'qe-disabled-tab',
                 ]);
-        } else {
+        } elseif ($isCompleted) {
             // Add completion badge
-            if ($isCompleted) {
-                $tab->badge('✓')
-                    ->badgeColor('success')
-                    ->badgeTooltip('Completed');
-            } elseif ($isCurrentStage) {
-                $tab->badge('●')
-                    ->badgeColor('primary')
-                    ->badgeTooltip('Current stage');
-            }
+            $tab->badge('✓')
+                ->badgeColor('success')
+                ->badgeTooltip('Completed');
+        } elseif ($isCurrentStage) {
+            $tab->badge('●')
+                ->badgeColor('primary')
+                ->badgeTooltip('Current stage');
         }
 
         return $tab;

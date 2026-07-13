@@ -59,11 +59,11 @@ final class GoodsReceiveRelationManager extends RelationManager
                         $first = $record->getFirstMedia();
                         $count = count($record->media_ids ?? []);
 
-                        if ($first !== null && $count === 1) {
+                        if ($first instanceof \Spatie\MediaLibrary\MediaCollections\Models\Media && $count === 1) {
                             return $first->name;
                         }
                         if ($count > 1) {
-                            return $first !== null ? $first->name.' (+'.($count - 1).' more)' : $count.' documents';
+                            return $first instanceof \Spatie\MediaLibrary\MediaCollections\Models\Media ? $first->name.' (+'.($count - 1).' more)' : $count.' documents';
                         }
 
                         return '-';
@@ -135,7 +135,7 @@ final class GoodsReceiveRelationManager extends RelationManager
                                     ->with('supplier')
                                     ->orderBy('po_number')
                                     ->get()
-                                    ->mapWithKeys(fn ($order) => [
+                                    ->mapWithKeys(fn ($order): array => [
                                         $order->id => "{$order->po_number} - ".($order->supplier?->name ?? ''),
                                     ])
                                     ->toArray();
@@ -201,14 +201,12 @@ final class GoodsReceiveRelationManager extends RelationManager
                             throw new \Filament\Support\Exceptions\Halt;
                         }
 
-                        $batch = GoodsReceiveBatch::create([
+                        return GoodsReceiveBatch::create([
                             'request_id' => $request->id,
                             'supplier_order_id' => $supplierOrderId,
                             'user_id' => $userId,
                             'media_ids' => $mediaIds,
                         ]);
-
-                        return $batch;
                     })
                     ->after(function (): void {
                         Notification::make()

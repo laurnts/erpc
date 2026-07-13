@@ -39,11 +39,11 @@ final class QuoteToBuyerMail extends Mailable
         $fromAddress = $template
             ? $emailService->getSenderEmailFromTemplate($template, $settings)
             : $emailService->getSenderEmail($settings->email_template_buyer_quote ?? null, $settings);
-        $fromName = $emailService->getSenderName($settings);
+        $emailService->getSenderName($settings);
 
         return new Envelope(
-            subject: 'Quote '.$this->quote->quote_number,
             from: $fromAddress,
+            subject: 'Quote '.$this->quote->quote_number,
         );
     }
 

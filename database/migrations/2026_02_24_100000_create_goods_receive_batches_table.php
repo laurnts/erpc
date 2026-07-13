@@ -34,22 +34,27 @@ return new class extends Migration
     {
         $media = DB::table('media')
             ->where('collection_name', 'goods_receive')
-            ->where('model_type', 'App\Models\Request')
+            ->where('model_type', \App\Models\Request::class)
             ->get();
 
         foreach ($media as $m) {
             $requestId = (int) $m->model_id;
-            $props = json_decode($m->custom_properties, true);
+            $props = json_decode((string) $m->custom_properties, true);
             $supplierOrderId = isset($props['supplier_order_id']) ? (int) $props['supplier_order_id'] : null;
             $userId = isset($props['uploaded_by']) ? (int) $props['uploaded_by'] : null;
-
-            if ($supplierOrderId === null || $userId === null) {
+            if ($supplierOrderId === null) {
+                continue;
+            }
+            if ($userId === null) {
                 continue;
             }
 
             $orderExists = DB::table('supplier_orders')->where('id', $supplierOrderId)->where('request_id', $requestId)->exists();
             $userExists = DB::table('users')->where('id', $userId)->exists();
-            if (! $orderExists || ! $userExists) {
+            if (! $orderExists) {
+                continue;
+            }
+            if (! $userExists) {
                 continue;
             }
 

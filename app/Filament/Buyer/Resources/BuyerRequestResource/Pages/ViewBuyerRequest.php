@@ -77,7 +77,7 @@ final class ViewBuyerRequest extends ViewRecord
         return $this->getRecord()->title;
     }
 
-    public function getSubheading(): string|Htmlable|null
+    public function getSubheading(): \Illuminate\Contracts\Support\Htmlable
     {
         return new HtmlString(
             '<span class="font-mono text-sm text-gray-500 dark:text-gray-400">'
@@ -244,9 +244,7 @@ final class ViewBuyerRequest extends ViewRecord
     {
         return array_values(array_filter(
             parent::getRelationManagers(),
-            fn (string $manager): bool => ! in_array($manager, [
-                BuyerQuotesRelationManager::class,
-            ], true),
+            fn (string $manager): bool => $manager !== BuyerQuotesRelationManager::class,
         ));
     }
 

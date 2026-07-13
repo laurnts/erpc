@@ -52,18 +52,18 @@ final class ShipmentToBuyerMail extends Mailable
 
         // Build envelope with subject and from address
         $envelope = new Envelope(
-            subject: 'Delivery Order - '.$this->shipment->do_number ?? $this->shipment->shipment_number,
             from: $fromAddress,
+            subject: 'Delivery Order - '.$this->shipment->do_number ?? $this->shipment->shipment_number,
         );
 
         // If using Gmail SMTP and sender email doesn't match SMTP username,
         // Gmail will only accept the From address if it's verified in Gmail Settings → Send mail as
         // If not verified, Gmail will force From to match SMTP account, so we set Reply-To as fallback
         if (! empty($settings->smtp_host)
-            && str_contains(strtolower($settings->smtp_host), 'gmail')
+            && str_contains(strtolower((string) $settings->smtp_host), 'gmail')
             && ! empty($settings->smtp_username)
             && ! empty($fromAddress)
-            && strtolower($fromAddress) !== strtolower($settings->smtp_username)) {
+            && strtolower($fromAddress) !== strtolower((string) $settings->smtp_username)) {
             // Set Reply-To to ensure replies go to the desired address
             // If From address is verified in Gmail, it will work; otherwise Reply-To provides fallback
             $envelope->replyTo($fromAddress, $fromName);
@@ -96,7 +96,7 @@ final class ShipmentToBuyerMail extends Mailable
         }
 
         // Prepare items data with brand/model from article (same as PDF)
-        $items = $this->shipment->items->map(function ($shipmentItem) {
+        $items = $this->shipment->items->map(function ($shipmentItem): array {
             $supplierOrderItem = $shipmentItem->supplierOrderItem;
             $article = $supplierOrderItem?->article;
 

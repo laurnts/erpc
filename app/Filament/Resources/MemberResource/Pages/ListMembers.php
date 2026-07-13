@@ -64,8 +64,8 @@ final class ListMembers extends ListRecords
                                 $role->value => $role->getLabel(),
                             ])
                             ->toArray())
-                        ->required(fn ($get) => $get('role') === 'central_purchasing')
-                        ->visible(fn ($get) => $get('role') === 'central_purchasing')
+                        ->required(fn ($get): bool => $get('role') === 'central_purchasing')
+                        ->visible(fn ($get): bool => $get('role') === 'central_purchasing')
                         ->helperText('Select the specific role for this Central Purchasing team member.'),
                 ])
                 ->action(function (array $data): void {

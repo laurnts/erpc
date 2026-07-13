@@ -77,11 +77,11 @@ final readonly class SafeCast
             return $value;
         }
 
-        if ($value === 1 || $value === '1' || $value === 'true') {
+        if (in_array($value, [1, '1', 'true'], true)) {
             return true;
         }
 
-        if ($value === 0 || $value === '0' || $value === 'false') {
+        if (in_array($value, [0, '0', 'false'], true)) {
             return false;
         }
 

@@ -43,7 +43,7 @@ final readonly class MediaPolicy
     {
         $request = $this->getRequest($media);
 
-        if ($request === null) {
+        if (! $request instanceof \App\Models\Request) {
             return false;
         }
 
@@ -62,7 +62,7 @@ final readonly class MediaPolicy
     {
         $request = $this->getRequest($media);
 
-        if ($request === null) {
+        if (! $request instanceof \App\Models\Request) {
             return false;
         }
 
@@ -74,7 +74,7 @@ final readonly class MediaPolicy
     {
         $request = $this->getRequest($media);
 
-        if ($request === null) {
+        if (! $request instanceof \App\Models\Request) {
             return false;
         }
 
@@ -93,7 +93,7 @@ final readonly class MediaPolicy
     {
         $request = $this->getRequest($media);
 
-        if ($request === null) {
+        if (! $request instanceof \App\Models\Request) {
             return false;
         }
 
@@ -112,7 +112,7 @@ final readonly class MediaPolicy
     {
         $request = $this->getRequest($media);
 
-        if ($request === null) {
+        if (! $request instanceof \App\Models\Request) {
             return false;
         }
 

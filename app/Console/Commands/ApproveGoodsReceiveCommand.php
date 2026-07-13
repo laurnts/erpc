@@ -14,9 +14,9 @@ use Throwable;
 
 final class ApproveGoodsReceiveCommand extends Command
 {
-    private const TEAM_NAME = 'Central Purchasing';
+    private const string TEAM_NAME = 'Central Purchasing';
 
-    private const APPROVER_NAME = 'Jun Sin';
+    private const string APPROVER_NAME = 'Jun Sin';
 
     protected $signature = 'goods-receive:approve
                             {identifier : The PO number (e.g. PO-2026-0012-C) or Goods Receive batch ID}';
@@ -101,7 +101,7 @@ final class ApproveGoodsReceiveCommand extends Command
             ->whereHas('request', fn ($q) => $q->where('team_id', $teamId))
             ->with(['supplierOrder', 'request'])
             ->get()
-            ->filter(fn (GoodsReceiveBatch $b) => $this->batchHasPendingApprovals($b, $teamId))
+            ->filter(fn (GoodsReceiveBatch $b): bool => $this->batchHasPendingApprovals($b, $teamId))
             ->values();
     }
 

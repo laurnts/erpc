@@ -60,7 +60,7 @@ final class BackfillTimelineAttributionCommand extends Command
      *
      * @var array<string, class-string<Model>>
      */
-    private const CREATOR_SUBJECTS = [
+    private const array CREATOR_SUBJECTS = [
         'request' => Request::class,
         'buyer_quote' => BuyerQuote::class,
         'supplier_quote' => SupplierQuote::class,
@@ -76,7 +76,7 @@ final class BackfillTimelineAttributionCommand extends Command
      *
      * @var list<string>
      */
-    private const SYSTEM_LOG_NAMES = ['system', 'email', 'emails', 'notification', 'notifications', 'scheduled'];
+    private const array SYSTEM_LOG_NAMES = ['system', 'email', 'emails', 'notification', 'notifications', 'scheduled'];
 
     public function handle(): int
     {

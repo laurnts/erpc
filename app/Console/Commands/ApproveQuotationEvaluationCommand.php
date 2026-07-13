@@ -51,7 +51,7 @@ final class ApproveQuotationEvaluationCommand extends Command
             }
 
             $approver = $this->resolveApproverUser($qe);
-            if ($approver === null) {
+            if (! $approver instanceof \App\Models\User) {
                 $this->error("No approvers assigned to Quotation Evaluation {$number}.");
 
                 return self::FAILURE;

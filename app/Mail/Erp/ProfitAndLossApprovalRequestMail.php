@@ -29,11 +29,11 @@ final class ProfitAndLossApprovalRequestMail extends Mailable
         $settings = $this->profitAndLoss->team->getErpSettings();
 
         $fromAddress = $emailService->getSenderEmail(null, $settings);
-        $fromName = $emailService->getSenderName($settings);
+        $emailService->getSenderName($settings);
 
         return new Envelope(
-            subject: 'Profit & Loss Approval Required: '.$this->profitAndLoss->pnl_number,
             from: $fromAddress,
+            subject: 'Profit & Loss Approval Required: '.$this->profitAndLoss->pnl_number,
         );
     }
 

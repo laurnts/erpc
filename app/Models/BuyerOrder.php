@@ -6,11 +6,11 @@ namespace App\Models;
 
 use App\Data\TeamErpSettings;
 use App\Enums\OrderStatus;
-use App\Support\PaymentTermsDescription;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use App\Models\Concerns\LogsErpActivity;
 use App\Observers\BuyerOrderObserver;
+use App\Support\PaymentTermsDescription;
 use Database\Factories\BuyerOrderFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -352,7 +352,6 @@ final class BuyerOrder extends Model implements HasCustomFields
         }
 
         $wasConfirmed = $this->status === OrderStatus::CONFIRMED;
-        $orderTotal = $wasConfirmed ? (float) $this->total : 0;
 
         $this->status = OrderStatus::CANCELLED;
         $this->creditRestoreHandled = true; // this method restores credit itself
@@ -645,7 +644,7 @@ final class BuyerOrder extends Model implements HasCustomFields
         }
 
         return array_values(array_filter(
-            array_map('trim', explode("\n", $display)),
+            array_map(trim(...), explode("\n", $display)),
             fn (string $line): bool => $line !== '',
         ));
     }

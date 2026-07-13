@@ -63,7 +63,7 @@ final class EmailTemplateResource extends Resource
         bool $useAlpineJs = false,
         ?string $loadButtonParam = null
     ): array {
-        $loadButtonMethod = $loadButtonMethod ?? 'loadDefaultTemplate';
+        $loadButtonMethod ??= 'loadDefaultTemplate';
 
         $components = [
             Select::make('type')
@@ -76,7 +76,7 @@ final class EmailTemplateResource extends Resource
                     EmailTemplate::TYPE_DELIVERY_ORDER => 'Delivery Order',
                 ])
                 ->required()
-                ->disabled(fn ($record) => $record !== null && $record->is_default)
+                ->disabled(fn ($record): bool => $record !== null && $record->is_default)
                 ->default($defaultType)
                 ->dehydrated()
                 ->helperText($defaultType ? 'Template type is automatically set based on the email template section' : 'Template type cannot be changed for default templates')
@@ -163,14 +163,14 @@ final class EmailTemplateResource extends Resource
             $components[] = Placeholder::make('load_default_template')
                 ->label('')
                 ->content(new \Illuminate\Support\HtmlString($buttonHtml))
-                ->visible(fn ($record) => $record === null);
+                ->visible(fn ($record): bool => $record === null);
         }
 
         $components[] = TextInput::make('name')
             ->label('Template Name')
             ->required()
             ->maxLength(255)
-            ->disabled(fn ($record) => $record !== null && $record->is_default)
+            ->disabled(fn ($record): bool => $record !== null && $record->is_default)
             ->helperText('A descriptive name for this template');
 
         $components[] = Textarea::make('content')
@@ -178,7 +178,7 @@ final class EmailTemplateResource extends Resource
             ->required()
             ->rows(10)
             ->id($defaultType ? 'create-template-content-field' : null)
-            ->disabled(fn ($record) => $record !== null && $record->is_default)
+            ->disabled(fn ($record): bool => $record !== null && $record->is_default)
             ->helperText('Use {{variable_name}} for dynamic content. Available variables: {{supplier_name}}, {{buyer_name}}, {{quote_number}}, {{order_number}}, etc.');
 
         return $components;

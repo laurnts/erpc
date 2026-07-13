@@ -38,8 +38,10 @@ return new class extends Migration
         foreach ($quotes as $quote) {
             /** @var array<string, mixed>|null $metadata */
             $metadata = json_decode((string) $quote->notification_metadata, true);
-
-            if (! is_array($metadata) || ($metadata['email_sent'] ?? false) !== true) {
+            if (! is_array($metadata)) {
+                continue;
+            }
+            if (($metadata['email_sent'] ?? false) !== true) {
                 continue;
             }
 

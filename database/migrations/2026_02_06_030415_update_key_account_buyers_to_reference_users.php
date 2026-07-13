@@ -59,7 +59,7 @@ return new class extends Migration
         Schema::table('key_account_buyers', function (Blueprint $table): void {
             try {
                 $table->dropForeign(['key_account_id']);
-            } catch (\Exception $e) {
+            } catch (\Exception) {
                 // Foreign key might not exist
             }
         });

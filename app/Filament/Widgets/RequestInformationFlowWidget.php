@@ -14,9 +14,6 @@ final class RequestInformationFlowWidget extends Widget
 
     protected int|string|array $columnSpan = 'full';
 
-    // Make widget poll for updates to detect tab changes
-    protected ?string $pollingInterval = null;
-
     /**
      * Span full width at all breakpoints so the information flow is not constrained by the footer widget grid.
      *
@@ -37,9 +34,6 @@ final class RequestInformationFlowWidget extends Widget
     #[Computed]
     public function getInformationFlowText(): string
     {
-        // Get the active relation manager from the URL or Livewire state
-        $activeRelationManager = null;
-
         // Method 1: Try to get from URL query parameter (most reliable)
         $activeRelationManager = request()->query('activeRelationManager');
 
@@ -50,7 +44,7 @@ final class RequestInformationFlowWidget extends Widget
                 if ($livewire && property_exists($livewire, 'activeRelationManager')) {
                     $activeRelationManager = $livewire->activeRelationManager;
                 }
-            } catch (\Exception $e) {
+            } catch (\Exception) {
                 // Continue
             }
         }
@@ -60,9 +54,6 @@ final class RequestInformationFlowWidget extends Widget
         if ($activeRelationManager === null) {
             // Check if there's a tab with aria-selected="true"
             // This will be handled by JavaScript
-        }
-
-        if ($activeRelationManager === null) {
             return '';
         }
 

@@ -8,10 +8,10 @@ use App\Enums\CentralPurchasingRole;
 use App\Filament\Resources\GoodsReceiveApprovalResource\Pages\ListGoodsReceiveApprovals;
 use App\Models\GoodsReceiveBatch;
 use App\Models\PaymentDocumentApproval;
-use Filament\Facades\Filament;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\ViewField;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
@@ -49,10 +49,10 @@ final class GoodsReceiveApprovalResource extends Resource
                         $first = $record->getFirstMedia();
                         $count = count($record->media_ids ?? []);
 
-                        if ($first !== null && $count === 1) {
+                        if ($first instanceof \Spatie\MediaLibrary\MediaCollections\Models\Media && $count === 1) {
                             return $first->name;
                         }
-                        if ($count > 1 && $first !== null) {
+                        if ($count > 1 && $first instanceof \Spatie\MediaLibrary\MediaCollections\Models\Media) {
                             return $first->name.' (+'.($count - 1).' more)';
                         }
                         if ($count > 1) {
@@ -248,7 +248,7 @@ final class GoodsReceiveApprovalResource extends Resource
                         ->label('Approve')
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
-                        ->visible(fn (GoodsReceiveBatch $record): bool => static::canApproveBatch($record))
+                        ->visible(fn (GoodsReceiveBatch $record): bool => self::canApproveBatch($record))
                         ->requiresConfirmation()
                         ->form([
                             \Filament\Forms\Components\Textarea::make('notes')
@@ -315,7 +315,7 @@ final class GoodsReceiveApprovalResource extends Resource
             ->with(['request', 'supplierOrder.supplier', 'user']);
     }
 
-    protected static function canApproveBatch(GoodsReceiveBatch $record): bool
+    private static function canApproveBatch(GoodsReceiveBatch $record): bool
     {
         $user = Auth::user();
         $team = Filament::getTenant();

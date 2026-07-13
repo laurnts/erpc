@@ -100,7 +100,8 @@ final class SupplierArticle extends Pivot
      * @param  Builder<$this>  $query
      * @return Builder<$this>
      */
-    public function scopeForSupplier(Builder $query, int $supplierCompanyId): Builder
+    #[\Illuminate\Database\Eloquent\Attributes\Scope]
+    protected function forSupplier(Builder $query, int $supplierCompanyId): Builder
     {
         return $query->where('supplier_id', $supplierCompanyId);
     }
