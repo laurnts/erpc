@@ -13,7 +13,9 @@ use Filament\Facades\Filament;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Enums\Size;
+use Illuminate\Database\Eloquent\Model;
 use Override;
 
 final class ListMembers extends ListRecords
@@ -64,8 +66,8 @@ final class ListMembers extends ListRecords
                                 $role->value => $role->getLabel(),
                             ])
                             ->toArray())
-                        ->required(fn ($get): bool => $get('role') === 'central_purchasing')
-                        ->visible(fn ($get): bool => $get('role') === 'central_purchasing')
+                        ->required(fn (Get $get): bool => $get('role') === 'central_purchasing')
+                        ->visible(fn (Get $get): bool => $get('role') === 'central_purchasing')
                         ->helperText('Select the specific role for this Central Purchasing team member.'),
                 ])
                 ->action(function (array $data): void {
@@ -87,7 +89,7 @@ final class ListMembers extends ListRecords
         ];
     }
 
-    public function getPendingInvitationsTeam()
+    public function getPendingInvitationsTeam(): ?Model
     {
         $tenant = Filament::getTenant();
 

@@ -105,7 +105,7 @@ final class BuyerQuoteResource extends Resource
                     ->options(BuyerQuoteStatus::class)
                     ->multiple(),
                 SelectFilter::make('buyer_id')
-                    ->relationship('buyer', 'name', fn ($query) => $query->where('is_buyer', true))
+                    ->relationship('buyer', 'name', fn (Builder $query) => $query->where('is_buyer', true))
                     ->label('Buyer')
                     ->preload(),
                 SelectFilter::make('request_id')

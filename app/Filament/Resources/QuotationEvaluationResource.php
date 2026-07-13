@@ -91,7 +91,7 @@ final class QuotationEvaluationResource extends Resource
                     ])
                     ->columnSpanFull(),
                 ...ApprovalPersonnelSchema::make(
-                    buyerId: fn ($livewire) => isset($livewire->record) && $livewire->record && $livewire->record->request
+                    buyerId: fn (mixed $livewire) => isset($livewire->record) && $livewire->record && $livewire->record->request
                         ? $livewire->record->request->buyer_id
                         : null,
                     sectionTitle: 'Central Purchasing',

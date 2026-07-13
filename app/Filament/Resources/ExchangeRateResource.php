@@ -19,6 +19,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\HtmlString;
 
 final class ExchangeRateResource extends Resource
@@ -47,7 +48,7 @@ final class ExchangeRateResource extends Resource
                 ->relationship(
                     'fromCurrency',
                     'name',
-                    modifyQueryUsing: fn ($query) => $query->where('is_active', true)
+                    modifyQueryUsing: fn (Builder $query) => $query->where('is_active', true)
                 )
                 ->getOptionLabelFromRecordUsing(fn (?Currency $record): string => $record instanceof \App\Models\Currency ? "{$record->code} - {$record->name}" : '')
                 ->required()
@@ -67,7 +68,7 @@ final class ExchangeRateResource extends Resource
                 ->relationship(
                     'toCurrency',
                     'name',
-                    modifyQueryUsing: fn ($query) => $query->where('is_active', true)
+                    modifyQueryUsing: fn (Builder $query) => $query->where('is_active', true)
                 )
                 ->getOptionLabelFromRecordUsing(fn (?Currency $record): string => $record instanceof \App\Models\Currency ? "{$record->code} - {$record->name}" : '')
                 ->required()
@@ -161,7 +162,7 @@ final class ExchangeRateResource extends Resource
                         $record->fromCurrency->code,
                         $record->toCurrency->format((float) $record->rate)
                     ))
-                    ->sortable(query: fn ($query, string $direction) => $query->orderBy('rate', $direction)),
+                    ->sortable(query: fn (Builder $query, string $direction) => $query->orderBy('rate', $direction)),
                 TextColumn::make('effective_date')
                     ->label('Effective Date')
                     ->date()

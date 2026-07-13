@@ -21,6 +21,7 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Flex;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Gate;
 
@@ -76,13 +77,13 @@ final class ViewMember extends ViewRecord
                                     $role->value => $role->getLabel(),
                                 ])
                                 ->toArray())
-                            ->required(fn ($get): bool => $get('role') === 'central_purchasing')
-                            ->visible(fn ($get): bool => $get('role') === 'central_purchasing')
+                            ->required(fn (Get $get): bool => $get('role') === 'central_purchasing')
+                            ->visible(fn (Get $get): bool => $get('role') === 'central_purchasing')
                             ->helperText('Select the specific role for this Central Purchasing team member.')
                             ->live(),
                         Toggle::make('is_approver')
                             ->label('Is Approver')
-                            ->visible(fn ($get): bool => $get('role') === 'central_purchasing' && $get('central_purchasing_role') === CentralPurchasingRole::FINANCE->value)
+                            ->visible(fn (Get $get): bool => $get('role') === 'central_purchasing' && $get('central_purchasing_role') === CentralPurchasingRole::FINANCE->value)
                             ->helperText('Only finance users marked as approvers can approve credit limit increase requests.')
                             ->default(false),
                     ])

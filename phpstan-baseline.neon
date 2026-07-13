@@ -481,12 +481,6 @@ parameters:
 			path: app/Filament/Resources/MemberResource/Pages/ListMembers.php
 
 		-
-			message: '#^Method App\\Filament\\Resources\\MemberResource\\Pages\\ListMembers\:\:getPendingInvitationsTeam\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: app/Filament/Resources/MemberResource/Pages/ListMembers.php
-
-		-
 			message: '#^Parameter \#1 \$user of method App\\Actions\\Jetstream\\InviteTeamMember\:\:invite\(\) expects App\\Models\\User, App\\Models\\User\|Relaticle\\SystemAdmin\\Models\\SystemAdministrator\|null given\.$#'
 			identifier: argument.type
 			count: 1
@@ -613,6 +607,12 @@ parameters:
 			path: app/Filament/Resources/ProjectResource.php
 
 		-
+			message: '#^Using nullsafe property access "\?\-\>team_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Resources/ProjectResource.php
+
+		-
 			message: '#^Parameter \#1 \$team of static method App\\Services\\TeamMemberService\:\:getTeamMemberOptionsByRole\(\) expects App\\Models\\Team, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
 			identifier: argument.type
 			count: 1
@@ -675,6 +675,12 @@ parameters:
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
 			identifier: property.notFound
+			count: 1
+			path: app/Filament/Resources/RequestResource.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>team_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Filament/Resources/RequestResource.php
 

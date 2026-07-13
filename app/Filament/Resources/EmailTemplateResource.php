@@ -26,6 +26,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 
 final class EmailTemplateResource extends Resource
 {
@@ -76,7 +77,7 @@ final class EmailTemplateResource extends Resource
                     EmailTemplate::TYPE_DELIVERY_ORDER => 'Delivery Order',
                 ])
                 ->required()
-                ->disabled(fn ($record): bool => $record !== null && $record->is_default)
+                ->disabled(fn (?EmailTemplate $record): bool => $record instanceof \App\Models\EmailTemplate && $record->is_default)
                 ->default($defaultType)
                 ->dehydrated()
                 ->helperText($defaultType ? 'Template type is automatically set based on the email template section' : 'Template type cannot be changed for default templates')
@@ -163,14 +164,14 @@ final class EmailTemplateResource extends Resource
             $components[] = Placeholder::make('load_default_template')
                 ->label('')
                 ->content(new \Illuminate\Support\HtmlString($buttonHtml))
-                ->visible(fn ($record): bool => $record === null);
+                ->visible(fn (?EmailTemplate $record): bool => ! $record instanceof \App\Models\EmailTemplate);
         }
 
         $components[] = TextInput::make('name')
             ->label('Template Name')
             ->required()
             ->maxLength(255)
-            ->disabled(fn ($record): bool => $record !== null && $record->is_default)
+            ->disabled(fn (?EmailTemplate $record): bool => $record instanceof \App\Models\EmailTemplate && $record->is_default)
             ->helperText('A descriptive name for this template');
 
         $components[] = Textarea::make('content')
@@ -178,7 +179,7 @@ final class EmailTemplateResource extends Resource
             ->required()
             ->rows(10)
             ->id($defaultType ? 'create-template-content-field' : null)
-            ->disabled(fn ($record): bool => $record !== null && $record->is_default)
+            ->disabled(fn (?EmailTemplate $record): bool => $record instanceof \App\Models\EmailTemplate && $record->is_default)
             ->helperText('Use {{variable_name}} for dynamic content. Available variables: {{supplier_name}}, {{buyer_name}}, {{quote_number}}, {{order_number}}, etc.');
 
         return $components;
@@ -329,7 +330,7 @@ final class EmailTemplateResource extends Resource
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
                         ->requiresConfirmation()
-                        ->action(function ($records): void {
+                        ->action(function (Collection $records): void {
                             /** @var Team $team */
                             $team = Filament::getTenant();
                             $settings = $team->getErpSettings();
@@ -338,6 +339,7 @@ final class EmailTemplateResource extends Resource
                             $needsUpdate = false;
 
                             foreach ($records as $record) {
+                                /** @var EmailTemplate $record */
                                 if ($record->is_default) {
                                     continue; // Skip default templates
                                 }

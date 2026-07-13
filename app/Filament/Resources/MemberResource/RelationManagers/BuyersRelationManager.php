@@ -120,7 +120,7 @@ final class BuyersRelationManager extends RelationManager
                         ->icon('heroicon-o-x-mark')
                         ->color('danger')
                         ->requiresConfirmation()
-                        ->action(function ($record, RelationManager $livewire): void {
+                        ->action(function (Company $record, RelationManager $livewire): void {
                             /** @var \App\Models\Membership $membership */
                             $membership = $livewire->getOwnerRecord();
 

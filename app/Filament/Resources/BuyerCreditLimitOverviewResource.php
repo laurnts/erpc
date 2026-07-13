@@ -88,7 +88,7 @@ final class BuyerCreditLimitOverviewResource extends Resource
                     ->label('Has Pending Request')
                     ->query(function (Builder $query, array $data): Builder {
                         if ($data['value'] === '1') {
-                            return $query->whereHas('creditLimitRequests', function ($q): void {
+                            return $query->whereHas('creditLimitRequests', function (Builder $q): void {
                                 $q->where('status', \App\Enums\CreditLimitRequestStatus::PENDING);
                             });
                         }

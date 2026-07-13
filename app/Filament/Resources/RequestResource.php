@@ -32,6 +32,8 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -40,6 +42,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Validation\Rules\Unique;
 use Override;
 
 final class RequestResource extends Resource
@@ -73,7 +76,7 @@ final class RequestResource extends Resource
                 ->relationship(
                     'buyer',
                     'name',
-                    modifyQueryUsing: fn ($query) => $query->where('is_buyer', true)
+                    modifyQueryUsing: fn (Builder $query) => $query->where('is_buyer', true)
                 )
                 ->required()
                 ->preload()
@@ -81,7 +84,7 @@ final class RequestResource extends Resource
                 ->selectablePlaceholder(false)
                 ->live()
                 ->searchable()
-                ->afterStateUpdated(fn ($set) => $set('project_id', null))
+                ->afterStateUpdated(fn (Set $set): mixed => $set('project_id', null))
                 ->createOptionForm(BuyerResource::getFormSchema(excludePeopleField: true))
                 ->createOptionAction(fn (Action $action): \Filament\Actions\Action => $action->slideOver())
                 ->createOptionUsing(function (array $data): int {
@@ -164,17 +167,17 @@ final class RequestResource extends Resource
                 ->relationship(
                     'project',
                     'name',
-                    modifyQueryUsing: fn ($query, $get) => $query->where('buyer_id', $get('buyer_id'))
+                    modifyQueryUsing: fn (Builder $query, Get $get) => $query->where('buyer_id', $get('buyer_id'))
                 )
                 ->nullable()
                 ->preload()
 
                 ->selectablePlaceholder(false)
                 ->helperText('Optional: Group this request under a project (filtered by selected buyer)')
-                ->disabled(fn ($get): bool => empty($get('buyer_id')))
+                ->disabled(fn (Get $get): bool => empty($get('buyer_id')))
                 ->createOptionForm(ProjectResource::getFormSchema(excludeBuyerField: true))
                 ->createOptionAction(fn (Action $action): \Filament\Actions\Action => $action->slideOver())
-                ->createOptionUsing(function (array $data, $get): int {
+                ->createOptionUsing(function (array $data, Get $get): int {
                     /** @var \App\Models\Team $team */
                     $team = Filament::getTenant();
 
@@ -218,7 +221,7 @@ final class RequestResource extends Resource
             ->components([
                 TextInput::make('request_number')
                     ->maxLength(50)
-                    ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule, $record) => $rule->where('team_id', $record->team_id ?? Filament::getTenant()?->id))
+                    ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule, ?Request $record) => $rule->where('team_id', $record?->team_id ?? Filament::getTenant()?->id))
                     ->placeholder('Auto-generated (e.g., REQ-2026-0001)')
                     ->helperText('Leave empty to auto-generate'),
                 ...self::getFormSchema(isCreate: false),
@@ -330,7 +333,7 @@ final class RequestResource extends Resource
                     ->options(RequestPriority::class)
                     ->multiple(),
                 SelectFilter::make('buyer_id')
-                    ->relationship('buyer', 'name', fn ($query) => $query->where('is_buyer', true))
+                    ->relationship('buyer', 'name', fn (Builder $query) => $query->where('is_buyer', true))
                     ->label('Buyer')
                     ->preload(),
                 SelectFilter::make('project_id')

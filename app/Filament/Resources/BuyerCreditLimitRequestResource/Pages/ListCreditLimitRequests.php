@@ -17,6 +17,8 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Illuminate\Support\Facades\Log;
 
 final class ListCreditLimitRequests extends ListRecords
@@ -54,7 +56,7 @@ final class ListCreditLimitRequests extends ListRecords
                         ->searchable()
                         ->preload()
                         ->live()
-                        ->afterStateUpdated(function ($state, $set): void {
+                        ->afterStateUpdated(function (mixed $state, Set $set): void {
                             if ($state) {
                                 $buyer = Company::find($state);
                                 if ($buyer) {
@@ -85,7 +87,7 @@ final class ListCreditLimitRequests extends ListRecords
 
                             return $currency?->symbol_position === 'after' ? ($currency->symbol ?? '') : '';
                         })
-                        ->visible(fn ($get): bool => $get('buyer_id') !== null),
+                        ->visible(fn (Get $get): bool => $get('buyer_id') !== null),
                     TextInput::make('requested_limit')
                         ->label('Requested Credit Limit')
                         ->numeric()
@@ -105,7 +107,7 @@ final class ListCreditLimitRequests extends ListRecords
 
                             return $currency?->symbol_position === 'after' ? ($currency->symbol ?? '') : '';
                         })
-                        ->helperText(function ($get): string {
+                        ->helperText(function (Get $get): string {
                             $currentLimit = $get('current_limit');
                             if ($currentLimit) {
                                 return 'Current Credit Limit: '.number_format((float) $currentLimit, 2).'. You can request an increase or decrease (minimum: 0).';
@@ -113,7 +115,7 @@ final class ListCreditLimitRequests extends ListRecords
 
                             return 'Select a buyer first to see the Current Credit Limit.';
                         })
-                        ->visible(fn ($get): bool => $get('buyer_id') !== null),
+                        ->visible(fn (Get $get): bool => $get('buyer_id') !== null),
                 ])
                 ->action(function (array $data): void {
                     /** @var \App\Models\Team|null $team */

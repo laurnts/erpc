@@ -30,6 +30,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
@@ -159,7 +160,7 @@ final class BuyerResource extends Resource
                         ->relationship(
                             'defaultCurrency',
                             'name',
-                            modifyQueryUsing: fn ($query) => $query->where('is_active', true)
+                            modifyQueryUsing: fn (Builder $query) => $query->where('is_active', true)
                         )
                         ->getOptionLabelFromRecordUsing(fn (?Currency $record): string => $record instanceof \App\Models\Currency ? "{$record->code} - {$record->name}" : '')
                         ->default(function (): ?int {
@@ -251,7 +252,7 @@ final class BuyerResource extends Resource
                     Textarea::make('on_hold_reason')
                         ->label('Hold Reason')
                         ->rows(2)
-                        ->visible(fn ($get): bool => (bool) $get('is_on_hold')),
+                        ->visible(fn (Get $get): bool => (bool) $get('is_on_hold')),
                 ])
                 ->columns(1),
             Section::make('Additional Information')

@@ -91,7 +91,7 @@ final class ProfitAndLossResource extends Resource
                     ])
                     ->columnSpanFull(),
                 ...ApprovalPersonnelSchema::make(
-                    buyerId: fn ($livewire) => isset($livewire->record) && $livewire->record && $livewire->record->request
+                    buyerId: fn (mixed $livewire) => isset($livewire->record) && $livewire->record && $livewire->record->request
                         ? $livewire->record->request->buyer_id
                         : null,
                     sectionTitle: 'Central Purchasing',
@@ -112,8 +112,8 @@ final class ProfitAndLossResource extends Resource
                     ->weight('bold'),
                 TextColumn::make('status')
                     ->badge()
-                    ->sortable(query: fn ($query, $direction) => $query
-                        ->withExists(['request as has_buyer_orders' => fn ($q) => $q->whereHas('buyerOrders')])
+                    ->sortable(query: fn (Builder $query, string $direction) => $query
+                        ->withExists(['request as has_buyer_orders' => fn (Builder $q) => $q->whereHas('buyerOrders')])
                         ->orderBy('has_buyer_orders', $direction)),
                 TextColumn::make('approval_count')
                     ->label('Approvals')

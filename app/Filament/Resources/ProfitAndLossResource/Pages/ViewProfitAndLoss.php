@@ -87,7 +87,7 @@ final class ViewProfitAndLoss extends ViewRecord
                 EditAction::make()
                     ->url(null)
                     ->slideOver()
-                    ->beforeFormFilled(function ($record): void {
+                    ->beforeFormFilled(function (ProfitAndLoss $record): void {
                         // Ensure request relationship is loaded before form is built
                         $record->load('request');
                     }),

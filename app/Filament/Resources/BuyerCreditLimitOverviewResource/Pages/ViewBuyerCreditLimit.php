@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\BuyerCreditLimitOverviewResource\Pages;
 
 use App\Filament\Resources\BuyerCreditLimitOverviewResource;
+use App\Models\Company;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Resources\Pages\ViewRecord;
@@ -48,7 +49,7 @@ final class ViewBuyerCreditLimit extends ViewRecord
                     ->schema([
                         TextEntry::make('credit_limit')
                             ->label('Max Credit Limit')
-                            ->formatStateUsing(function ($state, $record): string {
+                            ->formatStateUsing(function (mixed $state, Company $record): string {
                                 /** @var \App\Models\Company $record */
                                 $currency = $record->defaultCurrency
                                     ?? (\Filament\Facades\Filament::getTenant() instanceof \App\Models\Team
@@ -59,7 +60,7 @@ final class ViewBuyerCreditLimit extends ViewRecord
                             }),
                         TextEntry::make('available_credit')
                             ->label('Available Credit')
-                            ->formatStateUsing(function ($state, $record): string {
+                            ->formatStateUsing(function (mixed $state, Company $record): string {
                                 /** @var \App\Models\Company $record */
                                 $currency = $record->defaultCurrency
                                     ?? (\Filament\Facades\Filament::getTenant() instanceof \App\Models\Team
@@ -70,7 +71,7 @@ final class ViewBuyerCreditLimit extends ViewRecord
                             }),
                         TextEntry::make('credit_used')
                             ->label('Credit Used')
-                            ->formatStateUsing(function ($state, $record): string {
+                            ->formatStateUsing(function (mixed $state, Company $record): string {
                                 /** @var \App\Models\Company $record */
                                 $currency = $record->defaultCurrency
                                     ?? (\Filament\Facades\Filament::getTenant() instanceof \App\Models\Team

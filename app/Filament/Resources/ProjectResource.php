@@ -34,6 +34,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Validation\Rules\Unique;
 use Relaticle\CustomFields\Facades\CustomFields;
 
 final class ProjectResource extends Resource
@@ -71,7 +72,7 @@ final class ProjectResource extends Resource
                 ->relationship(
                     'buyer',
                     'name',
-                    modifyQueryUsing: fn ($query) => $query->where('is_buyer', true)
+                    modifyQueryUsing: fn (Builder $query) => $query->where('is_buyer', true)
                 )
                 ->label('Associated Buyer')
                 ->nullable()
@@ -136,7 +137,7 @@ final class ProjectResource extends Resource
             ->components([
                 TextInput::make('project_number')
                     ->maxLength(50)
-                    ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule, $record) => $rule->where('team_id', $record->team_id ?? Filament::getTenant()?->id))
+                    ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule, ?Project $record) => $rule->where('team_id', $record?->team_id ?? Filament::getTenant()?->id))
                     ->placeholder('Auto-generated (e.g., PRJ-2026-0001)')
                     ->helperText('Leave empty to auto-generate'),
                 ...self::getFormSchema(),
@@ -214,7 +215,7 @@ final class ProjectResource extends Resource
                         '0' => 'Inactive',
                     ]),
                 SelectFilter::make('buyer')
-                    ->relationship('buyer', 'name', fn ($query) => $query->where('is_buyer', true))
+                    ->relationship('buyer', 'name', fn (Builder $query) => $query->where('is_buyer', true))
 
                     ->preload(),
                 TrashedFilter::make(),
