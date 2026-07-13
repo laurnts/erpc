@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Rector\CodingStyle\Rector\ArrowFunction\ArrowFunctionDelegatingCallToFirstClassCallableRector;
 use Rector\Config\RectorConfig;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUnusedPrivateMethodRector;
+use Rector\Php71\Rector\FuncCall\RemoveExtraParametersRector;
 use Rector\Php81\Rector\Array_\ArrayToFirstClassCallableRector;
 use Rector\Php83\Rector\ClassMethod\AddOverrideAttributeToOverriddenMethodsRector;
 use Rector\Privatization\Rector\ClassMethod\PrivatizeFinalClassMethodRector;
@@ -38,6 +39,11 @@ return RectorConfig::configure()
         ArrowFunctionDelegatingCallToFirstClassCallableRector::class => [
             // class_exists has optional bool param that conflicts with Collection::first signature
             __DIR__.'/app/Providers/AppServiceProvider.php',
+        ],
+        RemoveExtraParametersRector::class => [
+            // AddsTeamMembers contract docblock declares 4 params, but the bound
+            // AddTeamMember::add() takes a 5th (central_purchasing_role) that must be passed explicitly
+            __DIR__.'/app/Console/Commands/ApproveMemberInviteCommand.php',
         ],
     ])
     ->withPreparedSets(

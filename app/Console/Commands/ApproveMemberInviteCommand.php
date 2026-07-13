@@ -86,6 +86,7 @@ final class ApproveMemberInviteCommand extends Command
                 $team,
                 $invitation->email,
                 $invitation->role,
+                $invitation->central_purchasing_role?->value,
             );
         } catch (ValidationException $e) {
             $this->error(collect($e->errors())->flatten()->implode(' '));
