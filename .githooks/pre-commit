@@ -4,6 +4,12 @@
 # Activate once per clone: git config core.hooksPath .githooks
 # Bypass when needed:      git commit --no-verify
 
+# Split $STAGED on newlines only and disable globbing so paths with spaces or
+# glob characters expand as single arguments (macOS sh has no arrays).
+set -f
+IFS='
+'
+
 STAGED=$(git diff --cached --name-only --diff-filter=ACMR -- '*.php' \
     | grep -E '^(app|app-modules|config|database|public)/|^bootstrap/app\.php$')
 
@@ -15,17 +21,17 @@ if ! command -v php >/dev/null 2>&1; then
 fi
 
 echo "pre-commit: rector --dry-run on staged files..."
-if ! php vendor/bin/rector process --dry-run $STAGED; then
+if ! php vendor/bin/rector process --dry-run -- $STAGED; then
     echo ""
     echo "Rector wants changes in the files above. Fix with:"
-    echo "  php vendor/bin/rector process $STAGED"
+    echo "  php vendor/bin/rector process <those files>"
     echo "  php vendor/bin/pint --dirty"
     echo "then re-stage and commit again. (Bypass: git commit --no-verify)"
     exit 1
 fi
 
 echo "pre-commit: pint --test on staged files..."
-if ! php vendor/bin/pint --test $STAGED; then
+if ! php vendor/bin/pint --test -- $STAGED; then
     echo ""
     echo "Pint formatting needed. Fix with: php vendor/bin/pint --dirty"
     echo "then re-stage and commit again. (Bypass: git commit --no-verify)"
