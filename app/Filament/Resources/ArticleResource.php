@@ -186,6 +186,10 @@ final class ArticleResource extends Resource
                         ->label('Show in Catalog')
                         ->default(false)
                         ->helperText('Publish this article on the public catalog (active articles only).'),
+                    Toggle::make('show_price')
+                        ->label('Show Price')
+                        ->default(true)
+                        ->helperText('When off, the catalog shows "Price on request" even if a list price is set.'),
                     TextInput::make('list_price')
                         ->label('List Price')
                         ->numeric()

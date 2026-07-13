@@ -141,7 +141,7 @@ final class QuoteCartPage extends Component
 
         $articles = Article::query()
             ->whereKey(array_keys($items))
-            ->select(['articles.id', 'articles.name', 'articles.unit', 'articles.list_price'])
+            ->select(['articles.id', 'articles.name', 'articles.unit', 'articles.list_price', 'articles.show_price'])
             ->with('media')
             ->orderBy('articles.name')
             ->get();

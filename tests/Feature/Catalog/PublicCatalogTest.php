@@ -161,6 +161,36 @@ describe('Price display', function (): void {
 
         livewire(CatalogHome::class)->assertSee('Price on request');
     });
+
+    it('shows Price on request when show_price is disabled even with a list price', function (): void {
+        makeCatalogArticle($this->team, [
+            'name' => 'Hidden Price Product',
+            'list_price' => '1250.0000',
+            'show_price' => false,
+        ]);
+
+        livewire(CatalogHome::class)
+            ->assertSee('Hidden Price Product')
+            ->assertSee('Price on request')
+            ->assertDontSee('$ 1,250.00');
+    });
+
+    it('shows the preferred supplier name above the product name', function (): void {
+        $article = makeCatalogArticle($this->team, ['name' => 'Supplied Product']);
+        $supplier = Company::factory()->supplier()->for($this->team)->create([
+            'name' => 'PT. Elang Cakrawala Inti',
+        ]);
+        SupplierArticle::factory()->create([
+            'article_id' => $article->getKey(),
+            'supplier_id' => $supplier->getKey(),
+            'is_preferred' => true,
+            'is_active' => true,
+        ]);
+
+        livewire(CatalogHome::class)
+            ->assertSee('Supplied Product')
+            ->assertSee('PT. Elang Cakrawala Inti');
+    });
 });
 
 describe('Availability badge', function (): void {

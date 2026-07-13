@@ -92,8 +92,8 @@ final class CatalogHome extends Component
 
         $query = Article::query()
             ->inPublicCatalog($teamId)
-            ->select(['articles.id', 'articles.name', 'articles.description', 'articles.unit', 'articles.list_price'])
-            ->with(['tags', 'media'])
+            ->select(['articles.id', 'articles.name', 'articles.description', 'articles.unit', 'articles.list_price', 'articles.show_price'])
+            ->with(['tags', 'media', 'preferredSupplier:companies.id,companies.name'])
             ->withExists([
                 'suppliers as in_stock' => fn (Builder $q) => $q
                     ->where('supplier_articles.is_active', true)
@@ -119,7 +119,7 @@ final class CatalogHome extends Component
             $query->whereHas('tags', fn (Builder $q) => $q->where('tags.id', $this->category));
         }
 
-        $articles = $query->orderBy('articles.name')->paginate(12);
+        $articles = $query->orderBy('articles.name')->paginate(50);
 
         $categories = Tag::query()
             ->where('tags.team_id', $teamId)

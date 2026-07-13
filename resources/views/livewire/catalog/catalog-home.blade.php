@@ -43,10 +43,10 @@
                     <div wire:key="article-{{ $article->id }}"
                          class="flex flex-col rounded-xl border border-gray-100 dark:border-gray-900 bg-white dark:bg-gray-950 overflow-hidden hover:shadow-md transition-shadow">
                         <div class="relative block aspect-square bg-gray-50 dark:bg-gray-900">
-                            @if ($article->getFirstMediaUrl('product_images', 'thumb') !== '')
-                                <img src="{{ $article->getFirstMediaUrl('product_images', 'thumb') }}"
+                            @if ($article->getFirstMediaUrl('product_images', 'medium') !== '')
+                                <img src="{{ $article->getFirstMediaUrl('product_images', 'medium') }}"
                                      alt="{{ $article->name }}"
-                                     class="h-full w-full object-cover"
+                                     class="h-full w-full object-contain"
                                      loading="lazy">
                             @else
                                 <div class="flex h-full w-full items-center justify-center text-gray-300 dark:text-gray-700">
@@ -60,9 +60,16 @@
                         </div>
 
                         <div class="flex flex-1 flex-col gap-2 p-2">
-                            <span class="block w-full font-medium text-black dark:text-white line-clamp-2">
-                                {{ $article->name }}
-                            </span>
+                            <div class="w-full">
+                                @if ($article->preferredSupplier->first() !== null)
+                                    <span class="block w-full text-[0.6em] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 truncate">
+                                        {{ $article->preferredSupplier->first()->name }}
+                                    </span>
+                                @endif
+                                <span class="block w-full text-sm font-medium text-black dark:text-white line-clamp-2">
+                                    {{ $article->name }}
+                                </span>
+                            </div>
 
                             @if ($article->tags->isNotEmpty())
                                 <div class="flex flex-wrap gap-1">

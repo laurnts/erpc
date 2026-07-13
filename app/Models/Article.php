@@ -38,6 +38,7 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
  * @property numeric-string|null $list_price
  * @property Carbon|null $list_price_updated_at
  * @property bool $show_in_product_grid
+ * @property bool $show_price
  * @property bool $price_review_needed
  * @property Carbon|null $deleted_at
  * @property-read string $created_by
@@ -72,6 +73,7 @@ final class Article extends Model implements HasCustomFields, HasMedia
         'is_active',
         'list_price',
         'show_in_product_grid',
+        'show_price',
     ];
 
     /**
@@ -94,6 +96,7 @@ final class Article extends Model implements HasCustomFields, HasMedia
             'list_price' => 'decimal:4',
             'list_price_updated_at' => 'datetime',
             'show_in_product_grid' => 'boolean',
+            'show_price' => 'boolean',
             'price_review_needed' => 'boolean',
         ];
     }
@@ -156,7 +159,8 @@ final class Article extends Model implements HasCustomFields, HasMedia
         $this->addMediaConversion('medium')
             ->performOnCollections('product_images')
             ->nonQueued()
-            ->fit(Fit::Contain, 800, 800);
+            ->fit(Fit::Fill, 800, 800)
+            ->background('ffffff');
     }
 
     /**
