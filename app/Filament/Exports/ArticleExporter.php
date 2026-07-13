@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Exports;
 
 use App\Models\Article;
+use App\Models\Company;
+use App\Models\SupplierArticle;
 use Carbon\Carbon;
 use Filament\Actions\Exports\ExportColumn;
 use Filament\Actions\Exports\Models\Export;
@@ -28,6 +30,38 @@ final class ArticleExporter extends BaseExporter
             ExportColumn::make('is_active')
                 ->label('Active')
                 ->formatStateUsing(fn ($state): string => $state ? 'Yes' : 'No'),
+            ExportColumn::make('show_in_product_grid')
+                ->label('In Grid')
+                ->formatStateUsing(fn ($state): string => $state ? 'Yes' : 'No'),
+            ExportColumn::make('supplier_code')
+                ->label('Supplier Code')
+                ->getStateUsing(fn (Article $record): string => self::primarySupplier($record)?->code ?? ''),
+            ExportColumn::make('supplier_name')
+                ->label('Supplier Name')
+                ->getStateUsing(fn (Article $record): string => self::primarySupplier($record)?->name ?? ''),
+            ExportColumn::make('supplier_sku')
+                ->label('Supplier SKU')
+                ->getStateUsing(fn (Article $record): string => self::primarySupplierLink($record)?->supplier_sku ?? ''),
+            ExportColumn::make('supplier_price')
+                ->label('Supplier Price')
+                ->getStateUsing(fn (Article $record): ?string => self::primarySupplierLink($record)?->supplier_price),
+            ExportColumn::make('lead_time_days')
+                ->label('Lead Time')
+                ->getStateUsing(fn (Article $record): ?int => self::primarySupplierLink($record)?->lead_time_days),
+            ExportColumn::make('supplier_is_preferred')
+                ->label('Preferred')
+                ->getStateUsing(function (Article $record): string {
+                    $link = self::primarySupplierLink($record);
+
+                    return $link === null ? '' : ($link->is_preferred ? 'Yes' : 'No');
+                }),
+            ExportColumn::make('supplier_is_active')
+                ->label('Supplier Active')
+                ->getStateUsing(function (Article $record): string {
+                    $link = self::primarySupplierLink($record);
+
+                    return $link === null ? '' : ($link->is_active ? 'Yes' : 'No');
+                }),
             ExportColumn::make('team.name')->label('Team'),
             ExportColumn::make('creator.name')->label('Created By'),
             ExportColumn::make('created_at')->formatStateUsing(fn (?Carbon $state): string => $state?->format('Y-m-d H:i:s') ?? ''),
@@ -46,5 +80,21 @@ final class ArticleExporter extends BaseExporter
         }
 
         return $body;
+    }
+
+    private static function primarySupplierLink(Article $article): ?SupplierArticle
+    {
+        return SupplierArticle::query()
+            ->where('article_id', $article->getKey())
+            ->orderByDesc('is_preferred')
+            ->orderBy('id')
+            ->first();
+    }
+
+    private static function primarySupplier(Article $article): ?Company
+    {
+        $link = self::primarySupplierLink($article);
+
+        return $link?->supplier;
     }
 }

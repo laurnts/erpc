@@ -19,7 +19,6 @@ use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
-use Filament\Schemas\Components\Flex;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\TextSize;
@@ -97,46 +96,46 @@ final class ViewSupplier extends ViewRecord
     {
         return $schema
             ->schema([
-                Flex::make([
-                    Section::make('Supplier Information')
-                        ->schema([
-                            TextEntry::make('code')
-                                ->label('Code')
-                                ->weight('bold')
-                                ->copyable(),
-                            TextEntry::make('name')
-                                ->label('Company Name')
-                                ->size(TextSize::Large),
-                            TextEntry::make('domain')
-                                ->label('Domain')
-                                ->placeholder('—')
-                                ->url(fn ($record) => $record->domain ? "https://{$record->domain}" : null)
-                                ->openUrlInNewTab(),
-                            TextEntry::make('email')
-                                ->label('Email')
-                                ->placeholder('—')
-                                ->copyable()
-                                ->icon('heroicon-o-envelope'),
-                            TextEntry::make('phone')
-                                ->label('Phone')
-                                ->placeholder('—')
-                                ->copyable()
-                                ->icon('heroicon-o-phone'),
-                        ])
-                        ->columns(2),
-                    Section::make('Location')
-                        ->schema([
-                            TextEntry::make('country')
-                                ->label('Country')
-                                ->placeholder('—'),
-                            TextEntry::make('address')
-                                ->label('Address')
-                                ->placeholder('—')
-                                ->columnSpanFull(),
-                        ])
-                        ->columns(1)
-                        ->grow(false),
-                ])->columnSpan('full'),
+                Section::make('Supplier Information')
+                    ->schema([
+                        TextEntry::make('code')
+                            ->label('Code')
+                            ->weight('bold')
+                            ->copyable(),
+                        TextEntry::make('name')
+                            ->label('Company Name')
+                            ->size(TextSize::Large),
+                        TextEntry::make('domain')
+                            ->label('Domain')
+                            ->placeholder('—')
+                            ->url(fn ($record) => $record->domain ? "https://{$record->domain}" : null)
+                            ->openUrlInNewTab(),
+                        TextEntry::make('email')
+                            ->label('Email')
+                            ->placeholder('—')
+                            ->copyable()
+                            ->icon('heroicon-o-envelope'),
+                        TextEntry::make('phone')
+                            ->label('Phone')
+                            ->placeholder('—')
+                            ->copyable()
+                            ->icon('heroicon-o-phone'),
+                    ])
+                    ->columns(3)
+                    ->columnSpan('full'),
+
+                Section::make('Location')
+                    ->schema([
+                        TextEntry::make('country')
+                            ->label('Country')
+                            ->placeholder('—'),
+                        TextEntry::make('address')
+                            ->label('Address')
+                            ->placeholder('—')
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(2)
+                    ->columnSpan('full'),
 
                 Section::make('Financial Settings')
                     ->schema([
