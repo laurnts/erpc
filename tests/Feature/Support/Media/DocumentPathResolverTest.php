@@ -163,7 +163,7 @@ describe('map is a superset of the generator folder map', function () {
             $reflection = new ReflectionMethod(DocumentPathGenerator::class, 'folderMap');
             $reflection->setAccessible(true);
 
-            return $reflection->invoke(null);
+            return $reflection->invoke(new DocumentPathGenerator());
         })();
 
         $resolverMap = (function (): array {
