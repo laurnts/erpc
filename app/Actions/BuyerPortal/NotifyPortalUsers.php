@@ -7,6 +7,7 @@ namespace App\Actions\BuyerPortal;
 use App\Enums\PortalType;
 use App\Models\Request;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
@@ -41,7 +42,7 @@ final readonly class NotifyPortalUsers
     private function portalUsersForCompany(int $companyId): Collection
     {
         return User::query()
-            ->whereHas('portalMemberships', fn ($query) => $query
+            ->whereHas('portalMemberships', fn (Builder $query) => $query
                 ->where('company_id', $companyId)
                 ->where('portal', PortalType::Buyer)
                 ->where('is_active', true))

@@ -7,6 +7,7 @@ namespace App\Actions\SupplierArticles;
 use App\Actions\Catalog\RefreshArticlePriceReview;
 use App\Models\Article;
 use App\Models\SupplierArticle;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -45,7 +46,7 @@ final readonly class SetPreferredSupplier
         SupplierArticle::query()
             ->where('article_id', $articleId)
             ->where('is_preferred', true)
-            ->when($exceptSupplierId !== null, fn ($query) => $query->where('supplier_id', '!=', $exceptSupplierId))
+            ->when($exceptSupplierId !== null, fn (Builder $query) => $query->where('supplier_id', '!=', $exceptSupplierId))
             ->update(['is_preferred' => false]);
     }
 }

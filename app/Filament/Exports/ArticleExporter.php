@@ -27,7 +27,7 @@ final class ArticleExporter extends BaseExporter
             ExportColumn::make('description'),
             ExportColumn::make('is_active')
                 ->label('Active')
-                ->formatStateUsing(fn ($state): string => $state ? 'Yes' : 'No'),
+                ->formatStateUsing(fn (mixed $state): string => $state ? 'Yes' : 'No'),
             ExportColumn::make('team.name')->label('Team'),
             ExportColumn::make('creator.name')->label('Created By'),
             ExportColumn::make('created_at')->formatStateUsing(fn (?Carbon $state): string => $state?->format('Y-m-d H:i:s') ?? ''),

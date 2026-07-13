@@ -79,12 +79,6 @@ parameters:
 			path: app/Console/Commands/TestCreditLimitEmailCommand.php
 
 		-
-			message: '#^Method App\\Filament\\Buyer\\Resources\\BuyerRequestResource\:\:canDelete\(\) has parameter \$record with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: app/Filament/Buyer/Resources/BuyerRequestResource.php
-
-		-
 			message: '#^Access to an undefined property App\\Models\\UnitOfMeasure\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\UnitOfMeasure\>\:\:\$code\.$#'
 			identifier: property.notFound
 			count: 1

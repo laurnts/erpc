@@ -10,6 +10,7 @@ use App\Models\SupplierOrder;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Builder;
 use Throwable;
 
 final class ApproveGoodsReceiveCommand extends Command
@@ -80,7 +81,7 @@ final class ApproveGoodsReceiveCommand extends Command
         if (is_numeric($identifier)) {
             $batch = GoodsReceiveBatch::query()
                 ->where('id', (int) $identifier)
-                ->whereHas('request', fn ($q) => $q->where('team_id', $teamId))
+                ->whereHas('request', fn (Builder $q) => $q->where('team_id', $teamId))
                 ->with(['supplierOrder', 'request'])
                 ->first();
             if ($batch !== null && $this->batchHasPendingApprovals($batch, $teamId)) {
@@ -98,7 +99,7 @@ final class ApproveGoodsReceiveCommand extends Command
 
         return GoodsReceiveBatch::query()
             ->where('supplier_order_id', $order->id)
-            ->whereHas('request', fn ($q) => $q->where('team_id', $teamId))
+            ->whereHas('request', fn (Builder $q) => $q->where('team_id', $teamId))
             ->with(['supplierOrder', 'request'])
             ->get()
             ->filter(fn (GoodsReceiveBatch $b): bool => $this->batchHasPendingApprovals($b, $teamId))

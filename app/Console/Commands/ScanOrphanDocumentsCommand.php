@@ -163,7 +163,7 @@ final class ScanOrphanDocumentsCommand extends Command
             }
         }
 
-        return array_any(self::PROTECTED_ROOTS[$diskName] ?? [], fn ($segment): bool => $relativePath === $segment
+        return array_any(self::PROTECTED_ROOTS[$diskName] ?? [], fn (string $segment): bool => $relativePath === $segment
             || str_starts_with($relativePath, $segment.'/')
             || str_contains($relativePath, '/'.$segment.'/'));
     }

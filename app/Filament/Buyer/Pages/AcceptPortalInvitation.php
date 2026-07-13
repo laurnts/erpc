@@ -19,6 +19,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Panel;
 use Filament\Schemas\Schema;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\Rules\Password;
 
 final class AcceptPortalInvitation extends Page implements HasForms
@@ -76,7 +77,7 @@ final class AcceptPortalInvitation extends Page implements HasForms
             ->where('token', $token)
             ->where('portal', PortalType::Buyer)
             ->whereNull('accepted_at')
-            ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->where(fn (Builder $query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->with('company')
             ->firstOrFail();
 

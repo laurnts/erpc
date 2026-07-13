@@ -6,6 +6,7 @@ namespace App\Actions\BuyerPortal;
 
 use App\Models\Request;
 use App\Models\Team;
+use App\Models\User;
 use App\Notifications\PortalRequestReceivedConfirmationNotification;
 use App\Notifications\PortalRequestSubmittedNotification;
 use Illuminate\Support\Facades\Notification;
@@ -34,7 +35,7 @@ final readonly class NotifyTeamOfPortalRequest
         }
 
         $recipients = $team->allUsers()
-            ->filter(fn ($user) => $user->hasVerifiedEmail())
+            ->filter(fn (User $user) => $user->hasVerifiedEmail())
             ->unique('id');
 
         if ($recipients->isEmpty()) {

@@ -92,7 +92,7 @@ final class CompanyForm
                         ->relationship(
                             'defaultCurrency',
                             'name',
-                            modifyQueryUsing: fn ($query) => $query->where('is_active', true)
+                            modifyQueryUsing: fn (Builder $query) => $query->where('is_active', true)
                         )
                         ->getOptionLabelFromRecordUsing(fn (?Currency $record): string => $record instanceof \App\Models\Currency ? "{$record->code} - {$record->name}" : '')
                         ->default(function (): ?int {
@@ -162,10 +162,10 @@ final class CompanyForm
                     Textarea::make('on_hold_reason')
                         ->label('Hold Reason')
                         ->rows(2)
-                        ->visible(fn ($get): bool => (bool) $get('is_on_hold')),
+                        ->visible(fn (Get $get): bool => (bool) $get('is_on_hold')),
                 ])
                 ->columns(2)
-                ->visible(fn ($get): bool => (bool) $get('is_buyer'))
+                ->visible(fn (Get $get): bool => (bool) $get('is_buyer'))
                 ->collapsed(),
 
             Section::make('Supplier Settings')
@@ -197,7 +197,7 @@ final class CompanyForm
                             return $article->id;
                         }),
                 ])
-                ->visible(fn ($get): bool => (bool) $get('is_supplier'))
+                ->visible(fn (Get $get): bool => (bool) $get('is_supplier'))
                 ->collapsed(),
 
             Textarea::make('internal_notes')

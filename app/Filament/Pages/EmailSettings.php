@@ -24,6 +24,8 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Mail;
@@ -360,7 +362,7 @@ final class EmailSettings extends Page implements HasForms
                             loadButtonParam: $key
                         )
                     )
-                    ->createOptionUsing(function (array $data, $get) use ($key, $team): int {
+                    ->createOptionUsing(function (array $data, Get $get) use ($key, $team): int {
                         // Get sender/CC/BCC from the existing template section fields (if set)
                         $emailService = app(EmailTemplateService::class);
 
@@ -390,7 +392,7 @@ final class EmailSettings extends Page implements HasForms
                     })
                     ->createOptionAction(fn (Action $action): Action => $action->modalWidth('2xl'))
                     ->live()
-                    ->afterStateUpdated(function ($state, $set) use ($key): void {
+                    ->afterStateUpdated(function (mixed $state, Set $set) use ($key): void {
                         // When template is selected, load its sender/CC/BCC if available
                         if ($state) {
                             $template = EmailTemplate::find($state);

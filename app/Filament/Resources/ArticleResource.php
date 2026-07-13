@@ -162,7 +162,7 @@ final class ArticleResource extends Resource
             $suppliersSelect->relationship(
                 'suppliers',
                 'name',
-                modifyQueryUsing: fn ($query) => $query->where('is_supplier', true)
+                modifyQueryUsing: fn (Builder $query) => $query->where('is_supplier', true)
             );
         }
 

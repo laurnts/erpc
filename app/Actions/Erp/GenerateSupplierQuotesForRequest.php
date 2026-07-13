@@ -12,6 +12,7 @@ use App\Models\RequestItem;
 use App\Models\SupplierArticle;
 use App\Models\SupplierQuote;
 use App\Models\SupplierQuoteItem;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -33,8 +34,8 @@ final readonly class GenerateSupplierQuotesForRequest
     {
         // Load request items with their articles and article suppliers
         $request->load([
-            'items' => fn ($query) => $query->whereNotNull('article_id'),
-            'items.article.suppliers' => fn ($query) => $query
+            'items' => fn (Relation $query) => $query->whereNotNull('article_id'),
+            'items.article.suppliers' => fn (Relation $query) => $query
                 ->where('supplier_articles.is_active', true)
                 ->where('companies.is_supplier', true),
         ]);

@@ -10,6 +10,7 @@ use App\Models\Request;
 use App\Models\SupplierQuote;
 use App\Models\User;
 use App\Notifications\SupplierQuoteOutcomeNotification;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 
@@ -41,7 +42,7 @@ final readonly class AnnounceSupplierRequestOutcomes
             ->whereIn('status', [SupplierQuoteStatus::RECEIVED, SupplierQuoteStatus::SELECTED])
             ->whereNull('declined_at')
             ->withCount([
-                'items as selected_items_count' => fn ($query) => $query->where('is_selected', true),
+                'items as selected_items_count' => fn (Builder $query) => $query->where('is_selected', true),
             ])
             ->get();
 
@@ -93,7 +94,7 @@ final readonly class AnnounceSupplierRequestOutcomes
         }
 
         $recipients = User::query()
-            ->whereHas('portalMemberships', fn ($query) => $query
+            ->whereHas('portalMemberships', fn (Builder $query) => $query
                 ->where('company_id', $quote->supplier_id)
                 ->where('portal', PortalType::Supplier)
                 ->where('is_active', true))

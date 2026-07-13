@@ -65,13 +65,13 @@ final class AcceptanceReportResource extends Resource
         return [
             Select::make('request_id')
                 ->label('Request')
-                ->relationship('request', 'request_number', modifyQueryUsing: fn ($query) => $query->whereHas('items', fn ($itemQuery) => $itemQuery->where('item_type', \App\Enums\ItemType::SERVICE)))
+                ->relationship('request', 'request_number', modifyQueryUsing: fn (Builder $query) => $query->whereHas('items', fn (Builder $itemQuery) => $itemQuery->where('item_type', \App\Enums\ItemType::SERVICE)))
                 ->required()
                 ->searchable()
                 ->preload()
                 ->live()
                 ->default($request?->getKey())
-                ->disabled(fn ($record): bool => $record !== null || $request instanceof \App\Models\Request)
+                ->disabled(fn (?\Illuminate\Database\Eloquent\Model $record): bool => $record instanceof \Illuminate\Database\Eloquent\Model || $request instanceof \App\Models\Request)
                 ->dehydrated()
                 ->hidden($request instanceof \App\Models\Request)
                 ->helperText('Only requests with services items are available'),
@@ -81,7 +81,7 @@ final class AcceptanceReportResource extends Resource
                 ->relationship(
                     'items',
                     'description',
-                    modifyQueryUsing: fn ($query, \Filament\Schemas\Components\Utilities\Get $get) => $query
+                    modifyQueryUsing: fn (Builder $query, \Filament\Schemas\Components\Utilities\Get $get) => $query
                         ->where('request_id', $resolveRequestId($get))
                         ->whereNull('parent_id')
                         ->where('item_type', \App\Enums\ItemType::SERVICE),
@@ -94,7 +94,7 @@ final class AcceptanceReportResource extends Resource
 
                     $foreign = \App\Models\RequestItem::query()
                         ->whereIn('id', $value)
-                        ->where(fn ($query) => $query
+                        ->where(fn (Builder $query) => $query
                             ->where('request_id', '!=', $resolveRequestId($get))
                             ->orWhereNotNull('parent_id')
                             ->orWhere('item_type', '!=', \App\Enums\ItemType::SERVICE))
@@ -112,7 +112,7 @@ final class AcceptanceReportResource extends Resource
                         ->maxLength(50)
                         ->placeholder('Auto-generated')
                         ->helperText('Leave empty to auto-generate')
-                        ->disabled(fn ($record): bool => $record !== null),
+                        ->disabled(fn (?\Illuminate\Database\Eloquent\Model $record): bool => $record instanceof \Illuminate\Database\Eloquent\Model),
                     DatePicker::make('reported_at')
                         ->label('Reported Date')
                         ->required()
@@ -146,7 +146,7 @@ final class AcceptanceReportResource extends Resource
                         ->maxFiles(10)
                         ->maxSize(5120) // 5MB in KB
                         ->dehydrated(false)
-                        ->afterStateUpdated(function ($state, $record, $set): void {
+                        ->afterStateUpdated(function (mixed $state, ?AcceptanceReport $record, \Filament\Schemas\Components\Utilities\Set $set): void {
                             // Process uploaded files immediately when they're uploaded
                             if ($record && $record->exists && is_array($state) && $state !== []) {
                                 app(AttachUploadedFiles::class)->execute($record, $state, 'attachments', AcceptanceReport::ATTACHMENTS_UPLOAD_DIRECTORY);
@@ -228,7 +228,7 @@ final class AcceptanceReportResource extends Resource
         $team = Filament::getTenant();
 
         return parent::getEloquentQuery()
-            ->whereHas('request', fn ($query) => $query->where('team_id', $team?->getKey()))
+            ->whereHas('request', fn (Builder $query) => $query->where('team_id', $team?->getKey()))
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);

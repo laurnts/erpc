@@ -14,7 +14,7 @@ final class VerifyEmail extends BaseNotification
 {
     public string $url;
 
-    protected function verificationUrl($notifiable): string
+    protected function verificationUrl(mixed $notifiable): string
     {
         return $this->url;
     }

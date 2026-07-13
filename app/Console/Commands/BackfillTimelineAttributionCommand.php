@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Support\Media\UploaderProvenance;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -103,7 +104,7 @@ final class BackfillTimelineAttributionCommand extends Command
         Media::query()
             ->whereIn('collection_name', UploaderProvenance::documentCollections())
             ->with('model')
-            ->chunkById($chunk, function ($media) use (&$updated): void {
+            ->chunkById($chunk, function (Collection $media) use (&$updated): void {
                 foreach ($media as $item) {
                     if ($item->getCustomProperty('uploader_actor_type') !== null) {
                         continue;
@@ -149,7 +150,7 @@ final class BackfillTimelineAttributionCommand extends Command
                     $query->whereNull('log_name')
                         ->orWhereNotIn('log_name', self::SYSTEM_LOG_NAMES);
                 })
-                ->chunkById($chunk, function ($rows) use (&$updated, $creatorIds): void {
+                ->chunkById($chunk, function (Collection $rows) use (&$updated, $creatorIds): void {
                     foreach ($rows as $row) {
                         $creatorId = $creatorIds->get((int) $row->subject_id);
 
