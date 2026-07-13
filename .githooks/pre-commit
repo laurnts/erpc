@@ -1,3 +1,35 @@
 #!/bin/sh
-composer lint
-composer test
+# Scoped quality gate: run Rector + Pint on the staged PHP files only, so lint
+# debt never accumulates between commits. Full-repo gates still run in CI.
+# Activate once per clone: git config core.hooksPath .githooks
+# Bypass when needed:      git commit --no-verify
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR -- '*.php' \
+    | grep -E '^(app|app-modules|config|database|public)/|^bootstrap/app\.php$')
+
+[ -z "$STAGED" ] && exit 0
+
+if ! command -v php >/dev/null 2>&1; then
+    echo "pre-commit: php wrapper not found; skipping Rector/Pint check (CI will catch it)." >&2
+    exit 0
+fi
+
+echo "pre-commit: rector --dry-run on staged files..."
+if ! php vendor/bin/rector process --dry-run $STAGED; then
+    echo ""
+    echo "Rector wants changes in the files above. Fix with:"
+    echo "  php vendor/bin/rector process $STAGED"
+    echo "  php vendor/bin/pint --dirty"
+    echo "then re-stage and commit again. (Bypass: git commit --no-verify)"
+    exit 1
+fi
+
+echo "pre-commit: pint --test on staged files..."
+if ! php vendor/bin/pint --test $STAGED; then
+    echo ""
+    echo "Pint formatting needed. Fix with: php vendor/bin/pint --dirty"
+    echo "then re-stage and commit again. (Bypass: git commit --no-verify)"
+    exit 1
+fi
+
+exit 0
