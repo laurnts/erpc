@@ -89,20 +89,23 @@ The system SHALL maintain exactly one activity capture system (the live activity
 - **WHEN** the change is applied
 - **THEN** the `RequestActivity` model, its enums, policy, factory, relation manager, table migration, and the `Request::activities()` relation no longer exist, and the suite passes
 
-### Requirement: Internal Media Entry Download Links
+### Requirement: Media Entry Download Links
 
-Internal (staff) timeline media entries SHALL link to the generic authorized document download route with the forced-download flag, so clicking an upload entry downloads the file with identical behaviour for every file type. Portal timeline media entries SHALL NOT carry a document link until a portal-authorized document route exists, because portal parties cannot pass the team-membership check on the generic route.
+Timeline media entries SHALL render the uploaded file name — and only the file name, not the surrounding headline text — as a link that downloads the file with identical behaviour for every file type. Internal (staff) entries SHALL link to the generic authorized document download route with the forced-download flag. Portal (buyer/supplier) entries SHALL link to their panel-scoped portal document download route, and every portal link SHALL pass the party's default-deny link allow-list (`RedactionRules::allowsLinkRoute`) by route name; an entry whose link route is not allow-listed renders as plain text.
 
 #### Scenario: Staff downloads an uploaded file from the timeline
-- **WHEN** a staff user clicks an upload entry ("uploaded {file} → {collection}") on the internal request timeline
+- **WHEN** a staff user clicks the file name in an upload entry ("uploaded {file} → {collection}") on the internal request timeline
 - **THEN** the browser downloads the file via `documents.download` with the forced-download flag, regardless of file type (PDF, Word, Excel, image)
 
-#### Scenario: Entry renders as a link only when a URL is present
-- **WHEN** the internal timeline renders an entry whose `url` is set
-- **THEN** the headline renders as a link to that URL, matching the portal timeline's existing link markup
-- **AND** entries without a `url` render as plain text exactly as before
+#### Scenario: Only the file name is hyperlinked
+- **WHEN** any timeline renders an upload entry that carries a link
+- **THEN** only the file name segment is wrapped in the anchor; the "uploaded" verb and the collection label render as plain text
 
-#### Scenario: Portal media entries remain plain text
-- **WHEN** a buyer or supplier party views their portal timeline
-- **THEN** media entries carry no document link and render as plain text
+#### Scenario: Portal party downloads a visible upload
+- **WHEN** a buyer or supplier party clicks the file name of a media entry their timeline shows
+- **THEN** the file downloads via their panel-scoped portal document route, which re-authorizes fail-closed with the same media visibility rules the timeline applied
+
+#### Scenario: Entries without a link stay plain text
+- **WHEN** a timeline renders a media entry whose link route is not on the party's allow-list (or that carries no link)
+- **THEN** the entry renders as plain text exactly as before
 
