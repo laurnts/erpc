@@ -254,9 +254,11 @@ final readonly class PortalTimelineSource
             })
             ->get();
 
+        $linkRoute = $this->documentRouteName($party);
+
         return $media
             ->filter(fn (Media $item): bool => $this->mediaPasses($item, $rules[$item->collection_name] ?? null))
-            ->map(function (Media $item) use ($subjects): TimelineEntry {
+            ->map(function (Media $item) use ($subjects, $linkRoute): TimelineEntry {
                 $actorType = ActorType::tryFrom((string) $item->getCustomProperty('uploader_actor_type')) ?? ActorType::System;
 
                 return new TimelineEntry(
@@ -270,9 +272,48 @@ final readonly class PortalTimelineSource
                     subjectNumber: $subjects[(string) $item->model_type][(int) $item->model_id] ?? null,
                     changedFieldCount: 0,
                     occurredAt: $item->created_at->toImmutable(),
+                    url: route($linkRoute, ['media' => $item]),
+                    properties: [
+                        'file_name' => (string) $item->file_name,
+                        'collection_label' => Str::headline($item->collection_name),
+                        'link_route' => $linkRoute,
+                    ],
                 );
             })
             ->values();
+    }
+
+    /**
+     * Whether the party may fetch this media through the portal document
+     * route. Same fail-closed gates as the timeline itself: the media's
+     * subject must be in the party's identity-scoped allow-list for this
+     * request, and the row must pass its collection's MediaRule.
+     */
+    public function allowsMedia(Request $request, TimelineParty $party, Media $media): bool
+    {
+        $this->guardPortal($party);
+
+        $subjects = $this->allowedSubjects($request, $party);
+        $visibleIds = $subjects[(string) $media->model_type] ?? [];
+
+        if (! array_key_exists((int) $media->model_id, $visibleIds)) {
+            return false;
+        }
+
+        $rules = $this->audience->mediaRules($party);
+
+        return $this->mediaPasses($media, $rules[$media->collection_name] ?? null);
+    }
+
+    /**
+     * The party's panel-scoped document download route name; must stay on
+     * the party's RedactionRules link allow-list or redact() strips it.
+     */
+    private function documentRouteName(TimelineParty $party): string
+    {
+        return $party->actorType === ActorType::Buyer
+            ? 'buyer.documents.download'
+            : 'supplier.documents.download';
     }
 
     /**
@@ -411,7 +452,8 @@ final readonly class PortalTimelineSource
             $headline = 'Status updated to '.$properties['attributes']['stage'];
         }
 
-        $url = $rules->allowsLinkRoute($entry->url) ? $entry->url : null;
+        $linkRoute = $entry->properties['link_route'] ?? null;
+        $url = is_string($linkRoute) && $rules->allowsLinkRoute($linkRoute) ? $entry->url : null;
 
         return new TimelineEntry(
             actorLabel: $actorLabel,

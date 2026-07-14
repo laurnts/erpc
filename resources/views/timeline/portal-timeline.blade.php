@@ -50,7 +50,13 @@
 
                         <div class="min-w-0 flex-1">
                             <div class="flex flex-wrap items-baseline gap-x-2">
-                                @if ($entry->url !== null)
+                                @if ($entry->url !== null && $entry->entryType === \App\Services\Timeline\TimelineAudience::ENTRY_MEDIA && ($entry->properties['file_name'] ?? null) !== null)
+                                    <span class="text-gray-950 dark:text-white">
+                                        uploaded
+                                        <a href="{{ $entry->url }}" class="font-medium text-primary-600 hover:underline dark:text-primary-400">{{ $entry->properties['file_name'] }}</a>
+                                        → {{ $entry->properties['collection_label'] ?? '' }}
+                                    </span>
+                                @elseif ($entry->url !== null)
                                     <a href="{{ $entry->url }}" class="font-medium text-primary-600 hover:underline dark:text-primary-400">
                                         {{ $entry->headline }}
                                     </a>

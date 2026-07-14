@@ -204,9 +204,15 @@ it('redacts staff causers and raw stage values in the rendered feed', function (
     expect($rendered)->not->toContain('filament.app.')
         ->and($rendered)->not->toContain('sysadmin');
 
+    // The only link a buyer entry may carry is the buyer document download.
+    $allowedPrefix = url()->getBuyerPortalUrl('documents/');
+
     foreach ($entries as $entry) {
-        expect($entry->url)->toBeNull()
-            ->and($entry->actorLabel)->not->toBe('Staff Member Olivia');
+        if ($entry->url !== null) {
+            expect($entry->url)->toStartWith($allowedPrefix);
+        }
+
+        expect($entry->actorLabel)->not->toBe('Staff Member Olivia');
     }
 });
 

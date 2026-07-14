@@ -218,13 +218,13 @@ final readonly class TimelineAudience
                 collapseCauser: true,
                 genericCauserLabel: 'Your team',
                 remapStageLabels: true,
-                allowedLinkRoutePrefixes: ['filament.buyer.resources.requests.'],
+                allowedLinkRoutePrefixes: ['filament.buyer.resources.requests.', 'buyer.documents.'],
             ),
             ActorType::Supplier => new RedactionRules(
                 collapseCauser: true,
                 genericCauserLabel: 'Your team',
                 remapStageLabels: true,
-                allowedLinkRoutePrefixes: ['filament.supplier.resources.'],
+                allowedLinkRoutePrefixes: ['filament.supplier.resources.', 'supplier.documents.'],
             ),
             ActorType::System => new RedactionRules(
                 collapseCauser: true,

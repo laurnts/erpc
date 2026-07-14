@@ -8,6 +8,7 @@ use App\Http\Controllers\BuyerQuotePoDeleteController;
 use App\Http\Controllers\BuyerQuotePoDownloadController;
 use App\Http\Controllers\DocumentDownloadController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\PortalDocumentDownloadController;
 use App\Http\Controllers\PrivacyPolicyController;
 use App\Http\Controllers\RequestGoodsReceiveDeleteController;
 use App\Http\Controllers\SupplierQuoteQuotationDeleteController;
@@ -17,6 +18,7 @@ use App\Http\Controllers\UserGuideDownloadController;
 use App\Livewire\Catalog\CatalogHome;
 use App\Livewire\Catalog\QuoteCartPage;
 use App\Livewire\Catalog\RegistrationPage;
+use App\Support\PanelDomain;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Support\Facades\Route;
 use Laravel\Jetstream\Http\Controllers\TeamInvitationController;
@@ -32,7 +34,7 @@ use Laravel\Jetstream\Http\Controllers\TeamInvitationController;
 |
 */
 
-Route::middleware('guest')->group(function () {
+Route::middleware('guest')->group(function (): void {
     Route::get('/auth/redirect/{provider}', RedirectController::class)
         ->name('auth.socialite.redirect')
         ->middleware('throttle:10,1');
@@ -40,17 +42,11 @@ Route::middleware('guest')->group(function () {
         ->name('auth.socialite.callback')
         ->middleware('throttle:10,1');
 
-    Route::get('/login', function () {
-        return redirect()->away(url()->getAppUrl('login'));
-    })->name('login');
+    Route::get('/login', fn () => redirect()->away(url()->getAppUrl('login')))->name('login');
 
-    Route::get('/register', function () {
-        return redirect()->away(url()->getAppUrl('register'));
-    })->name('register');
+    Route::get('/register', fn () => redirect()->away(url()->getAppUrl('register')))->name('register');
 
-    Route::get('/forgot-password', function () {
-        return redirect()->away(url()->getAppUrl('forgot-password'));
-    })->name('password.request');
+    Route::get('/forgot-password', fn () => redirect()->away(url()->getAppUrl('forgot-password')))->name('password.request');
 });
 
 // Public article catalog replaces the marketing homepage. CATALOG_ENABLED=false
@@ -73,9 +69,7 @@ Route::get('/team-invitations/{invitation}', [TeamInvitationController::class, '
     ->name('team-invitations.accept');
 
 // Community redirects
-Route::get('/discord', function () {
-    return redirect()->away(config('services.discord.invite_url'));
-})->name('discord');
+Route::get('/discord', fn () => redirect()->away(config('services.discord.invite_url')))->name('discord');
 
 // User guide download (Settings -> General)
 Route::get('/user-guide/download', UserGuideDownloadController::class)
@@ -83,7 +77,7 @@ Route::get('/user-guide/download', UserGuideDownloadController::class)
     ->name('user-guide.download');
 
 // Buyer Quote PO file routes
-Route::middleware(['web', 'auth'])->group(function () {
+Route::middleware(['web', 'auth'])->group(function (): void {
     Route::get('/buyer-quotes/{buyerQuote}/po/{media}', BuyerQuotePoDownloadController::class)
         ->name('buyer-quotes.po.download');
 
@@ -108,3 +102,25 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/documents/{media}', DocumentDownloadController::class)
         ->name('documents.download');
 });
+
+// Portal document downloads (timeline file links). Each route is bound to its
+// panel's domain and path prefix so UsePanelSession applies that portal's
+// session cookie and route() generates the panel host; authorization is
+// fail-closed against the party's timeline media rules.
+Route::domain(PanelDomain::buyerHost())
+    ->middleware(['web', 'auth:buyer'])
+    ->prefix(config('app.buyer_path', 'buyer'))
+    ->group(function (): void {
+        Route::get('/documents/{media}', PortalDocumentDownloadController::class)
+            ->defaults('portal', 'buyer')
+            ->name('buyer.documents.download');
+    });
+
+Route::domain(PanelDomain::supplierHost())
+    ->middleware(['web', 'auth:supplier'])
+    ->prefix(config('app.supplier_path', 'supplier'))
+    ->group(function (): void {
+        Route::get('/documents/{media}', PortalDocumentDownloadController::class)
+            ->defaults('portal', 'supplier')
+            ->name('supplier.documents.download');
+    });

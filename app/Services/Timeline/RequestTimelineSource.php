@@ -522,6 +522,10 @@ final readonly class RequestTimelineSource
                 changedFieldCount: 0,
                 occurredAt: $item->created_at->toImmutable(),
                 url: route('documents.download', ['media' => $item, 'download' => 1]),
+                properties: [
+                    'file_name' => (string) $item->file_name,
+                    'collection_label' => Str::headline($item->collection_name),
+                ],
             );
         });
     }

@@ -286,8 +286,9 @@ it('renders an upload entry as a direct-download link', function (): void {
 
     livewire(RequestHistoryTimeline::class, ['request' => $request])
         ->assertOk()
-        ->assertSee('uploaded quotation.pdf → Attachments')
-        ->assertSeeHtml('href="'.route('documents.download', ['media' => $media, 'download' => 1]).'"');
+        ->assertSeeHtml('href="'.route('documents.download', ['media' => $media, 'download' => 1]).'"')
+        ->assertSeeHtml('>quotation.pdf</a>')
+        ->assertSee('→ Attachments');
 });
 
 it('opens the shared detail modal for an in-tree activity and forbids a foreign one', function (): void {
