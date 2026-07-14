@@ -89,6 +89,35 @@ it('serves a non-allowlisted SVG as an attachment with a generic content type', 
     expect($response->headers->get('Content-Disposition'))->toStartWith('attachment;');
 });
 
+it('forces an attachment disposition for a render-safe PDF when the download flag is set', function (): void {
+    $owner = User::factory()->withPersonalTeam()->create();
+    $supplierQuote = SupplierQuote::factory()->for($owner->personalTeam())->create();
+    $media = $supplierQuote->addMedia(UploadedFile::fake()->createWithContent('quotation.pdf', '%PDF-1.4'.str_repeat('0', 200)))
+        ->toMediaCollection('quotation');
+
+    $response = $this->actingAs($owner)
+        ->get(route('documents.download', ['media' => $media, 'download' => 1]));
+
+    $response->assertOk()
+        ->assertHeader('Content-Type', 'application/pdf');
+    expect($response->headers->get('Content-Disposition'))->toStartWith('attachment;');
+});
+
+it('keeps the generic content type for a non-allowlisted file when the download flag is set', function (): void {
+    $owner = User::factory()->withPersonalTeam()->create();
+    $supplierQuote = SupplierQuote::factory()->for($owner->personalTeam())->create();
+    $media = $supplierQuote->addMedia(UploadedFile::fake()->createWithContent('evil.svg', '%PDF-1.4'.str_repeat('0', 200)))
+        ->toMediaCollection('quotation');
+    $media->update(['mime_type' => 'image/svg+xml']);
+
+    $response = $this->actingAs($owner)
+        ->get(route('documents.download', ['media' => $media, 'download' => 1]));
+
+    $response->assertOk()
+        ->assertHeader('Content-Type', 'application/octet-stream');
+    expect($response->headers->get('Content-Disposition'))->toStartWith('attachment;');
+});
+
 it('strips quotes and newlines from the download file name header', function (): void {
     $owner = User::factory()->withPersonalTeam()->create();
     $supplierQuote = SupplierQuote::factory()->for($owner->personalTeam())->create();

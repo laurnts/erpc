@@ -33,7 +33,7 @@ final class ViewBuyerCreditLimit extends ViewRecord
 
     public function infolist(Schema $schema): Schema
     {
-        return $schema->schema([
+        return $schema->components([
             Section::make()->schema([
                 Grid::make(4)
                     ->schema([

@@ -13,6 +13,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  * Only render-safe mime types are served inline with their stored mime;
  * everything else (e.g. image/svg+xml, text/html) is forced to download
  * as application/octet-stream to prevent stored XSS on the app origin.
+ * $forceDownload keeps that mime handling but always sets an attachment
+ * disposition, for links whose click should download rather than preview.
  */
 final readonly class DocumentResponse
 {
@@ -24,12 +26,12 @@ final readonly class DocumentResponse
         'image/webp',
     ];
 
-    public static function make(Media $media, string $filePath): BinaryFileResponse
+    public static function make(Media $media, string $filePath, bool $forceDownload = false): BinaryFileResponse
     {
         $isInline = in_array($media->mime_type, self::INLINE_MIME_TYPES, true);
 
         $contentType = $isInline ? $media->mime_type : 'application/octet-stream';
-        $disposition = $isInline ? 'inline' : 'attachment';
+        $disposition = $isInline && ! $forceDownload ? 'inline' : 'attachment';
         $fileName = str_replace(['"', "\r", "\n"], '', $media->file_name);
 
         return response()->file($filePath, [

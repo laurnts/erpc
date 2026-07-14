@@ -521,6 +521,7 @@ final readonly class RequestTimelineSource
                 subjectNumber: $subjectNumbers[(string) $item->model_type][(int) $item->model_id] ?? null,
                 changedFieldCount: 0,
                 occurredAt: $item->created_at->toImmutable(),
+                url: route('documents.download', ['media' => $item, 'download' => 1]),
             );
         });
     }

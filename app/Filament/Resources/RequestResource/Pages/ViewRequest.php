@@ -210,7 +210,7 @@ final class ViewRequest extends ViewRecord
 
     public function infolist(Schema $schema): Schema
     {
-        return $schema->schema([
+        return $schema->components([
             // Request Header Section
             Section::make()
                 ->schema([

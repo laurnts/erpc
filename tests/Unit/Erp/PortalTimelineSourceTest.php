@@ -63,6 +63,26 @@ it('builds the buyer feed from allow-listed subject types only', function (): vo
     expect(collect($entries)->pluck('subjectType')->unique()->all())->not->toContain('supplier_quote');
 });
 
+it('carries no document link on portal media entries', function (): void {
+    // Portal parties cannot pass the team check on documents.download, so
+    // media entries must stay linkless until a portal-authorized route exists.
+    $request = Request::factory()->recycle($this->team)->create();
+
+    $request->addMediaFromString('dummy')
+        ->usingFileName('PO-scan.pdf')
+        ->withCustomProperties([
+            'uploader_id' => $this->admin->getKey(),
+            'uploader_actor_type' => \App\Enums\ActorType::Buyer->value,
+        ])
+        ->toMediaCollection('attachments');
+
+    $entries = $this->source->forParty($request, TimelineParty::buyer($request->buyer_id));
+    $mediaEntries = collect($entries)->where('entryType', TimelineAudience::ENTRY_MEDIA);
+
+    expect($mediaEntries)->not->toBeEmpty()
+        ->and($mediaEntries->pluck('url')->unique()->all())->toBe([null]);
+});
+
 it('isolates one supplier from another supplier on a shared request', function (): void {
     $request = Request::factory()->recycle($this->team)->create();
 

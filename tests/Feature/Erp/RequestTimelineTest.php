@@ -66,7 +66,7 @@ it('merges quote edits, uploads, and credit ledger rows in reverse chronological
     $quote->update(['total' => '950.0000']);
 
     $this->travelTo('2026-07-07 14:35:00');
-    $request->addMediaFromString('dummy')
+    $media = $request->addMediaFromString('dummy')
         ->usingFileName('PO-scan-signed.pdf')
         ->withCustomProperties([
             'uploader_id' => $this->admin->getKey(),
@@ -109,6 +109,7 @@ it('merges quote edits, uploads, and credit ledger rows in reverse chronological
         ->and($entries[1]->actorType)->toBe(ActorType::Buyer)
         ->and($entries[1]->actorLabel)->toBe($this->admin->name)
         ->and($entries[1]->headline)->toBe('uploaded PO-scan-signed.pdf → Attachments')
+        ->and($entries[1]->url)->toBe(route('documents.download', ['media' => $media, 'download' => 1]))
         ->and($entries[2]->entryType)->toBe(TimelineAudience::ENTRY_ACTIVITY)
         ->and($entries[2]->event)->toBe('updated')
         ->and($entries[2]->actorType)->toBe(ActorType::Staff)
@@ -270,6 +271,23 @@ it('renders the History section with day-grouped entries on the request view pag
         ->assertSee('1 field')
         ->assertSee('View details')
         ->assertSee('Line-level price changes appear after line-item logging lands');
+});
+
+it('renders an upload entry as a direct-download link', function (): void {
+    ['request' => $request] = seedTimelineRequest($this);
+
+    $media = $request->addMediaFromString('dummy')
+        ->usingFileName('quotation.pdf')
+        ->withCustomProperties([
+            'uploader_id' => $this->admin->getKey(),
+            'uploader_actor_type' => ActorType::Staff->value,
+        ])
+        ->toMediaCollection('attachments');
+
+    livewire(RequestHistoryTimeline::class, ['request' => $request])
+        ->assertOk()
+        ->assertSee('uploaded quotation.pdf → Attachments')
+        ->assertSeeHtml('href="'.route('documents.download', ['media' => $media, 'download' => 1]).'"');
 });
 
 it('opens the shared detail modal for an in-tree activity and forbids a foreign one', function (): void {

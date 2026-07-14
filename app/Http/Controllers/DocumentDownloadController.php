@@ -35,6 +35,6 @@ final readonly class DocumentDownloadController
             abort(404);
         }
 
-        return DocumentResponse::make($media, $filePath);
+        return DocumentResponse::make($media, $filePath, forceDownload: $request->boolean('download'));
     }
 }

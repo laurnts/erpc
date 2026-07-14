@@ -42,7 +42,13 @@
 
                         <div class="min-w-0 flex-1">
                             <div class="flex flex-wrap items-baseline gap-x-2">
-                                <span class="text-gray-950 dark:text-white">{{ $entry->headline }}</span>
+                                @if ($entry->url !== null)
+                                    <a href="{{ $entry->url }}" class="font-medium text-primary-600 hover:underline dark:text-primary-400">
+                                        {{ $entry->headline }}
+                                    </a>
+                                @else
+                                    <span class="text-gray-950 dark:text-white">{{ $entry->headline }}</span>
+                                @endif
 
                                 @if ($entry->changedFieldCount > 0 && $entry->event === 'updated')
                                     <span class="text-gray-500 dark:text-gray-400">· {{ $entry->changedFieldCount }} {{ Str::plural('field', $entry->changedFieldCount) }}</span>
