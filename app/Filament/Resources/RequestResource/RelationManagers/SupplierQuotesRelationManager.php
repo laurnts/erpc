@@ -460,8 +460,10 @@ final class SupplierQuotesRelationManager extends RelationManager
                                             }
                                             $relationManager->storedChildItemsData[$itemId] = $childItems;
                                         }
-                                        unset($data['child_items']);
                                     }
+
+                                    // Always strip child_items (even when empty): it is a virtual form field, not a column
+                                    unset($data['child_items']);
 
                                     return $data;
                                 });
