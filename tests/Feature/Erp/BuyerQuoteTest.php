@@ -522,6 +522,29 @@ describe('BuyerQuoteItem Margin Calculation', function (): void {
         // Zero cost on a 100 sell is a 100% on-selling margin (all revenue is margin).
         expect((float) $item->calculated_margin_percent)->toBe(100.0);
     });
+
+    it('saves and reads back a large negative margin when cost far exceeds price', function (): void {
+        // Regression: margin_percent was decimal(8,4), capped at +/-9999.9999.
+        // A cost keyed far above the sell price (e.g. rupiah vs. thousands
+        // mismatch) produces a margin percent well beyond that cap and must
+        // be stored, not truncated or clamped, so the data-entry error stays
+        // visible.
+        $quote = BuyerQuote::factory()
+            ->recycle($this->team)
+            ->recycle($this->buyer)
+            ->forRequest($this->request)
+            ->withCurrency($this->currency)
+            ->create();
+
+        $item = BuyerQuoteItem::factory()
+            ->forBuyerQuote($quote)
+            ->withPricing(costPrice: 600000, unitPrice: 100, quantity: 1)
+            ->create();
+
+        $item->refresh();
+
+        expect((float) $item->margin_percent)->toBe(-599900.0);
+    });
 });
 
 describe('BuyerQuoteItem Tax Calculation', function (): void {
