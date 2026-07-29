@@ -27,12 +27,5 @@ final readonly class BuyerInvoiceObserver
                 $buyerInvoice->team_id = $user->currentTeam->getKey();
             }
         }
-
-        // Auto-generate invoice number if not provided
-        /** @var string|null $invoiceNumber */
-        $invoiceNumber = $buyerInvoice->invoice_number;
-        if (($invoiceNumber === null || $invoiceNumber === '') && $buyerInvoice->team_id !== null) {
-            $buyerInvoice->invoice_number = BuyerInvoice::generateNextNumber($buyerInvoice->team_id);
-        }
     }
 }

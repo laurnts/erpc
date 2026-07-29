@@ -33,7 +33,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property int|null $creator_id
  * @property int $request_id
  * @property int|null $buyer_order_id
- * @property string $invoice_number
+ * @property string|null $invoice_number
  * @property InvoiceType $type
  * @property InvoiceStatus $status
  * @property int|null $original_invoice_id
@@ -283,6 +283,27 @@ final class BuyerInvoice extends Model implements HasMedia
     }
 
     /**
+     * Take an invoice number from the counter, unless one is already held.
+     *
+     * Idempotent by design: re-issuing, or any second call, must never
+     * renumber a document that has already gone out to a buyer.
+     */
+    public function assignNumberIfMissing(): void
+    {
+        $number = $this->invoice_number;
+
+        if ($number !== null && $number !== '') {
+            return;
+        }
+
+        if ($this->team_id === null) {
+            throw new \InvalidArgumentException('Cannot number an invoice with no team.');
+        }
+
+        $this->invoice_number = self::generateNextNumber($this->team_id);
+    }
+
+    /**
      * Mark the invoice as sent.
      */
     public function markAsSent(): void
@@ -290,6 +311,11 @@ final class BuyerInvoice extends Model implements HasMedia
         if (! $this->status->canTransitionTo(InvoiceStatus::SENT)) {
             throw new \InvalidArgumentException('Cannot transition to sent from current status.');
         }
+
+        // Numbering happens here, not at create: a draft that is never issued
+        // must not consume a number. Assigned after the transition guard so a
+        // rejected transition cannot burn one.
+        $this->assignNumberIfMissing();
 
         $this->status = InvoiceStatus::SENT;
 
@@ -515,7 +541,7 @@ final class BuyerInvoice extends Model implements HasMedia
      */
     public function getDisplayTextAttribute(): string
     {
-        return sprintf('%s - %s (%s)', $this->invoice_number, $this->type->getLabel(), $this->status->getLabel());
+        return sprintf('%s - %s (%s)', $this->invoice_number ?? 'Draft', $this->type->getLabel(), $this->status->getLabel());
     }
 
     /**

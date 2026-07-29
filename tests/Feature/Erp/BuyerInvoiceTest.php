@@ -37,14 +37,22 @@ describe('BuyerInvoice Model', function (): void {
             ->and($invoice->status)->toBe(InvoiceStatus::DRAFT);
     });
 
-    it('generates invoice number on creation', function (): void {
+    it('leaves invoice number unset on creation, assigned only at issue', function (): void {
+        // Numbers are assigned at markAsSent(), not at create — see
+        // tests/Feature/Erp/Numbering/InvoiceNumberAtIssueTest.php for the
+        // full behaviour. A draft carries no number so a discarded one
+        // costs nothing.
         $invoice = BuyerInvoice::factory()
             ->recycle($this->team)
             ->forRequest($this->request)
             ->withCurrency($this->currency)
-            ->create();
+            ->create(['status' => InvoiceStatus::DRAFT]);
 
-        expect($invoice->invoice_number)->toMatch('/^INV-\d{4}-\d{4}$/');
+        expect($invoice->invoice_number)->toBeNull();
+
+        $invoice->markAsSent();
+
+        expect($invoice->refresh()->invoice_number)->toMatch('/^INV-\d{4}-\d{4}$/');
     });
 
     it('defaults to draft status', function (): void {
@@ -465,14 +473,16 @@ describe('BuyerInvoice Totals Recalculation', function (): void {
 });
 
 describe('BuyerInvoice Number Generation', function (): void {
-    it('generates invoice numbers with expected format', function (): void {
+    it('generates invoice numbers with expected format once issued', function (): void {
         $invoice = BuyerInvoice::factory()
             ->recycle($this->team)
             ->forRequest($this->request)
             ->withCurrency($this->currency)
-            ->create();
+            ->create(['status' => InvoiceStatus::DRAFT]);
 
-        expect($invoice->invoice_number)->toMatch('/^INV-\d{4}-\d{4}$/');
+        $invoice->markAsSent();
+
+        expect($invoice->refresh()->invoice_number)->toMatch('/^INV-\d{4}-\d{4}$/');
     });
 
     it('generates invoice number via static method', function (): void {
@@ -481,21 +491,26 @@ describe('BuyerInvoice Number Generation', function (): void {
         expect($invoiceNumber)->toMatch('/^INV-\d{4}-\d{4}$/');
     });
 
-    it('increments invoice numbers sequentially when using observer', function (): void {
+    it('increments invoice numbers sequentially when issued', function (): void {
+        // Numbers no longer come from the create-time observer — they are
+        // assigned by markAsSent(), so both invoices must be issued before
+        // their sequence can be compared.
         $invoice1 = BuyerInvoice::create([
             'team_id' => $this->team->getKey(),
             'request_id' => $this->request->getKey(),
             'currency_id' => $this->currency->getKey(),
         ]);
+        $invoice1->markAsSent();
 
         $invoice2 = BuyerInvoice::create([
             'team_id' => $this->team->getKey(),
             'request_id' => $this->request->getKey(),
             'currency_id' => $this->currency->getKey(),
         ]);
+        $invoice2->markAsSent();
 
-        preg_match('/INV-\d{4}-(\d{4})/', $invoice1->invoice_number, $matches1);
-        preg_match('/INV-\d{4}-(\d{4})/', $invoice2->invoice_number, $matches2);
+        preg_match('/INV-\d{4}-(\d{4})/', (string) $invoice1->refresh()->invoice_number, $matches1);
+        preg_match('/INV-\d{4}-(\d{4})/', (string) $invoice2->refresh()->invoice_number, $matches2);
 
         $seq1 = (int) $matches1[1];
         $seq2 = (int) $matches2[1];

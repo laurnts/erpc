@@ -87,7 +87,7 @@
             @if($invoice->originalInvoice)
                 <tr>
                     <td style="width: 120px; color: #6b7280;"><strong>Original Invoice:</strong></td>
-                    <td>{{ $invoice->originalInvoice->invoice_number }}</td>
+                    <td>{{ $invoice->originalInvoice->invoice_number ?? 'Not yet issued' }}</td>
                 </tr>
             @endif
             @if($invoice->credit_reason)

@@ -21,15 +21,33 @@ final class BuyerInvoiceFactory extends Factory
 {
     protected $model = BuyerInvoice::class;
 
+    public function configure(): static
+    {
+        return $this->afterMaking(function (BuyerInvoice $invoice): void {
+            // A factory-built invoice in any status other than DRAFT
+            // represents an already-issued document — mirror that invariant
+            // here regardless of *how* the status was set (a state method
+            // like sent(), or a raw ->create(['status' => ...]) override),
+            // since callers use both. This bypasses the real counter row
+            // entirely; it exists only to keep factories/tests that don't
+            // go through markAsSent() internally consistent.
+            if ($invoice->invoice_number === null && $invoice->status !== InvoiceStatus::DRAFT) {
+                $invoice->invoice_number = $this->fakeInvoiceNumber();
+            }
+        });
+    }
+
     /**
      * @return array<string, mixed>
      */
     public function definition(): array
     {
-        $year = date('Y');
-
         return [
-            'invoice_number' => 'INV-'.$year.'-'.str_pad((string) $this->faker->unique()->numberBetween(1, 9999), 4, '0', STR_PAD_LEFT),
+            // Numbers are assigned at issue (markAsSent()), not at create — a
+            // draft carries no number so a discarded one costs nothing. See
+            // configure() for the afterMaking hook that backfills a number
+            // whenever the resolved status is not DRAFT.
+            'invoice_number' => null,
             'type' => InvoiceType::STANDARD,
             'status' => InvoiceStatus::DRAFT,
             'exchange_rate' => '1.00000000',
@@ -140,6 +158,18 @@ final class BuyerInvoiceFactory extends Factory
                 'due_at' => $dueAt,
             ];
         });
+    }
+
+    /**
+     * A unique fake invoice number in the real format, used by configure()'s
+     * afterMaking hook to backfill non-DRAFT invoices. Not routed through
+     * the counter row — these bypass markAsSent() entirely.
+     */
+    private function fakeInvoiceNumber(): string
+    {
+        $year = date('Y');
+
+        return 'INV-'.$year.'-'.str_pad((string) $this->faker->unique()->numberBetween(1, 9999), 4, '0', STR_PAD_LEFT);
     }
 
     /**
