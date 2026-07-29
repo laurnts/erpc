@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Erp\Numbering\DocumentNumberAllocator;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Seeds document_number_sequences from numbers already issued, so the first
@@ -92,10 +93,19 @@ final class BackfillDocumentNumberSequencesCommand extends Command
      * Highest sequence number seen per "teamId|period", scanning in chunks so
      * memory stays bounded regardless of table size.
      *
+     * A missing table yields nothing rather than throwing: the cutover
+     * migration calls this command from a fixed point in migration history,
+     * and a source added to SOURCES by a later migration does not exist yet
+     * when that point is replayed on a fresh install.
+     *
      * @return array<string, int>
      */
     private function highestPerPeriod(string $table, string $column, string $pattern, string $key): array
     {
+        if (! Schema::hasTable($table)) {
+            return [];
+        }
+
         $sequenceFirst = in_array($key, self::SEQUENCE_FIRST, true);
         $highest = [];
 

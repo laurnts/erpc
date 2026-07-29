@@ -8,6 +8,7 @@ use App\Models\Currency;
 use App\Models\Request;
 use App\Models\Team;
 use App\Services\Erp\Numbering\DocumentNumberAllocator;
+use Illuminate\Support\Facades\Schema;
 
 beforeEach(function (): void {
     $this->team = Team::factory()->create();
@@ -86,4 +87,24 @@ it('changes nothing on a dry run', function (): void {
     $this->artisan('erp:backfill-document-sequences', ['--dry-run' => true])->assertSuccessful();
 
     expect($this->allocator->peek($this->team->getKey(), 'buyer_quote', '2026'))->toBe(1);
+});
+
+/**
+ * The cutover migration invokes this command, so it runs at a fixed point in
+ * migration history while SOURCES keeps evolving. A source table added to
+ * SOURCES by a later migration does not exist yet when that point is replayed
+ * on a fresh install — skipping it is what keeps `migrate` working there.
+ */
+it('skips a source table that does not exist yet', function (): void {
+    BuyerQuote::factory()
+        ->recycle($this->team)
+        ->recycle($this->currency)
+        ->for($this->request)
+        ->create(['quote_number' => 'BQ-2026-0005']);
+
+    Schema::drop('profit_and_losses');
+
+    $this->artisan('erp:backfill-document-sequences')->assertSuccessful();
+
+    expect($this->allocator->peek($this->team->getKey(), 'buyer_quote', '2026'))->toBe(6);
 });
