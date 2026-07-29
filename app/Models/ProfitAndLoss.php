@@ -11,6 +11,7 @@ use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use App\Models\Concerns\LogsErpActivity;
 use App\Observers\ProfitAndLossObserver;
+use App\Services\Erp\Numbering\DocumentNumberAllocator;
 use App\Services\TeamMemberService;
 use App\Support\RomanNumerals;
 use Carbon\CarbonImmutable;
@@ -139,22 +140,17 @@ final class ProfitAndLoss extends Model implements HasMedia
     /**
      * Generate a unique PNL number for the given team.
      * Format: {4digit increment}/EL-PNL/{roman_month}/{year}
+     *
+     * @see \App\Models\QuotationEvaluation::generateQeNumber() for why this is a
+     *      counter row.
      */
     public static function generatePnlNumber(int $teamId): string
     {
         $year = now()->year;
         $month = now()->month;
 
-        $lastPnl = self::where('team_id', $teamId)
-            ->whereYear('created_at', $year)
-            ->orderByDesc('id')
-            ->first();
-
-        $increment = 1;
-        if ($lastPnl !== null) {
-            preg_match('/^(\d+)\//', (string) $lastPnl->pnl_number, $matches);
-            $increment = ((int) ($matches[1] ?? 0)) + 1;
-        }
+        $increment = app(DocumentNumberAllocator::class)
+            ->next($teamId, 'profit_and_loss', (string) $year);
 
         return sprintf('%04d/EL-PNL/%s/%d', $increment, RomanNumerals::month($month), $year);
     }

@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use App\Models\Concerns\LogsErpActivity;
+use App\Services\Erp\Numbering\DocumentNumberAllocator;
 use Database\Factories\AcceptanceReportFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -124,28 +125,19 @@ final class AcceptanceReport extends Model implements HasMedia
 
     /**
      * Generate a unique report number for the given team, scoped to the current year.
-     * Format: AR-{year}-{increment}. Uses the highest existing sequence number for the
-     * team+year (not the last-inserted row), so gaps or non-sequential historical
-     * numbers never get reused or skipped incorrectly.
+     * Format: AR-{year}-{increment}
+     *
+     * Previously this plucked every report number for the team and year into PHP
+     * to compute a max — correct, but O(rows) in memory and still raceable.
      */
     public static function generateReportNumber(int $teamId): string
     {
         $year = now()->year;
-        $pattern = sprintf('AR-%d-%%', $year);
 
-        $existingNumbers = self::withTrashed()
-            ->where('team_id', $teamId)
-            ->where('report_number', 'like', $pattern)
-            ->pluck('report_number');
+        $sequence = app(DocumentNumberAllocator::class)
+            ->next($teamId, 'acceptance_report', (string) $year);
 
-        $maxSequence = 0;
-        foreach ($existingNumbers as $reportNumber) {
-            if (preg_match('/^AR-'.$year.'-(\d+)$/', (string) $reportNumber, $matches) === 1) {
-                $maxSequence = max($maxSequence, (int) $matches[1]);
-            }
-        }
-
-        return sprintf('AR-%d-%04d', $year, $maxSequence + 1);
+        return sprintf('AR-%d-%04d', $year, $sequence);
     }
 
     /**

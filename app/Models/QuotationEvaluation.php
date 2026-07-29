@@ -11,6 +11,7 @@ use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use App\Models\Concerns\LogsErpActivity;
 use App\Observers\QuotationEvaluationObserver;
+use App\Services\Erp\Numbering\DocumentNumberAllocator;
 use App\Services\TeamMemberService;
 use App\Support\RomanNumerals;
 use Database\Factories\QuotationEvaluationFactory;
@@ -130,22 +131,19 @@ final class QuotationEvaluation extends Model implements HasMedia
     /**
      * Generate a unique QE number for the given team.
      * Format: {increment}-DS/QE/{roman_month}/{year}
+     *
+     * The increment is a per-team, per-year counter row. The previous
+     * implementation read the last-inserted row of the year and re-derived the
+     * increment from it, which restarted the count whenever a row was inserted
+     * out of creation order.
      */
     public static function generateQeNumber(int $teamId): string
     {
         $year = now()->year;
         $month = now()->month;
 
-        $lastQe = self::where('team_id', $teamId)
-            ->whereYear('created_at', $year)
-            ->orderByDesc('id')
-            ->first();
-
-        $increment = 1;
-        if ($lastQe !== null) {
-            preg_match('/^(\d+)-/', (string) $lastQe->qe_number, $matches);
-            $increment = ((int) ($matches[1] ?? 0)) + 1;
-        }
+        $increment = app(DocumentNumberAllocator::class)
+            ->next($teamId, 'quotation_evaluation', (string) $year);
 
         return sprintf('%03d-DS/QE/%s/%d', $increment, RomanNumerals::month($month), $year);
     }
