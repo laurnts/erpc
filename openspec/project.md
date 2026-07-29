@@ -1,7 +1,25 @@
 # Project Context
 
 ## Purpose
-Relaticle is a next-generation open-source CRM (Customer Relationship Management) platform. It's designed for Laravel developers, agencies, and SMBs who need a modern, self-hosted CRM with unlimited customization capabilities. Key features include multi-team workspaces, no-code custom fields, and complete data ownership through self-hosting.
+ERPC is a deal lifecycle platform for back-to-back B2B trading — quote-to-cash on the
+customer side, source-to-pay on the supplier side, joined in the middle by margin and
+profit-and-loss tracking per deal. In one line: an ERP for a stockless trading
+intermediary.
+
+The system of record is the **deal** (a `Request`), not a product catalog and not an
+order. Every customer-facing document has a supplier-facing mirror, and the business
+value is the spread between them:
+
+| Demand side (customer) | | Supply side (supplier) |
+|---|---|---|
+| Request | → sourcing → | Supplier quote request |
+| Buyer Quote | ← evaluation ← | Supplier Quote |
+| Buyer Order | back-to-back | Supplier Order |
+| Buyer Invoice | | Supplier Invoice |
+| Buyer Payment | deal P&L | Supplier Payment |
+
+Forked from Relaticle CRM; the CRM base (companies, people, custom fields, teams)
+remains underneath and is legacy surface, not the product.
 
 ## Tech Stack
 - **Backend:** PHP 8.4, Laravel 12, Filament 5
@@ -49,12 +67,26 @@ Relaticle is a next-generation open-source CRM (Customer Relationship Management
 - **Pre-commit:** Git hooks in `.githooks/`
 
 ## Domain Context
-- **Core Entities:** Companies, People (contacts), Opportunities (deals), Tasks, Notes
-- **Multi-Tenancy:** Team-based isolation with memberships and invitations
-- **Custom Fields:** Extensible custom fields system for all entities (no-code customization)
-- **AI Features:** AI-powered summaries for entities
-- **Import/Export:** CSV import/export capabilities via Filament
-- **Social Auth:** OAuth via user social accounts
+- **Core entity:** `Request` — the deal. Everything else hangs off it.
+- **Demand side:** `Request` → `RequestItem` → `BuyerQuote` → `BuyerOrder` →
+  `BuyerInvoice` → `BuyerPayment`
+- **Supply side:** `SupplierQuote` (collected per request) → `QuotationEvaluation`
+  (bid comparison, sell-price construction) → `SupplierOrder` → `SupplierInvoice` →
+  `SupplierPayment`
+- **Fulfillment:** `Shipment`, `GoodsReceiveBatch`, `AcceptanceReport`; items within
+  one deal may be fulfilled through different routes (mixed deals)
+- **Economics:** `ProfitAndLoss` per deal — operational deal economics, not
+  bookkeeping. Statutory accounting is deliberately out of scope and lives in
+  dedicated software fed by exports.
+- **Working capital:** buyer credit limits with approval workflows
+  (`BuyerCreditLimitRequest`), `BuyerCreditUsageHistory` ledger, prepayment/balance
+  invoice splitting, multi-currency with `ExchangeRate`.
+- **Multi-Tenancy:** team-based isolation (`HasTeam`, `HasCreator` traits) with
+  memberships and invitations.
+- **Portals:** three panels — internal team (`app`), buyer portal, supplier portal.
+  Tailored counterparty experience is a deliberate competitive surface.
+- **CRM base (legacy):** Companies, People, Opportunities, Tasks, Notes, custom
+  fields. Companies are dual-purpose: a company is a buyer, a supplier, or both.
 
 ## Important Constraints
 - **License:** AGPL-3.0 (copyleft, derivative works must be open source)
