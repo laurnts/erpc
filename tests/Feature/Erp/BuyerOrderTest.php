@@ -422,8 +422,18 @@ describe('BuyerOrder Credit Limit Check', function (): void {
     it('returns warning message when credit limit exceeded', function (): void {
         $buyer = Company::factory()->buyer()->recycle($this->team)->create([
             'credit_limit' => 1000,
-            'credit_used' => 800,
         ]);
+
+        // getCreditLimitWarning() now reads derived exposure, so a seeded
+        // credit_used column no longer means anything — confirm a real order
+        // to establish 800 of genuine exposure instead.
+        BuyerOrder::factory()
+            ->recycle($this->team)
+            ->forBuyer($buyer)
+            ->forRequest($this->request)
+            ->withTotals(800, 0, 800)
+            ->create(['status' => OrderStatus::DRAFT])
+            ->confirm();
 
         $order = BuyerOrder::factory()
             ->recycle($this->team)
@@ -623,8 +633,8 @@ describe('BuyerOrder Number Generation', function (): void {
         ]);
 
         // Extract sequence numbers
-        preg_match('/BO-\d{4}-(\d{4})/', $order1->order_number, $matches1);
-        preg_match('/BO-\d{4}-(\d{4})/', $order2->order_number, $matches2);
+        preg_match('/BO-\d{4}-(\d{4})/', (string) $order1->order_number, $matches1);
+        preg_match('/BO-\d{4}-(\d{4})/', (string) $order2->order_number, $matches2);
 
         $seq1 = (int) $matches1[1];
         $seq2 = (int) $matches2[1];

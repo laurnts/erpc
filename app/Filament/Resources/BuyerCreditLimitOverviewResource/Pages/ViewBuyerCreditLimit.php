@@ -58,7 +58,7 @@ final class ViewBuyerCreditLimit extends ViewRecord
 
                                 return \App\Models\Currency::formatAmount((float) $state, $currency);
                             }),
-                        TextEntry::make('available_credit')
+                        TextEntry::make('derived_available_credit')
                             ->label('Available Credit')
                             ->formatStateUsing(function (mixed $state, Company $record): string {
                                 /** @var \App\Models\Company $record */
@@ -69,7 +69,7 @@ final class ViewBuyerCreditLimit extends ViewRecord
 
                                 return \App\Models\Currency::formatAmount((float) $state, $currency);
                             }),
-                        TextEntry::make('credit_used')
+                        TextEntry::make('credit_exposure')
                             ->label('Credit Used')
                             ->formatStateUsing(function (mixed $state, Company $record): string {
                                 /** @var \App\Models\Company $record */

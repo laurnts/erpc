@@ -9,7 +9,7 @@ use Filament\Facades\Filament;
 
 use function Pest\Livewire\livewire;
 
-beforeEach(function () {
+beforeEach(function (): void {
     $this->user = User::factory()->withPersonalTeam()->create();
     $this->actingAs($this->user);
     Filament::setTenant($this->user->personalTeam());
@@ -72,7 +72,7 @@ it('shows invite portal user action when buyer only has a pending invitation', f
 it('can render `:dataset` column', function (string $column): void {
     livewire(App\Filament\Resources\BuyerResource\Pages\ListBuyers::class)
         ->assertCanRenderTableColumn($column);
-})->with(['logo', 'code', 'name', 'country', 'credit_limit', 'available_credit', 'is_on_hold', 'is_active', 'updated_at']);
+})->with(['logo', 'code', 'name', 'country', 'credit_limit', 'derived_available_credit', 'is_on_hold', 'is_active', 'updated_at']);
 
 it('only lists companies flagged as buyers', function (): void {
     $buyers = App\Models\Company::factory(2)->buyer()->for($this->user->personalTeam())->create();

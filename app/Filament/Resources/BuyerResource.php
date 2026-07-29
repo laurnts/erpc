@@ -222,7 +222,7 @@ final class BuyerResource extends Resource
                             return $currency?->symbol_position === 'after' ? ($currency->symbol ?? '') : '';
                         })
                         ->helperText('This is the approved credit limit. It only changes when a credit limit increase is approved.'),
-                    TextInput::make('available_credit')
+                    TextInput::make('derived_available_credit')
                         ->label('Available Credit')
                         ->numeric()
                         ->default(0)
@@ -310,10 +310,14 @@ final class BuyerResource extends Resource
                     ->money(fn (): string => Filament::getTenant() instanceof Team ? Filament::getTenant()->getBaseCurrencyCode() : 'USD')
                     ->sortable()
                     ->toggleable(),
-                TextColumn::make('available_credit')
+                TextColumn::make('derived_available_credit')
                     ->label('Available Credit')
                     ->money(fn (): string => Filament::getTenant() instanceof Team ? Filament::getTenant()->getBaseCurrencyCode() : 'USD')
-                    ->sortable()
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        $direction = $direction === 'desc' ? 'desc' : 'asc';
+
+                        return $query->orderByRaw("credit_limit - credit_exposure {$direction}");
+                    })
                     ->toggleable(),
                 IconColumn::make('is_on_hold')
                     ->label('On Hold')
@@ -399,8 +403,12 @@ final class BuyerResource extends Resource
      */
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        /** @var Builder<Company> $query */
+        $query = parent::getEloquentQuery();
+
+        return $query
             ->where('is_buyer', true)
+            ->withCreditExposure()
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);

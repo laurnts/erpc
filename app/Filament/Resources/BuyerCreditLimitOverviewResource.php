@@ -49,11 +49,15 @@ final class BuyerCreditLimitOverviewResource extends Resource
                     ->label('Max Credit Limit')
                     ->money(fn (): string => Filament::getTenant() instanceof \App\Models\Team ? Filament::getTenant()->getBaseCurrencyCode() : 'USD')
                     ->sortable(),
-                TextColumn::make('available_credit')
+                TextColumn::make('derived_available_credit')
                     ->label('Available Credit')
                     ->money(fn (): string => Filament::getTenant() instanceof \App\Models\Team ? Filament::getTenant()->getBaseCurrencyCode() : 'USD')
-                    ->sortable(),
-                TextColumn::make('credit_used')
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        $direction = $direction === 'desc' ? 'desc' : 'asc';
+
+                        return $query->orderByRaw("credit_limit - credit_exposure {$direction}");
+                    }),
+                TextColumn::make('credit_exposure')
                     ->label('Credit Used')
                     ->money(fn (): string => Filament::getTenant() instanceof \App\Models\Team ? Filament::getTenant()->getBaseCurrencyCode() : 'USD')
                     ->sortable(),
@@ -99,7 +103,7 @@ final class BuyerCreditLimitOverviewResource extends Resource
                         '1' => 'Has Pending Request',
                     ]),
             ])
-            ->defaultSort('available_credit', 'desc');
+            ->defaultSort('derived_available_credit', 'desc');
     }
 
     public static function getPages(): array
@@ -122,9 +126,13 @@ final class BuyerCreditLimitOverviewResource extends Resource
     {
         $team = Filament::getTenant();
 
-        return parent::getEloquentQuery()
+        /** @var Builder<Company> $query */
+        $query = parent::getEloquentQuery();
+
+        return $query
             ->where('team_id', $team?->getKey())
             ->where('is_buyer', true)
+            ->withCreditExposure()
             ->with(['creditLimitRequests', 'creditUsageHistory']);
     }
 }

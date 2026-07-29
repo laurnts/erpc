@@ -886,7 +886,7 @@ final class BuyerOrdersRelationManager extends RelationManager
 
                             // Add credit information only if credit_status is enabled
                             if ($buyer && $buyer->credit_status) {
-                                $availableCredit = (float) $buyer->available_credit;
+                                $availableCredit = $buyer->derived_available_credit;
                                 $message .= "\n\n";
                                 $message .= 'Order Total: '.number_format($orderTotal, 2)."\n";
                                 $message .= 'Available Credit: '.number_format($availableCredit, 2);

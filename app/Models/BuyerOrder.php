@@ -662,8 +662,8 @@ final class BuyerOrder extends Model implements HasCustomFields
         }
 
         $creditLimit = (float) $buyer->credit_limit;
-        $creditUsed = (float) $buyer->credit_used;
-        $availableCredit = $creditLimit - $creditUsed;
+        $creditUsed = $buyer->credit_exposure;
+        $availableCredit = $buyer->derived_available_credit;
         $orderTotal = (float) $this->total;
 
         // No credit limit set
