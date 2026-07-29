@@ -24,13 +24,17 @@ return new class extends Migration
             $table->index(['buyer_id', 'status', 'credit_reserved_at'], 'buyer_orders_credit_exposure_index');
         });
 
+        // Every writer stamps the FQCN (App\Models\BuyerOrder); the bare
+        // 'buyer_order' alias only ever appears in hand-seeded dev data. Both
+        // forms must match or this backfill silently seeds nothing on a real
+        // database and every historical order's exposure reads as zero.
         DB::statement(<<<'SQL'
             UPDATE buyer_orders
             SET credit_reserved_at = COALESCE(confirmed_at, created_at)
             WHERE EXISTS (
                 SELECT 1
                 FROM buyer_credit_usage_histories h
-                WHERE h.related_type = 'buyer_order'
+                WHERE h.related_type IN ('App\Models\BuyerOrder', 'buyer_order')
                   AND h.related_id = buyer_orders.id
                   AND h.transaction_type = 'debit'
             )

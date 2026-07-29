@@ -1708,3 +1708,21 @@ php vendor/bin/pest --filter=arch
 git add -A
 git commit -m "feat: assign buyer invoice numbers at issue so discarded drafts leave no gap"
 ```
+
+## Known follow-ups
+
+Not addressed by this plan — do not change any index here; each is a schema change
+with data implications, and all three are pre-existing (not a regression of this work):
+
+- `supplier_quotes.quote_number` is unique globally rather than scoped to
+  `(team_id, quote_number)`, unlike the other document tables (see
+  `database/migrations/2026_07_05_130000_scope_document_number_uniqueness_to_team.php`,
+  which scoped `supplier_orders`, `buyer_orders`, `buyer_quotes` and
+  `supplier_invoices` but not this one). Two teams' first supplier quotes can
+  collide.
+- `shipments.shipment_number` is globally unique for the same reason.
+- `supplier_payments.payment_number` is globally unique for the same reason.
+
+Fixing any of these needs a migration to drop the global unique index, add the
+`(team_id, ...)` composite index, and backfill/verify no existing cross-team
+collision already exists in production data — out of scope here.
