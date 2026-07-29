@@ -276,10 +276,22 @@ final class BuyerOrder extends Model implements HasCustomFields
             );
         }
 
-        // The buyer row is no longer mutated, so there is no counter to protect
-        // and no lock to take. The order row is locked because credit_reserved_at
-        // is what makes this order count toward exposure — two concurrent
-        // confirmations of the same order must not both stamp it.
+        // The order row is locked because credit_reserved_at is what makes this
+        // order count toward exposure — two concurrent confirmations of the
+        // *same* order must not both stamp it.
+        //
+        // That does not protect the invariant that actually matters here: sum
+        // of exposure across a buyer's orders <= credit_limit. Exposure is
+        // derived from companies (via Company::creditExposure/withCreditExposure),
+        // not stored, and nothing here locks the buyer's companies row. Two
+        // different orders for the same buyer confirming concurrently each lock
+        // only their own order row, each read derived_available_credit before
+        // the other's stamp is committed, both pass the check above, and both
+        // proceed — the buyer can end up over its credit limit. This race
+        // predates this method (the previous $buyer->lockForUpdate() here was a
+        // no-op against a value that was never written back), so it is not a
+        // regression, but it is still open. Fixing it needs a lock on the
+        // buyer's companies row, which is a design decision left for later.
         \Illuminate\Support\Facades\DB::transaction(function () use ($orderTotal, $buyer): void {
             $locked = self::query()->whereKey($this->getKey())->lockForUpdate()->firstOrFail();
 
