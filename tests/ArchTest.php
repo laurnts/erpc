@@ -145,3 +145,9 @@ arch('SystemAdmin module must not depend on main app namespace')
         'App\Models',
         'App\Enums',
     ]);
+
+arch('financial services do not use floats')
+    ->expect('App\Services\Erp\Financial')
+    ->not
+    ->toUse(['floatval', 'round'])
+    ->ignoring('App\Services\Erp\Financial\MarginConvention');
