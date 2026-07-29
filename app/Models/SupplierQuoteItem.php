@@ -11,6 +11,7 @@ use App\Models\Concerns\LogsErpActivity;
 use App\Models\Concerns\StampsParentOnActivity;
 use App\Observers\SupplierQuoteItemObserver;
 use App\Services\Erp\Financial\LineCalculator;
+use App\Support\Money;
 use Database\Factories\SupplierQuoteItemFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -274,24 +275,31 @@ final class SupplierQuoteItem extends Model
             $this->is_tax_inclusive = false;
         }
 
-        $taxRate = (float) $this->tax_rate;
-
         // Supplier prices may be entered gross (tax-inclusive) or net; map the
         // stored flag onto the shared calculator's explicit price basis.
+        // Supplier documents keep four decimals — this was currencyDecimals: 4.
+        $currency = $this->supplierQuote?->currency->code ?? 'IDR';
+
+        /** @var numeric-string $taxRate */
+        $taxRate = (string) $this->tax_rate;
+
+        /** @var numeric-string $quantity */
+        $quantity = (string) $this->quantity;
+
         $amounts = (new LineCalculator)->calculate(
-            unitPriceInput: (float) $this->unit_price,
+            unitPriceInput: Money::fromDecimal($this->unit_price, $currency),
             priceBasis: $this->is_tax_inclusive ? PriceBasis::GROSS : PriceBasis::NET,
-            taxable: $isSupplierTaxable && $taxRate > 0,
+            taxable: $isSupplierTaxable && bccomp($taxRate, '0', Money::SCALE) === 1,
             taxRate: $taxRate,
-            quantity: (float) $this->quantity,
-            currencyDecimals: 4,
+            quantity: $quantity,
+            roundingScale: 4,
         );
 
-        $this->unit_price_exc_tax = (string) $amounts->unitPriceExcTax;
-        $this->line_subtotal = (string) $amounts->lineSubtotal;
-        $this->line_tax = (string) $amounts->lineTax;
-        $this->line_total = (string) $amounts->lineTotal;
-        $this->tax_amount = (string) $amounts->taxAmountPerUnit;
+        $this->unit_price_exc_tax = $amounts->unitPriceExcTax->toDecimal();
+        $this->line_subtotal = $amounts->lineSubtotal->toDecimal();
+        $this->line_tax = $amounts->lineTax->toDecimal();
+        $this->line_total = $amounts->lineTotal->toDecimal();
+        $this->tax_amount = $amounts->taxAmountPerUnit->toDecimal();
     }
 
     /**

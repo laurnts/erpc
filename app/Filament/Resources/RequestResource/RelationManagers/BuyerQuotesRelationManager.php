@@ -30,6 +30,7 @@ use App\Services\Erp\Financial\LineCalculator;
 use App\Services\Erp\Financial\MarginConvention;
 use App\Services\TeamMemberService;
 use App\Support\DocumentUpload;
+use App\Support\Money;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -2702,18 +2703,20 @@ final class BuyerQuotesRelationManager extends RelationManager
         $taxRate = (float) ($get($prefix.'tax_rate') ?? 0);
 
         // Same shared LineCalculator as the parent-item preview and the observer.
+        // A buyer-quote preview: roundingScale: 0, matching the observer that
+        // persists the row.
         $amounts = (new LineCalculator)->calculate(
-            unitPriceInput: $unitPriceExcTax,
+            unitPriceInput: Money::fromDecimal($unitPriceExcTax, 'IDR'),
             priceBasis: PriceBasis::NET,
             taxable: $isTaxInclusive && $taxRate > 0,
-            taxRate: $taxRate,
-            quantity: $quantity,
-            currencyDecimals: 0,
+            taxRate: (string) $taxRate,
+            quantity: (string) $quantity,
+            roundingScale: 0,
         );
 
-        $set($prefix.'line_subtotal', $amounts->lineSubtotal);
-        $set($prefix.'line_tax', $amounts->lineTax);
-        $set($prefix.'line_total', $amounts->lineTotal);
+        $set($prefix.'line_subtotal', $amounts->lineSubtotal->toFloat());
+        $set($prefix.'line_tax', $amounts->lineTax->toFloat());
+        $set($prefix.'line_total', $amounts->lineTotal->toFloat());
     }
 
     /**
@@ -2749,13 +2752,15 @@ final class BuyerQuotesRelationManager extends RelationManager
         // Line totals via the shared LineCalculator (same engine the observer uses
         // on save), so the live preview matches the persisted values exactly. Buyer
         // items are net; the "+ Tax" checkbox decides whether tax is added on top.
+        // A buyer-quote preview: roundingScale: 0, matching the observer that
+        // persists the row.
         $amounts = (new LineCalculator)->calculate(
-            unitPriceInput: $unitPriceExcTax,
+            unitPriceInput: Money::fromDecimal($unitPriceExcTax, 'IDR'),
             priceBasis: PriceBasis::NET,
             taxable: $isTaxInclusive && $taxRate > 0,
-            taxRate: $taxRate,
-            quantity: $quantity,
-            currencyDecimals: 0,
+            taxRate: (string) $taxRate,
+            quantity: (string) $quantity,
+            roundingScale: 0,
         );
 
         // Margin shown in the quote form follows the canonical on-selling
@@ -2764,9 +2769,9 @@ final class BuyerQuotesRelationManager extends RelationManager
         $marginPercent = MarginConvention::marginPercent($costPrice, $unitPriceExcTax);
 
         $set('unit_price_exc_tax', round($unitPriceExcTax, 0));
-        $set('line_subtotal', $amounts->lineSubtotal);
-        $set('line_tax', $amounts->lineTax);
-        $set('line_total', $amounts->lineTotal);
+        $set('line_subtotal', $amounts->lineSubtotal->toFloat());
+        $set('line_tax', $amounts->lineTax->toFloat());
+        $set('line_total', $amounts->lineTotal->toFloat());
         $set('margin_amount', round($marginAmount, 4));
         $set('margin_percent', round($marginPercent, 4));
 

@@ -15,6 +15,7 @@ use App\Services\Erp\Financial\LineCalculator;
 use App\Services\Erp\Financial\MarginConvention;
 use App\Services\Erp\Financial\TotalsCollector;
 use App\Services\Erp\Financial\TotalsLine;
+use App\Support\Money;
 use Database\Factories\BuyerQuoteItemFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -290,27 +291,41 @@ final class BuyerQuoteItem extends Model
     {
         // Buyer items: unit_price is always the net (ex-tax) price, and the
         // is_tax_inclusive "+ Tax" checkbox decides whether tax is added on top.
-        $taxRate = (float) $this->tax_rate;
+        // Buyer documents round to whole units — see LineCalculator's note on
+        // $roundingScale; this was currencyDecimals: 0 before the Money refactor.
+        $currency = $this->buyerQuote?->currency->code ?? 'IDR';
+
+        /** @var numeric-string $taxRate */
+        $taxRate = (string) $this->tax_rate;
+
+        /** @var numeric-string $quantity */
+        $quantity = (string) $this->quantity;
 
         $amounts = (new LineCalculator)->calculate(
-            unitPriceInput: (float) $this->unit_price,
+            unitPriceInput: Money::fromDecimal($this->unit_price, $currency),
             priceBasis: PriceBasis::NET,
-            taxable: $this->is_tax_inclusive && $taxRate > 0,
+            taxable: $this->is_tax_inclusive && bccomp($taxRate, '0', Money::SCALE) === 1,
             taxRate: $taxRate,
-            quantity: (float) $this->quantity,
-            currencyDecimals: 0,
+            quantity: $quantity,
+            roundingScale: 0,
         );
 
-        $this->unit_price_exc_tax = (string) $amounts->unitPriceExcTax;
-        $this->line_subtotal = (string) $amounts->lineSubtotal;
-        $this->line_tax = (string) $amounts->lineTax;
-        $this->line_total = (string) $amounts->lineTotal;
-        $this->tax_amount = (string) $amounts->taxAmountPerUnit;
+        $this->unit_price_exc_tax = $amounts->unitPriceExcTax->toDecimal();
+        $this->line_subtotal = $amounts->lineSubtotal->toDecimal();
+        $this->line_tax = $amounts->lineTax->toDecimal();
+        $this->line_total = $amounts->lineTotal->toDecimal();
+        $this->tax_amount = $amounts->taxAmountPerUnit->toDecimal();
 
-        $costPrice = (float) $this->cost_price;
-        $this->margin_amount = (string) round($amounts->unitPriceExcTax - $costPrice, 0);
+        $costPrice = Money::fromDecimal($this->cost_price, $currency);
+        $this->margin_amount = $amounts->unitPriceExcTax
+            ->minus($costPrice)
+            ->roundedToScale(0)
+            ->toDecimal();
         $this->margin_percent = (string) round(
-            MarginConvention::marginPercent($costPrice, $amounts->unitPriceExcTax),
+            MarginConvention::marginPercent(
+                $costPrice->toFloat(),
+                $amounts->unitPriceExcTax->toFloat(),
+            ),
             4,
         );
     }

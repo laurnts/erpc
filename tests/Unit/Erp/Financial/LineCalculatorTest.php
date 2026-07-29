@@ -13,101 +13,101 @@ beforeEach(function (): void {
 describe('NET price basis (price is tax-exclusive)', function (): void {
     it('adds tax on top of the net price', function (): void {
         $amounts = $this->calc->calculate(
-            unitPriceInput: 5200.0,
+            unitPriceInput: Money::fromDecimal(5200.0, 'IDR'),
             priceBasis: PriceBasis::NET,
             taxable: true,
-            taxRate: 11.0,
-            quantity: 2.0,
-            currencyDecimals: 0,
+            taxRate: '11',
+            quantity: '2',
+            roundingScale: 0,
         );
 
-        expect($amounts->unitPriceExcTax)->toBe(5200.0)
-            ->and($amounts->taxAmountPerUnit)->toBe(572.0)
-            ->and($amounts->lineSubtotal)->toBe(10400.0)
-            ->and($amounts->lineTax)->toBe(1144.0)
-            ->and($amounts->lineTotal)->toBe(11544.0);
+        expect($amounts->unitPriceExcTax->toDecimal())->toBe('5200.0000')
+            ->and($amounts->taxAmountPerUnit->toDecimal())->toBe('572.0000')
+            ->and($amounts->lineSubtotal->toDecimal())->toBe('10400.0000')
+            ->and($amounts->lineTax->toDecimal())->toBe('1144.0000')
+            ->and($amounts->lineTotal->toDecimal())->toBe('11544.0000');
     });
 });
 
 describe('GROSS price basis (price includes tax)', function (): void {
     it('extracts tax from the gross price', function (): void {
         $amounts = $this->calc->calculate(
-            unitPriceInput: 5772.0,
+            unitPriceInput: Money::fromDecimal(5772.0, 'IDR'),
             priceBasis: PriceBasis::GROSS,
             taxable: true,
-            taxRate: 11.0,
-            quantity: 2.0,
-            currencyDecimals: 0,
+            taxRate: '11',
+            quantity: '2',
+            roundingScale: 0,
         );
 
-        expect($amounts->unitPriceExcTax)->toBe(5200.0)
-            ->and($amounts->lineSubtotal)->toBe(10400.0)
-            ->and($amounts->lineTax)->toBe(1144.0)
-            ->and($amounts->lineTotal)->toBe(11544.0);
+        expect($amounts->unitPriceExcTax->toDecimal())->toBe('5200.0000')
+            ->and($amounts->lineSubtotal->toDecimal())->toBe('10400.0000')
+            ->and($amounts->lineTax->toDecimal())->toBe('1144.0000')
+            ->and($amounts->lineTotal->toDecimal())->toBe('11544.0000');
     });
 });
 
 describe('non-taxable lines', function (): void {
     it('charges no tax and total equals subtotal', function (): void {
         $amounts = $this->calc->calculate(
-            unitPriceInput: 5200.0,
+            unitPriceInput: Money::fromDecimal(5200.0, 'IDR'),
             priceBasis: PriceBasis::NET,
             taxable: false,
-            taxRate: 11.0,
-            quantity: 2.0,
-            currencyDecimals: 0,
+            taxRate: '11',
+            quantity: '2',
+            roundingScale: 0,
         );
 
-        expect($amounts->unitPriceExcTax)->toBe(5200.0)
-            ->and($amounts->taxAmountPerUnit)->toBe(0.0)
-            ->and($amounts->lineSubtotal)->toBe(10400.0)
-            ->and($amounts->lineTax)->toBe(0.0)
-            ->and($amounts->lineTotal)->toBe(10400.0);
+        expect($amounts->unitPriceExcTax->toDecimal())->toBe('5200.0000')
+            ->and($amounts->taxAmountPerUnit->toDecimal())->toBe('0.0000')
+            ->and($amounts->lineSubtotal->toDecimal())->toBe('10400.0000')
+            ->and($amounts->lineTax->toDecimal())->toBe('0.0000')
+            ->and($amounts->lineTotal->toDecimal())->toBe('10400.0000');
     });
 });
 
 describe('zero tax rate', function (): void {
     it('treats a zero rate as no tax regardless of basis', function (): void {
-        $net = $this->calc->calculate(5200.0, PriceBasis::NET, true, 0.0, 2.0, 0);
-        $gross = $this->calc->calculate(5200.0, PriceBasis::GROSS, true, 0.0, 2.0, 0);
+        $net = $this->calc->calculate(Money::fromDecimal(5200.0, 'IDR'), PriceBasis::NET, true, '0', '2', 0);
+        $gross = $this->calc->calculate(Money::fromDecimal(5200.0, 'IDR'), PriceBasis::GROSS, true, '0', '2', 0);
 
-        expect($net->lineTax)->toBe(0.0)
-            ->and($net->lineSubtotal)->toBe($net->lineTotal)
-            ->and($net->unitPriceExcTax)->toBe(5200.0)
-            ->and($gross->unitPriceExcTax)->toBe(5200.0);
+        expect($net->lineTax->toDecimal())->toBe('0.0000')
+            ->and($net->lineSubtotal->compareTo($net->lineTotal))->toBe(0)
+            ->and($net->unitPriceExcTax->toDecimal())->toBe('5200.0000')
+            ->and($gross->unitPriceExcTax->toDecimal())->toBe('5200.0000');
     });
 });
 
 describe('per-component rounding (drift fix)', function (): void {
     it('rounds each component first so subtotal + tax === total exactly (IDR, 0 dp)', function (): void {
         $amounts = $this->calc->calculate(
-            unitPriceInput: 1000.0,
+            unitPriceInput: Money::fromDecimal(1000.0, 'IDR'),
             priceBasis: PriceBasis::GROSS,
             taxable: true,
-            taxRate: 11.0,
-            quantity: 1.0,
-            currencyDecimals: 0,
+            taxRate: '11',
+            quantity: '1',
+            roundingScale: 0,
         );
 
-        expect($amounts->lineSubtotal)->toBe(901.0)
-            ->and($amounts->lineTax)->toBe(99.0)
-            ->and($amounts->lineTotal)->toBe(1000.0)
-            ->and($amounts->lineSubtotal + $amounts->lineTax)->toBe($amounts->lineTotal);
+        expect($amounts->lineSubtotal->toDecimal())->toBe('901.0000')
+            ->and($amounts->lineTax->toDecimal())->toBe('99.0000')
+            ->and($amounts->lineTotal->toDecimal())->toBe('1000.0000')
+            ->and($amounts->lineSubtotal->plus($amounts->lineTax)->compareTo($amounts->lineTotal))->toBe(0);
     });
 
     it('respects the currency precision (2 dp)', function (): void {
         $amounts = $this->calc->calculate(
-            unitPriceInput: 10.50,
+            unitPriceInput: Money::fromDecimal(10.50, 'IDR'),
             priceBasis: PriceBasis::NET,
             taxable: true,
-            taxRate: 10.0,
-            quantity: 1.0,
-            currencyDecimals: 2,
+            taxRate: '10',
+            quantity: '1',
+            roundingScale: 2,
         );
 
-        expect($amounts->lineSubtotal)->toBe(10.50)
-            ->and($amounts->lineTax)->toBe(1.05)
-            ->and($amounts->lineTotal)->toBe(11.55);
+        expect($amounts->lineSubtotal->toDecimal())->toBe('10.5000')
+            ->and($amounts->lineTax->toDecimal())->toBe('1.0500')
+            ->and($amounts->lineTotal->toDecimal())->toBe('11.5500');
     });
 });
 

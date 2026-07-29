@@ -27,6 +27,10 @@ use App\Support\Money;
  */
 final readonly class LineCalculator
 {
+    /**
+     * @param  numeric-string  $taxRate
+     * @param  numeric-string  $quantity
+     */
     public function calculate(
         Money $unitPriceInput,
         PriceBasis $priceBasis,
@@ -37,6 +41,8 @@ final readonly class LineCalculator
     ): LineAmounts {
         $precision = Money::PRECISION;
         $currency = $unitPriceInput->currency;
+
+        /** @var numeric-string $price */
         $price = $unitPriceInput->toDecimal();
 
         $applyTax = $taxable && bccomp($taxRate, '0', 8) === 1;
