@@ -21,9 +21,17 @@ use App\Support\Money;
  * number this business sells.
  *
  * $roundingScale is a business rule, not a precision detail: buyer quotes round
- * to whole units, supplier quotes to four decimals. It is applied to the
- * per-unit figures before they are multiplied out, which is what the float
- * implementation did, so converted call sites produce identical figures.
+ * to whole units, supplier quotes to four decimals. The per-unit and line
+ * intermediates stay at Money::PRECISION (unrounded, scale-20) through the tax
+ * calculation and the multiply by quantity, and are rounded to $roundingScale
+ * exactly once, at the end, via Money::fromHighPrecision() — never before the
+ * multiply. That is what the old float engine did too, and what
+ * Money::fromHighPrecision()'s own docblock documents.
+ *
+ * Figures are not always identical to the old float engine: they differ in
+ * roughly 0.02%-1.5% of fields, always by exactly one unit in the last place,
+ * at exact .5 rounding ties — where this exact implementation is the
+ * arithmetically correct one and the old float engine was not.
  */
 final readonly class LineCalculator
 {
