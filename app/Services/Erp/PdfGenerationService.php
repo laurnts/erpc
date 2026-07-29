@@ -273,7 +273,10 @@ final readonly class PdfGenerationService
      */
     public function getBuyerInvoiceFilename(BuyerInvoice $invoice): string
     {
-        return sprintf('Invoice_%s.pdf', $invoice->invoice_number);
+        // invoice_number is nullable until the invoice is issued (assigned at
+        // issue, not at create); fall back to the record id so a draft never
+        // produces the bare "Invoice_.pdf".
+        return sprintf('Invoice_%s.pdf', $invoice->invoice_number ?? (string) $invoice->getKey());
     }
 
     /**

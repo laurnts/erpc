@@ -183,11 +183,16 @@ final class RequiresAttentionWidget extends BaseWidget
      */
     private function getReference(Model $record): string
     {
+        // invoice_number is nullable (assigned at issue, not at create — see
+        // App\Models\BuyerInvoice); safe here only because getTableQuery()
+        // pre-filters invoices to OVERDUE, which implies issued. The fallback
+        // guards against that invariant changing without this call site
+        // being noticed.
         return match (true) {
             $record instanceof BuyerQuote => $record->quote_number,
             $record instanceof BuyerOrder => $record->order_number,
             $record instanceof Shipment => $record->shipment_number,
-            $record instanceof BuyerInvoice => $record->invoice_number,
+            $record instanceof BuyerInvoice => $record->invoice_number ?? '—',
             default => '-',
         };
     }

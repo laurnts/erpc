@@ -30,7 +30,7 @@
                         INVOICE
                     @endif
                 </div>
-                <div class="document-number">{{ $invoice->invoice_number }}</div>
+                <div class="document-number">{{ $invoice->invoice_number ?? 'DRAFT' }}</div>
                 <div class="document-meta">
                     @if($invoice->issued_at)
                         Issue Date: {{ $invoice->issued_at->format('d M Y') }}<br>
