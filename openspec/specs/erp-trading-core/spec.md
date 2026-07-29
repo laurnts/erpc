@@ -69,7 +69,7 @@ The system SHALL track historical exchange rates between currencies, allowing ma
 ---
 
 ### Requirement: Buyers Entity
-The system SHALL manage buyer companies (using Company model with is_buyer=true) with credit limits, currency preferences, and associated people (contacts).
+The system SHALL manage buyer companies (using Company model with is_buyer=true) with credit limits, currency preferences, and associated people (contacts). Outstanding credit exposure and available credit SHALL be derived at read time from the buyer's confirmed orders that reserved credit, not read from a hand-maintained running counter.
 
 #### Scenario: Create a buyer
 - **WHEN** an admin creates a buyer with name "GlobalTrade Industries"
@@ -87,9 +87,10 @@ The system SHALL manage buyer companies (using Company model with is_buyer=true)
 - **AND** the available_credit is also set to $50,000
 
 #### Scenario: Calculate available credit
-- **WHEN** a buyer has $50,000 active credit limit and $30,000 unpaid invoices
-- **THEN** available credit is calculated as $20,000
-- **AND** the calculation uses available_credit, not credit_limit
+- **WHEN** a buyer has a $50,000 credit limit and $30,000 of unreleased exposure from its own confirmed, credit-reserving orders
+- **THEN** available credit is calculated as `max(0, credit_limit - credit_exposure)`, where `credit_exposure` is `SUM(total - credit_released)` over the buyer's orders with `status = 'confirmed' AND credit_reserved_at IS NOT NULL AND deleted_at IS NULL`, giving $20,000
+- **AND** the calculation is `Company::derived_available_credit`, computed on the fly from `buyer_orders` — not read from the stored `available_credit` column
+- **AND** a confirmed order that never reserved credit (e.g. placed while `credit_status` was disabled) contributes nothing to `credit_exposure`, even though it is confirmed
 
 #### Scenario: Place buyer on credit hold
 - **WHEN** an admin sets is_on_hold to true
@@ -99,20 +100,21 @@ The system SHALL manage buyer companies (using Company model with is_buyer=true)
 - **WHEN** a user requests credit limit increase from $50,000 to $75,000
 - **THEN** a BuyerCreditLimitRequest record is created with status PENDING
 - **AND** the requested_credit_limit field is set to $75,000 on the buyer
-- **AND** the available_credit remains $50,000 until approved
+- **AND** derived available credit remains unaffected until the request is approved (credit_limit has not changed)
 - **AND** all finance approvers (finance role users with is_approver=true) are notified via email
 
 #### Scenario: Approve credit limit increase (first approval)
 - **WHEN** a finance approver (finance role user with is_approver=true) approves a credit limit increase request
 - **THEN** an approval record is created linking the user to the request
 - **AND** the request status remains PENDING (requires 2 approvals)
-- **AND** the available_credit remains unchanged
+- **AND** derived available credit is unchanged (credit_limit has not changed yet)
 
 #### Scenario: Approve credit limit increase (second approval)
 - **WHEN** a second finance approver approves a credit limit increase request
 - **THEN** an approval record is created linking the user to the request
 - **AND** the request status changes to APPROVED
-- **AND** the buyer's credit_limit and available_credit are updated to the requested value
+- **AND** the buyer's credit_limit is updated to the requested value
+- **AND** derived available credit reflects the new limit immediately afterward, without any separate write to a stored available-credit column
 - **AND** the requested_credit_limit field is cleared
 
 #### Scenario: Reject credit limit increase
@@ -120,7 +122,7 @@ The system SHALL manage buyer companies (using Company model with is_buyer=true)
 - **THEN** the request status changes to REJECTED
 - **AND** the rejected_by_id, rejected_at, and rejected_reason are recorded
 - **AND** the requested_credit_limit field is cleared on the buyer
-- **AND** the available_credit remains unchanged
+- **AND** derived available credit is unaffected (credit_limit never changed)
 
 #### Scenario: View credit limit requests
 - **WHEN** a finance role user views the Credit Limit Requests page
@@ -129,7 +131,7 @@ The system SHALL manage buyer companies (using Company model with is_buyer=true)
 
 #### Scenario: View all buyers credit limits
 - **WHEN** a finance role user views the Buyer Credit Limits Overview page
-- **THEN** all buyers are listed with their active credit limit, credit used, available credit
+- **THEN** all buyers are listed with their credit limit and derived available credit, sorted and filtered in SQL via the buyer's credit-exposure query rather than computed per row in PHP
 - **AND** buyers with pending requests show the requested credit limit
 
 #### Scenario: Prevent duplicate approvals
@@ -736,10 +738,10 @@ Acceptance reports SHALL be team-scoped like all other document-owning ERP entit
 - **THEN** every existing acceptance report receives the `team_id` of its parent request
 - **AND** the unique index moves from `(request_id, report_number)` to `(team_id, report_number)`
 
-#### Scenario: Report numbering scoped per team and year
+#### Scenario: Report numbering scoped per team and year, allocated from a locked counter
 - **WHEN** a new acceptance report number is generated
-- **THEN** the sequence increments per team per year (format `AR-{year}-{seq}`) using max-sequence semantics
-- **AND** previously issued report numbers are never rewritten
+- **THEN** the sequence increments per team per year (format `AR-{year}-{seq:04d}`), allocated from a locked counter row (`document_number_sequences`) rather than by reading the highest existing `report_number`
+- **AND** previously issued report numbers are never rewritten or reissued, including when a report is deleted or when rows are inserted out of order
 
 #### Scenario: Morph map registration repairs attachments
 - **WHEN** an attachment is uploaded to an acceptance report
@@ -773,4 +775,72 @@ The system SHALL derive per-channel fulfillment completion on a request — the 
 #### Scenario: Fulfillment status displayed
 - **WHEN** a user views a request (view page or list)
 - **THEN** the derived per-channel and overall fulfillment status is visible without opening fulfillment documents
+
+### Requirement: Deal and Company Delete Protection via Financial Documents
+The system SHALL prevent hard-deleting a `Request` or a `Company` once it has produced any
+financial document anywhere in the deal chain (a buyer or supplier order, a buyer or supplier
+invoice, a buyer or supplier payment, or a profit-and-loss record): the database SHALL reject the
+delete via `RESTRICT` foreign keys on the documenting tables, and the `Request`/`Company` row SHALL
+remain. Records in this state must be archived (soft-deleted) rather than hard-deleted; only a
+`Request`/`Company` that has never produced a financial document can be force-deleted. Deleting a
+`Team`, by contrast, remains a full cascade: every `team_id` foreign key on requests, companies,
+and their financial documents is untouched `cascadeOnDelete()`, so a team delete removes the team
+and everything under it in one statement, since a team delete represents intentional account
+closure rather than routine record cleanup. This is safe specifically because PostgreSQL queues
+referential-integrity checks as after-statement triggers: within the single `DELETE FROM teams`
+statement, the cascades to `requests`, `companies`, and their financial documents (all still
+`team_id` `CASCADE`) execute first, and only then do the RESTRICT triggers on e.g.
+`buyer_invoices.request_id` fire — by which point the referencing `buyer_invoices` row has already
+been removed by the team-id cascade, so there is no orphan left for the RESTRICT check to catch.
+A direct `DELETE`/force-delete of the `requests` row on its own is a separate statement and has no
+such cascade running ahead of it, so the RESTRICT trigger sees the still-live `buyer_invoices` row
+and rejects it.
+
+#### Scenario: A request with a financial document cannot be hard-deleted
+- **WHEN** a request that has produced a buyer invoice (or any other financial document) is
+  force-deleted
+- **THEN** the database rejects the delete and the request row remains
+
+#### Scenario: A company cannot be hard-deleted while its requests carry financial documents
+- **WHEN** a buyer or supplier company whose request has produced a financial document is
+  force-deleted
+- **THEN** the delete is rejected once it reaches the protected document, and neither the company
+  nor the request row is removed
+
+#### Scenario: A request or company with no financial documents can still be hard-deleted
+- **WHEN** a request (or company) that has never produced an order, invoice, payment, or
+  profit-and-loss record is force-deleted
+- **THEN** the delete succeeds and the row is removed
+
+#### Scenario: Deleting a team still removes everything under it
+- **WHEN** a `Team` is deleted
+- **THEN** all of its requests, companies, and their financial documents are removed via
+  cascading `team_id` foreign keys, in one statement, regardless of how many financial documents
+  exist
+- **AND** this succeeds even though the same rows are protected by a RESTRICT foreign key,
+  because PostgreSQL fires the `team_id` CASCADE triggers before the RESTRICT triggers within the
+  single delete statement, so the RESTRICT check never observes a referencing row
+
+Verified directly against PostgreSQL 17 in a throwaway database mirroring the real constraint
+shape (`teams` ← `requests` `ON DELETE CASCADE`; `buyer_invoices` → `teams` `CASCADE`, →
+`requests` `RESTRICT`): `DELETE FROM requests WHERE id = 1` raises
+`buyer_invoices_request_id_fkey ... still referenced from table "buyer_invoices"`, while
+`DELETE FROM teams WHERE id = 1` succeeds and leaves `teams`, `requests`, and `buyer_invoices` all
+empty. There is no automated regression test for the team-cascade half of this (see tasks.md).
+
+### Requirement: Document Number Allocation
+Request (`request_number`) and Project (`project_number`) numbers SHALL be allocated from a locked counter row (one row per team, document key, and calendar year in `document_number_sequences`) rather than by reading the highest existing number, so that concurrent creates cannot receive the same number and the sequence does not regress once a team's yearly count passes 9999 (a string-sorted "highest number" query would otherwise rank `'9999'` above `'10000'`). Numbers are strictly monotonic per (team, key, year): a rolled-back or deleted document permanently skips its number rather than having that number reissued to a later document.
+
+#### Scenario: Concurrent request creates do not collide
+- **WHEN** two requests are created for the same team at effectively the same time
+- **THEN** each receives a distinct, correctly incrementing `request_number`
+- **AND** neither create fails due to a duplicate-number save
+
+#### Scenario: Sequence does not regress past 9999
+- **WHEN** a team's project count for a year is already at 9999
+- **THEN** the next allocated `project_number` sequence value is 10000, not a value already issued
+
+#### Scenario: 30 rapid acceptance report allocations never collide
+- **WHEN** 30 acceptance report numbers are allocated in immediate succession for the same team
+- **THEN** all 30 numbers are distinct
 

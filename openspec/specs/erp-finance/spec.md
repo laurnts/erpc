@@ -30,10 +30,19 @@ The system SHALL manage buyer invoices with line items, supporting prepayment, b
 - **AND** additional invoices can be created for remaining items
 - **AND** sum of all invoice items cannot exceed order quantities
 
-#### Scenario: Invoice numbering
-- **WHEN** buyer invoice is created
-- **THEN** invoice_number is auto-generated (e.g., "INV-2024-0089-1")
-- **AND** sequence continues for same request (INV-2024-0089-2)
+#### Scenario: A newly created invoice carries no number
+- **WHEN** a buyer invoice is created (directly, or via `BuyerInvoice::issueFromOrder()`'s initial draft)
+- **THEN** `invoice_number` is `NULL`
+- **AND** any number of unnumbered draft invoices can coexist in the same team (the `(team_id, invoice_number)` unique index treats `NULL` as distinct)
+
+#### Scenario: Invoice numbering is assigned at issue, not at creation
+- **WHEN** a draft invoice transitions to "sent" via `markAsSent()`
+- **THEN** `invoice_number` is allocated at that point in the format `{prefix}-{year}-{sequence:04d}` (e.g. "INV-2026-0001"), using the team's configured invoice prefix and the current calendar year
+- **AND** a discarded draft that is deleted before being sent never consumes a number
+
+#### Scenario: Re-issuing an invoice does not renumber it
+- **WHEN** `markAsSent()` or `assignNumberIfMissing()` is called on an invoice that already carries a number
+- **THEN** the existing `invoice_number` is left unchanged
 
 #### Scenario: Invoice status tracking
 - **WHEN** invoice is created
@@ -45,8 +54,6 @@ The system SHALL manage buyer invoices with line items, supporting prepayment, b
 - **WHEN** due_at has passed and status is not "paid"
 - **THEN** status automatically changes to "overdue"
 - **AND** days_overdue is calculated
-
----
 
 ### Requirement: Buyer Credit Notes
 The system SHALL support credit notes as a special invoice type with negative amounts.
@@ -284,6 +291,16 @@ intentional correction that WILL move some stored values and is applied to exist
 rows by a one-time backfill. The two are distinct: the flag mapping preserves
 semantics; the rounding precision fix is a deliberate, backfilled value change.
 
+`LineCalculator::calculate()` takes `unitPriceInput` as `App\Support\Money` (an
+exact, integer-minor-units amount) and `taxRate`/`quantity` as numeric decimal
+strings — never a PHP `float` — and returns a `LineAmounts` value object of `Money`
+fields. Every intermediate computed inside `calculate()` (the net-of-tax price, the
+tax per unit, the post-multiply subtotal and tax) is a `bcmath` decimal string at
+`Money::PRECISION` (20) scale; no step passes through binary floating-point
+arithmetic. Each result value crosses from a high-precision decimal string into
+`Money` exactly once, through `Money::fromHighPrecision()`, which applies
+`$roundingScale` at that single boundary.
+
 #### Scenario: Calculate line amounts from a NET price with tax applied on top
 - **WHEN** `LineCalculator` receives `unitPriceInput` $5,200, `priceBasis` NET, `taxable` true, `taxRate` 11%, `quantity` 2
 - **THEN** `unitPriceExcTax` is $5,200
@@ -329,9 +346,29 @@ semantics; the rounding precision fix is a deliberate, backfilled value change.
 
 #### Scenario: Per-component rounding to currency precision (IDR)
 - **WHEN** the document currency has 0 decimal places (e.g. IDR)
-- **THEN** `lineSubtotal` and `lineTax` are each rounded to 0 decimal places first
-- **AND** `lineTotal` is derived as `roundedLineSubtotal + roundedLineTax` so that `lineSubtotal + lineTax === lineTotal` always holds exactly
+- **THEN** `lineSubtotal` and `lineTax` are each rounded to 0 decimal places first, via `Money::fromHighPrecision($decimal, roundingScale: 0, $currency)` acting on the unrounded high-precision intermediate
+- **AND** `lineTotal` is derived as `roundedLineSubtotal + roundedLineTax` (an exact `Money::plus()`, integer addition of minor units) so that `lineSubtotal + lineTax === lineTotal` always holds exactly
 - **AND** because each line satisfies this identity, the document-level sums also satisfy `subtotal + taxTotal === grandTotal` with no drift
+
+#### Scenario: Arithmetic is exact — no binary float in the calculation path
+- **WHEN** `LineCalculator::calculate()` computes the net-of-tax price, the tax amount, or either post-multiply line figure
+- **THEN** every operation is `bcdiv`/`bcmul`/`bcsub` on decimal strings, never a native `+`/`-`/`*`/`/` on a PHP `float`
+- **AND** the architecture test `financial services do not use floats` (`tests/ArchTest.php`) bars `floatval` and `round` from `App\Services\Erp\Financial`, exempting only `MarginConvention`
+- **AND** `Money::toFloat()`'s only permitted callers in this layer are the `MarginConvention` call sites, which is the single documented crossing point from exact arithmetic to a float ratio
+
+#### Scenario: Intermediates stay high-precision decimal strings, not Money, until the rounding boundary
+- **WHEN** `LineCalculator` computes the net-of-tax unit price and then multiplies it by `quantity` to get the line subtotal
+- **THEN** the per-unit intermediate is kept as an unrounded `Money::PRECISION` (20) scale decimal string, not converted to `Money` and back, until after the multiply
+- **AND** an earlier draft that rounded the per-unit intermediate through `Money` (`dividedBy()` then `multipliedBy()`) before multiplying by quantity was measured to diverge from the prior float implementation in 583 of 2,592 fields (22%), because `Money` rounds to scale 4 on every operation and rounding a per-unit figure before scaling by quantity is not the same operation as rounding the scaled total
+- **AND** each result crosses into `Money` exactly once, via `Money::fromHighPrecision()`, reproducing the prior float engine's "full precision through the multiply, round once after" ordering exactly
+
+#### Scenario: Measured divergence from the prior float implementation is bounded to one unit in the last place
+- **WHEN** the exact implementation is validated against the prior float implementation over a 16,800-field grid (10 prices × 6 tax rates × 7 quantities × 2 rounding scales × 2 price bases × taxable on/off)
+- **THEN** the buyer-quote path (`roundingScale: 0`) differs in 2 of 8,400 fields (0.02%), largest difference 1 rupiah
+- **AND** the supplier-quote path (`roundingScale: 4`) differs in 57 of 8,400 fields (0.68%), largest difference 0.0001
+- **AND** every differing field differs by exactly one unit in the last place; none differs by more
+- **AND** in every differing case the exact value is the arithmetically correct rounding and the prior float value was a float artefact (e.g. `0.3333 × 2.5` is exactly the tie `0.83325`, which rounds up to `0.8333`, but the binary-float product computes to `0.83324999999999993516` — below the tie — so the prior `round()` call faithfully rounded that wrong value down to `0.8332`)
+- **AND** stored values do not move on deploy — line amounts recalculate only on save — so an existing document's figures change only if the line is edited, and then by at most this one-unit-in-the-last-place correction
 
 #### Scenario: LineCalculator runs only in the line-item model observer for persistence
 - **WHEN** a `BuyerQuoteItem` or `SupplierQuoteItem` is created or updated
@@ -373,6 +410,18 @@ meaningful only for buyer documents, which carry a cost-vs-sell relationship; su
 documents consume only `subtotal`, `taxTotal`, and `grandTotal` and ignore the margin
 fields.
 
+`TotalsLine` and `DocumentTotals` hold `Money` for every monetary field
+(`lineSubtotal`, `lineTax`, `lineTotal`, `costPrice`/`costTotal`, `subtotal`,
+`taxTotal`, `grandTotal`, `marginAmount`); `quantity` stays a numeric decimal
+string, since a count is not an amount. Summation is exact `Money` addition
+(`Money::plus()`, integer addition of minor units at scale 4) — never a float
+`+` — so a document with a hundred repeating-decimal lines totals to the same
+figure a person gets with a calculator, with no accumulated binary-float drift.
+`marginPercent` remains the one float in `DocumentTotals`: it is produced by
+`MarginConvention::marginPercent()` from `costTotal.toFloat()` and
+`subtotal.toFloat()`, the single documented crossing point from exact `Money`
+arithmetic to a float ratio.
+
 #### Scenario: Collect totals from main lines
 - **WHEN** `TotalsCollector` receives a collection of main-item lines with `lineSubtotal`, `lineTax`, `lineTotal`, `costPrice`, `quantity`
 - **THEN** `subtotal` is the sum of all `lineSubtotal` values
@@ -400,11 +449,23 @@ fields.
 - **THEN** all totals are zero
 - **AND** `marginPercent` is zero
 
+#### Scenario: Summation is exact Money addition, immune to float accumulation
+- **WHEN** `TotalsCollector::collect()` sums `lineSubtotal`, `lineTax`, `lineTotal`, and `costPrice × quantity` across many lines
+- **THEN** each running total is accumulated via `Money::plus()` (integer addition of minor units at scale 4), never a float `+`
+- **AND** for any collection of lines, `Σ lineSubtotal === subtotal`, `Σ lineTax === taxTotal`, and `Σ lineTotal === grandTotal` exactly, with no accumulated rounding drift regardless of collection size
+- **AND** this invariant (I-M2) is locked by `tests/Feature/Erp/Financial/MoneyInvariantsTest.php` across both rounding scales (0 and 4)
+
 ---
 
 ### Requirement: Margin Convention
 The system SHALL define a single canonical margin convention used by all calculation
-paths, document generators, form callbacks, and displays.
+paths, document generators, form callbacks, and displays. `marginPercent` is
+deliberately a `float`, not `Money`: it is a ratio, not a monetary amount, and
+carries no minor units to be exact about. `MarginConvention`'s two inputs
+(`cost`, `sellNet`) are plain floats obtained by calling `Money::toFloat()` at the
+call site — the one documented, intentional point where an exact `Money` amount
+is allowed to cross into a float, immediately before it is consumed by a ratio
+calculation and not fed back into any further monetary arithmetic.
 
 #### Scenario: Margin percentage definition (on-selling)
 - **WHEN** a buyer quote item has `cost_price` $4,600 and `unit_price_exc_tax` $5,200
@@ -420,14 +481,14 @@ paths, document generators, form callbacks, and displays.
 
 #### Scenario: Margin stored consistently
 - **WHEN** a `BuyerQuoteItem` is saved
-- **THEN** `margin_percent` is computed by `MarginConvention::marginPercent(cost_price, unit_price_exc_tax)`
+- **THEN** `margin_percent` is computed by `MarginConvention::marginPercent(cost_price, unit_price_exc_tax)`, with both inputs obtained via `Money::toFloat()` on the exact amounts computed by `LineCalculator`
 - **AND** `getDisplayMarginPercent()` and `calculatedMarginPercent` return the same on-selling value
 - **AND** `BuyerQuote::total_margin_percent` aggregates using the same formula
 
 #### Scenario: MarginConvention is the only margin formula
 - **WHEN** a margin percentage or a cost-to-selling-price conversion is computed anywhere in the system
 - **THEN** the computation calls `MarginConvention` — never an inline `(sell − cost) / sell` or `cost * (1 + m)` or `cost / (1 − m)` formula written elsewhere
-- **AND** for persisted figures the call chain is observer → `LineCalculator`/`TotalsCollector` → `MarginConvention` → stored column
+- **AND** for persisted figures the call chain is observer → `LineCalculator`/`TotalsCollector` (exact `Money` arithmetic) → `MarginConvention` (float ratio, via `Money::toFloat()`) → stored column
 - **AND** Blade views and PDF generators do not call `MarginConvention` at all; they read the stored `margin_percent` column
 - **AND** Filament form callbacks MAY call `MarginConvention` read-only for live display and for wizard prefill, because doing so reuses the single formula rather than duplicating it
 
@@ -445,7 +506,12 @@ paths, document generators, form callbacks, and displays.
 - **THEN** it returns 0.0 (price collapse is treated as an invalid margin and surfaced as zero, matching existing behaviour) rather than dividing by zero or returning a negative price
 - **AND** these guard branches are covered by unit tests
 
----
+#### Scenario: margin_percent storage was widened to hold a legitimate extreme value
+- **WHEN** `cost_price` exceeds the net selling price by a large amount (e.g. cost keyed in rupiah against a price meant to be in thousands)
+- **THEN** `MarginConvention::marginPercent()` is unbounded below and can legitimately return a value with a magnitude in the hundreds of thousands of percent (verified: `cost_price` 600,000 against `unit_price_exc_tax` 100 on quantity 1 computes `margin_percent` -599900.0)
+- **AND** `buyer_quote_items.margin_percent`, originally `decimal(8,4)` (capped at ±9999.9999), is widened to `decimal(12,4)` by migration `2026_07_29_150000_widen_margin_percent_on_buyer_quote_items_table` so this value is stored, not clamped, truncated, or hidden — a large negative margin is a data-entry signal the user needs to see
+- **AND** `margin_amount` (`decimal(18,4)`) already had enough headroom and was not changed
+- **AND** `supplier_quote_items` has no `margin_percent`/`margin_amount` column and needed no equivalent change
 
 ### Requirement: Financial Snapshot
 The system SHALL freeze the financial figures of an approved Profit and Loss
@@ -505,4 +571,79 @@ columns remain consistent regardless of the creation or edit path used.
 #### Scenario: Sync applies on edit
 - **WHEN** an existing buyer quote's prepayment is edited
 - **THEN** the sync runs and both columns are updated consistently
+
+### Requirement: Financial Document Delete Protection
+The system SHALL enforce database-level `RESTRICT` (not `CASCADE`) on the foreign keys running
+from finance-side documents back to the request or company they document: `buyer_invoices.request_id`,
+`buyer_payments.buyer_invoice_id`, `supplier_invoices.request_id`, `supplier_invoices.supplier_id`,
+`supplier_payments.supplier_invoice_id`, and `profit_and_losses.request_id`. A request or company
+that has produced any of these documents SHALL NOT be hard-deletable; it must be archived
+(soft-deleted) instead. Each table's `team_id` foreign key is unaffected and remains
+`cascadeOnDelete()`.
+
+#### Scenario: Force-deleting a request with a buyer invoice is rejected
+- **WHEN** `Request::withTrashed()->forceDelete()` is called on a request that has a `BuyerInvoice`
+- **THEN** the database raises a foreign key violation
+- **AND** the request row still exists afterward
+
+#### Scenario: Force-deleting a company is blocked by its request's buyer invoice
+- **WHEN** `Company::withTrashed()->forceDelete()` is called on a buyer company whose request has
+  a `BuyerInvoice`
+- **THEN** the delete cascades from the company to its request (the `requests.buyer_id` foreign
+  key is unchanged and still cascades)
+- **AND** is then rejected at the request, because `buyer_invoices.request_id` now restricts
+- **AND** neither the company nor the request row is removed
+
+#### Scenario: A RESTRICT violation aborts the enclosing transaction
+- **WHEN** a force-delete is blocked by one of these RESTRICT constraints while running inside a
+  database transaction
+- **THEN** PostgreSQL marks that transaction as aborted
+- **AND** code that needs to keep querying afterward (e.g. to assert the row survived) must run
+  the force-delete inside its own savepoint (`DB::transaction()`), not directly in the caller's
+  outer transaction
+
+#### Scenario: A request with no financial documents can still be force-deleted
+- **WHEN** a request with no buyer/supplier orders, invoices, payments, or profit-and-loss record
+  is force-deleted
+- **THEN** the delete succeeds and the row is removed
+
+### Requirement: Document Number Allocation
+Buyer invoice, buyer payment, supplier invoice, and supplier payment numbers SHALL be allocated from a locked counter row (one row per team, document key, and calendar year in `document_number_sequences`) rather than by reading the highest existing number, so that concurrent creates cannot receive the same number and the sequence does not regress once a team's yearly count for a document type passes 9999 (a string-sorted "highest number" query would otherwise rank `'9999'` above `'10000'`). Numbers are strictly monotonic per (team, key, year): a rolled-back or deleted document permanently skips its number rather than having that number reissued to a later document.
+
+#### Scenario: Concurrent invoice creates do not collide
+- **WHEN** two buyer invoices are issued for the same team in the same year at effectively the same time
+- **THEN** each receives a distinct, correctly incrementing `invoice_number`
+- **AND** neither create fails due to a duplicate-number save
+
+#### Scenario: Sequence does not regress past 9999
+- **WHEN** a team's buyer payment count for a year is already at 9999
+- **THEN** the next allocated sequence value is 10000, not a value already issued
+
+#### Scenario: Deleting an invoice does not free its number for reissue
+- **WHEN** a numbered buyer invoice is deleted
+- **THEN** its `invoice_number` is never assigned to a subsequently created buyer invoice
+
+### Requirement: Buyer Credit Exposure Reconciliation
+The system SHALL be able to detect disagreement between a buyer's stored `credit_used` counter and its credit exposure as derived from `buyer_orders`, via a read-only `erp:reconcile-credit-exposure` Artisan command, without mutating either value. The command SHALL treat differences within a configurable tolerance (default `0.01`) as agreement, print the buyer's name, id, team, stored value, derived value, and signed difference for every buyer outside tolerance, and exit non-zero if any buyer drifted.
+
+`BuyerCreditUsageHistory` rows recording each credit debit, restore, and release SHALL continue to be written on every order confirmation, cancellation, and payment-driven release, independent of whether anything still reads them to compute current exposure — the ledger remains the audit trail of record even though it is no longer the basis for the live exposure figure.
+
+#### Scenario: Stored and derived values agree
+- **WHEN** `erp:reconcile-credit-exposure` runs and every buyer's stored `credit_used` is within tolerance of its derived `credit_exposure`
+- **THEN** the command reports the count of buyers checked and exits `0`
+
+#### Scenario: A buyer's stored counter has drifted from its derived exposure
+- **WHEN** `erp:reconcile-credit-exposure` runs against a buyer whose stored `credit_used` disagrees with its derived `credit_exposure` by more than the tolerance
+- **THEN** the command prints a `DRIFT` line naming the buyer, its id, its team, the stored value, the derived value, and the difference
+- **AND** the command exits `1`
+- **AND** no column is written by the command; the check is read-only
+
+#### Scenario: Sub-cent differences are tolerated
+- **WHEN** a buyer's stored `credit_used` differs from its derived `credit_exposure` by less than the `--tolerance` option (default `0.01`)
+- **THEN** the buyer is not reported as drifted
+
+#### Scenario: Audit ledger keeps recording even though it is no longer authoritative
+- **WHEN** a buyer order is confirmed and reserves credit, has credit released by a payment, or has its credit restored on cancellation
+- **THEN** a `BuyerCreditUsageHistory` row is created recording the transaction type, amount, and before/after snapshots
+- **AND** this happens regardless of the fact that `Company::credit_exposure` is computed directly from `buyer_orders`, not from this ledger
 
