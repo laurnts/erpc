@@ -12,6 +12,7 @@ use App\Models\SupplierOrder;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\Email\EmailTemplateService;
+use App\Services\Erp\Numbering\DocumentNumberAllocator;
 use App\Services\TeamMemberService;
 use Illuminate\Support\Facades\Log;
 
@@ -89,28 +90,12 @@ final readonly class SupplierOrderObserver
             }
         }
 
-        // Get the highest sequence number for this team and year (for new base number)
-        $pattern = $prefix.'-'.$year.'-%';
+        // New base number for this request. Only this path consumes the sequence:
+        // the suffix path above reuses an already-allocated base.
+        $sequence = app(DocumentNumberAllocator::class)
+            ->next((int) $supplierOrder->team_id, 'supplier_order', $year);
 
-        $allOrdersForTeam = SupplierOrder::query()
-            ->withTrashed()
-            ->where('team_id', $supplierOrder->team_id)
-            ->where('po_number', 'like', $pattern)
-            ->get();
-
-        $nextNumber = 1;
-        $regex = '/^'.preg_quote($prefix, '/').'-'.$year.'-(\d+)(?:-[A-Z])?$/';
-
-        foreach ($allOrdersForTeam as $order) {
-            if (preg_match($regex, (string) $order->po_number, $matches)) {
-                $orderNumber = (int) $matches[1];
-                if ($orderNumber >= $nextNumber) {
-                    $nextNumber = $orderNumber + 1;
-                }
-            }
-        }
-
-        return sprintf('%s-%s-%04d', $prefix, $year, $nextNumber);
+        return sprintf('%s-%s-%04d', $prefix, $year, $sequence);
     }
 
     /**
