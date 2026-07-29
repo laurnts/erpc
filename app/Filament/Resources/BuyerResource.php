@@ -315,8 +315,9 @@ final class BuyerResource extends Resource
                     ->money(fn (): string => Filament::getTenant() instanceof Team ? Filament::getTenant()->getBaseCurrencyCode() : 'USD')
                     ->sortable(query: function (Builder $query, string $direction): Builder {
                         $direction = $direction === 'desc' ? 'desc' : 'asc';
+                        [$exposureSql, $bindings] = Company::creditExposureSql();
 
-                        return $query->orderByRaw("credit_limit - credit_exposure {$direction}");
+                        return $query->orderByRaw("credit_limit - ({$exposureSql}) {$direction}", $bindings);
                     })
                     ->toggleable(),
                 IconColumn::make('is_on_hold')

@@ -54,8 +54,9 @@ final class BuyerCreditLimitOverviewResource extends Resource
                     ->money(fn (): string => Filament::getTenant() instanceof \App\Models\Team ? Filament::getTenant()->getBaseCurrencyCode() : 'USD')
                     ->sortable(query: function (Builder $query, string $direction): Builder {
                         $direction = $direction === 'desc' ? 'desc' : 'asc';
+                        [$exposureSql, $bindings] = Company::creditExposureSql();
 
-                        return $query->orderByRaw("credit_limit - credit_exposure {$direction}");
+                        return $query->orderByRaw("credit_limit - ({$exposureSql}) {$direction}", $bindings);
                     }),
                 TextColumn::make('credit_exposure')
                     ->label('Credit Used')

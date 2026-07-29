@@ -359,12 +359,43 @@ final class Company extends Model implements HasCustomFields, HasMedia
     protected function withCreditExposure(Builder $query): Builder
     {
         return $query->addSelect([
-            'credit_exposure' => BuyerOrder::query()
-                ->selectRaw('COALESCE(SUM(total - credit_released), 0)')
-                ->whereColumn('buyer_id', 'companies.id')
-                ->where('status', OrderStatus::CONFIRMED)
-                ->whereNotNull('credit_reserved_at'),
+            'credit_exposure' => self::creditExposureQuery(),
         ]);
+    }
+
+    /**
+     * The correlated subquery behind the credit_exposure select alias, shared
+     * by withCreditExposure() and creditExposureSql().
+     *
+     * @return \Illuminate\Database\Eloquent\Builder<BuyerOrder>
+     */
+    private static function creditExposureQuery(): Builder
+    {
+        return BuyerOrder::query()
+            ->selectRaw('COALESCE(SUM(total - credit_released), 0)')
+            ->whereColumn('buyer_id', 'companies.id')
+            ->where('status', OrderStatus::CONFIRMED)
+            ->whereNotNull('credit_reserved_at');
+    }
+
+    /**
+     * SQL fragment (with its positional bindings) computing credit exposure,
+     * for callers that must inline it into a larger expression rather than
+     * reference the credit_exposure select alias.
+     *
+     * PostgreSQL only allows a select alias in ORDER BY when it stands alone;
+     * referencing it inside an expression like `credit_limit - credit_exposure`
+     * fails with "column does not exist" (SQLite allows it, which is why this
+     * went unnoticed until the suite ran against PostgreSQL). Both call sites
+     * that sort on derived available credit use this instead of the alias.
+     *
+     * @return array{0: string, 1: list<mixed>}
+     */
+    public static function creditExposureSql(): array
+    {
+        $query = self::creditExposureQuery()->toBase();
+
+        return [$query->toSql(), $query->getBindings()];
     }
 
     /**
