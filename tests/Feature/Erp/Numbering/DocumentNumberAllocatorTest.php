@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 use App\Models\Team;
 use App\Services\Erp\Numbering\DocumentNumberAllocator;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-
-uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
     $this->team = Team::factory()->create();
