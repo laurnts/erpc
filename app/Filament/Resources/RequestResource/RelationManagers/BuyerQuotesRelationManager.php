@@ -2709,8 +2709,11 @@ final class BuyerQuotesRelationManager extends RelationManager
             unitPriceInput: Money::fromDecimal($unitPriceExcTax, 'IDR'),
             priceBasis: PriceBasis::NET,
             taxable: $isTaxInclusive && $taxRate > 0,
-            taxRate: (string) $taxRate,
-            quantity: (string) $quantity,
+            // number_format(), not (string): a small enough float (e.g. 1.0E-8)
+            // casts to scientific notation, which bcmul() rejects with
+            // "Argument #2 is not well-formed".
+            taxRate: number_format($taxRate, 4, '.', ''),
+            quantity: number_format($quantity, 4, '.', ''),
             roundingScale: 0,
         );
 
@@ -2758,8 +2761,11 @@ final class BuyerQuotesRelationManager extends RelationManager
             unitPriceInput: Money::fromDecimal($unitPriceExcTax, 'IDR'),
             priceBasis: PriceBasis::NET,
             taxable: $isTaxInclusive && $taxRate > 0,
-            taxRate: (string) $taxRate,
-            quantity: (string) $quantity,
+            // number_format(), not (string): a small enough float (e.g. 1.0E-8)
+            // casts to scientific notation, which bcmul() rejects with
+            // "Argument #2 is not well-formed".
+            taxRate: number_format($taxRate, 4, '.', ''),
+            quantity: number_format($quantity, 4, '.', ''),
             roundingScale: 0,
         );
 
