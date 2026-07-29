@@ -10,6 +10,7 @@ use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use App\Models\Concerns\LogsErpActivity;
 use App\Observers\BuyerOrderObserver;
+use App\Services\Erp\Numbering\DocumentNumberAllocator;
 use App\Support\PaymentTermsDescription;
 use Database\Factories\BuyerOrderFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -659,6 +660,8 @@ final class BuyerOrder extends Model implements HasCustomFields
 
     /**
      * Generate the next order number for the given team.
+     *
+     * @see BuyerQuote::generateNextNumber() for why this is a counter row.
      */
     public static function generateNextNumber(int $teamId): string
     {
@@ -667,24 +670,9 @@ final class BuyerOrder extends Model implements HasCustomFields
         $prefix = $settings->buyer_order_number_prefix;
 
         $year = date('Y');
-        $pattern = $prefix.'-'.$year.'-%';
+        $sequence = app(DocumentNumberAllocator::class)->next($teamId, 'buyer_order', $year);
 
-        // Get the highest sequence number for this team and year
-        $lastOrder = self::withTrashed()
-            ->where('team_id', $teamId)
-            ->where('order_number', 'like', $pattern)
-            ->orderByDesc('order_number')
-            ->first();
-
-        $nextNumber = 1;
-        if ($lastOrder !== null) {
-            $regex = '/^'.preg_quote((string) $prefix, '/').'-'.$year.'-(\d+)$/';
-            if (preg_match($regex, (string) $lastOrder->order_number, $matches)) {
-                $nextNumber = (int) $matches[1] + 1;
-            }
-        }
-
-        return sprintf('%s-%s-%04d', $prefix, $year, $nextNumber);
+        return sprintf('%s-%s-%04d', $prefix, $year, $sequence);
     }
 
     /**

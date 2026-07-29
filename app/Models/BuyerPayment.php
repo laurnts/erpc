@@ -11,6 +11,7 @@ use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use App\Models\Concerns\LogsErpActivity;
 use App\Observers\BuyerPaymentObserver;
+use App\Services\Erp\Numbering\DocumentNumberAllocator;
 use Database\Factories\BuyerPaymentFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
@@ -186,6 +187,8 @@ final class BuyerPayment extends Model implements HasMedia
 
     /**
      * Generate the next payment number for the given team.
+     *
+     * @see BuyerQuote::generateNextNumber() for why this is a counter row.
      */
     public static function generateNextNumber(int $teamId): string
     {
@@ -194,23 +197,8 @@ final class BuyerPayment extends Model implements HasMedia
         $prefix = $settings->buyer_payment_number_prefix;
 
         $year = date('Y');
-        $pattern = $prefix.'-'.$year.'-%';
+        $sequence = app(DocumentNumberAllocator::class)->next($teamId, 'buyer_payment', $year);
 
-        // Get the highest sequence number for this team and year
-        $lastPayment = self::withTrashed()
-            ->where('team_id', $teamId)
-            ->where('payment_number', 'like', $pattern)
-            ->orderByDesc('payment_number')
-            ->first();
-
-        $nextNumber = 1;
-        if ($lastPayment !== null) {
-            $regex = '/^'.preg_quote((string) $prefix, '/').'-'.$year.'-(\d+)$/';
-            if (preg_match($regex, (string) $lastPayment->payment_number, $matches)) {
-                $nextNumber = (int) $matches[1] + 1;
-            }
-        }
-
-        return sprintf('%s-%s-%04d', $prefix, $year, $nextNumber);
+        return sprintf('%s-%s-%04d', $prefix, $year, $sequence);
     }
 }

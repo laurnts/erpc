@@ -12,6 +12,7 @@ use App\Models\Concerns\LogsErpActivity;
 use App\Observers\BuyerQuoteObserver;
 use App\Services\Erp\Financial\TotalsCollector;
 use App\Services\Erp\Financial\TotalsLine;
+use App\Services\Erp\Numbering\DocumentNumberAllocator;
 use App\Support\DocumentUpload;
 use Database\Factories\BuyerQuoteFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -716,6 +717,11 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
 
     /**
      * Generate the next quote number for the given team.
+     *
+     * Allocation is a counter row (DocumentNumberAllocator), not a read-max over
+     * existing rows: two concurrent creates cannot receive the same number, and
+     * the sequence does not regress when it crosses 9999 (a string sort put
+     * '9999' above '10000').
      */
     public static function generateNextNumber(int $teamId): string
     {
@@ -724,23 +730,8 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
         $prefix = $settings->buyer_quote_number_prefix;
 
         $year = date('Y');
-        $pattern = $prefix.'-'.$year.'-%';
+        $sequence = app(DocumentNumberAllocator::class)->next($teamId, 'buyer_quote', $year);
 
-        // Get the highest sequence number for this team and year
-        $lastQuote = self::withTrashed()
-            ->where('team_id', $teamId)
-            ->where('quote_number', 'like', $pattern)
-            ->orderByDesc('quote_number')
-            ->first();
-
-        $nextNumber = 1;
-        if ($lastQuote !== null) {
-            $regex = '/^'.preg_quote((string) $prefix, '/').'-'.$year.'-(\d+)$/';
-            if (preg_match($regex, (string) $lastQuote->quote_number, $matches)) {
-                $nextNumber = (int) $matches[1] + 1;
-            }
-        }
-
-        return sprintf('%s-%s-%04d', $prefix, $year, $nextNumber);
+        return sprintf('%s-%s-%04d', $prefix, $year, $sequence);
     }
 }
