@@ -12,6 +12,7 @@ use App\Models\Concerns\LogsErpActivity;
 use App\Observers\BuyerOrderObserver;
 use App\Services\Erp\Numbering\DocumentNumberAllocator;
 use App\Support\PaymentTermsDescription;
+use Carbon\CarbonImmutable;
 use Database\Factories\BuyerOrderFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -43,6 +44,7 @@ use Relaticle\CustomFields\Models\Contracts\HasCustomFields;
  * @property string|null $internal_notes
  * @property Carbon|null $ordered_at
  * @property Carbon|null $confirmed_at
+ * @property CarbonImmutable|null $credit_reserved_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
@@ -121,6 +123,7 @@ final class BuyerOrder extends Model implements HasCustomFields
             'payment_terms_days' => 'integer',
             'ordered_at' => 'datetime',
             'confirmed_at' => 'datetime',
+            'credit_reserved_at' => 'immutable_datetime',
         ];
     }
 
@@ -295,9 +298,11 @@ final class BuyerOrder extends Model implements HasCustomFields
                 );
             }
 
-            // Update order status
+            // Update order status. credit_reserved_at is what makes this order
+            // count toward the buyer's exposure; only the credit path sets it.
             $this->status = OrderStatus::CONFIRMED;
             $this->confirmed_at = now();
+            $this->credit_reserved_at = CarbonImmutable::now();
             $this->save();
 
             // Reduce available credit and increase credit used
@@ -453,16 +458,15 @@ final class BuyerOrder extends Model implements HasCustomFields
     }
 
     /**
-     * Whether this order actually reserved buyer credit at confirmation
-     * (a debit credit-history row exists for it).
+     * Whether this order reserved buyer credit at confirmation.
+     *
+     * Reads the credit_reserved_at column rather than probing
+     * BuyerCreditUsageHistory, so the same condition can be used inside the
+     * aggregate exposure query on Company.
      */
     public function hasReservedCredit(): bool
     {
-        return BuyerCreditUsageHistory::query()
-            ->where('related_type', self::class)
-            ->where('related_id', $this->getKey())
-            ->where('transaction_type', 'debit')
-            ->exists();
+        return $this->credit_reserved_at !== null;
     }
 
     /**
