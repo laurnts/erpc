@@ -51,7 +51,7 @@ it('purges opportunity-typed residue in both morph forms and is idempotent', fun
     $migration->up(); // idempotent, and survives the dropped noteables/taskables pivots
 
     expect(DB::table('ai_summaries')->where('summarizable_type', 'opportunity')->count())->toBe(0)
-        ->and(DB::table('custom_fields')->whereKey($fieldId)->count())->toBe(0)
+        ->and(DB::table('custom_fields')->where('id', $fieldId)->count())->toBe(0)
         ->and(DB::table('custom_field_options')->where('custom_field_id', $fieldId)->count())->toBe(0)
         ->and(DB::table('custom_field_values')->where('custom_field_id', $fieldId)->count())->toBe(0)
         ->and(Schema::hasTable('opportunities'))->toBeFalse();
@@ -95,7 +95,7 @@ it('drops the task and note tables and purges their custom-field residue', funct
     $migration->up(); // idempotent
 
     expect(DB::table('ai_summaries')->whereIn('summarizable_type', ['task', 'note'])->count())->toBe(0)
-        ->and(DB::table('custom_fields')->whereKey($fieldId)->count())->toBe(0)
+        ->and(DB::table('custom_fields')->where('id', $fieldId)->count())->toBe(0)
         ->and(DB::table('custom_field_values')->where('custom_field_id', $fieldId)->count())->toBe(0)
         ->and(Schema::hasTable('tasks'))->toBeFalse()
         ->and(Schema::hasTable('notes'))->toBeFalse()
