@@ -8,6 +8,7 @@ use App\Data\TeamErpSettings;
 use App\Models\Project;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\Erp\Numbering\DocumentNumberAllocator;
 
 final readonly class ProjectObserver
 {
@@ -48,24 +49,9 @@ final readonly class ProjectObserver
         $prefix = $settings->project_number_prefix;
 
         $year = date('Y');
-        $pattern = $prefix.'-'.$year.'-';
+        $sequence = app(DocumentNumberAllocator::class)
+            ->next((int) $project->team_id, 'project', $year);
 
-        // Get the highest sequence number for this team and year
-        $lastProject = Project::query()
-            ->withTrashed()
-            ->where('team_id', $project->team_id)
-            ->where('project_number', 'like', $pattern.'%')
-            ->orderByDesc('project_number')
-            ->first();
-
-        $nextNumber = 1;
-        if ($lastProject !== null) {
-            $regex = '/^'.preg_quote((string) $prefix, '/').'-'.$year.'-(\d+)$/';
-            if (preg_match($regex, (string) $lastProject->project_number, $matches)) {
-                $nextNumber = (int) $matches[1] + 1;
-            }
-        }
-
-        return sprintf('%s-%s-%04d', $prefix, $year, $nextNumber);
+        return sprintf('%s-%s-%04d', $prefix, $year, $sequence);
     }
 }

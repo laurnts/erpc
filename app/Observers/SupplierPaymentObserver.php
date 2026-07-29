@@ -8,6 +8,7 @@ use App\Data\TeamErpSettings;
 use App\Models\SupplierPayment;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\Erp\Numbering\DocumentNumberAllocator;
 
 final readonly class SupplierPaymentObserver
 {
@@ -94,27 +95,9 @@ final readonly class SupplierPaymentObserver
         $prefix = $settings->supplier_payment_number_prefix;
         $year = date('Y');
 
-        // Get the highest sequence number for this team and year
-        $pattern = $prefix.'-'.$year.'-%';
+        $sequence = app(DocumentNumberAllocator::class)
+            ->next((int) $supplierPayment->team_id, 'supplier_payment', $year);
 
-        $allPaymentsForTeam = SupplierPayment::query()
-            ->withTrashed()
-            ->where('team_id', $supplierPayment->team_id)
-            ->where('payment_number', 'like', $pattern)
-            ->get();
-
-        $nextNumber = 1;
-        $regex = '/^'.preg_quote((string) $prefix, '/').'-'.$year.'-(\d+)$/';
-
-        foreach ($allPaymentsForTeam as $payment) {
-            if (preg_match($regex, (string) $payment->payment_number, $matches)) {
-                $paymentNumber = (int) $matches[1];
-                if ($paymentNumber >= $nextNumber) {
-                    $nextNumber = $paymentNumber + 1;
-                }
-            }
-        }
-
-        return sprintf('%s-%s-%04d', $prefix, $year, $nextNumber);
+        return sprintf('%s-%s-%04d', $prefix, $year, $sequence);
     }
 }

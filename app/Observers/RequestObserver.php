@@ -12,6 +12,7 @@ use App\Models\Request;
 use App\Models\Team;
 use App\Models\User;
 use App\Notifications\PortalRequestStageChangedNotification;
+use App\Services\Erp\Numbering\DocumentNumberAllocator;
 use Illuminate\Validation\ValidationException;
 
 final readonly class RequestObserver
@@ -45,6 +46,9 @@ final readonly class RequestObserver
 
     /**
      * Generate a unique request number (REQ-YYYY-NNNN format).
+     *
+     * @see \App\Services\Erp\Numbering\DocumentNumberAllocator for why this is a
+     *      counter row rather than a read-max over existing numbers.
      */
     private function generateRequestNumber(Request $request): string
     {
@@ -53,25 +57,10 @@ final readonly class RequestObserver
         $prefix = $settings->request_number_prefix;
 
         $year = date('Y');
-        $pattern = $prefix.'-'.$year.'-%';
+        $sequence = app(DocumentNumberAllocator::class)
+            ->next((int) $request->team_id, 'request', $year);
 
-        // Get the highest sequence number for this team and year
-        $lastRequest = Request::query()
-            ->withTrashed()
-            ->where('team_id', $request->team_id)
-            ->where('request_number', 'like', $pattern)
-            ->orderByDesc('request_number')
-            ->first();
-
-        $nextNumber = 1;
-        if ($lastRequest !== null) {
-            $regex = '/^'.preg_quote((string) $prefix, '/').'-'.$year.'-(\d+)$/';
-            if (preg_match($regex, (string) $lastRequest->request_number, $matches)) {
-                $nextNumber = (int) $matches[1] + 1;
-            }
-        }
-
-        return sprintf('%s-%s-%04d', $prefix, $year, $nextNumber);
+        return sprintf('%s-%s-%04d', $prefix, $year, $sequence);
     }
 
     /**

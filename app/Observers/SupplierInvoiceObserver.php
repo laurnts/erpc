@@ -8,6 +8,7 @@ use App\Data\TeamErpSettings;
 use App\Models\SupplierInvoice;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\Erp\Numbering\DocumentNumberAllocator;
 
 final readonly class SupplierInvoiceObserver
 {
@@ -53,27 +54,9 @@ final readonly class SupplierInvoiceObserver
         $prefix = $settings->supplier_invoice_number_prefix;
         $year = date('Y');
 
-        // Get the highest sequence number for this team and year
-        $pattern = $prefix.'-'.$year.'-%';
+        $sequence = app(DocumentNumberAllocator::class)
+            ->next((int) $supplierInvoice->team_id, 'supplier_invoice', $year);
 
-        $allInvoicesForTeam = SupplierInvoice::query()
-            ->withTrashed()
-            ->where('team_id', $supplierInvoice->team_id)
-            ->where('reference_number', 'like', $pattern)
-            ->get();
-
-        $nextNumber = 1;
-        $regex = '/^'.preg_quote((string) $prefix, '/').'-'.$year.'-(\d+)$/';
-
-        foreach ($allInvoicesForTeam as $invoice) {
-            if (preg_match($regex, (string) $invoice->reference_number, $matches)) {
-                $invoiceNumber = (int) $matches[1];
-                if ($invoiceNumber >= $nextNumber) {
-                    $nextNumber = $invoiceNumber + 1;
-                }
-            }
-        }
-
-        return sprintf('%s-%s-%04d', $prefix, $year, $nextNumber);
+        return sprintf('%s-%s-%04d', $prefix, $year, $sequence);
     }
 }

@@ -10,6 +10,7 @@ use App\Models\Shipment;
 use App\Models\Team;
 use App\Models\User;
 use App\Notifications\PortalShipmentStatusChangedNotification;
+use App\Services\Erp\Numbering\DocumentNumberAllocator;
 
 final readonly class ShipmentObserver
 {
@@ -50,25 +51,10 @@ final readonly class ShipmentObserver
         $prefix = $settings->shipment_number_prefix;
 
         $year = date('Y');
-        $pattern = $prefix.'-'.$year.'-%';
+        $sequence = app(DocumentNumberAllocator::class)
+            ->next((int) $shipment->team_id, 'shipment', $year);
 
-        // Get the highest sequence number for this team and year
-        $lastShipment = Shipment::query()
-            ->withTrashed()
-            ->where('team_id', $shipment->team_id)
-            ->where('shipment_number', 'like', $pattern)
-            ->orderByDesc('shipment_number')
-            ->first();
-
-        $nextNumber = 1;
-        if ($lastShipment !== null) {
-            $regex = '/^'.preg_quote((string) $prefix, '/').'-'.$year.'-(\d+)$/';
-            if (preg_match($regex, (string) $lastShipment->shipment_number, $matches)) {
-                $nextNumber = (int) $matches[1] + 1;
-            }
-        }
-
-        return sprintf('%s-%s-%04d', $prefix, $year, $nextNumber);
+        return sprintf('%s-%s-%04d', $prefix, $year, $sequence);
     }
 
     public function updated(Shipment $shipment): void
