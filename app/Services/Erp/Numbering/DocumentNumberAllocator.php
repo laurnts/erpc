@@ -30,7 +30,11 @@ final readonly class DocumentNumberAllocator
     {
         try {
             return $this->attempt($teamId, $key, $period);
-        } catch (SequenceContendedException) {
+        } catch (QueryException $e) {
+            if (! $this->isUniqueViolation($e)) {
+                throw $e;
+            }
+
             return $this->attempt($teamId, $key, $period);
         }
     }
@@ -55,10 +59,25 @@ final readonly class DocumentNumberAllocator
      */
     public function seed(int $teamId, string $key, string $period, int $nextValue): void
     {
-        DB::table(self::TABLE)->updateOrInsert(
-            ['team_id' => $teamId, 'key' => $key, 'period' => $period],
-            ['next_value' => $nextValue, 'updated_at' => now(), 'created_at' => now()],
-        );
+        $updated = DB::table(self::TABLE)
+            ->where('team_id', $teamId)
+            ->where('key', $key)
+            ->where('period', $period)
+            ->update([
+                'next_value' => $nextValue,
+                'updated_at' => now(),
+            ]);
+
+        if ($updated === 0) {
+            DB::table(self::TABLE)->insert([
+                'team_id' => $teamId,
+                'key' => $key,
+                'period' => $period,
+                'next_value' => $nextValue,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
     }
 
     private function attempt(int $teamId, string $key, string $period): int
@@ -92,30 +111,19 @@ final readonly class DocumentNumberAllocator
 
     /**
      * Insert a fresh counter row. Two concurrent first-allocations both find no
-     * row; the unique index rejects the loser, which then retries through next()
-     * and takes the lock path.
+     * row; the unique index rejects the loser with a QueryException, which
+     * propagates to next() and is retried there, taking the lock path.
      */
     private function insertSequence(int $teamId, string $key, string $period, int $nextValue): void
     {
-        try {
-            DB::table(self::TABLE)->insert([
-                'team_id' => $teamId,
-                'key' => $key,
-                'period' => $period,
-                'next_value' => $nextValue,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        } catch (QueryException $e) {
-            if (! $this->isUniqueViolation($e)) {
-                throw $e;
-            }
-
-            throw new SequenceContendedException(
-                sprintf('Sequence %s/%s/%d was created concurrently.', $key, $period, $teamId),
-                previous: $e,
-            );
-        }
+        DB::table(self::TABLE)->insert([
+            'team_id' => $teamId,
+            'key' => $key,
+            'period' => $period,
+            'next_value' => $nextValue,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     /**

@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\Schema;
  * under SELECT ... FOR UPDATE, so concurrent creates serialise on the counter
  * instead of racing a read-max query.
  *
- * @see /Users/laurnts/Sites/pos/ARCHITECTURE.md §20.4
+ * Counter-row numbering: sequences gap on rollback, so a locked counter row is
+ * used instead.
  */
 return new class extends Migration
 {

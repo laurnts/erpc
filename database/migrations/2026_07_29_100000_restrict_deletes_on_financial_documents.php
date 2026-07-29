@@ -12,8 +12,6 @@ use Illuminate\Support\Facades\Schema;
  * produced an order, invoice, payment or P&L. RESTRICT makes that the enforced
  * default instead of a convention. team_id cascades are deliberately untouched:
  * deleting a team is account closure and must remove its data.
- *
- * @see /Users/laurnts/Sites/pos/ARCHITECTURE.md §3 rule 4
  */
 return new class extends Migration
 {
