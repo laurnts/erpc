@@ -3,12 +3,15 @@
 declare(strict_types=1);
 
 use App\Enums\InvoiceStatus;
+use App\Enums\OrderStatus;
 use App\Jobs\Erp\CheckAwaitingSupplierQuotesJob;
 use App\Jobs\Erp\CheckExpiringQuotesJob;
 use App\Jobs\Erp\CheckOverdueInvoicesJob;
 use App\Models\BuyerInvoice;
+use App\Models\BuyerOrder;
 use App\Models\BuyerQuote;
 use App\Models\Company;
+use App\Models\Request;
 use App\Models\SupplierQuote;
 use App\Models\Team;
 use App\Models\User;
@@ -348,14 +351,31 @@ describe('CheckAwaitingSupplierQuotesJob', function (): void {
 });
 
 // Credit Limit Warning Service Tests
+/**
+ * Confirm a real order for the given buyer so its total contributes to
+ * credit_exposure. CreditLimitWarningService reads derived exposure now, so a
+ * seeded credit_used column no longer influences it — only a genuinely
+ * confirmed order (credit_reserved_at set) does.
+ */
+function alertNotificationEstablishExposure(Company $buyer, Team $team, float $amount): void
+{
+    $request = Request::factory()->recycle($team)->recycle($buyer)->create();
+
+    BuyerOrder::factory()
+        ->recycle($team)
+        ->forBuyer($buyer)
+        ->forRequest($request)
+        ->withTotals($amount, 0, $amount)
+        ->create(['status' => OrderStatus::DRAFT])
+        ->confirm();
+}
+
 describe('CreditLimitWarningService', function (): void {
     it('returns exceeds_limit true when order exceeds available credit', function (): void {
         $buyer = Company::factory()->buyer()
             ->for($this->team)
-            ->create([
-                'credit_limit' => 10000,
-                'credit_used' => 8000,
-            ]);
+            ->create(['credit_limit' => 10000]);
+        alertNotificationEstablishExposure($buyer, $this->team, 8000);
 
         $service = new CreditLimitWarningService;
         $result = $service->checkCreditLimit($buyer, 3000);
@@ -370,10 +390,8 @@ describe('CreditLimitWarningService', function (): void {
     it('returns exceeds_limit false when order within available credit', function (): void {
         $buyer = Company::factory()->buyer()
             ->for($this->team)
-            ->create([
-                'credit_limit' => 10000,
-                'credit_used' => 2000,
-            ]);
+            ->create(['credit_limit' => 10000]);
+        alertNotificationEstablishExposure($buyer, $this->team, 2000);
 
         $service = new CreditLimitWarningService;
         $result = $service->checkCreditLimit($buyer, 3000);
@@ -386,10 +404,7 @@ describe('CreditLimitWarningService', function (): void {
     it('returns no limit warning when credit limit is zero', function (): void {
         $buyer = Company::factory()->buyer()
             ->for($this->team)
-            ->create([
-                'credit_limit' => 0,
-                'credit_used' => 0,
-            ]);
+            ->create(['credit_limit' => 0]);
 
         $service = new CreditLimitWarningService;
         $result = $service->checkCreditLimit($buyer, 100000);
@@ -402,10 +417,8 @@ describe('CreditLimitWarningService', function (): void {
     it('warns when order uses significant portion of remaining credit', function (): void {
         $buyer = Company::factory()->buyer()
             ->for($this->team)
-            ->create([
-                'credit_limit' => 10000,
-                'credit_used' => 8000,
-            ]);
+            ->create(['credit_limit' => 10000]);
+        alertNotificationEstablishExposure($buyer, $this->team, 8000);
 
         $service = new CreditLimitWarningService;
         $result = $service->checkCreditLimit($buyer, 1800); // Leaves only 200 (2%)
@@ -418,10 +431,8 @@ describe('CreditLimitWarningService', function (): void {
     it('calculates approaching limit correctly', function (): void {
         $buyer = Company::factory()->buyer()
             ->for($this->team)
-            ->create([
-                'credit_limit' => 10000,
-                'credit_used' => 8500,
-            ]);
+            ->create(['credit_limit' => 10000]);
+        alertNotificationEstablishExposure($buyer, $this->team, 8500);
 
         $service = new CreditLimitWarningService;
         $result = $service->checkApproachingLimit($buyer);
@@ -437,9 +448,9 @@ describe('CreditLimitWarningService', function (): void {
             ->create([
                 'name' => 'Test Buyer',
                 'credit_limit' => 10000,
-                'credit_used' => 9500,
                 'is_on_hold' => false,
             ]);
+        alertNotificationEstablishExposure($buyer, $this->team, 9500);
 
         $service = new CreditLimitWarningService;
         $result = $service->getCreditSummary($buyer);
@@ -454,10 +465,8 @@ describe('CreditLimitWarningService', function (): void {
         $buyer = Company::factory()->buyer()
             ->for($this->team)
             ->onHold('Payment issues')
-            ->create([
-                'credit_limit' => 10000,
-                'credit_used' => 5000,
-            ]);
+            ->create(['credit_limit' => 10000]);
+        alertNotificationEstablishExposure($buyer, $this->team, 5000);
 
         $service = new CreditLimitWarningService;
         $result = $service->getCreditSummary($buyer);

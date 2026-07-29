@@ -57,17 +57,15 @@ it('releases credit up to the amount paid on the invoice', function (): void {
     $order = creditReleaseOrder($this);
     $order->confirm();
 
-    $this->buyer->refresh();
-    expect((float) $this->buyer->available_credit)->toBe(600.00);
+    expect($this->buyer->fresh()->derived_available_credit)->toBe(600.0);
 
     $invoice = creditReleaseInvoice($this, $order, '150.0000');
     $order->reconcileReleasedCreditFor($invoice);
 
-    $this->buyer->refresh();
     $order->refresh();
 
-    expect((float) $this->buyer->available_credit)->toBe(750.00)
-        ->and((float) $this->buyer->credit_used)->toBe(250.00)
+    expect($this->buyer->fresh()->derived_available_credit)->toBe(750.0)
+        ->and($this->buyer->fresh()->credit_exposure)->toBe(250.0)
         ->and((float) $order->credit_released)->toBe(150.00)
         ->and(
             BuyerCreditUsageHistory::query()
@@ -85,11 +83,10 @@ it('caps release at the order total on overpayment', function (): void {
     $invoice = creditReleaseInvoice($this, $order, '500.0000');
     $order->reconcileReleasedCreditFor($invoice);
 
-    $this->buyer->refresh();
     $order->refresh();
 
-    expect((float) $this->buyer->available_credit)->toBe(1000.00)
-        ->and((float) $this->buyer->credit_used)->toBe(0.00)
+    expect($this->buyer->fresh()->derived_available_credit)->toBe(1000.0)
+        ->and($this->buyer->fresh()->credit_exposure)->toBe(0.0)
         ->and((float) $order->credit_released)->toBe(400.00);
 });
 
@@ -102,10 +99,9 @@ it('does not release credit for an order that never reserved it', function (): v
     $invoice = creditReleaseInvoice($this, $order, '400.0000');
     $order->reconcileReleasedCreditFor($invoice);
 
-    $this->buyer->refresh();
     $order->refresh();
 
-    expect((float) $this->buyer->available_credit)->toBe(1000.00)
+    expect($this->buyer->fresh()->derived_available_credit)->toBe(1000.0)
         ->and((float) $order->credit_released)->toBe(0.00);
 });
 
@@ -114,16 +110,14 @@ it('does not reconcile credit once the order is cancelled', function (): void {
     $order->confirm(); // reserves 400 → available 600
     $order->cancel(); // restores remainder → available 1000, credit_released = 400
 
-    $this->buyer->refresh();
-    expect((float) $this->buyer->available_credit)->toBe(1000.00);
+    expect($this->buyer->fresh()->derived_available_credit)->toBe(1000.0);
 
     // A late invoice showing no outstanding balance must NOT re-reserve credit.
     $invoice = creditReleaseInvoice($this, $order, '0.0000');
     $order->reconcileReleasedCreditFor($invoice);
 
-    $this->buyer->refresh();
-    expect((float) $this->buyer->available_credit)->toBe(1000.00)
-        ->and((float) $this->buyer->credit_used)->toBe(0.00);
+    expect($this->buyer->fresh()->derived_available_credit)->toBe(1000.0)
+        ->and($this->buyer->fresh()->credit_exposure)->toBe(0.0);
 });
 
 it('restores only the unreleased remainder when cancelling after a partial payment', function (): void {
@@ -136,10 +130,8 @@ it('restores only the unreleased remainder when cancelling after a partial payme
     $order->refresh();
     $order->cancel();
 
-    $this->buyer->refresh();
-
-    expect((float) $this->buyer->available_credit)->toBe(1000.00)
-        ->and((float) $this->buyer->credit_used)->toBe(0.00)
+    expect($this->buyer->fresh()->derived_available_credit)->toBe(1000.0)
+        ->and($this->buyer->fresh()->credit_exposure)->toBe(0.0)
         ->and($order->refresh()->status)->toBe(OrderStatus::CANCELLED);
 });
 
@@ -153,11 +145,10 @@ it('conserves credit when a confirmed order status is changed directly after a p
     // Direct status change on a CONFIRMED order fires BuyerOrderObserver::updating() → restoreCredit()
     $order->update(['status' => OrderStatus::APPROVED]);
 
-    $this->buyer->refresh();
     $order->refresh();
 
     expect($order->status)->toBe(OrderStatus::APPROVED) // the outer status write must survive the re-entrant saveQuietly
-        ->and((float) $this->buyer->available_credit)->toBe(1000.00) // 750 + remaining 250 restored
-        ->and((float) $this->buyer->credit_used)->toBe(0.00)
+        ->and($this->buyer->fresh()->derived_available_credit)->toBe(1000.0) // 750 + remaining 250 restored
+        ->and($this->buyer->fresh()->credit_exposure)->toBe(0.0)
         ->and((float) $order->credit_released)->toBe(400.00);
 });

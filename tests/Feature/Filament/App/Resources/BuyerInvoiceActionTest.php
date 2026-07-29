@@ -148,8 +148,7 @@ it('records a payment against the invoice and releases credit', function (): voi
     $order->confirm(); // DRAFT -> CONFIRMED, reserves 110 (available 10000 -> 9890)
     $invoice = BuyerInvoice::issueFromOrder($order->refresh());
 
-    $this->buyer->refresh();
-    expect((float) $this->buyer->available_credit)->toBe(9890.00);
+    expect($this->buyer->fresh()->derived_available_credit)->toBe(9890.0);
 
     invoiceActionRelationManager($this)
         ->assertOk()
@@ -161,11 +160,9 @@ it('records a payment against the invoice and releases credit', function (): voi
         ])
         ->assertNotified('Payment recorded');
 
-    $this->buyer->refresh();
-
     expect(BuyerPayment::query()->where('buyer_invoice_id', $invoice->getKey())->count())->toBe(1)
         ->and($invoice->refresh()->status)->toBe(InvoiceStatus::PAID)
-        ->and((float) $this->buyer->available_credit)->toBe(10000.00);
+        ->and($this->buyer->fresh()->derived_available_credit)->toBe(10000.0);
 });
 
 it('hides recordPayment when the order has no invoice', function (): void {

@@ -377,8 +377,18 @@ describe('BuyerOrder Credit Limit Check', function (): void {
     it('detects when order exceeds credit limit', function (): void {
         $buyer = Company::factory()->buyer()->recycle($this->team)->create([
             'credit_limit' => 1000,
-            'credit_used' => 500,
         ]);
+
+        // exceeds_credit_limit now reads derived exposure, so a seeded
+        // credit_used column no longer means anything — confirm a real order
+        // to establish 500 of genuine exposure instead.
+        BuyerOrder::factory()
+            ->recycle($this->team)
+            ->forBuyer($buyer)
+            ->forRequest($this->request)
+            ->withTotals(500, 0, 500)
+            ->create(['status' => OrderStatus::DRAFT])
+            ->confirm();
 
         $order = BuyerOrder::factory()
             ->recycle($this->team)
@@ -450,9 +460,18 @@ describe('BuyerOrder Credit Restoration', function (): void {
         $buyer = Company::factory()->buyer()->recycle($this->team)->create([
             'credit_status' => true,
             'credit_limit' => 10000,
-            'credit_used' => 1000,
-            'available_credit' => 9000,
         ]);
+
+        // credit_exposure is now derived from confirmed orders, so the 1000
+        // baseline "already used" must come from a real confirmed order
+        // instead of a seeded credit_used column.
+        BuyerOrder::factory()
+            ->recycle($this->team)
+            ->forBuyer($buyer)
+            ->forRequest($this->request)
+            ->withTotals(1000, 0, 1000)
+            ->create(['status' => OrderStatus::DRAFT])
+            ->confirm();
 
         $order = BuyerOrder::factory()
             ->recycle($this->team)
@@ -462,25 +481,29 @@ describe('BuyerOrder Credit Restoration', function (): void {
             ->create(['status' => OrderStatus::DRAFT]);
 
         $order->confirm();
-        $buyer->refresh();
-        expect((float) $buyer->credit_used)->toBe(3000.0)
-            ->and((float) $buyer->available_credit)->toBe(7000.0);
+        expect($buyer->fresh()->credit_exposure)->toBe(3000.0)
+            ->and($buyer->fresh()->derived_available_credit)->toBe(7000.0);
 
         $order->cancel();
-        $buyer->refresh();
 
         // Credit restored once (cancel() handles it); the observer must not double-restore.
-        expect((float) $buyer->credit_used)->toBe(1000.0)
-            ->and((float) $buyer->available_credit)->toBe(9000.0);
+        expect($buyer->fresh()->credit_exposure)->toBe(1000.0)
+            ->and($buyer->fresh()->derived_available_credit)->toBe(9000.0);
     });
 
     it('restores credit once on a direct status change away from confirmed', function (): void {
         $buyer = Company::factory()->buyer()->recycle($this->team)->create([
             'credit_status' => true,
             'credit_limit' => 10000,
-            'credit_used' => 1000,
-            'available_credit' => 9000,
         ]);
+
+        BuyerOrder::factory()
+            ->recycle($this->team)
+            ->forBuyer($buyer)
+            ->forRequest($this->request)
+            ->withTotals(1000, 0, 1000)
+            ->create(['status' => OrderStatus::DRAFT])
+            ->confirm();
 
         $order = BuyerOrder::factory()
             ->recycle($this->team)
@@ -493,10 +516,9 @@ describe('BuyerOrder Credit Restoration', function (): void {
 
         // Direct status change (no cancel()/progressStatus()) — the observer restores.
         $order->update(['status' => OrderStatus::SHIPPED]);
-        $buyer->refresh();
 
-        expect((float) $buyer->credit_used)->toBe(1000.0)
-            ->and((float) $buyer->available_credit)->toBe(9000.0);
+        expect($buyer->fresh()->credit_exposure)->toBe(1000.0)
+            ->and($buyer->fresh()->derived_available_credit)->toBe(9000.0);
     });
 });
 

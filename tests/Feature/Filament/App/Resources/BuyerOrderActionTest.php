@@ -190,10 +190,13 @@ describe('resend action', function (): void {
 
 describe('cancel action', function (): void {
     it('cancels a draft order without touching buyer credit', function (): void {
-        $this->buyer->update([
-            'available_credit' => '600.00',
-            'credit_used' => '400.00',
-        ]);
+        Company::withAuthorizedCreditLimitChange(fn (): bool => $this->buyer->update(['credit_limit' => '1000.00']));
+
+        // credit_exposure is derived from confirmed orders now, so establish a
+        // genuine baseline of 400 via a separate confirmed order, then prove
+        // cancelling an unrelated DRAFT order does not touch it.
+        buyerOrderActionRecord($this, ['status' => OrderStatus::DRAFT, 'total' => '400.00'])
+            ->confirm();
 
         $order = buyerOrderActionRecord($this, [
             'status' => OrderStatus::DRAFT,
@@ -206,36 +209,31 @@ describe('cancel action', function (): void {
             ->callAction(TestAction::make('cancel')->table($order))
             ->assertNotified('Order cancelled');
 
-        $this->buyer->refresh();
-
         expect($order->refresh()->status)->toBe(OrderStatus::CANCELLED)
-            ->and((float) $this->buyer->available_credit)->toBe(600.00)
-            ->and((float) $this->buyer->credit_used)->toBe(400.00);
+            ->and($this->buyer->fresh()->credit_exposure)->toBe(400.0)
+            ->and($this->buyer->fresh()->derived_available_credit)->toBe(600.0);
     });
 
     it('cancels a confirmed order and restores buyer credit', function (): void {
-        $this->buyer->update([
-            'credit_status' => true,
-            'available_credit' => '600.00',
-            'credit_used' => '400.00',
-        ]);
+        Company::withAuthorizedCreditLimitChange(fn (): bool => $this->buyer->update(['credit_limit' => '1000.00']));
 
+        // Confirm the order through the model so credit_reserved_at is set —
+        // creating it directly at CONFIRMED status would never have reserved
+        // credit, so cancelling it would have nothing to restore.
         $order = buyerOrderActionRecord($this, [
-            'status' => OrderStatus::CONFIRMED,
-            'confirmed_at' => now(),
+            'status' => OrderStatus::DRAFT,
             'total' => '400.00',
         ]);
+        $order->confirm();
 
         buyerOrdersRelationManager($this)
             ->assertOk()
             ->callAction(TestAction::make('cancel')->table($order))
             ->assertNotified('Order cancelled');
 
-        $this->buyer->refresh();
-
         expect($order->refresh()->status)->toBe(OrderStatus::CANCELLED)
-            ->and((float) $this->buyer->available_credit)->toBe(1000.00)
-            ->and((float) $this->buyer->credit_used)->toBe(0.00)
+            ->and($this->buyer->fresh()->credit_exposure)->toBe(0.0)
+            ->and($this->buyer->fresh()->derived_available_credit)->toBe(1000.0)
             ->and(
                 BuyerCreditUsageHistory::query()
                     ->where('related_type', BuyerOrder::class)

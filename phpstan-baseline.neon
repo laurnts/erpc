@@ -1057,12 +1057,6 @@ parameters:
 			path: app/Mail/Erp/ShipmentToBuyerMail.php
 
 		-
-			message: '#^Property App\\Models\\Company\:\:\$available_credit \(string\) does not accept float\.$#'
-			identifier: assign.propertyType
-			count: 3
-			path: app/Models/BuyerCreditLimitRequest.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>currency_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
@@ -1139,30 +1133,6 @@ parameters:
 			identifier: missingType.generics
 			count: 1
 			path: app/Models/BuyerInvoiceItem.php
-
-		-
-			message: '#^Property App\\Models\\Company\:\:\$available_credit \(string\) does not accept float\.$#'
-			identifier: assign.propertyType
-			count: 2
-			path: app/Models/BuyerOrder.php
-
-		-
-			message: '#^Property App\\Models\\Company\:\:\$available_credit \(string\) does not accept float\|int\.$#'
-			identifier: assign.propertyType
-			count: 2
-			path: app/Models/BuyerOrder.php
-
-		-
-			message: '#^Property App\\Models\\Company\:\:\$credit_used \(string\) does not accept float\.$#'
-			identifier: assign.propertyType
-			count: 2
-			path: app/Models/BuyerOrder.php
-
-		-
-			message: '#^Property App\\Models\\Company\:\:\$credit_used \(string\) does not accept float\|int\.$#'
-			identifier: assign.propertyType
-			count: 2
-			path: app/Models/BuyerOrder.php
 
 		-
 			message: '#^Access to an undefined property App\\Models\\Article\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Article\>\:\:\$code\.$#'

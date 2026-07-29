@@ -182,51 +182,43 @@ final class BuyerCreditLimitRequest extends Model
         }
 
         DB::transaction(function () use ($user, $notes): void {
-            // Lock the request to prevent race conditions
-            $this->lockForUpdate();
+            // Lock the request row so two concurrent second-approvals cannot both
+            // observe approvalCount() >= 2 and both process the credit limit
+            // change (which would double the BuyerCreditUsageHistory audit row).
+            $locked = self::query()->whereKey($this->getKey())->lockForUpdate()->firstOrFail();
 
             // Create approval record
             BuyerCreditLimitRequestApproval::create([
-                'team_id' => $this->team_id,
-                'buyer_credit_limit_request_id' => $this->id,
+                'team_id' => $locked->team_id,
+                'buyer_credit_limit_request_id' => $locked->id,
                 'user_id' => $user->id,
                 'approved_at' => now(),
                 'notes' => $notes,
             ]);
 
-            // Reload to get fresh approval count
-            $this->refresh();
-
-            // Check if we now have 2 approvals
-            if ($this->approvalCount() >= 2) {
+            // Check if we now have 2 approvals. approvalCount() re-queries the
+            // approvals relation, so this reflects the row just created above.
+            if ($locked->approvalCount() >= 2) {
                 // Update buyer's credit limit
-                $buyer = $this->buyer;
+                $buyer = $locked->buyer;
 
-                // Calculate change amount and update available credit
+                // Calculate change amount. The buyer's available credit is derived
+                // from credit_limit minus outstanding exposure, so it does not need
+                // (and must not receive) a separate stored write here.
                 $currentLimit = (float) $buyer->credit_limit;
-                $requestedLimit = (float) $this->requested_limit;
+                $requestedLimit = (float) $locked->requested_limit;
                 $changeAmount = $requestedLimit - $currentLimit;
-                $currentAvailableCredit = (float) $buyer->available_credit;
+                $currentAvailableCredit = $buyer->derived_available_credit;
 
                 // Update credit_limit to requested_limit
-                $buyer->credit_limit = $this->requested_limit;
-
-                // Update available_credit based on increase or decrease
-                if ($changeAmount > 0) {
-                    // Increase: add the change amount to current available credit
-                    $buyer->available_credit = $currentAvailableCredit + $changeAmount;
-                } else {
-                    // Decrease: subtract the absolute change amount (can be negative, representing debt)
-                    $buyer->available_credit = $currentAvailableCredit - abs($changeAmount);
-                }
-
-                // Ensure available_credit doesn't exceed credit_limit (safety check)
-                $buyer->available_credit = min((float) $buyer->available_credit, $requestedLimit);
-
+                $buyer->credit_limit = $locked->requested_limit;
                 $buyer->requested_credit_limit = null;
                 Company::withAuthorizedCreditLimitChange(function () use ($buyer): void {
                     $buyer->save();
                 });
+
+                // derived_available_credit now reflects the new credit_limit.
+                $newAvailableCredit = $buyer->derived_available_credit;
 
                 // Create credit usage history record for approved limit change
                 $isIncrease = $requestedLimit >= $currentLimit;
@@ -240,11 +232,11 @@ final class BuyerCreditLimitRequest extends Model
                     'max_credit_limit_before' => $currentLimit,
                     'max_credit_limit_after' => $requestedLimit,
                     'available_credit_before' => $currentAvailableCredit,
-                    'available_credit_after' => $buyer->available_credit,
+                    'available_credit_after' => $newAvailableCredit,
                     'credit_used_before' => 0,
                     'credit_used_after' => 0,
                     'related_type' => self::class,
-                    'related_id' => $this->id,
+                    'related_id' => $locked->id,
                     'description' => $isIncrease
                         ? 'Credit limit increased from '.number_format($currentLimit, 2).' to '.number_format($requestedLimit, 2)
                         : 'Credit limit decreased from '.number_format($currentLimit, 2).' to '.number_format($requestedLimit, 2),
@@ -252,8 +244,8 @@ final class BuyerCreditLimitRequest extends Model
                 ]);
 
                 // Update request status
-                $this->status = CreditLimitRequestStatus::APPROVED;
-                $this->save();
+                $locked->status = CreditLimitRequestStatus::APPROVED;
+                $locked->save();
             }
         });
     }

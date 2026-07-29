@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 use App\Enums\CentralPurchasingRole;
 use App\Enums\CreditLimitRequestStatus;
+use App\Enums\OrderStatus;
 use App\Mail\Erp\CreditLimitIncreaseRequestMail;
 use App\Models\BuyerCreditLimitRequest;
+use App\Models\BuyerOrder;
 use App\Models\Company;
 use App\Models\Membership;
+use App\Models\Request;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\TeamMemberService;
@@ -148,7 +151,7 @@ describe('Approval Workflow', function (): void {
         $this->buyer->refresh();
         expect($this->request->fresh()->status)->toBe(CreditLimitRequestStatus::APPROVED)
             ->and($this->buyer->credit_limit)->toBe('2000.00')
-            ->and($this->buyer->available_credit)->toBe('2000.00')
+            ->and($this->buyer->derived_available_credit)->toBe(2000.0)
             ->and($this->buyer->requested_credit_limit)->toBeNull();
     });
 
@@ -227,10 +230,18 @@ describe('Rejection Workflow', function (): void {
 
 describe('Available Credit Calculation', function (): void {
     it('increases available credit by increase amount on approval', function (): void {
-        $this->buyer->update([
-            'credit_limit' => '1000.00',
-            'available_credit' => '500.00', // Some credit already used
-        ]);
+        $this->buyer->update(['credit_limit' => '1000.00']);
+
+        // derived_available_credit now comes from real exposure, not a seeded
+        // column — confirm a genuine order to establish 500 already used.
+        $request = Request::factory()->recycle($this->team)->recycle($this->buyer)->create();
+        BuyerOrder::factory()
+            ->recycle($this->team)
+            ->forBuyer($this->buyer)
+            ->forRequest($request)
+            ->withTotals(500, 0, 500)
+            ->create(['status' => OrderStatus::DRAFT])
+            ->confirm();
 
         $financeApprover1 = User::factory()->create();
         $financeApprover2 = User::factory()->create();
@@ -263,7 +274,7 @@ describe('Available Credit Calculation', function (): void {
         $request->approve($financeApprover2);
 
         $this->buyer->refresh();
-        // available_credit should be 500 (existing) + 1000 (increase) = 1500
-        expect($this->buyer->available_credit)->toBe('1500.00');
+        // derived_available_credit should be 2000 (new limit) - 500 (exposure) = 1500
+        expect($this->buyer->derived_available_credit)->toBe(1500.0);
     });
 });

@@ -34,7 +34,7 @@ final readonly class CreditLimitWarningService
     public function checkCreditLimit(Company $buyer, float $newOrderAmount): array
     {
         $creditLimit = (float) $buyer->credit_limit;
-        $creditUsed = (float) $buyer->credit_used;
+        $creditUsed = $buyer->credit_exposure;
         $availableCredit = $creditLimit - $creditUsed;
 
         // If no credit limit is set (0 or negative), there's no limit to enforce
@@ -108,7 +108,7 @@ final readonly class CreditLimitWarningService
     public function checkApproachingLimit(Company $buyer, float $thresholdPercent = 80.0): array
     {
         $creditLimit = (float) $buyer->credit_limit;
-        $creditUsed = (float) $buyer->credit_used;
+        $creditUsed = $buyer->credit_exposure;
         $availableCredit = $creditLimit - $creditUsed;
 
         if ($creditLimit <= 0) {
@@ -232,7 +232,7 @@ final readonly class CreditLimitWarningService
     public function getCreditSummary(Company $buyer): array
     {
         $creditLimit = (float) $buyer->credit_limit;
-        $creditUsed = (float) $buyer->credit_used;
+        $creditUsed = $buyer->credit_exposure;
         $availableCredit = $creditLimit - $creditUsed;
         $usagePercent = $creditLimit > 0 ? ($creditUsed / $creditLimit) * 100 : 0;
 

@@ -93,7 +93,7 @@ describe('Approve action happy path', function (): void {
         expect($record->fresh()->status)->toBe(CreditLimitRequestStatus::APPROVED)
             ->and($record->fresh()->approvalCount())->toBe(2)
             ->and($this->buyer->credit_limit)->toBe('2000.00')
-            ->and($this->buyer->available_credit)->toBe('2000.00')
+            ->and($this->buyer->derived_available_credit)->toBe(2000.0)
             ->and($this->buyer->requested_credit_limit)->toBeNull();
     });
 });

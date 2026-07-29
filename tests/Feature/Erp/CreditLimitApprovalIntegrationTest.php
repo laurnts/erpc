@@ -88,7 +88,7 @@ test('full workflow: request creation → email → approve (2x) → credit limi
     $this->buyer->refresh();
     expect($request->fresh()->status)->toBe(CreditLimitRequestStatus::APPROVED)
         ->and($this->buyer->credit_limit)->toBe('2000.00')
-        ->and($this->buyer->available_credit)->toBe('2000.00')
+        ->and($this->buyer->derived_available_credit)->toBe(2000.0)
         ->and($this->buyer->requested_credit_limit)->toBeNull();
 });
 

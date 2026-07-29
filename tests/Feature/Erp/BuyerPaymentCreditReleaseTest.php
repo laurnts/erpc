@@ -55,10 +55,8 @@ it('releases credit when a payment is recorded against the invoice', function ()
             'payment_method' => PaymentMethod::BANK_TRANSFER,
         ]);
 
-    $this->buyer->refresh();
-
-    expect((float) $this->buyer->available_credit)->toBe(1000.00)
-        ->and((float) $this->buyer->credit_used)->toBe(0.00)
+    expect($this->buyer->fresh()->derived_available_credit)->toBe(1000.0)
+        ->and($this->buyer->fresh()->credit_exposure)->toBe(0.0)
         ->and((float) $this->order->refresh()->credit_released)->toBe(400.00);
 });
 
@@ -71,9 +69,7 @@ it('releases proportional credit on a partial payment', function (): void {
             'payment_method' => PaymentMethod::BANK_TRANSFER,
         ]);
 
-    $this->buyer->refresh();
-
-    expect((float) $this->buyer->available_credit)->toBe(700.00)
+    expect($this->buyer->fresh()->derived_available_credit)->toBe(700.0)
         ->and((float) $this->order->refresh()->credit_released)->toBe(100.00);
 });
 
@@ -88,8 +84,6 @@ it('re-reserves credit when a payment is deleted', function (): void {
 
     $payment->delete();
 
-    $this->buyer->refresh();
-
-    expect((float) $this->buyer->available_credit)->toBe(600.00)
+    expect($this->buyer->fresh()->derived_available_credit)->toBe(600.0)
         ->and((float) $this->order->refresh()->credit_released)->toBe(0.00);
 });

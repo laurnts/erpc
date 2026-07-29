@@ -222,10 +222,9 @@ final class BuyerOrder extends Model implements HasCustomFields
                 }
 
                 $creditLimit = (float) $buyer->credit_limit;
-                $availableCredit = $creditLimit - (float) $buyer->credit_used;
                 $orderTotal = (float) $this->total;
 
-                return $creditLimit > 0 && $orderTotal > $availableCredit;
+                return $creditLimit > 0 && $orderTotal > $buyer->derived_available_credit;
             },
         );
     }
@@ -264,7 +263,7 @@ final class BuyerOrder extends Model implements HasCustomFields
             return;
         }
 
-        $availableCredit = (float) $buyer->available_credit;
+        $availableCredit = $buyer->derived_available_credit;
 
         // Check if sufficient credit available
         if ($availableCredit < $orderTotal) {
@@ -277,17 +276,19 @@ final class BuyerOrder extends Model implements HasCustomFields
             );
         }
 
-        // Use transaction to ensure atomicity
+        // The buyer row is no longer mutated, so there is no counter to protect
+        // and no lock to take. The order row is locked because credit_reserved_at
+        // is what makes this order count toward exposure — two concurrent
+        // confirmations of the same order must not both stamp it.
         \Illuminate\Support\Facades\DB::transaction(function () use ($orderTotal, $buyer): void {
-            // Lock the buyer record to prevent concurrent updates
-            $buyer->lockForUpdate();
+            $locked = self::query()->whereKey($this->getKey())->lockForUpdate()->firstOrFail();
 
-            // Refresh buyer to get latest available_credit
-            $buyer->refresh();
-            $currentAvailableCredit = (float) $buyer->available_credit;
-            $currentCreditUsed = (float) $buyer->credit_used;
+            if ($locked->credit_reserved_at !== null) {
+                return;
+            }
 
-            // Double-check credit availability after lock
+            $currentAvailableCredit = $buyer->derived_available_credit;
+
             if ($currentAvailableCredit < $orderTotal) {
                 throw new \InvalidArgumentException(
                     sprintf(
@@ -298,20 +299,11 @@ final class BuyerOrder extends Model implements HasCustomFields
                 );
             }
 
-            // Update order status. credit_reserved_at is what makes this order
-            // count toward the buyer's exposure; only the credit path sets it.
             $this->status = OrderStatus::CONFIRMED;
             $this->confirmed_at = now();
             $this->credit_reserved_at = CarbonImmutable::now();
             $this->save();
 
-            // Reduce available credit and increase credit used
-            // Note: Credit check above ensures this won't go negative
-            $buyer->available_credit = max(0, $currentAvailableCredit - $orderTotal);
-            $buyer->credit_used = $currentCreditUsed + $orderTotal;
-            $buyer->save();
-
-            // Create credit usage history record
             BuyerCreditUsageHistory::create([
                 'team_id' => $buyer->team_id,
                 'buyer_id' => $buyer->id,
@@ -320,9 +312,9 @@ final class BuyerOrder extends Model implements HasCustomFields
                 'max_credit_limit_before' => 0,
                 'max_credit_limit_after' => 0,
                 'available_credit_before' => $currentAvailableCredit,
-                'available_credit_after' => $buyer->available_credit,
-                'credit_used_before' => $currentCreditUsed,
-                'credit_used_after' => $buyer->credit_used,
+                'available_credit_after' => max(0.0, $currentAvailableCredit - $orderTotal),
+                'credit_used_before' => $buyer->credit_exposure,
+                'credit_used_after' => $buyer->credit_exposure + $orderTotal,
                 'related_type' => self::class,
                 'related_id' => $this->id,
                 'description' => "Order {$this->order_number} confirmed",
@@ -413,29 +405,16 @@ final class BuyerOrder extends Model implements HasCustomFields
 
         $orderTotal = max(0, (float) $this->total - (float) $this->credit_released);
 
-        // Use transaction to ensure atomicity
         \Illuminate\Support\Facades\DB::transaction(function () use ($orderTotal, $buyer): void {
-            // Lock the buyer record
-            $buyer->lockForUpdate();
-            $buyer->refresh();
+            $availableBefore = $buyer->derived_available_credit;
+            $usedBefore = $buyer->credit_exposure;
 
-            // Restore available credit and reduce credit used
-            $currentAvailableCredit = (float) $buyer->available_credit;
-            $currentCreditUsed = (float) $buyer->credit_used;
-
-            $buyer->available_credit = $currentAvailableCredit + $orderTotal;
-            $buyer->credit_used = max(0, $currentCreditUsed - $orderTotal);
-            $buyer->save();
-
-            // When restoreCredit() runs from BuyerOrderObserver::updating() (a direct
-            // status change on a CONFIRMED order), this saveQuietly() is a re-entrant
-            // write of the same instance mid-update; events are suppressed so it cannot
-            // recurse, and it commits within the buyer transaction. cancel()/
-            // progressStatus() instead call restoreCredit() after their own save().
+            // Releasing the full total removes this order from the exposure sum.
+            // See the note above: this may be a re-entrant quiet write from
+            // BuyerOrderObserver::updating().
             $this->credit_released = $this->total;
             $this->saveQuietly();
 
-            // Create credit usage history record only if credit_status is enabled
             if ($buyer->credit_status) {
                 BuyerCreditUsageHistory::create([
                     'team_id' => $buyer->team_id,
@@ -444,10 +423,10 @@ final class BuyerOrder extends Model implements HasCustomFields
                     'amount' => $orderTotal,
                     'max_credit_limit_before' => 0,
                     'max_credit_limit_after' => 0,
-                    'available_credit_before' => $currentAvailableCredit,
-                    'available_credit_after' => $buyer->available_credit,
-                    'credit_used_before' => $currentCreditUsed,
-                    'credit_used_after' => $buyer->credit_used,
+                    'available_credit_before' => $availableBefore,
+                    'available_credit_after' => $availableBefore + $orderTotal,
+                    'credit_used_before' => $usedBefore,
+                    'credit_used_after' => max(0.0, $usedBefore - $orderTotal),
                     'related_type' => self::class,
                     'related_id' => $this->id,
                     'description' => "Order {$this->order_number} cancelled - credit restored",
@@ -499,31 +478,24 @@ final class BuyerOrder extends Model implements HasCustomFields
         }
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($buyer, $delta, $target): void {
-            $buyer->lockForUpdate();
-            $buyer->refresh();
+            $locked = self::query()->whereKey($this->getKey())->lockForUpdate()->firstOrFail();
 
-            $availableBefore = (float) $buyer->available_credit;
-            $usedBefore = (float) $buyer->credit_used;
-
-            if ($delta > 0) {
-                // Release credit back to the buyer.
-                $buyer->available_credit = $availableBefore + $delta;
-                $buyer->credit_used = max(0, $usedBefore - $delta);
-                $transactionType = 'credit';
-                $description = "Order {$this->order_number} payment received - credit released";
-            } else {
-                // Payment reversed: re-reserve credit.
-                $reReserve = abs($delta);
-                $buyer->available_credit = max(0, $availableBefore - $reReserve);
-                $buyer->credit_used = $usedBefore + $reReserve;
-                $transactionType = 'debit';
-                $description = "Order {$this->order_number} payment reversed - credit re-reserved";
+            // Recompute against the locked row: a concurrent payment may have
+            // already moved credit_released past our target.
+            if (round((float) $locked->credit_released, 2) === round($target, 2)) {
+                return;
             }
 
-            $buyer->save();
+            $availableBefore = $buyer->derived_available_credit;
+            $usedBefore = $buyer->credit_exposure;
 
             $this->credit_released = (string) $target;
             $this->saveQuietly();
+
+            $transactionType = $delta > 0 ? 'credit' : 'debit';
+            $description = $delta > 0
+                ? "Order {$this->order_number} payment received - credit released"
+                : "Order {$this->order_number} payment reversed - credit re-reserved";
 
             BuyerCreditUsageHistory::create([
                 'team_id' => $buyer->team_id,
@@ -533,9 +505,9 @@ final class BuyerOrder extends Model implements HasCustomFields
                 'max_credit_limit_before' => 0,
                 'max_credit_limit_after' => 0,
                 'available_credit_before' => $availableBefore,
-                'available_credit_after' => $buyer->available_credit,
+                'available_credit_after' => $availableBefore + $delta,
                 'credit_used_before' => $usedBefore,
-                'credit_used_after' => $buyer->credit_used,
+                'credit_used_after' => max(0.0, $usedBefore - $delta),
                 'related_type' => self::class,
                 'related_id' => $this->id,
                 'description' => $description,
