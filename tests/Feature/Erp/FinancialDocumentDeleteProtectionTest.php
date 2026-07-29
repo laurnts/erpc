@@ -9,6 +9,7 @@ use App\Models\Request;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function (): void {
     $this->team = Team::factory()->create();
@@ -28,9 +29,15 @@ it('refuses to hard-delete a request that has a buyer invoice', function (): voi
         ->for($this->request)
         ->create();
 
-    expect(fn (): mixed => Request::withTrashed()
+    // PostgreSQL aborts the enclosing transaction after a RESTRICT violation,
+    // so the follow-up exists() query would fail with "current transaction is
+    // aborted" unless the delete runs in its own savepoint. DB::transaction()
+    // nests as a savepoint under RefreshDatabase's outer test transaction, and
+    // rolls back only that savepoint when the callback throws, leaving the
+    // outer transaction (and this test's later assertions) intact.
+    expect(fn (): mixed => DB::transaction(fn (): mixed => Request::withTrashed()
         ->whereKey($this->request->getKey())
-        ->forceDelete())
+        ->forceDelete()))
         ->toThrow(QueryException::class);
 
     expect(Request::withTrashed()->whereKey($this->request->getKey())->exists())->toBeTrue();
