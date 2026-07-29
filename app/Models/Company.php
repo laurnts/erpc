@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\CreationSource;
 use App\Enums\DeliveryType;
+use App\Enums\OrderStatus;
 use App\Enums\PortalType;
 use App\Models\Concerns\HasAiSummary;
 use App\Models\Concerns\HasCreator;
@@ -17,6 +18,7 @@ use App\Services\AvatarService;
 use Database\Factories\CompanyFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -24,6 +26,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Relaticle\CustomFields\Models\Concerns\UsesCustomFields;
 use Relaticle\CustomFields\Models\Contracts\HasCustomFields;
 use Spatie\MediaLibrary\HasMedia;
@@ -291,6 +294,77 @@ final class Company extends Model implements HasCustomFields, HasMedia
     public function creditUsageHistory(): HasMany
     {
         return $this->hasMany(BuyerCreditUsageHistory::class, 'buyer_id');
+    }
+
+    /**
+     * Buyer orders placed by this company.
+     *
+     * @return HasMany<BuyerOrder, $this>
+     */
+    public function buyerOrders(): HasMany
+    {
+        return $this->hasMany(BuyerOrder::class, 'buyer_id');
+    }
+
+    /**
+     * Outstanding buyer credit exposure.
+     *
+     * Derived, never stored: a confirmed order that reserved credit contributes
+     * whatever it has not yet released, and credit_released is maintained as
+     * min(invoice.amount_paid, total). The previous credit_used column was a
+     * hand-mutated running counter and could drift from this value without any
+     * signal.
+     *
+     * Prefers a credit_exposure select alias when scopeWithCreditExposure() was
+     * applied, so listing pages issue one query rather than one per row.
+     *
+     * @return Attribute<float, never>
+     */
+    protected function creditExposure(): Attribute
+    {
+        return Attribute::make(
+            get: function (mixed $value): float {
+                if ($value !== null) {
+                    return (float) $value;
+                }
+
+                return (float) $this->buyerOrders()
+                    ->where('status', OrderStatus::CONFIRMED)
+                    ->whereNotNull('credit_reserved_at')
+                    ->sum(DB::raw('total - credit_released'));
+            },
+        );
+    }
+
+    /**
+     * Credit still available to this buyer: limit minus outstanding exposure.
+     *
+     * @return Attribute<float, never>
+     */
+    protected function derivedAvailableCredit(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): float => max(0.0, (float) $this->credit_limit - $this->credit_exposure),
+        );
+    }
+
+    /**
+     * Adds a credit_exposure select alias so tables can sort and filter on
+     * exposure in SQL instead of in PHP.
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    #[\Illuminate\Database\Eloquent\Attributes\Scope]
+    protected function withCreditExposure(Builder $query): Builder
+    {
+        return $query->addSelect([
+            'credit_exposure' => BuyerOrder::query()
+                ->selectRaw('COALESCE(SUM(total - credit_released), 0)')
+                ->whereColumn('buyer_id', 'companies.id')
+                ->where('status', OrderStatus::CONFIRMED)
+                ->whereNotNull('credit_reserved_at'),
+        ]);
     }
 
     /**
