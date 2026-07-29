@@ -11,6 +11,7 @@ use App\Models\QuotationEvaluation;
 use App\Models\SupplierQuote;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\Erp\Numbering\DocumentNumberAllocator;
 
 final readonly class SupplierQuoteObserver
 {
@@ -183,24 +184,10 @@ final readonly class SupplierQuoteObserver
     {
         $prefix = 'SQ';
         $year = date('Y');
-        $pattern = $prefix.'-'.$year.'-%';
 
-        // Get the highest sequence number for this team and year
-        $lastQuote = SupplierQuote::query()
-            ->withTrashed()
-            ->where('team_id', $supplierQuote->team_id)
-            ->where('quote_number', 'like', $pattern)
-            ->orderByDesc('quote_number')
-            ->first();
+        $sequence = app(DocumentNumberAllocator::class)
+            ->next((int) $supplierQuote->team_id, 'supplier_quote', $year);
 
-        $nextNumber = 1;
-        if ($lastQuote !== null) {
-            $regex = '/^'.preg_quote($prefix, '/').'-'.$year.'-(\d+)$/';
-            if (preg_match($regex, (string) $lastQuote->quote_number, $matches)) {
-                $nextNumber = (int) $matches[1] + 1;
-            }
-        }
-
-        return sprintf('%s-%s-%04d', $prefix, $year, $nextNumber);
+        return sprintf('%s-%s-%04d', $prefix, $year, $sequence);
     }
 }

@@ -40,6 +40,7 @@ final class BackfillDocumentNumberSequencesCommand extends Command
         'buyer_invoice' => ['buyer_invoices', 'invoice_number', '/^.+-(\d{4})-(\d+)$/'],
         'buyer_payment' => ['buyer_payments', 'payment_number', '/^.+-(\d{4})-(\d+)$/'],
         'supplier_order' => ['supplier_orders', 'po_number', '/^.+-(\d{4})-(\d+)(?:-[A-Z])?$/'],
+        'supplier_quote' => ['supplier_quotes', 'quote_number', '/^.+-(\d{4})-(\d+)$/'],
         'supplier_invoice' => ['supplier_invoices', 'reference_number', '/^.+-(\d{4})-(\d+)$/'],
         'supplier_payment' => ['supplier_payments', 'payment_number', '/^.+-(\d{4})-(\d+)$/'],
         'shipment' => ['shipments', 'shipment_number', '/^.+-(\d{4})-(\d+)$/'],
