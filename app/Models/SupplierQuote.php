@@ -15,6 +15,7 @@ use App\Observers\SupplierQuoteObserver;
 use App\Services\Erp\Financial\TotalsCollector;
 use App\Services\Erp\Financial\TotalsLine;
 use App\Support\DocumentUpload;
+use App\Support\Money;
 use Database\Factories\SupplierQuoteFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
@@ -333,28 +334,31 @@ final class SupplierQuote extends Model implements HasMedia
                 || $item->requestItem->parent_id === null
         );
 
+        $currency = $this->currency->code ?? 'IDR';
+
         // Transaction-currency totals via the shared collector. Supplier documents
         // carry no cost-vs-sell margin, so costPrice is 0 and the margin outputs are
         // ignored; FX conversion to base currency is applied below.
         $totals = (new TotalsCollector)->collect(
             $itemsForTotal->map(fn (SupplierQuoteItem $item): TotalsLine => new TotalsLine(
-                lineSubtotal: (float) $item->line_subtotal,
-                lineTax: (float) $item->line_tax,
-                lineTotal: (float) $item->line_total,
-                costPrice: 0.0,
-                quantity: (float) $item->quantity,
+                lineSubtotal: Money::fromDecimal((string) $item->line_subtotal, $currency),
+                lineTax: Money::fromDecimal((string) $item->line_tax, $currency),
+                lineTotal: Money::fromDecimal((string) $item->line_total, $currency),
+                costPrice: Money::zero($currency),
+                quantity: (string) $item->quantity,
             ))->values(),
+            $currency,
         );
 
-        $subtotal = $totals->subtotal;
-        $taxTotal = $totals->taxTotal;
-        $total = $totals->grandTotal;
+        $subtotal = $totals->subtotal->toFloat();
+        $taxTotal = $totals->taxTotal->toFloat();
+        $total = $totals->grandTotal->toFloat();
 
         $exchangeRate = (float) $this->exchange_rate;
 
-        $this->subtotal = (string) round($subtotal, 4);
-        $this->tax_total = (string) round($taxTotal, 4);
-        $this->total = (string) round($total, 4);
+        $this->subtotal = $totals->subtotal->toDecimal();
+        $this->tax_total = $totals->taxTotal->toDecimal();
+        $this->total = $totals->grandTotal->toDecimal();
 
         // Calculate base currency values
         $this->subtotal_base = (string) round($subtotal * $exchangeRate, 4);

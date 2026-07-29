@@ -221,11 +221,11 @@ final class ProfitAndLoss extends Model implements HasMedia
         $totals = BuyerQuoteItem::collectTotals($items);
 
         $this->financial_snapshot = new FinancialSnapshot(
-            subtotal: $totals->subtotal,
-            taxTotal: $totals->taxTotal,
-            grandTotal: $totals->grandTotal,
-            costTotal: $totals->costTotal,
-            marginAmount: $totals->marginAmount,
+            subtotal: $totals->subtotal->toFloat(),
+            taxTotal: $totals->taxTotal->toFloat(),
+            grandTotal: $totals->grandTotal->toFloat(),
+            costTotal: $totals->costTotal->toFloat(),
+            marginAmount: $totals->marginAmount->toFloat(),
             marginPercent: $totals->marginPercent,
             currency: $quote->currency->code ?? '',
             snapshotAt: CarbonImmutable::now(),
@@ -298,10 +298,10 @@ final class ProfitAndLoss extends Model implements HasMedia
                 return [
                     'supplierName' => $supplierQuote?->supplier->name ?? 'No Supplier',
                     'supplierCurrency' => $supplierQuote?->currency?->code,
-                    'costTotal' => $totals->costTotal,
-                    'netSell' => $totals->subtotal,
-                    'marginAmount' => $totals->marginAmount,
-                    'grossTotal' => $totals->grandTotal,
+                    'costTotal' => $totals->costTotal->toFloat(),
+                    'netSell' => $totals->subtotal->toFloat(),
+                    'marginAmount' => $totals->marginAmount->toFloat(),
+                    'grossTotal' => $totals->grandTotal->toFloat(),
                     'hasChildLines' => $supplierItems->contains(fn (BuyerQuoteItem $item): bool => $item->isChildItem()),
                     'lines' => $lines,
                 ];

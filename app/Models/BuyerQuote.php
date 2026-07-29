@@ -14,6 +14,7 @@ use App\Services\Erp\Financial\TotalsCollector;
 use App\Services\Erp\Financial\TotalsLine;
 use App\Services\Erp\Numbering\DocumentNumberAllocator;
 use App\Support\DocumentUpload;
+use App\Support\Money;
 use Database\Factories\BuyerQuoteFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
@@ -600,19 +601,22 @@ final class BuyerQuote extends Model implements HasCustomFields, HasMedia
 
         $itemsForTotal = BuyerQuoteItem::filterForTotals($this->items);
 
+        $currency = $this->currency->code ?? 'IDR';
+
         $totals = (new TotalsCollector)->collect(
             $itemsForTotal->map(fn (BuyerQuoteItem $item): TotalsLine => new TotalsLine(
-                lineSubtotal: (float) $item->line_subtotal,
-                lineTax: (float) $item->line_tax,
-                lineTotal: (float) $item->line_total,
-                costPrice: (float) $item->cost_price,
-                quantity: (float) $item->quantity,
+                lineSubtotal: Money::fromDecimal((string) $item->line_subtotal, $currency),
+                lineTax: Money::fromDecimal((string) $item->line_tax, $currency),
+                lineTotal: Money::fromDecimal((string) $item->line_total, $currency),
+                costPrice: Money::fromDecimal((string) $item->cost_price, $currency),
+                quantity: (string) $item->quantity,
             ))->values(),
+            $currency,
         );
 
-        $this->subtotal = (string) $totals->subtotal;
-        $this->tax_total = (string) $totals->taxTotal;
-        $this->total = (string) $totals->grandTotal;
+        $this->subtotal = $totals->subtotal->toDecimal();
+        $this->tax_total = $totals->taxTotal->toDecimal();
+        $this->total = $totals->grandTotal->toDecimal();
         $this->saveQuietly();
     }
 

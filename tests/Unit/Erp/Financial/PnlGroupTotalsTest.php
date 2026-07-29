@@ -16,10 +16,10 @@ it('uses net sell (line_subtotal) as the P&L margin base, never gross', function
 
     $totals = BuyerQuoteItem::collectTotals(new Collection([$item]));
 
-    expect($totals->subtotal)->toBe(10000.0)     // net revenue, not gross 11,100
-        ->and($totals->costTotal)->toBe(8000.0)
-        ->and($totals->marginAmount)->toBe(2000.0) // 10,000 - 8,000, NOT 11,100 - 8,000
-        ->and($totals->grandTotal)->toBe(11100.0); // gross still available for display
+    expect($totals->subtotal->toDecimal())->toBe('10000.0000')     // net revenue, not gross 11,100
+        ->and($totals->costTotal->toDecimal())->toBe('8000.0000')
+        ->and($totals->marginAmount->toDecimal())->toBe('2000.0000') // 10,000 - 8,000, NOT 11,100 - 8,000
+        ->and($totals->grandTotal->toDecimal())->toBe('11100.0000'); // gross still available for display
 });
 
 it('excludes service child items from P&L group totals', function (): void {
@@ -33,6 +33,6 @@ it('excludes service child items from P&L group totals', function (): void {
 
     $totals = BuyerQuoteItem::collectTotals(new Collection([$main]));
 
-    expect($totals->subtotal)->toBe(5000.0)
-        ->and($totals->marginAmount)->toBe(2000.0);
+    expect($totals->subtotal->toDecimal())->toBe('5000.0000')
+        ->and($totals->marginAmount->toDecimal())->toBe('2000.0000');
 });

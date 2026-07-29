@@ -504,14 +504,17 @@ final class BuyerQuoteItem extends Model
     {
         $filtered = self::filterForTotals($items);
 
+        $currency = $filtered->first()?->buyerQuote?->currency->code ?? 'IDR';
+
         return (new TotalsCollector)->collect(
             $filtered->map(fn (self $item): TotalsLine => new TotalsLine(
-                lineSubtotal: (float) $item->line_subtotal,
-                lineTax: (float) $item->line_tax,
-                lineTotal: (float) $item->line_total,
-                costPrice: (float) $item->cost_price,
-                quantity: (float) $item->quantity,
+                lineSubtotal: Money::fromDecimal((string) $item->line_subtotal, $currency),
+                lineTax: Money::fromDecimal((string) $item->line_tax, $currency),
+                lineTotal: Money::fromDecimal((string) $item->line_total, $currency),
+                costPrice: Money::fromDecimal((string) $item->cost_price, $currency),
+                quantity: (string) $item->quantity,
             ))->values(),
+            $currency,
         );
     }
 

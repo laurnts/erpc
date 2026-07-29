@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Erp\Financial;
 
+use App\Support\Money;
+
 /**
  * Aggregated document-level totals in the document's transaction currency.
  *
@@ -11,15 +13,18 @@ namespace App\Services\Erp\Financial;
  * cost-vs-sell relationship); supplier documents consume only subtotal,
  * taxTotal, and grandTotal. Any base-currency (FX) conversion is applied by the
  * document model to these figures — TotalsCollector is FX-agnostic.
+ *
+ * marginPercent is deliberately a float: it is a ratio, not an amount, and
+ * carries no minor units to be exact about.
  */
 final readonly class DocumentTotals
 {
     public function __construct(
-        public float $subtotal,
-        public float $taxTotal,
-        public float $grandTotal,
-        public float $costTotal,
-        public float $marginAmount,
+        public Money $subtotal,
+        public Money $taxTotal,
+        public Money $grandTotal,
+        public Money $costTotal,
+        public Money $marginAmount,
         public float $marginPercent,
     ) {}
 }

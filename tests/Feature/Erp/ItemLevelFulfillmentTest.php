@@ -278,6 +278,6 @@ describe('Totals with mixed items', function (): void {
 
         $totals = BuyerQuoteItem::collectTotals(new Collection([$mainLine, $childLine]));
 
-        expect($totals->subtotal)->toBe(100.0);
+        expect($totals->subtotal->toDecimal())->toBe('100.0000');
     });
 });
