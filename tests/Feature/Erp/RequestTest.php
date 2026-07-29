@@ -49,6 +49,14 @@ describe('Request Model', function (): void {
         ]);
         $deletedRequest->delete();
 
+        // The counter is a standalone row, never derived from the requests table, so
+        // a hand-inserted (and now soft-deleted) 0024 is invisible to it until seeded.
+        // Production seeds it once at cutover via `erp:backfill-document-sequences`,
+        // which scans existing numbers — including soft-deleted rows, since it reads
+        // the raw table — and advances the counter above them. Run the same command
+        // here so the next allocation lands past the soft-deleted 0024 as intended.
+        $this->artisan('erp:backfill-document-sequences')->assertSuccessful();
+
         $newRequest = Request::create([
             'team_id' => $this->team->getKey(),
             'buyer_id' => $this->buyer->getKey(),

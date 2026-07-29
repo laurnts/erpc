@@ -59,6 +59,13 @@ it('generates the next number from the highest existing sequence, not the last-i
     $first->forceFill(['report_number' => sprintf('AR-%d-0050', $year)])->save();
     expect($second->report_number)->toBe(sprintf('AR-%d-0002', $year));
 
+    // The counter has no idea a 0050 exists — it was never read from the documents
+    // table, that's the whole point of the counter row. Production seeds it once at
+    // cutover via `erp:backfill-document-sequences`, which scans existing numbers and
+    // advances the counter above them; run the same command here so the next
+    // allocation reflects the imported 0050 instead of colliding with it.
+    $this->artisan('erp:backfill-document-sequences')->assertSuccessful();
+
     $third = AcceptanceReport::factory()->create(['request_id' => $request->id]);
 
     expect($third->report_number)->toBe(sprintf('AR-%d-0051', $year))
