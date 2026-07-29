@@ -42,7 +42,9 @@ describe('Shipment Model', function (): void {
             ->recycle($this->request)
             ->create();
 
-        expect($shipment->shipment_number)->toMatch('/^SHP-\d{4}-\d{4}$/');
+        // Sequence is a factory fake (see ShipmentFactory), not the real
+        // allocator, so it is not constrained to 4 digits like the real format.
+        expect($shipment->shipment_number)->toMatch('/^SHP-\d{4}-\d+$/');
     });
 
     it('defaults to pending status', function (): void {

@@ -50,7 +50,9 @@ describe('SupplierQuote Model', function (): void {
             ->recycle($this->currency)
             ->create();
 
-        expect($quote->quote_number)->toMatch('/^SQ-\d{4}-\d{4}$/');
+        // Sequence is a factory fake (see SupplierQuoteFactory), not the real
+        // allocator, so it is not constrained to 4 digits like the real format.
+        expect($quote->quote_number)->toMatch('/^SQ-\d{4}-\d+$/');
     });
 
     it('defaults to pending status', function (): void {

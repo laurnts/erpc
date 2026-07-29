@@ -28,7 +28,9 @@ final class ProfitAndLossFactory extends Factory
         return [
             'team_id' => Team::factory(),
             'request_id' => Request::factory(),
-            'pnl_number' => fn (): string => sprintf('%04d/EL-PNL/%s/%d', $this->faker->numberBetween(1, 9999), $this->romanMonth(), now()->year),
+            // High base so a factory-built number cannot collide with a real
+            // allocator-issued sequence, which starts at 1 for a fresh team.
+            'pnl_number' => fn (): string => sprintf('%04d/EL-PNL/%s/%d', $this->faker->numberBetween(500000, 599999), $this->romanMonth(), now()->year),
             'description' => $this->faker->optional()->sentence(),
             'pnl_date' => $this->faker->dateTimeBetween('-1 month', 'now'),
             'data' => null,

@@ -26,7 +26,10 @@ final class BuyerPaymentFactory extends Factory
         $year = date('Y');
 
         return [
-            'payment_number' => 'PAY-'.$year.'-'.str_pad((string) $this->faker->unique()->numberBetween(1, 9999), 4, '0', STR_PAD_LEFT),
+            // High base: the real allocator starts at 1 for a fresh team, so a
+            // low-range fake number risks colliding with an allocator-issued one
+            // in a test that mixes factory-built and real-created documents.
+            'payment_number' => 'PAY-'.$year.'-'.str_pad((string) $this->faker->unique()->numberBetween(500000, 599999), 4, '0', STR_PAD_LEFT),
             'payment_method' => $this->faker->randomElement(PaymentMethod::cases()),
             'amount' => (string) $this->faker->randomFloat(4, 100, 10000),
             'payment_date' => $this->faker->dateTimeBetween('-30 days', 'now'),

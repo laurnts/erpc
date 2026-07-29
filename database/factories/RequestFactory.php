@@ -28,7 +28,10 @@ final class RequestFactory extends Factory
         $year = date('Y');
 
         return [
-            'request_number' => 'REQ-'.$year.'-'.str_pad((string) $this->faker->unique()->numberBetween(1, 9999), 4, '0', STR_PAD_LEFT),
+            // High base: the real allocator starts at 1 for a fresh team, so a
+            // low-range fake number risks colliding with an allocator-issued one
+            // in a test that mixes factory-built and real-created documents.
+            'request_number' => 'REQ-'.$year.'-'.str_pad((string) $this->faker->unique()->numberBetween(500000, 599999), 4, '0', STR_PAD_LEFT),
             'title' => $this->faker->sentence(4),
             'description' => $this->faker->optional()->paragraph(),
             'stage' => RequestStage::DRAFT,

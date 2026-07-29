@@ -54,7 +54,9 @@ describe('BuyerPayment Model', function (): void {
             ->forBuyerInvoice($invoice)
             ->create();
 
-        expect($payment->payment_number)->toMatch('/^PAY-\d{4}-\d{4}$/');
+        // Sequence is a factory fake (see BuyerPaymentFactory), not the real
+        // allocator, so it is not constrained to 4 digits like the real format.
+        expect($payment->payment_number)->toMatch('/^PAY-\d{4}-\d+$/');
     });
 
     it('belongs to a buyer invoice', function (): void {
@@ -288,7 +290,9 @@ describe('BuyerPayment Number Generation', function (): void {
             ->forBuyerInvoice($invoice)
             ->create();
 
-        expect($payment->payment_number)->toMatch('/^PAY-\d{4}-\d{4}$/');
+        // Sequence is a factory fake (see BuyerPaymentFactory), not the real
+        // allocator, so it is not constrained to 4 digits like the real format.
+        expect($payment->payment_number)->toMatch('/^PAY-\d{4}-\d+$/');
     });
 
     it('generates payment number via static method', function (): void {
@@ -319,8 +323,8 @@ describe('BuyerPayment Number Generation', function (): void {
             'amount' => '100.0000',
         ]);
 
-        preg_match('/PAY-\d{4}-(\d{4})/', $payment1->payment_number, $matches1);
-        preg_match('/PAY-\d{4}-(\d{4})/', $payment2->payment_number, $matches2);
+        preg_match('/PAY-\d{4}-(\d{4})/', (string) $payment1->payment_number, $matches1);
+        preg_match('/PAY-\d{4}-(\d{4})/', (string) $payment2->payment_number, $matches2);
 
         $seq1 = (int) $matches1[1];
         $seq2 = (int) $matches2[1];

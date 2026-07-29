@@ -36,7 +36,9 @@ describe('Request Model', function (): void {
     it('generates request number on creation', function (): void {
         $request = Request::factory()->recycle($this->team)->recycle($this->buyer)->create();
 
-        expect($request->request_number)->toMatch('/^REQ-\d{4}-\d{4}$/');
+        // Sequence is a factory fake (see RequestFactory), not the real
+        // allocator, so it is not constrained to 4 digits like the real format.
+        expect($request->request_number)->toMatch('/^REQ-\d{4}-\d+$/');
     });
 
     it('increments request number past soft-deleted records', function (): void {

@@ -116,7 +116,9 @@ describe('PdfGenerationService', function (): void {
 
             $filename = $pdfService->getBuyerQuoteFilename($this->quote);
 
-            expect($filename)->toMatch('/^Quote_BQ-\d{4}-\d{4}_v1\.pdf$/');
+            // Sequence is a factory fake (see BuyerQuoteFactory), not the real
+            // allocator, so it is not constrained to 4 digits like the real format.
+            expect($filename)->toMatch('/^Quote_BQ-\d{4}-\d+_v1\.pdf$/');
         });
 
         it('does not contain supplier information', function (): void {
@@ -180,7 +182,9 @@ describe('PdfGenerationService', function (): void {
 
             $filename = $pdfService->getBuyerOrderFilename($this->order);
 
-            expect($filename)->toMatch('/^Order_BO-\d{4}-\d{4}\.pdf$/');
+            // Sequence is a factory fake (see BuyerOrderFactory), not the real
+            // allocator, so it is not constrained to 4 digits like the real format.
+            expect($filename)->toMatch('/^Order_BO-\d{4}-\d+\.pdf$/');
         });
     });
 
@@ -237,7 +241,10 @@ describe('PdfGenerationService', function (): void {
 
             $filename = $pdfService->getBuyerInvoiceFilename($this->invoice);
 
-            expect($filename)->toMatch('/^Invoice_INV-\d{4}-\d{4}\.pdf$/');
+            // Sequence is a factory fake (see BuyerInvoiceFactory::fakeInvoiceNumber),
+            // not the real allocator, so it is not constrained to 4 digits like
+            // the real format.
+            expect($filename)->toMatch('/^Invoice_INV-\d{4}-\d+\.pdf$/');
         });
 
         it('includes payment information when amount is outstanding', function (): void {
@@ -429,7 +436,7 @@ describe('PdfGenerationService', function (): void {
                     'items.supplierOrderItem.article',
                     'request.buyer',
                 ]),
-                'items' => $this->shipment->items->map(function ($item) {
+                'items' => $this->shipment->items->map(function ($item): array {
                     $supplierOrderItem = $item->supplierOrderItem;
                     $article = $supplierOrderItem?->article;
 
@@ -462,7 +469,7 @@ describe('PdfGenerationService', function (): void {
                     'items.supplierOrderItem.article',
                     'request.buyer',
                 ]),
-                'items' => $this->shipment->items->map(function ($item) {
+                'items' => $this->shipment->items->map(function ($item): array {
                     $supplierOrderItem = $item->supplierOrderItem;
                     $article = $supplierOrderItem?->article;
 
@@ -539,7 +546,7 @@ describe('PdfGenerationService', function (): void {
                     'items.supplierOrderItem.article',
                     'request.buyer',
                 ]),
-                'items' => $this->shipment->items->map(function ($item) {
+                'items' => $this->shipment->items->map(function ($item): array {
                     $supplierOrderItem = $item->supplierOrderItem;
                     $article = $supplierOrderItem?->article;
 
@@ -586,7 +593,6 @@ describe('PdfGenerationService', function (): void {
             // The service should use the team's settings
             $reflection = new ReflectionClass($pdfService);
             $method = $reflection->getMethod('getCompanyDetails');
-            $method->setAccessible(true);
             $details = $method->invoke($pdfService, $this->team);
 
             expect($details['name'])->toBe('Custom Company Name')

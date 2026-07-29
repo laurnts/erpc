@@ -51,7 +51,9 @@ describe('BuyerOrder Model', function (): void {
             ->forRequest($this->request)
             ->create();
 
-        expect($order->order_number)->toMatch('/^BO-\d{4}-\d{4}$/');
+        // Sequence is a factory fake (see BuyerOrderFactory), not the real
+        // allocator, so it is not constrained to 4 digits like the real format.
+        expect($order->order_number)->toMatch('/^BO-\d{4}-\d+$/');
     });
 
     it('defaults to draft status', function (): void {
@@ -608,8 +610,10 @@ describe('BuyerOrder Number Generation', function (): void {
             ->forRequest($this->request)
             ->create();
 
-        // Order number should match expected format
-        expect($order->order_number)->toMatch('/^BO-\d{4}-\d{4}$/');
+        // Order number should match expected format. Sequence is a factory
+        // fake (see BuyerOrderFactory), not the real allocator, so it is not
+        // constrained to 4 digits like the real format.
+        expect($order->order_number)->toMatch('/^BO-\d{4}-\d+$/');
     });
 
     it('generates order number via static method', function (): void {

@@ -164,12 +164,16 @@ final class BuyerInvoiceFactory extends Factory
      * A unique fake invoice number in the real format, used by configure()'s
      * afterMaking hook to backfill non-DRAFT invoices. Not routed through
      * the counter row — these bypass markAsSent() entirely.
+     *
+     * High base: the real allocator starts at 1 for a fresh team, so a
+     * low-range fake number risks colliding with an allocator-issued one in a
+     * test that mixes factory-built and real-issued invoices.
      */
     private function fakeInvoiceNumber(): string
     {
         $year = date('Y');
 
-        return 'INV-'.$year.'-'.str_pad((string) $this->faker->unique()->numberBetween(1, 9999), 4, '0', STR_PAD_LEFT);
+        return 'INV-'.$year.'-'.str_pad((string) $this->faker->unique()->numberBetween(500000, 599999), 4, '0', STR_PAD_LEFT);
     }
 
     /**

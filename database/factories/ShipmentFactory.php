@@ -29,7 +29,10 @@ final class ShipmentFactory extends Factory
         $year = date('Y');
 
         return [
-            'shipment_number' => 'SHP-'.$year.'-'.str_pad((string) $this->faker->unique()->numberBetween(1, 9999), 4, '0', STR_PAD_LEFT),
+            // High base: the real allocator starts at 1 for a fresh team, so a
+            // low-range fake number risks colliding with an allocator-issued one
+            // in a test that mixes factory-built and real-created documents.
+            'shipment_number' => 'SHP-'.$year.'-'.str_pad((string) $this->faker->unique()->numberBetween(500000, 599999), 4, '0', STR_PAD_LEFT),
             'type' => ShipmentType::INBOUND,
             'status' => ShipmentStatus::PENDING,
             'carrier_name' => $this->faker->optional()->randomElement(['DHL', 'FedEx', 'UPS', 'TNT', 'Local Courier']),

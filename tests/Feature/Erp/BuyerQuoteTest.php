@@ -52,7 +52,9 @@ describe('BuyerQuote Model', function (): void {
             ->withCurrency($this->currency)
             ->create();
 
-        expect($quote->quote_number)->toMatch('/^BQ-\d{4}-\d{4}$/');
+        // Sequence is a factory fake (see BuyerQuoteFactory), not the real
+        // allocator, so it is not constrained to 4 digits like the real format.
+        expect($quote->quote_number)->toMatch('/^BQ-\d{4}-\d+$/');
     });
 
     it('defaults to draft status', function (): void {
@@ -682,8 +684,10 @@ describe('BuyerQuote Number Generation', function (): void {
             ->withCurrency($this->currency)
             ->create();
 
-        // Quote number should match expected format
-        expect($quote->quote_number)->toMatch('/^BQ-\d{4}-\d{4}$/');
+        // Quote number should match expected format. Sequence is a factory
+        // fake (see BuyerQuoteFactory), not the real allocator, so it is not
+        // constrained to 4 digits like the real format.
+        expect($quote->quote_number)->toMatch('/^BQ-\d{4}-\d+$/');
     });
 
     it('generates quote number via static method', function (): void {
