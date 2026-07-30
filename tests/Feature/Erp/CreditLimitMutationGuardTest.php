@@ -10,7 +10,6 @@ beforeEach(function (): void {
     $this->team = Team::factory()->create();
     $this->buyer = Company::factory()->buyer()->recycle($this->team)->create([
         'credit_limit' => '1000.00',
-        'available_credit' => '1000.00',
     ]);
     $this->actingAs(User::factory()->recycle($this->team)->create());
 });
@@ -57,9 +56,9 @@ it('does not block updates to other company fields', function (): void {
 });
 
 it('does not block updates that leave the credit_limit unchanged', function (): void {
-    $this->buyer->update(['credit_limit' => '1000.00', 'available_credit' => '750.00']);
+    $this->buyer->update(['credit_limit' => '1000.00', 'requested_credit_limit' => '750.00']);
 
-    expect($this->buyer->fresh()->available_credit)->toBe('750.00');
+    expect($this->buyer->fresh()->requested_credit_limit)->toBe('750.00');
 });
 
 it('allows the initial credit_limit to be set at creation', function (): void {

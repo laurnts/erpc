@@ -23,7 +23,6 @@ beforeEach(function (): void {
 
     $this->buyer = Company::factory()->buyer()->for($this->team)->create([
         'credit_limit' => '1000.00',
-        'available_credit' => '1000.00',
     ]);
 });
 

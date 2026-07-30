@@ -16,8 +16,6 @@ beforeEach(function (): void {
     $this->buyer = Company::factory()->buyer()->recycle($this->team)->create([
         'credit_status' => true,
         'credit_limit' => 100000,
-        'credit_used' => 0,
-        'available_credit' => 100000,
     ]);
     $this->request = Request::factory()->recycle($this->team)->recycle($this->buyer)->create();
 });
@@ -29,12 +27,6 @@ function draftOrder(float $total): BuyerOrder
         ->for(test()->buyer, 'buyer')->for(test()->request)
         ->create(['status' => OrderStatus::DRAFT, 'total' => $total]);
 }
-
-it('does not touch the credit_used column on confirm', function (): void {
-    draftOrder(5000)->confirm();
-
-    expect((float) $this->buyer->fresh()->credit_used)->toBe(0.0);
-});
 
 it('reflects the confirmation in derived exposure instead', function (): void {
     draftOrder(5000)->confirm();

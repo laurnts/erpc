@@ -20,7 +20,6 @@ beforeEach(function (): void {
     $this->user = User::factory()->recycle($this->team)->create();
     $this->buyer = Company::factory()->buyer()->recycle($this->team)->create([
         'credit_limit' => 10000,
-        'credit_used' => 0,
     ]);
     $this->currency = Currency::factory()->create();
     $this->request = Request::factory()
@@ -408,7 +407,6 @@ describe('BuyerOrder Credit Limit Check', function (): void {
     it('does not flag order within credit limit', function (): void {
         $buyer = Company::factory()->buyer()->recycle($this->team)->create([
             'credit_limit' => 10000,
-            'credit_used' => 0,
         ]);
 
         $order = BuyerOrder::factory()
@@ -453,7 +451,6 @@ describe('BuyerOrder Credit Limit Check', function (): void {
     it('returns null when no credit limit set', function (): void {
         $buyer = Company::factory()->buyer()->recycle($this->team)->create([
             'credit_limit' => 0,
-            'credit_used' => 0,
         ]);
 
         $order = BuyerOrder::factory()

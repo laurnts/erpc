@@ -24,7 +24,6 @@ beforeEach(function (): void {
     $this->buyer = Company::factory()->buyer()->recycle($this->team)->create([
         'credit_status' => true,
         'credit_limit' => 100000,
-        'credit_used' => 999999,
     ]);
     $this->request = Request::factory()->recycle($this->team)->recycle($this->buyer)->create();
 });

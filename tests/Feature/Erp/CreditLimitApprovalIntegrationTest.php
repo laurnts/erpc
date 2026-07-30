@@ -20,7 +20,6 @@ beforeEach(function (): void {
     $this->team = Team::factory()->create();
     $this->buyer = Company::factory()->buyer()->recycle($this->team)->create([
         'credit_limit' => '1000.00',
-        'available_credit' => '1000.00',
     ]);
 
     $this->requester = User::factory()->recycle($this->team)->create();
@@ -130,7 +129,7 @@ test('rejection clears requested limit', function (): void {
 
     expect($this->buyer->fresh()->requested_credit_limit)->toBeNull()
         ->and($this->buyer->fresh()->credit_limit)->toBe('1000.00') // Unchanged
-        ->and($this->buyer->fresh()->available_credit)->toBe('1000.00'); // Unchanged
+        ->and($this->buyer->fresh()->derived_available_credit)->toBe(1000.0); // Unchanged
 });
 
 test('approver designation workflow', function (): void {
@@ -190,7 +189,5 @@ test('email notification sent only to finance approvers', function (): void {
 
     // Should only send to approvers, not non-approver finance users
     Mail::assertSent(CreditLimitIncreaseRequestMail::class, 2);
-    Mail::assertNotSent(CreditLimitIncreaseRequestMail::class, function ($mail) {
-        return $mail->hasTo('nonapprover@test.com');
-    });
+    Mail::assertNotSent(CreditLimitIncreaseRequestMail::class, fn ($mail) => $mail->hasTo('nonapprover@test.com'));
 });

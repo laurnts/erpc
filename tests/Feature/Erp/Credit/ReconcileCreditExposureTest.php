@@ -15,7 +15,6 @@ beforeEach(function (): void {
     $this->buyer = Company::factory()->buyer()->recycle($this->team)->create([
         'credit_status' => true,
         'credit_limit' => 100000,
-        'credit_used' => 0,
     ]);
     $this->request = Request::factory()->recycle($this->team)->recycle($this->buyer)->create();
 });
@@ -33,25 +32,22 @@ function exposureOrder(float $total, float $released = 0): BuyerOrder
         ]);
 }
 
-it('succeeds when stored and derived agree', function (): void {
+it('succeeds when every buyer is within their credit limit', function (): void {
     exposureOrder(5000);
-    $this->buyer->update(['credit_used' => 5000]);
 
     $this->artisan('erp:reconcile-credit-exposure')->assertExitCode(0);
 });
 
-it('fails and names the buyer when they disagree', function (): void {
-    exposureOrder(5000);
-    $this->buyer->update(['credit_used' => 4200]);
+it('fails and names the buyer when exposure exceeds their credit limit', function (): void {
+    exposureOrder(150000);
 
     $this->artisan('erp:reconcile-credit-exposure')
         ->expectsOutputToContain($this->buyer->name)
         ->assertExitCode(1);
 });
 
-it('tolerates sub-cent differences', function (): void {
-    exposureOrder(5000);
-    $this->buyer->update(['credit_used' => 5000.004]);
+it('succeeds when exposure exactly equals the credit limit', function (): void {
+    exposureOrder(100000);
 
     $this->artisan('erp:reconcile-credit-exposure')->assertExitCode(0);
 });

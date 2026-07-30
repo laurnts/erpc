@@ -15,10 +15,6 @@ beforeEach(function (): void {
     $this->buyer = Company::factory()->buyer()->recycle($this->team)->create([
         'credit_status' => true,
         'credit_limit' => 100000,
-        // available_credit does not auto-derive from credit_limit (no observer
-        // syncs it); every other confirm()-exercising test in this suite sets
-        // it explicitly alongside credit_limit — see tests/Feature/Erp/BuyerOrderTest.php.
-        'available_credit' => 100000,
     ]);
     $this->request = Request::factory()
         ->recycle($this->team)

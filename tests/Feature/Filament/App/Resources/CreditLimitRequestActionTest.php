@@ -21,7 +21,6 @@ beforeEach(function (): void {
 
     $this->buyer = Company::factory()->buyer()->for($this->team)->create([
         'credit_limit' => '1000.00',
-        'available_credit' => '1000.00',
     ]);
 });
 
@@ -117,7 +116,7 @@ describe('Reject action happy path', function (): void {
             ->and($record->rejected_reason)->toBe('Insufficient justification')
             ->and($record->rejected_at)->not->toBeNull()
             ->and($this->buyer->credit_limit)->toBe('1000.00')
-            ->and($this->buyer->available_credit)->toBe('1000.00')
+            ->and($this->buyer->derived_available_credit)->toBe(1000.0)
             ->and($this->buyer->requested_credit_limit)->toBeNull();
     });
 

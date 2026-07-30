@@ -5,7 +5,7 @@ declare(strict_types=1);
 use App\Models\BuyerCreditLimitRequest;
 use App\Models\Company;
 
-test('company has credit limit requests relationship', function () {
+test('company has credit limit requests relationship', function (): void {
     $buyer = Company::factory()->buyer()->create();
     $request1 = BuyerCreditLimitRequest::factory()->create([
         'buyer_id' => $buyer->getKey(),
@@ -18,7 +18,7 @@ test('company has credit limit requests relationship', function () {
         ->and($buyer->creditLimitRequests->pluck('id')->toArray())->toContain($request1->getKey(), $request2->getKey());
 });
 
-test('company pending credit limit request returns pending request', function () {
+test('company pending credit limit request returns pending request', function (): void {
     $buyer = Company::factory()->buyer()->create();
     $pendingRequest = BuyerCreditLimitRequest::factory()->pending()->create([
         'buyer_id' => $buyer->getKey(),
@@ -31,7 +31,7 @@ test('company pending credit limit request returns pending request', function ()
         ->and($buyer->pendingCreditLimitRequest()->getKey())->toBe($pendingRequest->getKey());
 });
 
-test('company pending credit limit request returns null when no pending request', function () {
+test('company pending credit limit request returns null when no pending request', function (): void {
     $buyer = Company::factory()->buyer()->create();
     BuyerCreditLimitRequest::factory()->approved()->create([
         'buyer_id' => $buyer->getKey(),
@@ -43,15 +43,15 @@ test('company pending credit limit request returns null when no pending request'
     expect($buyer->pendingCreditLimitRequest())->toBeNull();
 });
 
-test('company casts available credit as decimal', function () {
+test('company derives available credit from limit when there is no exposure', function (): void {
     $buyer = Company::factory()->buyer()->create([
-        'available_credit' => '1500.75',
+        'credit_limit' => '1500.75',
     ]);
 
-    expect($buyer->available_credit)->toBe('1500.75');
+    expect($buyer->derived_available_credit)->toBe(1500.75);
 });
 
-test('company casts requested credit limit as decimal', function () {
+test('company casts requested credit limit as decimal', function (): void {
     $buyer = Company::factory()->buyer()->create([
         'requested_credit_limit' => '3000.50',
     ]);
@@ -59,13 +59,15 @@ test('company casts requested credit limit as decimal', function () {
     expect($buyer->requested_credit_limit)->toBe('3000.50');
 });
 
-test('company defaults available credit to zero', function () {
-    $buyer = Company::factory()->buyer()->create();
+test('company defaults derived available credit to zero', function (): void {
+    $buyer = Company::factory()->buyer()->create([
+        'credit_limit' => 0,
+    ]);
 
-    expect($buyer->available_credit)->toBe('0.00');
+    expect($buyer->derived_available_credit)->toBe(0.0);
 });
 
-test('company requested credit limit can be null', function () {
+test('company requested credit limit can be null', function (): void {
     $buyer = Company::factory()->buyer()->create([
         'requested_credit_limit' => null,
     ]);

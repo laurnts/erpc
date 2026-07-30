@@ -49,9 +49,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property bool $is_buyer
  * @property bool $is_supplier
  * @property string $credit_limit
- * @property string $available_credit
  * @property string|null $requested_credit_limit
- * @property string $credit_used
  * @property bool $is_on_hold
  * @property string|null $on_hold_reason
  * @property bool $credit_status
@@ -100,9 +98,7 @@ final class Company extends Model implements HasCustomFields, HasMedia
         'is_buyer',
         'is_supplier',
         'credit_limit',
-        'available_credit',
         'requested_credit_limit',
-        'credit_used',
         'is_on_hold',
         'on_hold_reason',
         'credit_status',
@@ -125,8 +121,6 @@ final class Company extends Model implements HasCustomFields, HasMedia
         'is_buyer' => false,
         'is_supplier' => false,
         'credit_limit' => 0,
-        'available_credit' => 0,
-        'credit_used' => 0,
         'is_on_hold' => false,
         'credit_status' => true,
         'lead_time_days' => 0,
@@ -147,9 +141,7 @@ final class Company extends Model implements HasCustomFields, HasMedia
             'is_buyer' => 'boolean',
             'is_supplier' => 'boolean',
             'credit_limit' => 'decimal:2',
-            'available_credit' => 'decimal:2',
             'requested_credit_limit' => 'decimal:2',
-            'credit_used' => 'decimal:2',
             'is_on_hold' => 'boolean',
             'credit_status' => 'boolean',
             'lead_time_days' => 'integer',
@@ -174,7 +166,6 @@ final class Company extends Model implements HasCustomFields, HasMedia
             'is_supplier',
             'credit_limit',
             'requested_credit_limit',
-            'credit_used',
             'credit_status',
             'is_on_hold',
             'on_hold_reason',

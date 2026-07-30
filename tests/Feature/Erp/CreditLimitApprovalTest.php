@@ -20,7 +20,6 @@ beforeEach(function (): void {
     $this->team = Team::factory()->create();
     $this->buyer = Company::factory()->buyer()->recycle($this->team)->create([
         'credit_limit' => '1000.00',
-        'available_credit' => '1000.00',
     ]);
     $this->requester = User::factory()->recycle($this->team)->create();
     $this->actingAs($this->requester);
