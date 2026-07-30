@@ -8,6 +8,7 @@ use App\Models\Company;
 use App\Models\Currency;
 use App\Models\Request;
 use App\Models\SupplierOrder;
+use App\Models\SupplierQuote;
 use App\Models\Team;
 use App\Models\User;
 
@@ -81,4 +82,28 @@ it('allows two teams to hold the same buyer order and quote numbers', function (
     ]);
 
     expect($orderA->order_number)->toBe($orderB->order_number);
+});
+
+it('allows two teams to hold the same supplier quote number', function (): void {
+    Currency::factory()->create(['is_default' => true]);
+
+    $teamA = Team::factory()->create();
+    $teamB = Team::factory()->create();
+
+    [, , $supplierA, $requestA] = tenancyFixture($teamA);
+    [, , $supplierB, $requestB] = tenancyFixture($teamB);
+
+    $quoteA = SupplierQuote::factory()->recycle($teamA)->create([
+        'request_id' => $requestA->getKey(),
+        'supplier_id' => $supplierA->getKey(),
+        'quote_number' => null,
+    ]);
+    $quoteB = SupplierQuote::factory()->recycle($teamB)->create([
+        'request_id' => $requestB->getKey(),
+        'supplier_id' => $supplierB->getKey(),
+        'quote_number' => null,
+    ]);
+
+    expect($quoteA->quote_number)->toBe($quoteB->quote_number)
+        ->and($quoteB->exists)->toBeTrue();
 });
