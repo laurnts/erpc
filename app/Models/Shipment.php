@@ -10,6 +10,7 @@ use App\Models\Concerns\HasCreator;
 use App\Models\Concerns\HasTeam;
 use App\Models\Concerns\LogsErpActivity;
 use App\Observers\ShipmentObserver;
+use App\Services\Erp\Numbering\DocumentNumberAllocator;
 use App\Support\RomanNumerals;
 use Database\Factories\ShipmentFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -395,6 +396,11 @@ final class Shipment extends Model implements HasMedia
     /**
      * Generate Delivery Order number.
      * Format: {4digit_increment}-CP/DO/{roman_month}/{year}
+     *
+     * The counter is per team, per month: the period string pairs the roman
+     * month with the year (e.g. "VII/2026") so it matches exactly what ends
+     * up in the number itself, letting the backfill extract it with one regex
+     * group instead of reassembling it from separate pieces.
      */
     public function generateDoNumber(): string
     {
@@ -402,30 +408,10 @@ final class Shipment extends Model implements HasMedia
         $year = (int) now()->format('Y');
         $romanMonth = RomanNumerals::month($month);
 
-        // Query existing DO numbers for same team/month/year
-        $pattern = sprintf('%%-CP/DO/%s/%d', $romanMonth, $year);
-        $existingDoNumbers = self::query()
-            ->withTrashed()
-            ->where('team_id', $this->team_id)
-            ->where('do_number', 'like', $pattern)
-            ->whereNotNull('do_number')
-            ->pluck('do_number')
-            ->toArray();
+        $sequence = app(DocumentNumberAllocator::class)
+            ->next((int) $this->team_id, 'shipment_do', $romanMonth.'/'.$year);
 
-        $nextIncrement = 1;
-        if (! empty($existingDoNumbers)) {
-            $regex = '/^(\d{4})-CP\/DO\/'.preg_quote($romanMonth, '/').'\/'.$year.'$/';
-            foreach ($existingDoNumbers as $doNumber) {
-                if (preg_match($regex, (string) $doNumber, $matches)) {
-                    $increment = (int) $matches[1];
-                    if ($increment >= $nextIncrement) {
-                        $nextIncrement = $increment + 1;
-                    }
-                }
-            }
-        }
-
-        $doNumber = sprintf('%04d-CP/DO/%s/%d', $nextIncrement, $romanMonth, $year);
+        $doNumber = sprintf('%04d-CP/DO/%s/%d', $sequence, $romanMonth, $year);
         $this->do_number = $doNumber;
         $this->save();
 

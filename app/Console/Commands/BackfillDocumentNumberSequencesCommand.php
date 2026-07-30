@@ -48,6 +48,7 @@ final class BackfillDocumentNumberSequencesCommand extends Command
         'acceptance_report' => ['acceptance_reports', 'report_number', '/^AR-(\d{4})-(\d+)$/'],
         'quotation_evaluation' => ['quotation_evaluations', 'qe_number', '/^(\d+)-DS\/QE\/[IVX]+\/(\d{4})$/'],
         'profit_and_loss' => ['profit_and_losses', 'pnl_number', '/^(\d+)\/EL-PNL\/[IVX]+\/(\d{4})$/'],
+        'shipment_do' => ['shipments', 'do_number', '/^(\d+)-CP\/DO\/([IVX]+\/\d{4})$/'],
     ];
 
     /**
@@ -56,7 +57,7 @@ final class BackfillDocumentNumberSequencesCommand extends Command
      *
      * @var list<string>
      */
-    private const array SEQUENCE_FIRST = ['quotation_evaluation', 'profit_and_loss'];
+    private const array SEQUENCE_FIRST = ['quotation_evaluation', 'profit_and_loss', 'shipment_do'];
 
     public function handle(DocumentNumberAllocator $allocator): int
     {
