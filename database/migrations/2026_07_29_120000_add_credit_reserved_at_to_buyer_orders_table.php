@@ -14,6 +14,15 @@ use Illuminate\Support\Facades\Schema;
  *
  * The backfill reproduces that same EXISTS once, so existing orders keep their
  * current classification.
+ *
+ * transaction_type IN ('debit', 'used'): current writers (BuyerOrder::confirm)
+ * always stamp 'debit', but production data holds three confirmed orders whose
+ * reservation row was stamped 'used' — an older code path for the same
+ * confirmation event, verified present on the live database. Those orders are
+ * still confirmed with credit_released = 0.00, i.e. still live exposure.
+ * Matching only 'debit' silently drops them from the backfill and every
+ * exposure query built on credit_reserved_at understates that buyer's
+ * exposure (and overstates their available credit) with no error anywhere.
  */
 return new class extends Migration
 {
@@ -36,7 +45,7 @@ return new class extends Migration
                 FROM buyer_credit_usage_histories h
                 WHERE h.related_type IN ('App\Models\BuyerOrder', 'buyer_order')
                   AND h.related_id = buyer_orders.id
-                  AND h.transaction_type = 'debit'
+                  AND h.transaction_type IN ('debit', 'used')
             )
         SQL);
     }
