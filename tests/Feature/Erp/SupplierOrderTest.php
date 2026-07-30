@@ -170,6 +170,30 @@ describe('SupplierOrder PO Number Generation', function (): void {
         expect($order1->po_number)->toMatch('/^PO-\d{4}-\d{4}$/')
             ->and($order2->po_number)->toMatch('/^PO-\d{4}-\d{4}-[A-Z]$/');
     });
+
+    it('shares the base number from a previous year when splitting a PO across a year boundary', function (): void {
+        // The first order's PO number carries last year's year segment. The
+        // suffix branch must derive the base year from this number, not from
+        // today's date, or the second order silently gets an unrelated fresh
+        // base number instead of joining its sibling.
+        $previousYear = (int) date('Y') - 1;
+
+        $order1 = SupplierOrder::factory()
+            ->recycle($this->team)
+            ->recycle($this->request)
+            ->recycle($this->supplier)
+            ->recycle($this->currency)
+            ->create(['po_number' => "PO-{$previousYear}-0042"]);
+
+        $order2 = SupplierOrder::factory()
+            ->recycle($this->team)
+            ->recycle($this->request)
+            ->recycle($this->supplier)
+            ->recycle($this->currency)
+            ->create();
+
+        expect($order2->po_number)->toBe("PO-{$previousYear}-0042-B");
+    });
 });
 
 describe('SupplierOrder Status', function (): void {

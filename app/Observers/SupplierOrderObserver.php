@@ -79,12 +79,22 @@ final readonly class SupplierOrderObserver
             $firstOrder = $existingOrdersForRequest->first();
             $firstPoNumber = (string) $firstOrder->po_number;
 
-            // Extract the base number from the first order's PO number
-            $regex = '/^'.preg_quote($prefix, '/').'-'.$year.'-(\d+)(?:-[A-Z])?$/';
+            // Extract the base number from the first order's PO number, capturing
+            // *its* year rather than assuming date('Y'): a request whose first PO
+            // was issued in a previous year would otherwise never match here (the
+            // regex would be built with today's year) and silently fall through
+            // to a brand-new base number, orphaning this order from its siblings.
+            $regex = '/^'.preg_quote($prefix, '/').'-(\d{4})-(\d+)(?:-[A-Z])?$/';
             if (preg_match($regex, $firstPoNumber, $matches)) {
-                $baseNumber = (int) $matches[1];
-                $basePoNumber = sprintf('%s-%s-%04d', $prefix, $year, $baseNumber);
-                $suffix = chr(65 + $existingOrdersCount); // A=65 for second order, B=66 for third, etc.
+                $baseYear = $matches[1];
+                $baseNumber = (int) $matches[2];
+                $basePoNumber = sprintf('%s-%s-%04d', $prefix, $baseYear, $baseNumber);
+                // Suffix intentionally starts at 'B': the first order carries no
+                // suffix at all, so chr(65 + $existingOrdersCount) gives the
+                // second order 'B', the third 'C', and so on — 'A' is never
+                // used. That is pre-existing and cosmetic; do not "fix" it, it
+                // must stay consistent with numbers already issued.
+                $suffix = chr(65 + $existingOrdersCount);
 
                 return $basePoNumber.'-'.$suffix;
             }
