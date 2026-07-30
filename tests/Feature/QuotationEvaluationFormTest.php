@@ -56,3 +56,27 @@ test('the QE form still saves a quotation evaluation', function (): void {
 
     expect(QuotationEvaluation::query()->where('request_id', $this->request->getKey())->exists())->toBeTrue();
 });
+
+/**
+ * Regression: mounting the form for a request with no goods items takes the
+ * early-return branch, which redirects back to the request. That redirect was
+ * built with a hardcoded route() call naming a panel this app does not have
+ * ('admin'), so it threw RouteNotFoundException; correcting the panel then
+ * exposed a second fault, because the app panel is multi-tenant and a bare
+ * route() cannot supply the {tenant} segment. It now goes through
+ * RequestResource::getUrl(), which resolves panel and tenant itself.
+ */
+test('mounting the QE form for a request with no goods items redirects instead of throwing', function (): void {
+    $serviceOnly = Request::factory()
+        ->for($this->team)
+        ->create(['creator_id' => $this->user->getKey()]);
+
+    expect($serviceOnly->canCreateQuotationEvaluation())->toBeFalse();
+
+    $expected = \App\Filament\Resources\RequestResource::getUrl('view', ['record' => $serviceOnly]);
+
+    expect($expected)->toContain((string) $this->team->getKey());
+
+    livewire(QuotationEvaluationForm::class, ['request' => $serviceOnly])
+        ->assertRedirect($expected);
+});

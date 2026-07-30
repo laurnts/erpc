@@ -8,6 +8,7 @@ use App\Enums\CentralPurchasingRole;
 use App\Enums\QEStatus;
 use App\Enums\SupplierQuoteStatus;
 use App\Filament\Resources\QuotationEvaluationResource;
+use App\Filament\Resources\RequestResource;
 use App\Livewire\Concerns\AuthorizesLivewireActions;
 use App\Models\QuotationEvaluation;
 use App\Models\Request;
@@ -60,7 +61,11 @@ final class QuotationEvaluationForm extends BaseLivewireComponent
                 ->warning()
                 ->send();
 
-            $this->redirect(route('filament.admin.resources.requests.view', ['record' => $request]));
+            // Resource::getUrl() rather than route(): the app panel is
+            // multi-tenant, so its URI is {tenant}/requests/{record} and a bare
+            // route() call throws UrlGenerationException for the missing tenant.
+            // getUrl() resolves the current panel and tenant for us.
+            $this->redirect(RequestResource::getUrl('view', ['record' => $request]));
 
             return;
         }
