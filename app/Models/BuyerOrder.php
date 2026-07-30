@@ -280,18 +280,17 @@ final class BuyerOrder extends Model implements HasCustomFields
         // order count toward exposure — two concurrent confirmations of the
         // *same* order must not both stamp it.
         //
-        // That does not protect the invariant that actually matters here: sum
-        // of exposure across a buyer's orders <= credit_limit. Exposure is
-        // derived from companies (via Company::creditExposure/withCreditExposure),
-        // not stored, and nothing here locks the buyer's companies row. Two
-        // different orders for the same buyer confirming concurrently each lock
-        // only their own order row, each read derived_available_credit before
-        // the other's stamp is committed, both pass the check above, and both
-        // proceed — the buyer can end up over its credit limit. This race
-        // predates this method (the previous $buyer->lockForUpdate() here was a
-        // no-op against a value that was never written back), so it is not a
-        // regression, but it is still open. Fixing it needs a lock on the
-        // buyer's companies row, which is a design decision left for later.
+        // The invariant that actually matters here is different: sum of
+        // exposure across a buyer's orders <= credit_limit, and it spans all
+        // of the buyer's orders. Exposure is derived from companies (via
+        // Company::creditExposure/withCreditExposure), not stored, so the
+        // order-row lock alone would let two different orders for the same
+        // buyer confirm concurrently, each read exposure before the other's
+        // stamp is committed, and both pass the check. To close that, the
+        // buyer's companies row is also locked (below) before exposure is
+        // computed, so concurrent confirmations for the same buyer serialise:
+        // whichever transaction acquires the buyer lock second will only see
+        // derived_available_credit after the first has committed its stamp.
         \Illuminate\Support\Facades\DB::transaction(function () use ($orderTotal, $buyer): void {
             $locked = self::query()->whereKey($this->getKey())->lockForUpdate()->firstOrFail();
 
@@ -299,7 +298,9 @@ final class BuyerOrder extends Model implements HasCustomFields
                 return;
             }
 
-            $currentAvailableCredit = $buyer->derived_available_credit;
+            $lockedBuyer = Company::query()->whereKey($buyer->getKey())->lockForUpdate()->firstOrFail();
+
+            $currentAvailableCredit = $lockedBuyer->derived_available_credit;
 
             if ($currentAvailableCredit < $orderTotal) {
                 throw new \InvalidArgumentException(
@@ -317,16 +318,16 @@ final class BuyerOrder extends Model implements HasCustomFields
             $this->save();
 
             BuyerCreditUsageHistory::create([
-                'team_id' => $buyer->team_id,
-                'buyer_id' => $buyer->id,
+                'team_id' => $lockedBuyer->team_id,
+                'buyer_id' => $lockedBuyer->id,
                 'transaction_type' => 'debit',
                 'amount' => $orderTotal,
                 'max_credit_limit_before' => 0,
                 'max_credit_limit_after' => 0,
                 'available_credit_before' => $currentAvailableCredit,
                 'available_credit_after' => max(0.0, $currentAvailableCredit - $orderTotal),
-                'credit_used_before' => $buyer->credit_exposure,
-                'credit_used_after' => $buyer->credit_exposure + $orderTotal,
+                'credit_used_before' => $lockedBuyer->credit_exposure,
+                'credit_used_after' => $lockedBuyer->credit_exposure + $orderTotal,
                 'related_type' => self::class,
                 'related_id' => $this->id,
                 'description' => "Order {$this->order_number} confirmed",
