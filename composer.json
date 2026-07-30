@@ -118,7 +118,7 @@
         "test:arch": "@php vendor/bin/pest --filter=arch",
         "test:type-coverage": "@php vendor/bin/pest --type-coverage --min=99.9",
         "test:coverage": "@php vendor/bin/pest --coverage --min=80",
-        "test:pest": "@php vendor/bin/pest --parallel --processes=3",
+        "test:pest": "@php vendor/bin/pest --parallel",
         "test:pest:shard": "@php vendor/bin/pest --parallel --shard=${SHARD}",
         "test:pest:ci": "@php vendor/bin/pest --parallel --configuration phpunit.ci.xml",
         "test:pest:ci:shard": "@php vendor/bin/pest --parallel --configuration phpunit.ci.xml --shard=${SHARD}",
