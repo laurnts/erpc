@@ -305,6 +305,16 @@ final class BuyerInvoice extends Model implements HasMedia
 
     /**
      * Mark the invoice as sent.
+     *
+     * The read-modify-write (re-read status, assign a number, save) is wrapped
+     * in a transaction with the row locked: without it, two concurrent calls
+     * on the same draft can each pass the transition guard, each allocate a
+     * number from the counter, and then the loser's save overwrites the
+     * winner's — the invoice ends up with one valid number, but a second
+     * number was allocated and never attached to anything (burned). That is
+     * not a correctness bug (never a duplicate), but invoice numbers are
+     * assigned at issue specifically so discarded drafts cost nothing, so a
+     * burned number from a mere race is worth preventing.
      */
     public function markAsSent(): void
     {
@@ -312,23 +322,34 @@ final class BuyerInvoice extends Model implements HasMedia
             throw new \InvalidArgumentException('Cannot transition to sent from current status.');
         }
 
-        // Numbering happens here, not at create: a draft that is never issued
-        // must not consume a number. Assigned after the transition guard so a
-        // rejected transition cannot burn one.
-        $this->assignNumberIfMissing();
+        \Illuminate\Support\Facades\DB::transaction(function (): void {
+            $locked = self::query()->whereKey($this->getKey())->lockForUpdate()->firstOrFail();
 
-        $this->status = InvoiceStatus::SENT;
+            // A concurrent markAsSent() already issued this invoice while we
+            // waited for the lock: nothing left to do, and re-running the
+            // block below would allocate (and burn) another number.
+            if ($locked->status !== InvoiceStatus::DRAFT || ($locked->invoice_number !== null && $locked->invoice_number !== '')) {
+                return;
+            }
 
-        if ($this->issued_at === null) {
-            $this->issued_at = now();
-        }
+            // Numbering happens here, not at create: a draft that is never issued
+            // must not consume a number. Assigned after the transition guard so a
+            // rejected transition cannot burn one.
+            $this->assignNumberIfMissing();
 
-        // Calculate due date if not set
-        if ($this->due_at === null) {
-            $this->due_at = $this->issued_at->copy()->addDays($this->net_days);
-        }
+            $this->status = InvoiceStatus::SENT;
 
-        $this->save();
+            if ($this->issued_at === null) {
+                $this->issued_at = now();
+            }
+
+            // Calculate due date if not set
+            if ($this->due_at === null) {
+                $this->due_at = $this->issued_at->copy()->addDays($this->net_days);
+            }
+
+            $this->save();
+        });
     }
 
     /**
