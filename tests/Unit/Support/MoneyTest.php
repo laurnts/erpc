@@ -133,3 +133,39 @@ it('reports sign', function (): void {
 it('accepts a float input at the boundary without propagating its error', function (): void {
     expect(Money::fromDecimal(0.1 + 0.2, 'IDR')->toDecimal())->toBe('0.3000');
 });
+
+it('throws a domain error instead of a TypeError when addition overflows PHP_INT_MAX', function (): void {
+    $huge = Money::ofMinorUnits(PHP_INT_MAX - 10, 'IDR');
+    $more = Money::ofMinorUnits(100, 'IDR');
+
+    expect(fn (): Money => $huge->plus($more))
+        ->toThrow(InvalidArgumentException::class, 'overflows');
+});
+
+it('throws a domain error instead of a TypeError when subtraction overflows PHP_INT_MIN', function (): void {
+    $hugeNegative = Money::ofMinorUnits(PHP_INT_MIN + 10, 'IDR');
+    $more = Money::ofMinorUnits(100, 'IDR');
+
+    expect(fn (): Money => $hugeNegative->minus($more))
+        ->toThrow(InvalidArgumentException::class, 'overflows');
+});
+
+it('still sums a large-but-valid amount correctly', function (): void {
+    $huge = Money::ofMinorUnits(PHP_INT_MAX - 100, 'IDR');
+    $more = Money::ofMinorUnits(50, 'IDR');
+
+    expect($huge->plus($more)->minorUnits)->toBe(PHP_INT_MAX - 50);
+});
+
+it('throws a domain error instead of silently clamping when multiplication overflows', function (): void {
+    $huge = Money::ofMinorUnits(PHP_INT_MAX - 10, 'IDR');
+
+    expect(fn (): Money => $huge->multipliedBy(2))
+        ->toThrow(InvalidArgumentException::class, 'overflows');
+});
+
+it('still multiplies a large-but-valid amount correctly', function (): void {
+    $huge = Money::ofMinorUnits(1_000_000_000, 'IDR');
+
+    expect($huge->multipliedBy(2)->minorUnits)->toBe(2_000_000_000);
+});

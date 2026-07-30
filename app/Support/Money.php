@@ -79,25 +79,65 @@ final readonly class Money
         return new self((int) self::roundHalfAwayFromZero($scaled), $currency);
     }
 
+    /**
+     * Money columns are decimal(18,4), so a single stored amount can carry
+     * minor units up to roughly PHP_INT_MAX already. Summing enough large
+     * lines can still push the result past PHP_INT_MAX: native int addition
+     * then silently promotes to float, and the private constructor's `int`
+     * parameter throws a bare TypeError for it — a poor failure mode for
+     * what is really a domain-sized amount. bcadd is used here instead of
+     * native `+` so the overflow can be detected and reported clearly before
+     * any value is constructed.
+     */
     public function plus(self $other): self
     {
         $this->assertSameCurrency($other);
 
-        return new self($this->minorUnits + $other->minorUnits, $this->currency);
+        $sum = bcadd((string) $this->minorUnits, (string) $other->minorUnits, 0);
+
+        return new self(
+            $this->assertFitsInInt($sum, sprintf(
+                'Adding %s and %s %s',
+                $this->toDecimal(),
+                $other->toDecimal(),
+                $this->currency,
+            )),
+            $this->currency,
+        );
     }
 
     public function minus(self $other): self
     {
         $this->assertSameCurrency($other);
 
-        return new self($this->minorUnits - $other->minorUnits, $this->currency);
+        $difference = bcsub((string) $this->minorUnits, (string) $other->minorUnits, 0);
+
+        return new self(
+            $this->assertFitsInInt($difference, sprintf(
+                'Subtracting %s from %s %s',
+                $other->toDecimal(),
+                $this->toDecimal(),
+                $this->currency,
+            )),
+            $this->currency,
+        );
     }
 
     public function multipliedBy(string|int|float $factor): self
     {
-        $product = bcmul((string) $this->minorUnits, self::normalise($factor), self::GUARD_SCALE);
+        $normalisedFactor = self::normalise($factor);
+        $product = bcmul((string) $this->minorUnits, $normalisedFactor, self::GUARD_SCALE);
+        $rounded = self::roundHalfAwayFromZero($product);
 
-        return new self((int) self::roundHalfAwayFromZero($product), $this->currency);
+        return new self(
+            $this->assertFitsInInt($rounded, sprintf(
+                'Multiplying %s %s by %s',
+                $this->toDecimal(),
+                $this->currency,
+                $normalisedFactor,
+            )),
+            $this->currency,
+        );
     }
 
     public function dividedBy(string|int|float $divisor): self
@@ -109,8 +149,17 @@ final readonly class Money
         }
 
         $quotient = bcdiv((string) $this->minorUnits, $normalised, self::GUARD_SCALE);
+        $rounded = self::roundHalfAwayFromZero($quotient);
 
-        return new self((int) self::roundHalfAwayFromZero($quotient), $this->currency);
+        return new self(
+            $this->assertFitsInInt($rounded, sprintf(
+                'Dividing %s %s by %s',
+                $this->toDecimal(),
+                $this->currency,
+                $normalised,
+            )),
+            $this->currency,
+        );
     }
 
     /**
@@ -223,6 +272,38 @@ final readonly class Money
                 sprintf('Cannot combine %s and %s without an explicit conversion.', $this->currency, $other->currency)
             );
         }
+    }
+
+    /**
+     * Guards the boundary where an arbitrary-precision bcmath result is
+     * narrowed into the int this class stores. Casting an out-of-range
+     * numeric string to int does not throw — PHP silently clamps it to
+     * PHP_INT_MAX/PHP_INT_MIN — so the range must be checked before the cast,
+     * not inferred from its result.
+     *
+     * @param  string  $integerValue  An exact integer-valued decimal string (scale 0), as bcmath returns it.
+     */
+    private function assertFitsInInt(string $integerValue, string $operationDescription): int
+    {
+        // bcadd/bcsub/bcmul/bcdiv are all typed to return plain `string`, not
+        // `numeric-string`, even though every value this method is called with
+        // is always numeric — this narrows the type for bccomp() below rather
+        // than suppressing the check.
+        if (! is_numeric($integerValue)) {
+            throw new InvalidArgumentException("Money arithmetic produced a non-numeric intermediate value [{$integerValue}].");
+        }
+
+        if (bccomp($integerValue, (string) PHP_INT_MAX, 0) > 0 || bccomp($integerValue, (string) PHP_INT_MIN, 0) < 0) {
+            throw new InvalidArgumentException(sprintf(
+                '%s overflows: the result (%s minor units) exceeds the range a Money amount can represent (%s to %s minor units).',
+                $operationDescription,
+                $integerValue,
+                (string) PHP_INT_MIN,
+                (string) PHP_INT_MAX,
+            ));
+        }
+
+        return (int) $integerValue;
     }
 
     /**
