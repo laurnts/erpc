@@ -111,7 +111,7 @@ Today `buyer_orders`, `buyer_invoices`, `supplier_invoices`, `buyer_payments`,
 `companies`. Deleting one request destroys its orders, invoices and P&L at the
 database level, past the models' soft deletes. Payments cascade from their invoice.
 
-The seven FKs converted here are exactly the ones where the child is a financial
+The eight FKs converted here are exactly the ones where the child is a financial
 record and the parent is a business entity that should be archived instead. `team_id`
 FKs are untouched.
 

@@ -24,6 +24,9 @@ path free.
 - Before finalizing any change: `php vendor/bin/rector process <changed files>` then `php vendor/bin/pint --dirty`
 - Existing number **formats must not change** — historical documents and their PDFs
   are already issued. Only the allocation mechanism changes.
+- **Database portability is required.** The suite runs on SQLite in-memory locally
+  (`phpunit.xml`) and PostgreSQL in CI (`phpunit.ci.xml`). No raw SQL that exists on
+  only one of them — that rules out `regexp_match`, `~`, and `::bigint` casts.
 
 ## Decision required before Task 3
 
@@ -72,7 +75,7 @@ into PHP to compute a max.
 **Files:**
 - Create: `database/migrations/2026_07_29_110000_create_document_number_sequences_table.php`
 - Create: `app/Services/Erp/Numbering/DocumentNumberAllocator.php`
-- Test: `tests/Unit/Erp/Numbering/DocumentNumberAllocatorTest.php`
+- Test: `tests/Feature/Erp/Numbering/DocumentNumberAllocatorTest.php`
 
 **Interfaces:**
 - Consumes: nothing
@@ -93,7 +96,12 @@ into PHP to compute a max.
 
 - [ ] **Step 1: Write the failing test**
 
-Create `tests/Unit/Erp/Numbering/DocumentNumberAllocatorTest.php`:
+Create `tests/Feature/Erp/Numbering/DocumentNumberAllocatorTest.php`:
+
+> **Location matters.** `tests/Pest.php` binds `Unit/Erp` as the *no-database* bucket
+> ("Pure Unit Tests (No Database) ... should not use RefreshDatabase") and binds
+> `Feature` with `RefreshDatabase` plus the ERP permission seeder. This test hits the
+> database, so it belongs under `Feature/` and needs no local `uses()` override.
 
 ```php
 <?php
@@ -175,7 +183,7 @@ it('seeds an existing sequence to a new value', function (): void {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `php vendor/bin/pest tests/Unit/Erp/Numbering/DocumentNumberAllocatorTest.php`
+Run: `php vendor/bin/pest tests/Feature/Erp/Numbering/DocumentNumberAllocatorTest.php`
 Expected: FAIL — `Target class [App\Services\Erp\Numbering\DocumentNumberAllocator] does not exist.`
 
 - [ ] **Step 3: Write the migration**
@@ -195,8 +203,6 @@ use Illuminate\Support\Facades\Schema;
  * One counter row per (team, document key, period). Allocation takes the row
  * under SELECT ... FOR UPDATE, so concurrent creates serialise on the counter
  * instead of racing a read-max query.
- *
- * @see /Users/laurnts/Sites/pos/ARCHITECTURE.md §20.4
  */
 return new class extends Migration
 {
@@ -221,29 +227,7 @@ return new class extends Migration
 };
 ```
 
-- [ ] **Step 4: Write the contention exception**
-
-The allocator in Step 5 references this class, so it must exist first.
-
-Create `app/Services/Erp/Numbering/SequenceContendedException.php`:
-
-```php
-<?php
-
-declare(strict_types=1);
-
-namespace App\Services\Erp\Numbering;
-
-use RuntimeException;
-
-/**
- * Thrown when two allocations create the same counter row simultaneously. The
- * caller retries; the second attempt finds the row and takes the lock path.
- */
-final class SequenceContendedException extends RuntimeException {}
-```
-
-- [ ] **Step 5: Write the allocator**
+- [ ] **Step 4: Write the allocator**
 
 Create `app/Services/Erp/Numbering/DocumentNumberAllocator.php`:
 
@@ -325,10 +309,22 @@ final readonly class DocumentNumberAllocator
      */
     public function seed(int $teamId, string $key, string $period, int $nextValue): void
     {
-        DB::table(self::TABLE)->updateOrInsert(
-            ['team_id' => $teamId, 'key' => $key, 'period' => $period],
-            ['next_value' => $nextValue, 'updated_at' => now(), 'created_at' => now()],
-        );
+        $match = ['team_id' => $teamId, 'key' => $key, 'period' => $period];
+
+        // Not updateOrInsert(): Laravel applies the whole values array to the
+        // UPDATE branch too, which would rewrite created_at on every reseed.
+        $updated = DB::table(self::TABLE)->where($match)->update([
+            'next_value' => $nextValue,
+            'updated_at' => now(),
+        ]);
+
+        if ($updated === 0) {
+            DB::table(self::TABLE)->insert($match + [
+                'next_value' => $nextValue,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
     }
 
     /**
@@ -338,30 +334,33 @@ final readonly class DocumentNumberAllocator
      */
     private function insertSequence(int $teamId, string $key, string $period, int $nextValue): void
     {
-        try {
-            DB::table(self::TABLE)->insert([
+        DB::table(self::TABLE)->insert([
                 'team_id' => $teamId,
                 'key' => $key,
                 'period' => $period,
                 'next_value' => $nextValue,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        } catch (QueryException $e) {
-            if (! str_contains($e->getMessage(), 'document_number_sequences_team_id_key_period_unique')) {
-                throw $e;
-            }
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
 
-            throw new SequenceContendedException(
-                sprintf('Sequence %s/%s/%d was created concurrently.', $key, $period, $teamId),
-                previous: $e,
-            );
-        }
+    /**
+     * SQLSTATE 23505 is PostgreSQL's unique_violation; SQLite reports the class
+     * code 23000 with a "UNIQUE constraint failed" message. Both must be
+     * recognised: the suite runs on SQLite locally and PostgreSQL in CI, and
+     * matching on the index name works on neither reliably.
+     */
+    private function isUniqueViolation(QueryException $e): bool
+    {
+        $sqlState = (string) ($e->errorInfo[0] ?? '');
+
+        return $sqlState === '23505'
+            || ($sqlState === '23000' && stripos($e->getMessage(), 'unique') !== false);
     }
 }
 ```
 
-- [ ] **Step 6: Make the first-allocation race self-healing**
+- [ ] **Step 5: Make the first-allocation race self-healing**
 
 Modify `app/Services/Erp/Numbering/DocumentNumberAllocator.php` — replace the body of
 `next()` with a retrying wrapper and rename the existing body to `attempt()`:
@@ -374,7 +373,12 @@ Modify `app/Services/Erp/Numbering/DocumentNumberAllocator.php` — replace the 
     {
         try {
             return $this->attempt($teamId, $key, $period);
-        } catch (SequenceContendedException) {
+        } catch (QueryException $e) {
+            if (! $this->isUniqueViolation($e)) {
+                throw $e;
+            }
+
+            // The row was created concurrently; the retry finds it and locks it.
             return $this->attempt($teamId, $key, $period);
         }
     }
@@ -409,12 +413,12 @@ Modify `app/Services/Erp/Numbering/DocumentNumberAllocator.php` — replace the 
     }
 ```
 
-- [ ] **Step 7: Run the test to verify it passes**
+- [ ] **Step 6: Run the test to verify it passes**
 
-Run: `php vendor/bin/pest tests/Unit/Erp/Numbering/DocumentNumberAllocatorTest.php`
+Run: `php vendor/bin/pest tests/Feature/Erp/Numbering/DocumentNumberAllocatorTest.php`
 Expected: all 8 tests PASS.
 
-- [ ] **Step 8: Lint and analyse**
+- [ ] **Step 7: Lint and analyse**
 
 ```bash
 php vendor/bin/rector process app/Services/Erp/Numbering tests/Unit/Erp/Numbering database/migrations/2026_07_29_110000_create_document_number_sequences_table.php
@@ -423,7 +427,7 @@ php vendor/bin/phpstan analyse
 ```
 Expected: no diffs on re-run, PHPStan PASS.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add app/Services/Erp/Numbering tests/Unit/Erp/Numbering database/migrations/2026_07_29_110000_create_document_number_sequences_table.php
@@ -438,7 +442,7 @@ Counters must start above every number already issued, or the first allocation a
 deploy collides with history and the unique index rejects every create.
 
 **Files:**
-- Create: `app/Console/Commands/BackfillDocumentNumberSequences.php`
+- Create: `app/Console/Commands/BackfillDocumentNumberSequencesCommand.php`
 - Test: `tests/Feature/Erp/Numbering/BackfillDocumentNumberSequencesTest.php`
 
 **Interfaces:**
@@ -549,7 +553,7 @@ Expected: FAIL — `The command "erp:backfill-document-sequences" does not exist
 
 - [ ] **Step 3: Write the command**
 
-Create `app/Console/Commands/BackfillDocumentNumberSequences.php`:
+Create `app/Console/Commands/BackfillDocumentNumberSequencesCommand.php`:
 
 ```php
 <?php
@@ -566,40 +570,47 @@ use Illuminate\Support\Facades\DB;
  * Seeds document_number_sequences from numbers already issued, so the first
  * allocation after cutover cannot collide with history.
  *
- * The sequence integer is extracted in SQL rather than PHP so this stays a
- * single aggregate query per document type regardless of row count. Each entry
- * pairs a table with a PostgreSQL regex whose first capture group is the
- * sequence and whose second is the period (calendar year).
+ * Extraction happens in PHP, not SQL, deliberately: the test suite runs on
+ * SQLite in-memory (phpunit.xml) while CI and production run PostgreSQL
+ * (phpunit.ci.xml), and PostgreSQL's regexp_match has no SQLite equivalent. A
+ * portable chunked scan costs nothing here — this command runs once at cutover,
+ * over a few thousand rows, and only reads two columns per row.
  */
-final class BackfillDocumentNumberSequences extends Command
+final class BackfillDocumentNumberSequencesCommand extends Command
 {
     protected $signature = 'erp:backfill-document-sequences {--dry-run : Report what would change without writing}';
 
     protected $description = 'Seed document number sequence counters from existing documents';
 
+    private const int CHUNK = 500;
+
     /**
-     * key => [table, column, regex]. The regex must capture the sequence integer
-     * as group 1 and the four-digit period as group 2.
+     * key => [table, column, pattern]. The pattern must capture the sequence
+     * integer and the four-digit period; SEQUENCE_FIRST says which is which.
+     *
+     * @var array<string, array{0: string, 1: string, 2: string}>
      */
     private const array SOURCES = [
-        'request' => ['requests', 'request_number', '^.+-(\d{4})-(\d+)$'],
-        'project' => ['projects', 'project_number', '^.+-(\d{4})-(\d+)$'],
-        'buyer_quote' => ['buyer_quotes', 'quote_number', '^.+-(\d{4})-(\d+)$'],
-        'buyer_order' => ['buyer_orders', 'order_number', '^.+-(\d{4})-(\d+)$'],
-        'buyer_invoice' => ['buyer_invoices', 'invoice_number', '^.+-(\d{4})-(\d+)$'],
-        'buyer_payment' => ['buyer_payments', 'payment_number', '^.+-(\d{4})-(\d+)$'],
-        'supplier_order' => ['supplier_orders', 'po_number', '^.+-(\d{4})-(\d+)(?:-[A-Z])?$'],
-        'supplier_invoice' => ['supplier_invoices', 'reference_number', '^.+-(\d{4})-(\d+)$'],
-        'supplier_payment' => ['supplier_payments', 'payment_number', '^.+-(\d{4})-(\d+)$'],
-        'shipment' => ['shipments', 'shipment_number', '^.+-(\d{4})-(\d+)$'],
-        'acceptance_report' => ['acceptance_reports', 'report_number', '^AR-(\d{4})-(\d+)$'],
-        'quotation_evaluation' => ['quotation_evaluations', 'qe_number', '^(\d+)-DS/QE/[IVX]+/(\d{4})$'],
-        'profit_and_loss' => ['profit_and_losses', 'pnl_number', '^(\d+)/EL-PNL/[IVX]+/(\d{4})$'],
+        'request' => ['requests', 'request_number', '/^.+-(\d{4})-(\d+)$/'],
+        'project' => ['projects', 'project_number', '/^.+-(\d{4})-(\d+)$/'],
+        'buyer_quote' => ['buyer_quotes', 'quote_number', '/^.+-(\d{4})-(\d+)$/'],
+        'buyer_order' => ['buyer_orders', 'order_number', '/^.+-(\d{4})-(\d+)$/'],
+        'buyer_invoice' => ['buyer_invoices', 'invoice_number', '/^.+-(\d{4})-(\d+)$/'],
+        'buyer_payment' => ['buyer_payments', 'payment_number', '/^.+-(\d{4})-(\d+)$/'],
+        'supplier_order' => ['supplier_orders', 'po_number', '/^.+-(\d{4})-(\d+)(?:-[A-Z])?$/'],
+        'supplier_invoice' => ['supplier_invoices', 'reference_number', '/^.+-(\d{4})-(\d+)$/'],
+        'supplier_payment' => ['supplier_payments', 'payment_number', '/^.+-(\d{4})-(\d+)$/'],
+        'shipment' => ['shipments', 'shipment_number', '/^.+-(\d{4})-(\d+)$/'],
+        'acceptance_report' => ['acceptance_reports', 'report_number', '/^AR-(\d{4})-(\d+)$/'],
+        'quotation_evaluation' => ['quotation_evaluations', 'qe_number', '/^(\d+)-DS\/QE\/[IVX]+\/(\d{4})$/'],
+        'profit_and_loss' => ['profit_and_losses', 'pnl_number', '/^(\d+)\/EL-PNL\/[IVX]+\/(\d{4})$/'],
     ];
 
     /**
-     * Keys whose regex captures the sequence first and the period second, i.e.
-     * the reverse of the dashed formats.
+     * Keys whose pattern captures the sequence first and the period second,
+     * i.e. the reverse of the dashed formats.
+     *
+     * @var list<string>
      */
     private const array SEQUENCE_FIRST = ['quotation_evaluation', 'profit_and_loss'];
 
@@ -607,26 +618,11 @@ final class BackfillDocumentNumberSequences extends Command
     {
         $dryRun = (bool) $this->option('dry-run');
 
-        foreach (self::SOURCES as $key => [$table, $column, $regex]) {
-            $sequenceFirst = in_array($key, self::SEQUENCE_FIRST, true);
-            $periodGroup = $sequenceFirst ? 2 : 1;
-            $sequenceGroup = $sequenceFirst ? 1 : 2;
-
-            $rows = DB::table($table)
-                ->selectRaw(
-                    'team_id, '
-                    ."(regexp_match({$column}, ?))[{$periodGroup}] AS period, "
-                    ."MAX(((regexp_match({$column}, ?))[{$sequenceGroup}])::bigint) AS max_sequence",
-                    [$regex, $regex],
-                )
-                ->whereRaw("{$column} ~ ?", [$regex])
-                ->groupByRaw("team_id, (regexp_match({$column}, ?))[{$periodGroup}]", [$regex])
-                ->get();
-
-            foreach ($rows as $row) {
-                $teamId = (int) $row->team_id;
-                $period = (string) $row->period;
-                $target = ((int) $row->max_sequence) + 1;
+        foreach (self::SOURCES as $key => [$table, $column, $pattern]) {
+            foreach ($this->highestPerPeriod($table, $column, $pattern, $key) as $groupKey => $maxSequence) {
+                [$teamId, $period] = explode('|', (string) $groupKey, 2);
+                $teamId = (int) $teamId;
+                $target = $maxSequence + 1;
                 $current = $allocator->peek($teamId, $key, $period);
 
                 if ($current >= $target) {
@@ -648,17 +644,60 @@ final class BackfillDocumentNumberSequences extends Command
 
         return self::SUCCESS;
     }
+
+    /**
+     * Highest sequence number seen per "teamId|period", scanning in chunks so
+     * memory stays bounded regardless of table size.
+     *
+     * @return array<string, int>
+     */
+    private function highestPerPeriod(string $table, string $column, string $pattern, string $key): array
+    {
+        $sequenceFirst = in_array($key, self::SEQUENCE_FIRST, true);
+        $highest = [];
+
+        DB::table($table)
+            ->select(['team_id', $column])
+            ->whereNotNull('team_id')
+            ->whereNotNull($column)
+            ->orderBy('id')
+            ->chunk(self::CHUNK, function ($rows) use ($column, $pattern, $sequenceFirst, &$highest): void {
+                foreach ($rows as $row) {
+                    if (preg_match($pattern, (string) $row->{$column}, $matches) !== 1) {
+                        continue;
+                    }
+
+                    $period = $sequenceFirst ? $matches[2] : $matches[1];
+                    $sequence = (int) ($sequenceFirst ? $matches[1] : $matches[2]);
+                    $groupKey = $row->team_id.'|'.$period;
+
+                    if (! isset($highest[$groupKey]) || $sequence > $highest[$groupKey]) {
+                        $highest[$groupKey] = $sequence;
+                    }
+                }
+            });
+
+        return $highest;
+    }
 }
 ```
+
+**Why PHP and not SQL.** An earlier draft did the extraction with PostgreSQL's
+`regexp_match` in a single aggregate query. That was verified working against
+PostgreSQL 17 — it matched 100% of real rows in all eight tables — but it fails
+outright on SQLite, and `phpunit.xml` runs the suite on SQLite in-memory. A backfill
+whose test cannot run locally is not a backfill anyone will trust. The chunked PHP scan
+is portable, and the one-shot cost is irrelevant at these row counts.
 
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `php vendor/bin/pest tests/Feature/Erp/Numbering/BackfillDocumentNumberSequencesTest.php`
 Expected: all 5 tests PASS.
 
-If the `regexp_match` calls fail with `function regexp_match(...) does not exist`, the
-database is not PostgreSQL — check `.env.testing` sets `DB_CONNECTION=pgsql`. This
-command is PostgreSQL-only by design; the project constrains itself to PostgreSQL.
+Note on databases: the suite runs on **SQLite in-memory** locally (`phpunit.xml` sets
+`DB_CONNECTION=sqlite`, `DB_DATABASE=:memory:`) and on **PostgreSQL** in CI
+(`phpunit.ci.xml`). `.env.testing` is overridden by `phpunit.xml` and is not what these
+tests use. The command above is deliberately database-agnostic so it passes in both.
 
 - [ ] **Step 5: Dry-run against a real database copy**
 
@@ -673,10 +712,10 @@ the real format — verify which.
 - [ ] **Step 6: Lint, analyse, commit**
 
 ```bash
-php vendor/bin/rector process app/Console/Commands/BackfillDocumentNumberSequences.php tests/Feature/Erp/Numbering
+php vendor/bin/rector process app/Console/Commands/BackfillDocumentNumberSequencesCommand.php tests/Feature/Erp/Numbering
 php vendor/bin/pint --dirty
 php vendor/bin/phpstan analyse
-git add app/Console/Commands/BackfillDocumentNumberSequences.php tests/Feature/Erp/Numbering
+git add app/Console/Commands/BackfillDocumentNumberSequencesCommand.php tests/Feature/Erp/Numbering
 git commit -m "feat: add erp:backfill-document-sequences to seed counters from issued numbers"
 ```
 
@@ -1378,7 +1417,7 @@ Expected: all six tests PASS.
 
 Run: `grep -rn "orderByDesc('.*_number')\|orderByDesc('id')" app/Models app/Observers`
 Expected: no hits on a number-generation path. Any remaining hit is a generator this
-plan missed — add it to the inventory table and to `BackfillDocumentNumberSequences::SOURCES`.
+plan missed — add it to the inventory table and to `BackfillDocumentNumberSequencesCommand::SOURCES`.
 
 - [ ] **Step 8: Run the full suite with coverage gates**
 
