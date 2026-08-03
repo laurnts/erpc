@@ -28,3 +28,6 @@ boost.json
 /.claude
 /.cursor
 /.junie
+
+# Git worktrees (local isolation)
+.worktrees/
